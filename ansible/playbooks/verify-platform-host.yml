@@ -1,7 +1,6 @@
 ---
 - name: Verify platform host bootstrap
   hosts: wsl_hosts
-  become: true
   vars_files:
     - ../group_vars/all/main.yml
   vars:
@@ -11,7 +10,7 @@
       command: systemctl is-system-running
       register: systemd_state
       changed_when: false
-      failed_when: systemd_state.rc != 0 or systemd_state.stdout not in ["running", "degraded"]
+      failed_when: systemd_state.rc not in [0, 1] or systemd_state.stdout not in ["running", "degraded"]
 
     - name: Check host stack target is enabled
       command: systemctl is-enabled {{ openclaw_stack_target_name }}
@@ -40,6 +39,8 @@
 
     - name: Check Kubernetes node access
       command: kubectl get nodes
+      environment:
+        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
       register: kubectl_nodes
       changed_when: false
 

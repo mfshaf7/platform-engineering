@@ -1,0 +1,35 @@
+param(
+  [string]$TaskName = '{{ openclaw_windows_task_name }}',
+  [string]$Distro = '{{ openclaw_windows_wsl_distro }}',
+  [string]$Root = '{{ openclaw_host_bridge_root }}'
+)
+
+$ErrorActionPreference = 'Stop'
+
+$wslCommand = "$Root/scripts/start-openclaw-host-stack-tmux.sh"
+$wslArgs = "-d $Distro --cd $Root /bin/bash -lc `"$wslCommand`""
+
+$action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument $wslArgs
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
+  -MultipleInstances IgnoreNew `
+  -StartWhenAvailable `
+  -Hidden
+
+$principal = New-ScheduledTaskPrincipal `
+  -UserId $env:USERNAME `
+  -LogonType Interactive `
+  -RunLevel Limited
+
+Register-ScheduledTask `
+  -TaskName $TaskName `
+  -Action $action `
+  -Trigger $trigger `
+  -Settings $settings `
+  -Principal $principal `
+  -Force | Out-Null
+
+Start-ScheduledTask -TaskName $TaskName
+Write-Output "Registered and started task: $TaskName"

@@ -8,7 +8,16 @@
     mode: "0755"
   loop:
     - /etc/openclaw
+    - /etc/openclaw/host-bridge
     - /etc/systemd/system
+
+- name: Install host bridge environment file
+  template:
+    src: openclaw-host-bridge.env.j2
+    dest: /etc/openclaw/host-bridge/openclaw-host-bridge.env
+    owner: root
+    group: root
+    mode: "0644"
 
 - name: Install bridge service unit
   template:
@@ -26,6 +35,14 @@
     group: root
     mode: "0644"
 
+- name: Install stack target unit
+  template:
+    src: openclaw-host-stack.target.j2
+    dest: "/etc/systemd/system/{{ openclaw_stack_target_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Reload systemd
   systemd:
     daemon_reload: true
@@ -38,4 +55,9 @@
 - name: Enable recovery service
   systemd:
     name: "{{ openclaw_recovery_service_name }}"
+    enabled: true
+
+- name: Enable stack target
+  systemd:
+    name: "{{ openclaw_stack_target_name }}"
     enabled: true

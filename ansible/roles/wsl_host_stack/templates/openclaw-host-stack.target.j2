@@ -1,0 +1,4 @@
+[Unit]
+Description=OpenClaw Host Stack
+Wants={{ openclaw_bridge_service_name }} {{ openclaw_recovery_service_name }}
+After={{ openclaw_bridge_service_name }} {{ openclaw_recovery_service_name }}

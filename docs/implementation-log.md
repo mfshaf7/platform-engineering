@@ -46,6 +46,12 @@ It is intentionally concise and operator-readable.
 11. Added operator entrypoints in `Makefile` plus clearer CI/CD and GitOps
     standards so the repo now documents not just structure, but expected
     delivery behavior.
+12. Replaced generic host-stack placeholders with concrete WSL host variables,
+    environment files, systemd units, and bootstrap documentation aligned to the
+    existing `openclaw-host-bridge` runtime and Windows scheduled-task model.
+13. Expanded Terraform from a simple VM placeholder to a concrete environment
+    contract that now records cluster namespaces, runtime image coordinates, and
+    host-integration inputs.
 
 ## Next Implementation Steps
 

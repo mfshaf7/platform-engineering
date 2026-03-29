@@ -1,5 +1,13 @@
 openclaw_bridge_service_name: openclaw-host-bridge.service
 openclaw_recovery_service_name: openclaw-host-recovery.service
+openclaw_stack_target_name: openclaw-host-stack.target
 openclaw_platform_repo_root: /opt/platform-engineering
 openclaw_host_bridge_root: /opt/openclaw-host-bridge
 openclaw_bridge_user: root
+openclaw_host_bridge_config_path: /opt/openclaw-host-bridge/config/policy.local.json
+openclaw_openclaw_config_path: /root/.openclaw/openclaw.json
+openclaw_host_bridge_restart_delay_seconds: 2
+openclaw_host_recovery_restart_delay_seconds: 2
+openclaw_host_bridge_node_bin_dir: /root/.nvm/versions/node/v24.14.0/bin
+openclaw_windows_task_name: OpenClawHostStack
+openclaw_windows_wsl_distro: Ubuntu

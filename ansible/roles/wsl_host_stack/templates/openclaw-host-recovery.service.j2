@@ -5,10 +5,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User={{ openclaw_bridge_user }}
 WorkingDirectory={{ openclaw_host_bridge_root }}
-ExecStart={{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-recovery.sh
+EnvironmentFile=/etc/openclaw/host-bridge/openclaw-host-bridge.env
+ExecStart={{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-recovery-supervisor.sh
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ openclaw_stack_target_name }}

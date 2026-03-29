@@ -17,6 +17,7 @@ This runbook describes the target bootstrap path for the full platform stack.
 1. Review Terraform variables for the isolated environment.
 2. Apply Terraform from [terraform/environments/prod](../../terraform/environments/prod).
 3. Confirm the cluster endpoint, registry settings, and Argo CD bootstrap inputs are ready.
+4. Review the rendered bootstrap contract emitted by the Terraform bootstrap module.
 
 Primary entrypoint:
 
@@ -40,8 +41,8 @@ Primary assets:
 
 1. Ensure WSL runs with `systemd`.
 2. Install bridge and recovery dependencies.
-3. Install `systemd` units for bridge and recovery.
-4. Install or verify Windows Task Scheduler bootstrap.
+3. Install `systemd` units that call the bridge and recovery supervisor scripts.
+4. Install or verify Windows Task Scheduler bootstrap for the WSL host stack.
 5. Verify local bridge and recovery health.
 
 Primary Ansible entrypoints:

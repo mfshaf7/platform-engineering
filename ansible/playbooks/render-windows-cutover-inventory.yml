@@ -1,0 +1,22 @@
+---
+- name: Render Windows cutover inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_windows_cutover_inventory_dir: "{{ playbook_dir }}/../generated/windows-cutover-inventory"
+    openclaw_windows_cutover_inventory_path: "{{ openclaw_windows_cutover_inventory_dir }}/windows-cutover-inventory.md"
+  tasks:
+    - name: Ensure Windows cutover inventory directory exists
+      file:
+        path: "{{ openclaw_windows_cutover_inventory_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Render Windows cutover inventory
+      template:
+        src: ../roles/wsl_host_stack/templates/windows-cutover-inventory.md.j2
+        dest: "{{ openclaw_windows_cutover_inventory_path }}"
+        mode: "0644"

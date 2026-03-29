@@ -2,5 +2,7 @@
 - name: Prepare Kubernetes node
   hosts: k3s_nodes
   become: true
+  vars_files:
+    - ../group_vars/all/main.yml
   roles:
     - k3s_node

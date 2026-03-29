@@ -1,0 +1,72 @@
+# Cutover Command Inventory
+
+Use this inventory during controlled migration to `{{ openclaw_windows_wsl_distro }}`.
+
+## New Platform Path
+
+- Render Windows bootstrap:
+  - `make render-windows-bootstrap`
+- Verify platform host:
+  - `make verify-platform-host`
+- Capture pre-cutover evidence:
+  - `make capture-cutover-evidence`
+- Render cutover record:
+  - `make render-cutover-record`
+
+## Current Legacy Runtime Signals
+
+Legacy runtime bind mounts:
+
+- state mount source: `{{ openclaw_legacy_runtime_state_dir }}`
+- workspace mount source: `{{ openclaw_legacy_runtime_workspace }}`
+
+Current legacy Docker runtime:
+
+- project: `{{ openclaw_legacy_runtime_project_name }}`
+- service: `{{ openclaw_legacy_runtime_service_name }}`
+- container: `{{ openclaw_legacy_runtime_container_name }}`
+- image: `{{ openclaw_legacy_runtime_image }}`
+- gateway port: `{{ openclaw_legacy_runtime_gateway_port }}`
+- bridge port: `{{ openclaw_legacy_runtime_bridge_port }}`
+
+## Controlled Stop Candidates
+
+Review each command before execution.
+
+- Stop legacy container `{{ openclaw_legacy_runtime_container_name }}`:
+  - `docker stop {{ openclaw_legacy_runtime_container_name }}`
+- Restore legacy container `{{ openclaw_legacy_runtime_container_name }}`:
+  - `docker start {{ openclaw_legacy_runtime_container_name }}`
+- Remove legacy container `{{ openclaw_legacy_runtime_container_name }}` after stable cutover only:
+  - `docker rm -f {{ openclaw_legacy_runtime_container_name }}`
+
+## New Path Activation
+
+- Register the Windows scheduled task using:
+  - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
+- Start or restart the new host stack inside `{{ openclaw_windows_wsl_distro }}`:
+  - `systemctl restart {{ openclaw_stack_target_name }}`
+- Start or restart `k3s` inside `{{ openclaw_windows_wsl_distro }}`:
+  - `systemctl restart k3s`
+
+## Verification Commands
+
+- `make verify-platform-host`
+- `curl http://127.0.0.1:48721/healthz`
+- `curl http://127.0.0.1:48722/healthz`
+- `kubectl get nodes`
+
+## Rollback Commands
+
+Use these only if cutover regresses service health.
+
+- Restart legacy container `{{ openclaw_legacy_runtime_container_name }}`:
+  - `docker start {{ openclaw_legacy_runtime_container_name }}`
+- Restore the previous Windows task or launcher path
+- Re-run post-restore health verification
+
+## Operator Reminder
+
+- stopping the old runtime is allowed only during controlled cutover
+- removing the old runtime is allowed only after stable post-cutover verification
+- record every stop/start/remove/restore action in `ansible/generated/cutover-record/cutover-record.md`

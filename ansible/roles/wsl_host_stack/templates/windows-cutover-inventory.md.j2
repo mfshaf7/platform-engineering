@@ -1,0 +1,65 @@
+# Windows Cutover Inventory
+
+Use this inventory during the Windows-facing portion of `Platform-Core` cutover.
+
+## Target Platform Task
+
+- target task name: `{{ openclaw_windows_task_name }}`
+- target distro: `{{ openclaw_windows_wsl_distro }}`
+- rendered bootstrap script:
+  - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
+
+## Legacy Windows Tasks
+
+- legacy full-stack task: `{{ openclaw_legacy_windows_stack_task_name }}`
+- legacy bridge-only task: `{{ openclaw_legacy_windows_bridge_task_name }}`
+- legacy bridge repo root: `{{ openclaw_legacy_windows_bridge_repo_root }}`
+
+## Discovery Commands
+
+Run on Windows PowerShell before cutover:
+
+- `Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}" -ErrorAction SilentlyContinue`
+- `Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}" -ErrorAction SilentlyContinue`
+- `Get-ScheduledTask -TaskName "{{ openclaw_windows_task_name }}" -ErrorAction SilentlyContinue`
+
+## Controlled Cutover Actions
+
+Review before execution.
+
+- Register or refresh the new platform task:
+  - `powershell.exe -ExecutionPolicy Bypass -File ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
+- Disable the legacy full-stack task if it conflicts:
+  - `Disable-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}"`
+- Stop the legacy full-stack task if it is still running:
+  - `Stop-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}"`
+- Disable the legacy bridge-only task if it conflicts:
+  - `Disable-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}"`
+- Stop the legacy bridge-only task if it is still running:
+  - `Stop-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}"`
+
+## Rollback Actions
+
+Use only if the new path regresses service health.
+
+- Re-enable the legacy full-stack task:
+  - `Enable-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}"`
+- Restart the legacy full-stack task:
+  - `Start-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}"`
+- Re-enable the legacy bridge-only task if needed:
+  - `Enable-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}"`
+- Restart the legacy bridge-only task if needed:
+  - `Start-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}"`
+
+## Legacy Script References
+
+Legacy registration scripts remain available in:
+
+- `{{ openclaw_legacy_windows_bridge_repo_root }}/scripts/register-openclaw-host-stack-task.ps1`
+- `{{ openclaw_legacy_windows_bridge_repo_root }}/scripts/register-openclaw-host-bridge-task.ps1`
+
+## Operator Reminder
+
+- disable or stop legacy tasks only during controlled cutover
+- record every Windows task change in `ansible/generated/cutover-record/cutover-record.md`
+- if rollback is required, restore the previous Windows task path before declaring the migration failed

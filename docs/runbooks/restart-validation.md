@@ -2,6 +2,7 @@
 
 Validate after restart or logon:
 
+- `make verify-platform-host` passes
 - Windows bootstrap executed
 - WSL services are enabled and active
 - bridge health endpoint is reachable

@@ -1,0 +1,45 @@
+# Runtime Reachability Checklist
+
+Use this checklist after cutover to confirm the OpenClaw runtime can reach the
+new host bridge and recovery endpoints through the real runtime path.
+
+## Expected Runtime Path
+
+- bridge URL: `{{ openclaw_runtime_bridge_url }}`
+- recovery URL: `{{ openclaw_runtime_recovery_url }}`
+- gateway port: `{{ openclaw_legacy_runtime_gateway_port }}`
+- bridge/recovery host reachability should come from the runtime, not only from the WSL host itself
+
+## Minimum Reachability Checks
+
+- From the runtime context, confirm bridge health:
+  - `curl {{ openclaw_runtime_bridge_url }}/healthz`
+- From the runtime context, confirm recovery health:
+  - `curl {{ openclaw_runtime_recovery_url }}/healthz`
+- From the runtime context, confirm the bridge operation endpoint answers:
+  - `curl -X POST {{ openclaw_runtime_bridge_url }}/v1/bridge`
+- From the runtime context, confirm recovery self-heal endpoint is reachable with auth:
+  - `curl -X POST {{ openclaw_runtime_recovery_url }}/v1/self-heal`
+
+## Runtime Plugin Expectations
+
+The runtime path should still align with:
+
+- plugin bridge URL: `{{ openclaw_runtime_bridge_url }}`
+- derived recovery URL: `{{ openclaw_runtime_recovery_url }}`
+
+## Evidence To Record
+
+- exact command run from the runtime context
+- HTTP status for bridge `/healthz`
+- HTTP status for recovery `/healthz`
+- whether the runtime could resolve `host.docker.internal`
+- whether gateway behavior remained healthy after the check
+
+## Pass Rule
+
+Post-cutover verification is not complete until:
+
+- bridge health is reachable from the runtime path
+- recovery health is reachable from the runtime path
+- a real runtime-backed operation succeeds, not just `/healthz`

@@ -54,6 +54,63 @@ It is intentionally concise and operator-readable.
     host-integration inputs.
 14. Promoted `stage` from placeholder status to a first-class GitOps environment
     with its own Argo applications, value overlays, and promotion runbook.
+15. Added the first governed gateway artifact build workflow so environment
+    version pins now drive the bundled-image build path instead of leaving image
+    creation as a purely local deployment script.
+16. Replaced the placeholder `k3s` node role with a real `k3s` installer and
+    service bootstrap path so the platform repo can bring up the cluster
+    control plane through Ansible rather than only describing it.
+17. Added a fresh-WSL bootstrap path with `systemd` configuration, WSL package
+    prerequisites, and required host-bridge runtime-path validation so an
+    unreliable distro can be replaced with a reproducible platform-managed one.
+18. Tightened the WSL host bootstrap path with explicit validation for the
+    local Node runtime and secret-bearing config files so a fresh distro fails
+    early when required operator-created inputs are still missing.
+19. Promoted the Windows scheduled-task bootstrap into a rendered platform
+    artifact so the new-distro flow can produce a concrete PowerShell launcher
+    instead of relying on an implicit template and manual reconstruction.
+20. Added a post-bootstrap host verification playbook and entrypoint so the new
+    WSL distro can prove `systemd`, host stack services, rendered Windows
+    bootstrap artifact, and `k3s` health before any migration cutover touches
+    the live runtime.
+21. Added an explicit `Platform-Core` migration runbook covering parallel
+    bring-up, controlled cutover, Docker-backed old-runtime shutdown, cleanup,
+    and rollback so disruptive migration steps are governed instead of ad hoc.
+22. Added a pre-cutover evidence capture playbook so host status, Kubernetes
+    health, and any remaining Docker-backed runtime state can be recorded
+    before disruptive migration steps begin.
+23. Added a rendered cutover record template so migration operators can log
+    exactly what was stopped, started, restored, and cleaned up during the
+    `Platform-Core` cutover instead of relying on free-form notes.
+24. Added a rendered cutover command inventory so the current legacy Docker
+    runtime can be mapped to explicit stop, restore, and cleanup commands
+    before the migration reaches the disruptive cutover phase.
+25. Added a rendered Windows cutover inventory so legacy scheduled-task names,
+    disable/enable actions, and restore steps are explicit before the migration
+    reaches the Windows-side cutover phase.
+26. Added a rendered runtime reachability checklist so post-cutover validation
+    tests the actual gateway-to-bridge and gateway-to-recovery path instead of
+    only checking local host-side health from WSL.
+27. Added a rendered runtime-container verification checklist so operators have
+    exact `docker exec` commands for bridge health, recovery health, authenticated
+    bridge operations, and authenticated recovery probes from the real gateway
+    context after cutover.
+28. Added Windows task evidence capture so the migration records the current
+    legacy scheduled-task action, last-run result, and path-coupling failure
+    mode before Windows-side cutover begins.
+29. Recorded the interrupted `Platform-Core` first-run recovery checkpoint and
+    added an explicit operator pickup prompt for the `wsl.exe --shutdown`
+    recovery step so the next live action is documented before a possible
+    session disconnect.
+30. Recovered the broken Windows Docker Desktop engine path, restored
+    `Platform-Core` WSL integration, and re-established direct `docker inspect`
+    against the legacy gateway container so the live mount list could be
+    verified instead of inferred.
+31. Corrected the stale platform host-stack path assumptions by repointing the
+    managed OpenClaw config and Node paths at the real `mfshaf7` home in
+    `Platform-Core`, repaired Windows portproxy forwarding for `48721` and
+    `48722`, and revalidated bridge and recovery reachability from the legacy
+    gateway container.
 
 ## Next Implementation Steps
 
@@ -64,3 +121,11 @@ These are the next concrete steps after scaffolding:
 3. add runtime version reporting from the runtime and host diagnostics surfaces
 4. add Prometheus alert rules and Grafana dashboards tailored to the first product
 5. perform a staged non-production bootstrap before touching live production
+32. Repaired the stage `k3s` Argo bootstrap, AppProject policy, and observability
+    deployment path so `Platform-Core` could host a real OpenClaw workload
+    instead of only core cluster services.
+33. Recovered the stage `k3s` gateway runtime by importing the working
+    `openclaw:local` image, removing stale `host-control` plugin config from the
+    `k3s` config source, matching the working Docker startup shape, and raising
+    the pod memory envelope so the gateway now serves health checks and
+    authenticated bridge and recovery operations from `Platform-Core`.

@@ -1,0 +1,68 @@
+# Cutover Record
+
+Use this record during `Platform-Core` migration cutover.
+
+## Scope
+
+- Target distro: `{{ openclaw_windows_wsl_distro }}`
+- Bridge service: `{{ openclaw_bridge_service_name }}`
+- Recovery service: `{{ openclaw_recovery_service_name }}`
+- Stack target: `{{ openclaw_stack_target_name }}`
+
+## Pre-Cutover Check
+
+- [ ] `make verify-platform-host` passed
+- [ ] `make capture-cutover-evidence` completed
+- [ ] rendered Windows bootstrap script targets `{{ openclaw_windows_wsl_distro }}`
+- [ ] rollback path reviewed and accessible
+
+## Old Runtime Items Stopped
+
+Record each item deliberately:
+
+| Item | Type | Stop command or action | Time | Operator | Notes |
+| --- | --- | --- | --- | --- | --- |
+| | | | | | |
+| | | | | | |
+| | | | | | |
+
+## New Platform Path Brought Up
+
+| Item | Start command or action | Time | Operator | Result |
+| --- | --- | --- | --- | --- |
+| Windows scheduled task for `{{ openclaw_windows_wsl_distro }}` | | | | |
+| `{{ openclaw_stack_target_name }}` | | | | |
+| `k3s` | | | | |
+
+## Post-Cutover Verification
+
+- [ ] `make verify-platform-host` passed again
+- [ ] runtime can reach bridge endpoint
+- [ ] runtime can reach recovery endpoint
+- [ ] runtime health matches or exceeds pre-cutover baseline
+
+## Rollback Actions Taken
+
+Fill only if rollback was needed.
+
+| Item restored | Restore command or action | Time | Operator | Result |
+| --- | --- | --- | --- | --- |
+| | | | | |
+| | | | | |
+| | | | | |
+
+## Cleanup Actions Taken
+
+Fill only after stable cutover.
+
+| Item removed or disabled | Action | Time | Operator | Notes |
+| --- | --- | --- | --- | --- |
+| | | | | |
+| | | | | |
+| | | | | |
+
+## Final Authority
+
+- [ ] `Platform-Core` is now the authoritative runtime path
+- [ ] old Docker-backed runtime has been removed or intentionally retained
+- [ ] documentation updated to reflect the live authoritative path

@@ -1,0 +1,22 @@
+---
+- name: Render Windows bootstrap artifact
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_windows_bootstrap_artifact_dir: "{{ playbook_dir }}/../generated"
+    openclaw_windows_bootstrap_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/openclaw-host-stack-windows-bootstrap.ps1"
+  tasks:
+    - name: Ensure generated artifact directory exists
+      file:
+        path: "{{ openclaw_windows_bootstrap_artifact_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Render Windows scheduled-task bootstrap script
+      template:
+        src: ../roles/wsl_host_stack/templates/openclaw-host-stack-windows-bootstrap.ps1.j2
+        dest: "{{ openclaw_windows_bootstrap_artifact_path }}"
+        mode: "0644"

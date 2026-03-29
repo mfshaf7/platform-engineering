@@ -11,6 +11,7 @@ host stack.
 - local policy file created at the configured host-bridge policy path
 - OpenClaw config present at the configured OpenClaw config path
 - Node runtime available at the configured Node bin directory
+- WSL distro restarted after enabling `systemd` in `/etc/wsl.conf`
 
 ## Managed Assets
 
@@ -20,6 +21,7 @@ The platform repo manages:
 - `openclaw-host-recovery.service`
 - `openclaw-host-stack.target`
 - `/etc/openclaw/host-bridge/openclaw-host-bridge.env`
+- `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
 
 ## Windows Bootstrap
 
@@ -27,5 +29,28 @@ The current Windows-side bootstrap remains a scheduled task launching:
 
 - `scripts/start-openclaw-host-stack-tmux.sh`
 
+The platform repo now renders the matching Windows bootstrap artifact with:
+
+- `make render-windows-bootstrap`
+- `make render-windows-bootstrap ANSIBLE_EXTRA_VARS="openclaw_windows_wsl_distro=Platform-Core"`
+
+The rendered script path is:
+
+- `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
+
+Run that PowerShell script on Windows to register the scheduled task for the
+configured distro and host-bridge root.
+
+The platform-managed task name is:
+
+- `PlatformCoreHostStack`
+
+During migration, keep the legacy Windows task `OpenClawHostStack` available as
+the rollback path until post-cutover verification succeeds.
+
 This matches the current validated runtime shape while the platform model
 introduces cleaner systemd ownership inside WSL.
+
+For full replacement of an unreliable distro, use:
+
+- [bootstrap-wsl-distro.md](bootstrap-wsl-distro.md)

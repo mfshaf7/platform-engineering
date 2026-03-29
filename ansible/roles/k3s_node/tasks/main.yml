@@ -7,13 +7,51 @@
       - gnupg
     state: present
 
-- name: Write k3s bootstrap marker
-  copy:
-    dest: /etc/openclaw-k3s-bootstrap.conf
-    content: |
-      cluster_profile=openclaw-prod
-      argocd_enabled=true
-      observability_enabled=true
+- name: Ensure k3s config directory exists
+  file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install k3s config
+  template:
+    src: k3s-config.yaml.j2
+    dest: "{{ openclaw_k3s_config_path }}"
     owner: root
     group: root
     mode: "0644"
+
+- name: Check whether k3s is installed
+  stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Install k3s server
+  shell: |
+    curl -sfL https://get.k3s.io | \
+      INSTALL_K3S_VERSION="{{ openclaw_k3s_version }}" \
+      sh -s - server
+  args:
+    executable: /bin/bash
+  when: not k3s_binary.stat.exists
+
+- name: Ensure k3s service is enabled and running
+  systemd:
+    name: k3s
+    enabled: true
+    state: started
+
+- name: Wait for kubeconfig to exist
+  wait_for:
+    path: /etc/rancher/k3s/k3s.yaml
+    timeout: 120
+
+- name: Wait for node to become ready
+  command: kubectl get nodes
+  register: kubectl_nodes
+  changed_when: false
+  retries: 20
+  delay: 6
+  until: kubectl_nodes.rc == 0

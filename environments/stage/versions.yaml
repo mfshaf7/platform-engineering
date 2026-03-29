@@ -1,10 +1,13 @@
 environment: stage
 
 gateway:
+  build:
+    baseImage: openclaw:stable-preview
+    dockerfile: deployment/Dockerfile.telegram-bundled.example
   image:
-    repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: "replace-me-stage"
-    digest: "sha256:replace-me"
+    repository: docker.io/library/openclaw
+    tag: "local"
+    digest: ""
   chartVersion: "0.1.0"
   replicas: 1
 

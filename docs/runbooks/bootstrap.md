@@ -25,7 +25,7 @@ Primary entrypoint:
 
 ## Phase 3: Bootstrap Cluster Control Plane
 
-1. Install Kubernetes on the isolated VM.
+1. Install Kubernetes on the isolated VM or isolated WSL host.
 2. Install Argo CD.
 3. Install External Secrets Operator.
 4. Install Prometheus and Grafana.
@@ -36,6 +36,8 @@ Primary assets:
 - [environments/prod/argocd/kustomization.yaml](../../environments/prod/argocd/kustomization.yaml)
 - [argocd/apps/root.yaml](../../argocd/apps/root.yaml)
 - [argocd/bootstrap/README.md](../../argocd/bootstrap/README.md)
+- [bootstrap-wsl-distro.md](bootstrap-wsl-distro.md)
+- [bootstrap-k3s.md](bootstrap-k3s.md)
 
 ## Phase 4: Prepare The WSL Host Side
 
@@ -49,6 +51,7 @@ Primary Ansible entrypoints:
 
 - [ansible/playbooks/provision-k3s-node.yml](../../ansible/playbooks/provision-k3s-node.yml)
 - [ansible/playbooks/provision-wsl-host.yml](../../ansible/playbooks/provision-wsl-host.yml)
+- [bootstrap-wsl-distro.md](bootstrap-wsl-distro.md)
 
 ## Phase 5: Build And Publish Artifacts
 
@@ -60,6 +63,7 @@ Primary Ansible entrypoints:
 Primary workflow:
 
 - [.github/workflows/build-and-validate.yaml](../../.github/workflows/build-and-validate.yaml)
+- [.github/workflows/build-gateway-image.yaml](../../.github/workflows/build-gateway-image.yaml)
 
 ## Phase 6: Promote Production
 

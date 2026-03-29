@@ -1,0 +1,74 @@
+# Cutover Evidence
+
+Generated from `capture-cutover-evidence.yml`.
+
+## Platform Host
+
+- Host: {{ inventory_hostname }}
+- Stack target: `{{ openclaw_stack_target_name }}`
+- Bridge service: `{{ openclaw_bridge_service_name }}`
+- Recovery service: `{{ openclaw_recovery_service_name }}`
+- Rendered Windows bootstrap artifact: {% if windows_bootstrap_artifact.stat.exists %}`present`{% else %}`missing`{% endif %}
+
+## Host Stack Target Status
+
+```text
+{{ host_stack_target_status.stdout | default('') }}
+{% if host_stack_target_status.stderr | default('') %}
+{{ host_stack_target_status.stderr }}
+{% endif %}
+```
+
+## k3s Status
+
+```text
+{{ k3s_status.stdout | default('') }}
+{% if k3s_status.stderr | default('') %}
+{{ k3s_status.stderr }}
+{% endif %}
+```
+
+## Kubernetes Nodes
+
+```text
+{{ kubectl_nodes.stdout | default('') }}
+{% if kubectl_nodes.stderr | default('') %}
+{{ kubectl_nodes.stderr }}
+{% endif %}
+```
+
+## Host Stack Runtime Status
+
+```text
+{{ host_stack_status.stdout | default('') }}
+{% if host_stack_status.stderr | default('') %}
+{{ host_stack_status.stderr }}
+{% endif %}
+```
+
+## Docker Status
+
+```text
+{{ docker_status.stdout | default('') }}
+{% if docker_status.stderr | default('') %}
+{{ docker_status.stderr }}
+{% endif %}
+```
+
+## Docker Container Summary
+
+```text
+{{ docker_compose_status.stdout | default('') }}
+{% if docker_compose_status.stderr | default('') %}
+{{ docker_compose_status.stderr }}
+{% endif %}
+```
+
+## Required Manual Windows Evidence
+
+Capture these before disruptive cutover:
+
+- current Task Scheduler registration details for the old runtime
+- any Windows-side launcher or scheduled-task names currently used in production
+- whether Windows logon currently starts the old path or `Platform-Core`
+- any Windows firewall or reachability rules tied to the old runtime

@@ -1,4 +1,9 @@
 ---
+- name: Ensure base packages are present for WSL host bootstrap
+  package:
+    name: "{{ openclaw_wsl_required_packages }}"
+    state: present
+
 - name: Ensure runtime directories exist
   file:
     path: "{{ item }}"
@@ -10,6 +15,44 @@
     - /etc/openclaw
     - /etc/openclaw/host-bridge
     - /etc/systemd/system
+
+- name: Install WSL systemd configuration
+  template:
+    src: wsl.conf.j2
+    dest: "{{ openclaw_wsl_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check required host-bridge runtime paths
+  stat:
+    path: "{{ item }}"
+  loop: "{{ openclaw_host_bridge_required_paths }}"
+  register: openclaw_host_bridge_paths
+
+- name: Fail when required host-bridge runtime paths are missing
+  fail:
+    msg: >-
+      Missing required host runtime path: {{ item.item }}.
+      Clone or sync the canonical openclaw-host-bridge checkout into
+      {{ openclaw_host_bridge_root }} before provisioning the WSL host stack.
+  loop: "{{ openclaw_host_bridge_paths.results }}"
+  when: not item.stat.exists
+
+- name: Check required local runtime inputs
+  stat:
+    path: "{{ item }}"
+  loop: "{{ openclaw_host_runtime_required_paths }}"
+  register: openclaw_host_runtime_inputs
+
+- name: Fail when required local runtime inputs are missing
+  fail:
+    msg: >-
+      Missing required local runtime input: {{ item.item }}.
+      Create the local host configuration files and install the configured Node
+      runtime before provisioning the WSL host stack.
+  loop: "{{ openclaw_host_runtime_inputs.results }}"
+  when: not item.stat.exists
 
 - name: Install host bridge environment file
   template:

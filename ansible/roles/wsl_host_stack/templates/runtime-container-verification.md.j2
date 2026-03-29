@@ -1,0 +1,41 @@
+# Runtime Container Verification
+
+Use these commands from the operator shell to validate the real runtime context
+after cutover.
+
+## Runtime Container
+
+- container: `{{ openclaw_legacy_runtime_container_name }}`
+- bridge URL: `{{ openclaw_runtime_bridge_url }}`
+- recovery URL: `{{ openclaw_runtime_recovery_url }}`
+- bridge auth env: `{{ openclaw_runtime_bridge_auth_env }}`
+
+## Reachability
+
+- Bridge health from inside the runtime container:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'curl -fsS {{ openclaw_runtime_bridge_url }}/healthz'`
+- Recovery health from inside the runtime container:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'curl -fsS {{ openclaw_runtime_recovery_url }}/healthz'`
+- Name resolution from inside the runtime container:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'getent hosts {{ openclaw_runtime_bridge_host }} || ping -c 1 {{ openclaw_runtime_bridge_host }}'`
+
+## Real Bridge Operation
+
+- Confirm the bridge auth token env exists:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'test -n "${{ openclaw_runtime_bridge_auth_env }}"; echo $?'`
+- Run a real bridge operation through `/v1/bridge`:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'curl -fsS -X POST {{ openclaw_runtime_bridge_url }}/v1/bridge -H "content-type: application/json" -H "authorization: Bearer ${{ "{" }}{{ openclaw_runtime_bridge_auth_env }}{{ "}" }}" --data "{\"operation\":\"health.check\",\"arguments\":{}}"'`
+
+## Recovery Operation
+
+- Run an authenticated recovery self-heal request:
+  - `docker exec {{ openclaw_legacy_runtime_container_name }} sh -lc 'curl -fsS -X POST {{ openclaw_runtime_recovery_url }}/v1/self-heal -H "content-type: application/json" -H "authorization: Bearer ${{ "{" }}{{ openclaw_runtime_bridge_auth_env }}{{ "}" }}" --data "{}"'`
+
+## Pass Rule
+
+Post-cutover runtime verification is green only if:
+
+- the runtime container resolves `{{ openclaw_runtime_bridge_host }}`
+- both `/healthz` endpoints answer from inside the runtime container
+- the real `health.check` bridge operation succeeds with auth
+- the recovery endpoint accepts an authenticated request

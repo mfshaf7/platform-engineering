@@ -85,12 +85,28 @@ Read in this order:
 3. [docs/standards/release-model.md](docs/standards/release-model.md)
 4. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
 5. [docs/implementation-log.md](docs/implementation-log.md)
+6. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+7. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
 
 Common operator entrypoints:
 
 - `make help`
+- `make provision-wsl-host`
+- `make provision-k3s-node`
+- `make capture-cutover-evidence`
+- `make render-cutover-command-inventory`
+- `make render-cutover-record`
+- `make render-runtime-container-verification`
+- `make render-runtime-reachability`
+- `make render-windows-cutover-inventory`
+- `make capture-windows-task-evidence`
+- `make verify-platform-host`
+- `make render-windows-bootstrap`
 - `make validate`
 - `make show-prod-versions`
+
+Use `ANSIBLE_EXTRA_VARS` when the fresh distro name or local paths differ from
+the defaults, for example `openclaw_windows_wsl_distro=Platform-Core`.
 
 ## Repository Layout
 

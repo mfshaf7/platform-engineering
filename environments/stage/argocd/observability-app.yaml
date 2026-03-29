@@ -19,6 +19,9 @@ spec:
             retention: 5d
         alertmanager:
           enabled: true
+        prometheus-node-exporter:
+          hostRootFsMount:
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: observability-stage
@@ -28,3 +31,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true

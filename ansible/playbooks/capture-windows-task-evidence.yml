@@ -1,0 +1,62 @@
+---
+- name: Capture Windows task evidence
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_windows_task_evidence_dir: "{{ playbook_dir }}/../generated/windows-task-evidence"
+    openclaw_windows_task_evidence_path: "{{ openclaw_windows_task_evidence_dir }}/windows-task-evidence.md"
+  tasks:
+    - name: Ensure Windows task evidence directory exists
+      file:
+        path: "{{ openclaw_windows_task_evidence_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Capture legacy full-stack task details
+      shell: >
+        powershell.exe -NoProfile -Command
+        '$task = Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}" -ErrorAction SilentlyContinue;
+        if (-not $task) { exit 0 }
+        $info = Get-ScheduledTaskInfo -TaskName "{{ openclaw_legacy_windows_stack_task_name }}";
+        [pscustomobject]@{
+          TaskName=$task.TaskName;
+          State=$task.State;
+          LastRunTime=$info.LastRunTime;
+          LastTaskResult=$info.LastTaskResult;
+          Execute=$task.Actions[0].Execute;
+          Arguments=$task.Actions[0].Arguments
+        } | ConvertTo-Json -Compress'
+      args:
+        executable: /bin/bash
+      register: openclaw_legacy_stack_task
+      changed_when: false
+      failed_when: false
+
+    - name: Capture legacy bridge task details
+      shell: >
+        powershell.exe -NoProfile -Command
+        '$task = Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}" -ErrorAction SilentlyContinue;
+        if (-not $task) { exit 0 }
+        $info = Get-ScheduledTaskInfo -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}";
+        [pscustomobject]@{
+          TaskName=$task.TaskName;
+          State=$task.State;
+          LastRunTime=$info.LastRunTime;
+          LastTaskResult=$info.LastTaskResult;
+          Execute=$task.Actions[0].Execute;
+          Arguments=$task.Actions[0].Arguments
+        } | ConvertTo-Json -Compress'
+      args:
+        executable: /bin/bash
+      register: openclaw_legacy_bridge_task
+      changed_when: false
+      failed_when: false
+
+    - name: Render Windows task evidence
+      template:
+        src: ../roles/wsl_host_stack/templates/windows-task-evidence.md.j2
+        dest: "{{ openclaw_windows_task_evidence_path }}"
+        mode: "0644"

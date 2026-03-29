@@ -1,6 +1,25 @@
 image:
-  repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: "replace-me-stage"
+  repository: docker.io/library/openclaw
+  tag: "local"
+  pullPolicy: IfNotPresent
+
+command:
+  - node
+  - dist/index.js
+  - gateway
+  - --bind
+  - lan
+  - --port
+  - "18789"
+
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+
+enableServiceLinks: false
+
+service:
+  type: ClusterIP
+  port: 18789
 
 env:
   OPENCLAW_ENV: stage
@@ -8,10 +27,42 @@ env:
   OPENCLAW_HOST_BRIDGE_SHA: replace-me
   OPENCLAW_PLATFORM_SHA: replace-me
 
+extraEnv:
+  - name: TERM
+    value: xterm-256color
+  - name: TZ
+    value: UTC
+  - name: CLAUDE_WEB_SESSION_KEY
+    value: ""
+  - name: CLAUDE_WEB_COOKIE
+    value: ""
+  - name: CLAUDE_AI_SESSION_KEY
+    value: ""
+  - name: OPENCLAW_ALLOW_INSECURE_PRIVATE_WS
+    value: ""
+
 resources:
   requests:
-    cpu: 250m
-    memory: 512Mi
-  limits:
-    cpu: "1"
+    cpu: 500m
     memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+extraVolumeMounts:
+  - name: openclaw-config
+    mountPath: /home/node/.openclaw/openclaw.json
+    subPath: openclaw.k3s.json
+  - name: openclaw-state
+    mountPath: /home/node/.openclaw/workspace
+    subPath: workspace
+
+extraVolumes:
+  - name: openclaw-config
+    hostPath:
+      path: /home/mfshaf7/.openclaw
+      type: Directory
+  - name: openclaw-state
+    hostPath:
+      path: /home/mfshaf7/.openclaw
+      type: Directory

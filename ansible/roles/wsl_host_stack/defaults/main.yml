@@ -1,0 +1,17 @@
+openclaw_wsl_required_packages:
+  - tmux
+  - git
+  - curl
+  - ca-certificates
+openclaw_wsl_config_path: /etc/wsl.conf
+openclaw_wsl_default_user: mfshaf7
+openclaw_host_bridge_node_binary: "{{ openclaw_host_bridge_node_bin_dir }}/node"
+openclaw_host_bridge_required_paths:
+  - "{{ openclaw_host_bridge_root }}"
+  - "{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-bridge-supervisor.sh"
+  - "{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-recovery-supervisor.sh"
+  - "{{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-stack-tmux.sh"
+openclaw_host_runtime_required_paths:
+  - "{{ openclaw_host_bridge_config_path }}"
+  - "{{ openclaw_openclaw_config_path }}"
+  - "{{ openclaw_host_bridge_node_binary }}"

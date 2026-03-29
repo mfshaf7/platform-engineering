@@ -1,4 +1,5 @@
 .terraform/
 *.tfstate
 *.tfstate.*
+ansible/generated/
 terraform/modules/*/generated-*.txt

@@ -7,15 +7,25 @@ image:
 
 replicaCount: 1
 
+hostNetwork: false
+dnsPolicy: ClusterFirst
+
+enableServiceLinks: true
+
+command: []
+args: []
+
 service:
   type: ClusterIP
-  port: 8080
+  port: 18789
 
 env:
   OPENCLAW_ENV: prod
   OPENCLAW_TELEGRAM_SHA: replace-me
   OPENCLAW_HOST_BRIDGE_SHA: replace-me
   OPENCLAW_PLATFORM_SHA: replace-me
+
+extraEnv: []
 
 resources:
   requests:
@@ -24,6 +34,9 @@ resources:
   limits:
     cpu: "1"
     memory: 1Gi
+
+extraVolumeMounts: []
+extraVolumes: []
 
 serviceMonitor:
   enabled: true

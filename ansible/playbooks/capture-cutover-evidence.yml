@@ -1,0 +1,83 @@
+---
+- name: Capture migration cutover evidence
+  hosts: wsl_hosts
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_cutover_evidence_dir: "{{ playbook_dir }}/../generated/cutover-evidence"
+    openclaw_windows_bootstrap_artifact_path: "{{ playbook_dir }}/../generated/openclaw-host-stack-windows-bootstrap.ps1"
+  tasks:
+    - name: Ensure cutover evidence directory exists
+      delegate_to: localhost
+      become: false
+      file:
+        path: "{{ openclaw_cutover_evidence_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Capture systemd host stack target status
+      command: systemctl status {{ openclaw_stack_target_name }} --no-pager
+      register: host_stack_target_status
+      changed_when: false
+      failed_when: false
+
+    - name: Capture k3s service status
+      command: systemctl status k3s --no-pager
+      register: k3s_status
+      changed_when: false
+      failed_when: false
+
+    - name: Capture Kubernetes node list
+      command: kubectl get nodes -o wide
+      register: kubectl_nodes
+      changed_when: false
+      failed_when: false
+
+    - name: Capture host stack status helper output
+      command: "{{ openclaw_host_bridge_root }}/scripts/status-openclaw-host-stack.sh"
+      register: host_stack_status
+      changed_when: false
+      failed_when: false
+
+    - name: Capture Docker status when available
+      shell: |
+        if command -v docker >/dev/null 2>&1; then
+          docker ps -a
+        else
+          echo "docker_not_installed"
+        fi
+      args:
+        executable: /bin/bash
+      register: docker_status
+      changed_when: false
+      failed_when: false
+
+    - name: Capture Docker compose containers when available
+      shell: |
+        if command -v docker >/dev/null 2>&1; then
+          docker ps -a --format '{{ "{{.ID}}" }} {{ "{{.Image}}" }} {{ "{{.Names}}" }} {{ "{{.Status}}" }}'
+        else
+          echo "docker_not_installed"
+        fi
+      args:
+        executable: /bin/bash
+      register: docker_compose_status
+      changed_when: false
+      failed_when: false
+
+    - name: Check rendered Windows bootstrap artifact
+      delegate_to: localhost
+      become: false
+      stat:
+        path: "{{ openclaw_windows_bootstrap_artifact_path }}"
+      register: windows_bootstrap_artifact
+
+    - name: Render cutover evidence summary
+      delegate_to: localhost
+      become: false
+      template:
+        src: ../roles/wsl_host_stack/templates/cutover-evidence.md.j2
+        dest: "{{ openclaw_cutover_evidence_dir }}/cutover-evidence.md"
+        mode: "0644"

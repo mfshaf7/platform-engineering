@@ -1,0 +1,29 @@
+# Windows Task Evidence
+
+Captured before cutover.
+
+## Legacy Full-Stack Task
+
+{% if openclaw_legacy_stack_task.stdout | trim %}
+```json
+{{ openclaw_legacy_stack_task.stdout | trim }}
+```
+{% else %}
+`{{ openclaw_legacy_windows_stack_task_name }}` not found.
+{% endif %}
+
+## Legacy Bridge-Only Task
+
+{% if openclaw_legacy_bridge_task.stdout | trim %}
+```json
+{{ openclaw_legacy_bridge_task.stdout | trim }}
+```
+{% else %}
+`{{ openclaw_legacy_windows_bridge_task_name }}` not found.
+{% endif %}
+
+## Observed Migration Relevance
+
+- if `LastTaskResult` is non-zero, treat the legacy Windows startup path as degraded
+- if `Arguments` use `\\wsl.localhost\...` paths, record that as a path-coupling risk for rollback quality
+- compare these values against the new rendered platform task before cutover

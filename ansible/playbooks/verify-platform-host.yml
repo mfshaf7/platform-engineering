@@ -1,0 +1,66 @@
+---
+- name: Verify platform host bootstrap
+  hosts: wsl_hosts
+  become: true
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_windows_bootstrap_artifact_path: "{{ playbook_dir }}/../generated/openclaw-host-stack-windows-bootstrap.ps1"
+  tasks:
+    - name: Check systemd runtime state
+      command: systemctl is-system-running
+      register: systemd_state
+      changed_when: false
+      failed_when: systemd_state.rc != 0 or systemd_state.stdout not in ["running", "degraded"]
+
+    - name: Check host stack target is enabled
+      command: systemctl is-enabled {{ openclaw_stack_target_name }}
+      register: host_stack_enabled
+      changed_when: false
+
+    - name: Check bridge service is enabled
+      command: systemctl is-enabled {{ openclaw_bridge_service_name }}
+      register: bridge_enabled
+      changed_when: false
+
+    - name: Check recovery service is enabled
+      command: systemctl is-enabled {{ openclaw_recovery_service_name }}
+      register: recovery_enabled
+      changed_when: false
+
+    - name: Check k3s service is enabled
+      command: systemctl is-enabled k3s
+      register: k3s_enabled
+      changed_when: false
+
+    - name: Check k3s service is active
+      command: systemctl is-active k3s
+      register: k3s_active
+      changed_when: false
+
+    - name: Check Kubernetes node access
+      command: kubectl get nodes
+      register: kubectl_nodes
+      changed_when: false
+
+    - name: Check host stack runtime status
+      command: "{{ openclaw_host_bridge_root }}/scripts/status-openclaw-host-stack.sh"
+      register: host_stack_status
+      changed_when: false
+
+    - name: Check rendered Windows bootstrap artifact exists
+      delegate_to: localhost
+      become: false
+      stat:
+        path: "{{ openclaw_windows_bootstrap_artifact_path }}"
+      register: windows_bootstrap_artifact
+
+    - name: Fail when rendered Windows bootstrap artifact is missing
+      delegate_to: localhost
+      become: false
+      fail:
+        msg: >-
+          Missing rendered Windows bootstrap artifact at
+          {{ openclaw_windows_bootstrap_artifact_path }}.
+          Run `make render-windows-bootstrap` before verification.
+      when: not windows_bootstrap_artifact.stat.exists

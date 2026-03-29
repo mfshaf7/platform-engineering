@@ -18,10 +18,21 @@ spec:
         openclaw.io/host-bridge-sha: {{ .Values.env.OPENCLAW_HOST_BRIDGE_SHA | quote }}
         openclaw.io/platform-sha: {{ .Values.env.OPENCLAW_PLATFORM_SHA | quote }}
     spec:
+      hostNetwork: {{ .Values.hostNetwork }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
       containers:
         - name: gateway
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -34,6 +45,12 @@ spec:
               value: {{ .Values.env.OPENCLAW_HOST_BRIDGE_SHA | quote }}
             - name: OPENCLAW_PLATFORM_SHA
               value: {{ .Values.env.OPENCLAW_PLATFORM_SHA | quote }}
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              {{- if hasKey . "value" }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
           envFrom:
             {{- range .Values.secretRefs }}
             - secretRef:
@@ -41,3 +58,11 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

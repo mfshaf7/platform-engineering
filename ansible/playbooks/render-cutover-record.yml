@@ -1,0 +1,22 @@
+---
+- name: Render migration cutover record
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all/main.yml
+  vars:
+    openclaw_cutover_record_dir: "{{ playbook_dir }}/../generated/cutover-record"
+    openclaw_cutover_record_path: "{{ openclaw_cutover_record_dir }}/cutover-record.md"
+  tasks:
+    - name: Ensure cutover record directory exists
+      file:
+        path: "{{ openclaw_cutover_record_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Render cutover record template
+      template:
+        src: ../roles/wsl_host_stack/templates/cutover-record.md.j2
+        dest: "{{ openclaw_cutover_record_path }}"
+        mode: "0644"

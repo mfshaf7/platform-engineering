@@ -3,4 +3,4 @@ versions:
   telegramSha: replace-me
   hostBridgeSha: replace-me
   isolatedDeploymentSha: replace-me
-  platformSha: replace-me
+  platformSha: 6ca129c4bcc741b8cccc1697051064b311171412

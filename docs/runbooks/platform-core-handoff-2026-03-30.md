@@ -14,7 +14,7 @@
 - Windows `127.0.0.1:18789`, `::1:18789`, and `localhost:18789` all resolve to
   the `Platform-Core` `k3s` gateway and return `200` on `/healthz`.
 - `openclaw-gateway-stage` is `Synced` and `Healthy` in Argo at revision
-  `211869ba1aa11e82c0bd3e5f29b47791d119e1c3`.
+  `6ca129c4bcc741b8cccc1697051064b311171412`.
 - `openclaw-observability-stage` is `Synced` and `Healthy` in Argo.
 - The legacy Docker gateway `upstream-openclaw-openclaw-gateway-1` is stopped.
 
@@ -59,9 +59,9 @@ its `.git` metadata intact.
 
 ## Immediate Next Step
 
-The direct migration is complete. The next engineering step is not more Docker
-work. It is hardening:
+The direct migration and persistence hardening are complete. The next
+engineering step is not more Docker work. It is cleanup and stabilization:
 
-1. validate reboot and Windows logon persistence against `Platform-Core`
-2. keep the legacy Docker gateway stopped while the `k3s` runtime soaks
+1. keep the legacy Docker gateway stopped while the `k3s` runtime soaks
+2. remove or archive legacy startup artifacts that are no longer needed
 3. later, replace localhost-style access with a named service endpoint

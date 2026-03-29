@@ -18,9 +18,8 @@ Observed live state after recovery:
 - `openclaw-host-recovery.service` is active in `Platform-Core`
 - `openclaw-host-stack.target` is active in `Platform-Core`
 - `k3s` is active in `Platform-Core`
-- the expected tmux sessions exist:
-  - `openclaw-host-bridge`
-  - `openclaw-host-recovery`
+- Windows persistence now starts the platform-managed `systemd` host stack
+  directly through `PlatformCoreHostStack`
 - Windows localhost forwarding for `48721` and `48722` has been repaired to the
   current `Platform-Core` IP
 - the legacy runtime container can reach both:
@@ -41,7 +40,7 @@ Current post-cutover state:
 - Windows `::1:18789` is forwarded to `172.27.88.8:18789` in `Platform-Core` and returns `200`
 - Windows `localhost:18789` resolves to the `Platform-Core` `k3s` gateway without Docker in the request path
 - `openclaw-gateway-stage` in Argo is `Synced` and `Healthy` at revision
-  `211869ba1aa11e82c0bd3e5f29b47791d119e1c3`
+  `6ca129c4bcc741b8cccc1697051064b311171412`
 - `openclaw-observability-stage` in Argo is `Synced` and `Healthy`
 - `upstream-openclaw-openclaw-gateway-1` is stopped after localhost cutover
   was revalidated against the `k3s` gateway
@@ -58,9 +57,9 @@ Legacy repo migration into `Platform-Core` is also complete:
 
 The next intended migration step is:
 
-1. validate reboot and logon persistence against the new `Platform-Core` path
-2. remove or archive any legacy Docker artifacts that are no longer needed after
+1. remove or archive any legacy Docker artifacts that are no longer needed after
    stable soak time
+2. remove or disable legacy Windows startup artifacts once rollback risk is acceptable
 3. move the gateway from localhost-style compatibility access to a named service
    endpoint in a later phase
 

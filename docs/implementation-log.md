@@ -152,3 +152,7 @@ These are the next concrete steps after scaffolding:
     directly, tightening host verification to require active bridge and recovery
     units, and revalidating Windows localhost gateway health after the updated
     task ran successfully.
+40. Recovered the Argo CD repo-server after the persistence test left it in a
+    stale init-container crash loop, refreshed the affected applications, and
+    re-established `Synced` and `Healthy` stage status at platform revision
+    `6ca129c4bcc741b8cccc1697051064b311171412`.

@@ -23,7 +23,7 @@ sourceRepos:
     commit: "replace-me"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "replace-me"
+    commit: "6ca129c4bcc741b8cccc1697051064b311171412"
 
 argocd:
   namespace: argocd

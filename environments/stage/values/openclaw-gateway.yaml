@@ -25,7 +25,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: replace-me
   OPENCLAW_HOST_BRIDGE_SHA: replace-me
-  OPENCLAW_PLATFORM_SHA: replace-me
+  OPENCLAW_PLATFORM_SHA: 6ca129c4bcc741b8cccc1697051064b311171412
 
 extraEnv:
   - name: TERM

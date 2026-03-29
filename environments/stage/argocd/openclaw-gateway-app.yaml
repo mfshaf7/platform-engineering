@@ -1,17 +1,20 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openclaw-root-prod
+  name: openclaw-gateway-stage
   namespace: argocd
 spec:
   project: openclaw-platform
   source:
     repoURL: https://github.com/mfshaf7/platform-engineering.git
     targetRevision: main
-    path: environments/prod/argocd
+    path: charts/openclaw-gateway
+    helm:
+      valueFiles:
+        - ../../environments/stage/values/openclaw-gateway.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: openclaw-stage
   syncPolicy:
     automated:
       prune: true

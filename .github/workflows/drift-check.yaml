@@ -20,3 +20,9 @@ jobs:
 
       - name: Ensure Argo production applications exist
         run: test -f environments/prod/argocd/openclaw-gateway-app.yaml && test -f environments/prod/argocd/platform-version-app.yaml
+
+      - name: Ensure stage overlays exist
+        run: test -f environments/stage/values/openclaw-gateway.yaml && test -f environments/stage/values/platform-version.yaml
+
+      - name: Ensure Argo stage applications exist
+        run: test -f environments/stage/argocd/openclaw-gateway-app.yaml && test -f environments/stage/argocd/platform-version-app.yaml

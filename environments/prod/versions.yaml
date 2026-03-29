@@ -2,21 +2,21 @@ environment: prod
 
 gateway:
   image:
-    repository: ghcr.io/example/openclaw-gateway
-    tag: "0.0.1-dev"
+    repository: ghcr.io/mfshaf7/openclaw-gateway
+    tag: "replace-me-prod"
     digest: "sha256:replace-me"
   chartVersion: "0.1.0"
   replicas: 1
 
 sourceRepos:
   telegramEnhanced:
-    repository: github.com/example/openclaw-telegram-enhanced
+    repository: github.com/mfshaf7/openclaw-telegram-enhanced
     commit: "replace-me"
   hostBridge:
-    repository: github.com/example/openclaw-host-bridge
+    repository: github.com/mfshaf7/openclaw-host-bridge
     commit: "replace-me"
   isolatedDeployment:
-    repository: github.com/example/openclaw-isolated-deployment
+    repository: github.com/mfshaf7/openclaw-isolated-deployment
     commit: "replace-me"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering

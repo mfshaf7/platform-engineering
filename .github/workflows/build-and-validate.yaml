@@ -25,6 +25,18 @@ jobs:
       - name: Lint platform version chart
         run: helm lint charts/openclaw-platform-version
 
+      - name: Render prod gateway chart
+        run: helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-prod.yaml
+
+      - name: Render stage gateway chart
+        run: helm template openclaw-gateway-stage charts/openclaw-gateway -f environments/stage/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-stage.yaml
+
+      - name: Render prod platform version chart
+        run: helm template platform-version charts/openclaw-platform-version -f environments/prod/values/platform-version.yaml >/tmp/platform-version-prod.yaml
+
+      - name: Render stage platform version chart
+        run: helm template platform-version-stage charts/openclaw-platform-version -f environments/stage/values/platform-version.yaml >/tmp/platform-version-stage.yaml
+
       - name: Validate Terraform formatting
         run: terraform -chdir=terraform/environments/prod fmt -check
 

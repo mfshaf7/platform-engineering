@@ -52,6 +52,8 @@ It is intentionally concise and operator-readable.
 13. Expanded Terraform from a simple VM placeholder to a concrete environment
     contract that now records cluster namespaces, runtime image coordinates, and
     host-integration inputs.
+14. Promoted `stage` from placeholder status to a first-class GitOps environment
+    with its own Argo applications, value overlays, and promotion runbook.
 
 ## Next Implementation Steps
 

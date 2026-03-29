@@ -3,7 +3,14 @@ name: Promote Environment
 on:
   workflow_dispatch:
     inputs:
-      environment:
+      source_environment:
+        required: true
+        default: stage
+        type: choice
+        options:
+          - stage
+          - prod
+      target_environment:
         required: true
         default: prod
         type: choice
@@ -18,8 +25,18 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Show target environment file
-        run: cat environments/${{ inputs.environment }}/versions.yaml
+      - name: Guard invalid promotion pair
+        run: |
+          test "${{ inputs.source_environment }}" != "${{ inputs.target_environment }}"
 
-      - name: Show target environment overlays
-        run: find environments/${{ inputs.environment }} -maxdepth 2 -type f | sort
+      - name: Show source environment file
+        run: cat environments/${{ inputs.source_environment }}/versions.yaml
+
+      - name: Show target environment file
+        run: cat environments/${{ inputs.target_environment }}/versions.yaml
+
+      - name: Show source and target overlays
+        run: |
+          find environments/${{ inputs.source_environment }} -maxdepth 2 -type f | sort
+          echo "---"
+          find environments/${{ inputs.target_environment }} -maxdepth 2 -type f | sort

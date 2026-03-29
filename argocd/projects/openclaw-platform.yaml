@@ -12,7 +12,11 @@ spec:
   destinations:
     - namespace: openclaw
       server: https://kubernetes.default.svc
+    - namespace: openclaw-stage
+      server: https://kubernetes.default.svc
     - namespace: observability
+      server: https://kubernetes.default.svc
+    - namespace: observability-stage
       server: https://kubernetes.default.svc
     - namespace: external-secrets
       server: https://kubernetes.default.svc

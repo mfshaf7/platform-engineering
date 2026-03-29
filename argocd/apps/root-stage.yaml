@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openclaw-root-prod
+  name: openclaw-root-stage
   namespace: argocd
 spec:
   project: openclaw-platform
   source:
     repoURL: https://github.com/mfshaf7/platform-engineering.git
     targetRevision: main
-    path: environments/prod/argocd
+    path: environments/stage/argocd
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

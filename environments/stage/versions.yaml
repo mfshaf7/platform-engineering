@@ -1,9 +1,35 @@
 environment: stage
 
-inheritsFrom: prod
-
 gateway:
   image:
-    repository: ghcr.io/example/openclaw-gateway
-    tag: "0.0.1-stage"
+    repository: ghcr.io/mfshaf7/openclaw-gateway
+    tag: "replace-me-stage"
     digest: "sha256:replace-me"
+  chartVersion: "0.1.0"
+  replicas: 1
+
+sourceRepos:
+  telegramEnhanced:
+    repository: github.com/mfshaf7/openclaw-telegram-enhanced
+    commit: "replace-me"
+  hostBridge:
+    repository: github.com/mfshaf7/openclaw-host-bridge
+    commit: "replace-me"
+  isolatedDeployment:
+    repository: github.com/mfshaf7/openclaw-isolated-deployment
+    commit: "replace-me"
+  platformEngineering:
+    repository: github.com/mfshaf7/platform-engineering
+    commit: "replace-me"
+
+argocd:
+  namespace: argocd
+  project: openclaw-platform
+
+observability:
+  kubePrometheusStackChartVersion: "58.2.2"
+
+hostControl:
+  wslDistribution: "Ubuntu"
+  bridgeSystemdUnit: "openclaw-host-bridge.service"
+  recoverySystemdUnit: "openclaw-host-recovery.service"

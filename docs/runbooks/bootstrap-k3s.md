@@ -16,5 +16,5 @@ After a successful run:
 
 - `k3s` is installed
 - the `k3s` service is enabled
-- `kubectl get nodes` succeeds
+- `k3s kubectl get nodes` succeeds
 - the host is ready for Argo CD bootstrap

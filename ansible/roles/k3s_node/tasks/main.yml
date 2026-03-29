@@ -49,7 +49,7 @@
     timeout: 120
 
 - name: Wait for node to become ready
-  command: kubectl get nodes
+  command: "{{ openclaw_k3s_kubectl_command }} get nodes"
   register: kubectl_nodes
   changed_when: false
   retries: 20

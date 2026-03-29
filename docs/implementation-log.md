@@ -168,3 +168,10 @@ These are the next concrete steps after scaffolding:
 43. Refreshed the stage Argo applications after the final cleanup publish so
     the live gateway, root, and platform-version applications reconciled to
     platform revision `977a34c31653c73f072aeb3ded4d7fdcdffc4e3c`.
+44. Removed the rollback-only `platform-engineering` backup directories after
+    the final cut so `/home/mfshaf7/projects` now contains only the active
+    authoritative repos.
+45. Removed the legacy `Ubuntu` WSL distro, made `Platform-Core` the default
+    WSL distribution, and replaced the repo's implicit `kubectl` dependency
+    with the native `k3s kubectl` path so host verification no longer depends
+    on Docker Desktop CLI tooling.

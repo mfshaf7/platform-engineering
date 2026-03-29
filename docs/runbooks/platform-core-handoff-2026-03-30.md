@@ -4,6 +4,8 @@
 
 - `Platform-Core` is the authoritative WSL runtime path.
 - Default WSL user in `Platform-Core` is `mfshaf7`.
+- `Platform-Core` is the default WSL distribution.
+- The legacy `Ubuntu` WSL distro has been removed.
 - `k3s` is active in `Platform-Core`.
 - `openclaw-host-bridge.service` is active in `Platform-Core`.
 - `openclaw-host-recovery.service` is active in `Platform-Core`.
@@ -48,12 +50,8 @@ The legacy Ubuntu repo set has been copied into `Platform-Core` under
 - `platform-engineering`
 
 The moved `platform-engineering` checkout from legacy Ubuntu was stale relative
-to the pushed live cutover state, so it was preserved as:
-
-- `/home/mfshaf7/projects/platform-engineering.legacy-2026-03-30`
-
-The active working copy was then replaced with a clean local clone of the live
-authoritative repo:
+to the pushed live cutover state. The active working copy was replaced with a
+clean local clone of the live authoritative repo:
 
 - `/home/mfshaf7/projects/platform-engineering`
 

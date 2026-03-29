@@ -14,6 +14,7 @@ openclaw_windows_wsl_distro: Platform-Core
 openclaw_k3s_version: v1.30.2+k3s2
 openclaw_k3s_config_path: /etc/rancher/k3s/config.yaml
 openclaw_k3s_kubeconfig_path: /etc/rancher/k3s/k3s.yaml
+openclaw_k3s_kubectl_command: /usr/local/bin/k3s kubectl
 openclaw_k3s_write_kubeconfig_mode: "0644"
 openclaw_k3s_disable_components:
   - traefik

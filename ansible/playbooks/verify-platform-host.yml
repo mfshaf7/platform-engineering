@@ -38,7 +38,7 @@
       changed_when: false
 
     - name: Check Kubernetes node access
-      command: kubectl get nodes
+      command: "{{ openclaw_k3s_kubectl_command }} get nodes"
       environment:
         KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
       register: kubectl_nodes

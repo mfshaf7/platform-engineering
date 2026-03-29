@@ -129,3 +129,20 @@ These are the next concrete steps after scaffolding:
     `k3s` config source, matching the working Docker startup shape, and raising
     the pod memory envelope so the gateway now serves health checks and
     authenticated bridge and recovery operations from `Platform-Core`.
+34. Completed the direct host cutover by stopping the legacy Docker gateway,
+    moving Windows `127.0.0.1`, `::1`, and `localhost` gateway traffic onto the
+    `Platform-Core` `k3s` runtime, and revalidating `/healthz` from both Windows
+    and the distro host.
+35. Published the source-backed gateway chart and stage value changes, pushed
+    the authoritative repo state to GitHub, and confirmed Argo reconciled the
+    gateway application to `Synced` and `Healthy`.
+36. Corrected the host-network rollout behavior by switching the gateway
+    Deployment strategy to `Recreate` so a second host-network pod would not
+    deadlock on the single-node `Platform-Core` host.
+37. Migrated the legacy Ubuntu repo set and OpenClaw workspace into
+    `Platform-Core` under `/home/mfshaf7/projects` and
+    `/home/mfshaf7/.openclaw/workspace` so the runtime, build inputs, and
+    operator repos now live in the target distro.
+38. Reconciled the moved `platform-engineering` checkout by preserving the raw
+    migrated legacy copy as a dated backup and replacing the active working copy
+    with a clean clone of the pushed authoritative repository state.

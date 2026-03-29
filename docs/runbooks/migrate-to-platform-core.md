@@ -35,23 +35,34 @@ Observed live state after recovery:
 - the legacy Docker runtime container has been stopped after direct cutover validation:
   `upstream-openclaw-openclaw-gateway-1`
 
-Important remaining constraint:
+Current post-cutover state:
 
 - Windows `127.0.0.1:18789` is forwarded to `172.27.88.8:18789` in `Platform-Core` and returns `200`
 - Windows `::1:18789` is forwarded to `172.27.88.8:18789` in `Platform-Core` and returns `200`
-- Windows `localhost:18789` now resolves to the `Platform-Core` `k3s` gateway without Docker in the request path
-- `openclaw-gateway-stage` in Argo is still `OutOfSync` until the local repo
-  fixes are published to the GitHub source Argo tracks
+- Windows `localhost:18789` resolves to the `Platform-Core` `k3s` gateway without Docker in the request path
+- `openclaw-gateway-stage` in Argo is `Synced` and `Healthy` at revision
+  `211869ba1aa11e82c0bd3e5f29b47791d119e1c3`
+- `openclaw-observability-stage` in Argo is `Synced` and `Healthy`
+- `upstream-openclaw-openclaw-gateway-1` is stopped after localhost cutover
+  was revalidated against the `k3s` gateway
+
+Legacy repo migration into `Platform-Core` is also complete:
+
+- `/home/mfshaf7/projects/openclaw-host-bridge` is present
+- `/home/mfshaf7/projects/openclaw-isolated-deployment` is present
+- `/home/mfshaf7/projects/openclaw-telegram-enhanced` is present
+- `/home/mfshaf7/projects/platform-engineering` is present as a clean clone of
+  the pushed authoritative repo state
+- `/home/mfshaf7/.openclaw/workspace` is present and still contains its `.git`
+  metadata
 
 The next intended migration step is:
 
-1. publish the repo-backed gateway chart and stage value changes
-2. publish the repo-backed host-network gateway changes so Argo can reconcile
-   the live shape from source instead of direct cluster patches
-3. only then remove any no-longer-needed legacy Docker artifacts permanently
-
-`upstream-openclaw-openclaw-gateway-1` is already stopped after localhost cutover
-was revalidated against the `k3s` gateway.
+1. validate reboot and logon persistence against the new `Platform-Core` path
+2. remove or archive any legacy Docker artifacts that are no longer needed after
+   stable soak time
+3. move the gateway from localhost-style compatibility access to a named service
+   endpoint in a later phase
 
 ## Phase 3: Controlled Cutover
 

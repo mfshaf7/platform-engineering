@@ -8,3 +8,9 @@ Every managed runtime should expose:
 - version metadata visible in dashboards or diagnostics
 
 Prometheus and Grafana are the default platform observability stack.
+
+Platform-owned assets live under:
+
+- [observability/alerts](../../observability/alerts)
+- [observability/recording-rules](../../observability/recording-rules)
+- [observability/dashboards](../../observability/dashboards)

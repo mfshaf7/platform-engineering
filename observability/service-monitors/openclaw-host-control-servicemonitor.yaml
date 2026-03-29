@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openclaw-host-control
+  namespace: observability
+spec:
+  namespaceSelector:
+    matchNames:
+      - openclaw
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openclaw-gateway
+  endpoints:
+    - port: http
+      interval: 30s

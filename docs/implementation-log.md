@@ -39,6 +39,13 @@ It is intentionally concise and operator-readable.
 9. Expanded the repo layout to include observability, policies, security, and
    product-integration areas so the repo reflects a true platform engineering
    function instead of only a deployment folder.
+10. Added environment-specific Helm value overlays, Argo bootstrap assets,
+    first-pass observability rules and dashboard scaffolding, and a dedicated
+    security-posture workflow to make the repository closer to an operational
+    baseline instead of a documentation-only shell.
+11. Added operator entrypoints in `Makefile` plus clearer CI/CD and GitOps
+    standards so the repo now documents not just structure, but expected
+    delivery behavior.
 
 ## Next Implementation Steps
 

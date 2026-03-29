@@ -34,6 +34,7 @@ Primary assets:
 
 - [environments/prod/argocd/kustomization.yaml](../../environments/prod/argocd/kustomization.yaml)
 - [argocd/apps/root.yaml](../../argocd/apps/root.yaml)
+- [argocd/bootstrap/README.md](../../argocd/bootstrap/README.md)
 
 ## Phase 4: Prepare The WSL Host Side
 

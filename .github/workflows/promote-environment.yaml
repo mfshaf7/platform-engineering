@@ -20,3 +20,6 @@ jobs:
 
       - name: Show target environment file
         run: cat environments/${{ inputs.environment }}/versions.yaml
+
+      - name: Show target environment overlays
+        run: find environments/${{ inputs.environment }} -maxdepth 2 -type f | sort

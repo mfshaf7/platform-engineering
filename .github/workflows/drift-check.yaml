@@ -14,3 +14,9 @@ jobs:
 
       - name: Show approved production version pins
         run: cat environments/prod/versions.yaml
+
+      - name: Ensure production overlays exist
+        run: test -f environments/prod/values/openclaw-gateway.yaml && test -f environments/prod/values/platform-version.yaml
+
+      - name: Ensure Argo production applications exist
+        run: test -f environments/prod/argocd/openclaw-gateway-app.yaml && test -f environments/prod/argocd/platform-version-app.yaml

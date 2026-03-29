@@ -1,0 +1,7 @@
+groups:
+  - name: platform-engineering
+    rules:
+      - record: platform:argocd_apps_out_of_sync:count
+        expr: count(argocd_app_info{sync_status!="Synced"})
+      - record: platform:openclaw_gateway_up:ratio
+        expr: avg(up{job="openclaw-gateway"})

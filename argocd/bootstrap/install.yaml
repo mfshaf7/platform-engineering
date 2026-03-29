@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-bootstrap-notes
+  namespace: argocd
+data:
+  README: |
+    Install Argo CD using the upstream manifest or Helm chart, then apply
+    argocd/apps/root.yaml to register the platform root application.

@@ -86,6 +86,12 @@ Read in this order:
 4. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
 5. [docs/implementation-log.md](docs/implementation-log.md)
 
+Common operator entrypoints:
+
+- `make help`
+- `make validate`
+- `make show-prod-versions`
+
 ## Repository Layout
 
 ```text
@@ -103,7 +109,8 @@ platform-engineering/
 ├── policies/
 ├── products/
 ├── security/
-└── terraform/
+├── terraform/
+└── Makefile
 ```
 
 ## Design Goal

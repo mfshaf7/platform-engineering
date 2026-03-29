@@ -3,5 +3,6 @@ kind: Kustomization
 resources:
   - ../../argocd/projects/openclaw-platform.yaml
   - openclaw-gateway-app.yaml
+  - platform-version-app.yaml
   - observability-app.yaml
   - external-secrets-app.yaml

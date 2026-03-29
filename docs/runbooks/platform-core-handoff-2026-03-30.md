@@ -10,9 +10,10 @@
 - `openclaw-host-stack.target` is active in `Platform-Core`.
 - Windows scheduled task `PlatformCoreHostStack` exists and is the active
   startup path.
-- Windows scheduled task `OpenClawHostStack` remains disabled.
-- Windows scheduled tasks `OpenClaw Node` and `OpenClawPcControlBridge`
-  are disabled as retired legacy startup paths.
+- Legacy Windows scheduled tasks `OpenClawHostStack`, `OpenClaw Node`, and
+  `OpenClawPcControlBridge` have been removed as retired startup paths.
+- Legacy repo copies at `/opt/openclaw-host-bridge` and
+  `/opt/platform-engineering` have been removed after path cutover.
 - Windows `127.0.0.1:18789`, `::1:18789`, and `localhost:18789` all resolve to
   the `Platform-Core` `k3s` gateway and return `200` on `/healthz`.
 - `openclaw-gateway-stage` is `Synced` and `Healthy` in Argo at revision
@@ -65,5 +66,4 @@ The direct migration and persistence hardening are complete. The next
 engineering step is not more Docker work. It is cleanup and stabilization:
 
 1. keep the legacy Docker gateway stopped while the `k3s` runtime soaks
-2. archive or remove retired legacy startup artifacts that are no longer needed
-3. later, replace localhost-style access with a named service endpoint
+2. later, replace localhost-style access with a named service endpoint

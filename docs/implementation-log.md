@@ -160,3 +160,8 @@ These are the next concrete steps after scaffolding:
     `OpenClawPcControlBridge` after confirming they were legacy startup paths
     outside the current platform model and were either failing or targeting
     obsolete launchers.
+42. Removed the retired Windows tasks `OpenClawHostStack`, `OpenClaw Node`,
+    and `OpenClawPcControlBridge`, deleted the obsolete `node.cmd` launcher,
+    and removed the unused `/opt/openclaw-host-bridge` and
+    `/opt/platform-engineering` repo copies after revalidating that the live
+    Platform-Core stack depended only on `/home/mfshaf7/projects`.

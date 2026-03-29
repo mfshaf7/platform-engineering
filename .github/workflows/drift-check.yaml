@@ -1,0 +1,16 @@
+name: Drift Check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show approved production version pins
+        run: cat environments/prod/versions.yaml

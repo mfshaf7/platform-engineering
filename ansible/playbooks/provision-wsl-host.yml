@@ -1,0 +1,6 @@
+---
+- name: Prepare WSL host stack
+  hosts: wsl_hosts
+  become: true
+  roles:
+    - wsl_host_stack

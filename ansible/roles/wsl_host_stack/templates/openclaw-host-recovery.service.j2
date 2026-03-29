@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenClaw Host Recovery
+After=network-online.target {{ openclaw_bridge_service_name }}
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ openclaw_host_bridge_root }}
+ExecStart={{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-recovery.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

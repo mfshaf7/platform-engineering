@@ -1,0 +1,22 @@
+name: Promote Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        default: prod
+        type: choice
+        options:
+          - stage
+          - prod
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show target environment file
+        run: cat environments/${{ inputs.environment }}/versions.yaml

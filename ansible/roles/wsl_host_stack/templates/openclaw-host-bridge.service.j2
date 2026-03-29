@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenClaw Host Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{ openclaw_host_bridge_root }}
+ExecStart={{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-bridge.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

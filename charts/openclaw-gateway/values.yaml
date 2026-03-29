@@ -1,0 +1,33 @@
+namespaceOverride: ""
+
+image:
+  repository: ghcr.io/example/openclaw-gateway
+  tag: "0.0.1-dev"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+
+env:
+  OPENCLAW_ENV: prod
+  OPENCLAW_TELEGRAM_SHA: replace-me
+  OPENCLAW_HOST_BRIDGE_SHA: replace-me
+  OPENCLAW_PLATFORM_SHA: replace-me
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+secretRefs:
+  - name: openclaw-gateway-secrets

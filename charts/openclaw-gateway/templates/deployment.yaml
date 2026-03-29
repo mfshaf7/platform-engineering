@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openclaw-gateway.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
+      annotations:
+        openclaw.io/telegram-sha: {{ .Values.env.OPENCLAW_TELEGRAM_SHA | quote }}
+        openclaw.io/host-bridge-sha: {{ .Values.env.OPENCLAW_HOST_BRIDGE_SHA | quote }}
+        openclaw.io/platform-sha: {{ .Values.env.OPENCLAW_PLATFORM_SHA | quote }}
+    spec:
+      containers:
+        - name: gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            - name: OPENCLAW_ENV
+              value: {{ .Values.env.OPENCLAW_ENV | quote }}
+            - name: OPENCLAW_TELEGRAM_SHA
+              value: {{ .Values.env.OPENCLAW_TELEGRAM_SHA | quote }}
+            - name: OPENCLAW_HOST_BRIDGE_SHA
+              value: {{ .Values.env.OPENCLAW_HOST_BRIDGE_SHA | quote }}
+            - name: OPENCLAW_PLATFORM_SHA
+              value: {{ .Values.env.OPENCLAW_PLATFORM_SHA | quote }}
+          envFrom:
+            {{- range .Values.secretRefs }}
+            - secretRef:
+                name: {{ .name }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

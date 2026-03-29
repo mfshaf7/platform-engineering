@@ -1,0 +1,6 @@
+versions:
+  gatewayImage: replace-me
+  telegramSha: replace-me
+  hostBridgeSha: replace-me
+  isolatedDeploymentSha: replace-me
+  platformSha: replace-me

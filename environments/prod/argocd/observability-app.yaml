@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openclaw-observability
+  namespace: argocd
+spec:
+  project: openclaw-platform
+  source:
+    repoURL: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    chart: kube-prometheus-stack
+    targetRevision: 58.2.2
+    helm:
+      values: |
+        grafana:
+          enabled: true
+          defaultDashboardsEnabled: true
+        prometheus:
+          prometheusSpec:
+            retention: 10d
+        alertmanager:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,6 @@
+---
+- name: Prepare Kubernetes node
+  hosts: k3s_nodes
+  become: true
+  roles:
+    - k3s_node

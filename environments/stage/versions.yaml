@@ -1,0 +1,9 @@
+environment: stage
+
+inheritsFrom: prod
+
+gateway:
+  image:
+    repository: ghcr.io/example/openclaw-gateway
+    tag: "0.0.1-stage"
+    digest: "sha256:replace-me"

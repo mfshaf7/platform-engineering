@@ -1,0 +1,43 @@
+name: Build And Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Lint gateway chart
+        run: helm lint charts/openclaw-gateway
+
+      - name: Lint platform version chart
+        run: helm lint charts/openclaw-platform-version
+
+      - name: Validate Terraform formatting
+        run: terraform -chdir=terraform/environments/prod fmt -check
+
+      - name: Validate Terraform configuration
+        run: terraform -chdir=terraform/environments/prod init -backend=false && terraform -chdir=terraform/environments/prod validate
+
+  publish-metadata:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show promoted version file
+        run: cat platform/versions/prod.yaml

@@ -1,0 +1,5 @@
+openclaw_bridge_service_name: openclaw-host-bridge.service
+openclaw_recovery_service_name: openclaw-host-recovery.service
+openclaw_platform_repo_root: /opt/platform-engineering
+openclaw_host_bridge_root: /opt/openclaw-host-bridge
+openclaw_bridge_user: root

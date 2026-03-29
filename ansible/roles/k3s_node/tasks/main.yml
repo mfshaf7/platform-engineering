@@ -1,0 +1,19 @@
+---
+- name: Ensure base packages are present for cluster bootstrap
+  package:
+    name:
+      - curl
+      - ca-certificates
+      - gnupg
+    state: present
+
+- name: Write k3s bootstrap marker
+  copy:
+    dest: /etc/openclaw-k3s-bootstrap.conf
+    content: |
+      cluster_profile=openclaw-prod
+      argocd_enabled=true
+      observability_enabled=true
+    owner: root
+    group: root
+    mode: "0644"

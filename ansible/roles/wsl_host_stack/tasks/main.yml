@@ -1,0 +1,41 @@
+---
+- name: Ensure runtime directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/openclaw
+    - /etc/systemd/system
+
+- name: Install bridge service unit
+  template:
+    src: openclaw-host-bridge.service.j2
+    dest: "/etc/systemd/system/{{ openclaw_bridge_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install recovery service unit
+  template:
+    src: openclaw-host-recovery.service.j2
+    dest: "/etc/systemd/system/{{ openclaw_recovery_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Enable bridge service
+  systemd:
+    name: "{{ openclaw_bridge_service_name }}"
+    enabled: true
+
+- name: Enable recovery service
+  systemd:
+    name: "{{ openclaw_recovery_service_name }}"
+    enabled: true

@@ -1,6 +1,16 @@
 # Windows Task Evidence
 
-Captured before cutover.
+Captured from the current Windows task state.
+
+## Platform Task
+
+{% if openclaw_platform_stack_task.stdout | trim %}
+```json
+{{ openclaw_platform_stack_task.stdout | trim }}
+```
+{% else %}
+`{{ openclaw_windows_task_name }}` not found.
+{% endif %}
 
 ## Legacy Full-Stack Task
 
@@ -24,6 +34,10 @@ Captured before cutover.
 
 ## Observed Migration Relevance
 
+- if the platform task arguments do not start `systemctl` for the platform-managed
+  units, treat the persistence path as not hardened
+- if the platform task `LastTaskResult` is non-zero, treat the current Windows
+  startup path as degraded
 - if `LastTaskResult` is non-zero, treat the legacy Windows startup path as degraded
 - if `Arguments` use `\\wsl.localhost\...` paths, record that as a path-coupling risk for rollback quality
-- compare these values against the new rendered platform task before cutover
+- compare the legacy task values against the current rendered platform task

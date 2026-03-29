@@ -15,6 +15,26 @@
         state: directory
         mode: "0755"
 
+    - name: Capture platform full-stack task details
+      shell: >
+        powershell.exe -NoProfile -Command
+        '$task = Get-ScheduledTask -TaskName "{{ openclaw_windows_task_name }}" -ErrorAction SilentlyContinue;
+        if (-not $task) { exit 0 }
+        $info = Get-ScheduledTaskInfo -TaskName "{{ openclaw_windows_task_name }}";
+        [pscustomobject]@{
+          TaskName=$task.TaskName;
+          State=$task.State;
+          LastRunTime=$info.LastRunTime;
+          LastTaskResult=$info.LastTaskResult;
+          Execute=$task.Actions[0].Execute;
+          Arguments=$task.Actions[0].Arguments
+        } | ConvertTo-Json -Compress'
+      args:
+        executable: /bin/bash
+      register: openclaw_platform_stack_task
+      changed_when: false
+      failed_when: false
+
     - name: Capture legacy full-stack task details
       shell: >
         powershell.exe -NoProfile -Command

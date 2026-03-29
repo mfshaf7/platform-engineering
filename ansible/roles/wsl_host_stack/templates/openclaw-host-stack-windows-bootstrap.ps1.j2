@@ -1,13 +1,16 @@
 param(
   [string]$TaskName = '{{ openclaw_windows_task_name }}',
   [string]$Distro = '{{ openclaw_windows_wsl_distro }}',
-  [string]$Root = '{{ openclaw_host_bridge_root }}'
+  [string]$Root = '{{ openclaw_host_bridge_root }}',
+  [string]$StackTarget = '{{ openclaw_stack_target_name }}',
+  [string]$BridgeService = '{{ openclaw_bridge_service_name }}',
+  [string]$RecoveryService = '{{ openclaw_recovery_service_name }}'
 )
 
 $ErrorActionPreference = 'Stop'
 
-$wslCommand = "$Root/scripts/start-openclaw-host-stack-tmux.sh"
-$wslArgs = "-d $Distro --cd $Root /bin/bash -lc `"$wslCommand`""
+$wslCommand = "systemctl start $StackTarget && systemctl --quiet is-active $StackTarget $BridgeService $RecoveryService"
+$wslArgs = "-d $Distro -u root --cd $Root /bin/bash -lc `"$wslCommand`""
 
 $action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument $wslArgs
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME

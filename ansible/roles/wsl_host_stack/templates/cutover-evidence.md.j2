@@ -19,6 +19,24 @@ Generated from `capture-cutover-evidence.yml`.
 {% endif %}
 ```
 
+## Bridge Service Status
+
+```text
+{{ bridge_service_status.stdout | default('') }}
+{% if bridge_service_status.stderr | default('') %}
+{{ bridge_service_status.stderr }}
+{% endif %}
+```
+
+## Recovery Service Status
+
+```text
+{{ recovery_service_status.stdout | default('') }}
+{% if recovery_service_status.stderr | default('') %}
+{{ recovery_service_status.stderr }}
+{% endif %}
+```
+
 ## k3s Status
 
 ```text
@@ -37,12 +55,30 @@ Generated from `capture-cutover-evidence.yml`.
 {% endif %}
 ```
 
-## Host Stack Runtime Status
+## Bridge Health
 
 ```text
-{{ host_stack_status.stdout | default('') }}
-{% if host_stack_status.stderr | default('') %}
-{{ host_stack_status.stderr }}
+{{ bridge_health.stdout | default('') }}
+{% if bridge_health.stderr | default('') %}
+{{ bridge_health.stderr }}
+{% endif %}
+```
+
+## Recovery Health
+
+```text
+{{ recovery_health.stdout | default('') }}
+{% if recovery_health.stderr | default('') %}
+{{ recovery_health.stderr }}
+{% endif %}
+```
+
+## Host Stack Listeners
+
+```text
+{{ host_stack_listeners.stdout | default('') }}
+{% if host_stack_listeners.stderr | default('') %}
+{{ host_stack_listeners.stderr }}
 {% endif %}
 ```
 

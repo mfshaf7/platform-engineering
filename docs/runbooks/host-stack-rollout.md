@@ -25,9 +25,10 @@ The platform repo manages:
 
 ## Windows Bootstrap
 
-The current Windows-side bootstrap remains a scheduled task launching:
+The Windows-side bootstrap is a scheduled task that starts the platform-managed
+systemd target inside WSL:
 
-- `scripts/start-openclaw-host-stack-tmux.sh`
+- `systemctl start openclaw-host-stack.target`
 
 The platform repo now renders the matching Windows bootstrap artifact with:
 
@@ -48,8 +49,8 @@ The platform-managed task name is:
 During migration, keep the legacy Windows task `OpenClawHostStack` available as
 the rollback path until post-cutover verification succeeds.
 
-This matches the current validated runtime shape while the platform model
-introduces cleaner systemd ownership inside WSL.
+This keeps Windows responsible only for logon-triggered WSL entry while systemd
+inside WSL owns bridge and recovery supervision.
 
 For full replacement of an unreliable distro, use:
 

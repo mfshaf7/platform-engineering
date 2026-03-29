@@ -1,10 +1,10 @@
 openclaw_bridge_service_name: openclaw-host-bridge.service
 openclaw_recovery_service_name: openclaw-host-recovery.service
 openclaw_stack_target_name: openclaw-host-stack.target
-openclaw_platform_repo_root: /opt/platform-engineering
-openclaw_host_bridge_root: /opt/openclaw-host-bridge
+openclaw_platform_repo_root: /home/mfshaf7/projects/platform-engineering
+openclaw_host_bridge_root: /home/mfshaf7/projects/openclaw-host-bridge
 openclaw_bridge_user: root
-openclaw_host_bridge_config_path: /opt/openclaw-host-bridge/config/policy.local.json
+openclaw_host_bridge_config_path: /home/mfshaf7/projects/openclaw-host-bridge/config/policy.local.json
 openclaw_openclaw_config_path: /home/mfshaf7/.openclaw/openclaw.json
 openclaw_host_bridge_restart_delay_seconds: 2
 openclaw_host_recovery_restart_delay_seconds: 2

@@ -146,3 +146,9 @@ These are the next concrete steps after scaffolding:
 38. Reconciled the moved `platform-engineering` checkout by preserving the raw
     migrated legacy copy as a dated backup and replacing the active working copy
     with a clean clone of the pushed authoritative repository state.
+39. Hardened `Platform-Core` logon persistence after repo migration by
+    repointing the managed host paths at `/home/mfshaf7/projects`, switching the
+    Windows scheduled task to start the platform-managed `systemd` target
+    directly, tightening host verification to require active bridge and recovery
+    units, and revalidating Windows localhost gateway health after the updated
+    task ran successfully.

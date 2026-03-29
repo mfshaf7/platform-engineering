@@ -23,6 +23,18 @@
       changed_when: false
       failed_when: false
 
+    - name: Capture bridge service status
+      command: systemctl status {{ openclaw_bridge_service_name }} --no-pager
+      register: bridge_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Capture recovery service status
+      command: systemctl status {{ openclaw_recovery_service_name }} --no-pager
+      register: recovery_service_status
+      changed_when: false
+      failed_when: false
+
     - name: Capture k3s service status
       command: systemctl status k3s --no-pager
       register: k3s_status
@@ -31,13 +43,29 @@
 
     - name: Capture Kubernetes node list
       command: kubectl get nodes -o wide
+      environment:
+        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
       register: kubectl_nodes
       changed_when: false
       failed_when: false
 
-    - name: Capture host stack status helper output
-      command: "{{ openclaw_host_bridge_root }}/scripts/status-openclaw-host-stack.sh"
-      register: host_stack_status
+    - name: Capture bridge health endpoint
+      command: curl -fsS http://127.0.0.1:48721/healthz
+      register: bridge_health
+      changed_when: false
+      failed_when: false
+
+    - name: Capture recovery health endpoint
+      command: curl -fsS http://127.0.0.1:48722/healthz
+      register: recovery_health
+      changed_when: false
+      failed_when: false
+
+    - name: Capture host stack listeners
+      shell: ss -ltnp | grep -E ':48721|:48722' || true
+      args:
+        executable: /bin/bash
+      register: host_stack_listeners
       changed_when: false
       failed_when: false
 

@@ -49,6 +49,21 @@
       register: host_stack_status
       changed_when: false
 
+    - name: Check host stack target is active
+      command: systemctl is-active {{ openclaw_stack_target_name }}
+      register: host_stack_active
+      changed_when: false
+
+    - name: Check bridge service is active
+      command: systemctl is-active {{ openclaw_bridge_service_name }}
+      register: bridge_active
+      changed_when: false
+
+    - name: Check recovery service is active
+      command: systemctl is-active {{ openclaw_recovery_service_name }}
+      register: recovery_active
+      changed_when: false
+
     - name: Check rendered Windows bootstrap artifact exists
       delegate_to: localhost
       become: false

@@ -11,9 +11,8 @@ the local `k3s` control plane.
 The target distro must end up with:
 
 - `systemd` enabled through `/etc/wsl.conf`
-- the canonical `openclaw-host-bridge` checkout present at `/opt/openclaw-host-bridge`
+- the canonical `openclaw-host-bridge` checkout present at `/home/mfshaf7/projects/openclaw-host-bridge`
 - the platform repo available to run Ansible playbooks
-- `tmux` installed for the supported host-stack persistence model
 - local policy and OpenClaw config files created outside Git
 - `k3s` installed through the platform Ansible role
 
@@ -23,7 +22,7 @@ The target distro must end up with:
 2. Clone:
    - `platform-engineering`
    - `openclaw-host-bridge`
-3. Place the host-bridge checkout at `/opt/openclaw-host-bridge` or override the
+3. Place the host-bridge checkout at `/home/mfshaf7/projects/openclaw-host-bridge` or override the
    Ansible variable if a different path is required.
 4. Install the host runtime prerequisites needed by the bridge:
    - Node at the path configured by `openclaw_host_bridge_node_bin_dir`
@@ -88,10 +87,11 @@ Verify all of:
 
 - `make verify-platform-host` passes
 - `systemctl is-system-running` reports a valid `systemd` session
-- `tmux` is installed
-- `systemctl status openclaw-host-stack.target` resolves
+- `systemctl is-active openclaw-host-stack.target` reports `active`
+- `systemctl is-active openclaw-host-bridge.service` reports `active`
+- `systemctl is-active openclaw-host-recovery.service` reports `active`
 - `kubectl get nodes` succeeds
-- the host-bridge checkout contains the supervisor and tmux launcher scripts
+- the host-bridge checkout contains the supervisor scripts
 - the configured Node binary and both local config files exist
 
 ## Notes

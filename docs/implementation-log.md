@@ -165,3 +165,6 @@ These are the next concrete steps after scaffolding:
     and removed the unused `/opt/openclaw-host-bridge` and
     `/opt/platform-engineering` repo copies after revalidating that the live
     Platform-Core stack depended only on `/home/mfshaf7/projects`.
+43. Refreshed the stage Argo applications after the final cleanup publish so
+    the live gateway, root, and platform-version applications reconciled to
+    platform revision `977a34c31653c73f072aeb3ded4d7fdcdffc4e3c`.

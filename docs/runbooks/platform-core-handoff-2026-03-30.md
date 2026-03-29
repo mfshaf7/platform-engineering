@@ -17,7 +17,7 @@
 - Windows `127.0.0.1:18789`, `::1:18789`, and `localhost:18789` all resolve to
   the `Platform-Core` `k3s` gateway and return `200` on `/healthz`.
 - `openclaw-gateway-stage` is `Synced` and `Healthy` in Argo at revision
-  `6ca129c4bcc741b8cccc1697051064b311171412`.
+  `977a34c31653c73f072aeb3ded4d7fdcdffc4e3c`.
 - `openclaw-observability-stage` is `Synced` and `Healthy` in Argo.
 - The legacy Docker gateway `upstream-openclaw-openclaw-gateway-1` is stopped.
 

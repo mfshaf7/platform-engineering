@@ -156,3 +156,7 @@ These are the next concrete steps after scaffolding:
     stale init-container crash loop, refreshed the affected applications, and
     re-established `Synced` and `Healthy` stage status at platform revision
     `6ca129c4bcc741b8cccc1697051064b311171412`.
+41. Disabled the stale Windows logon tasks `OpenClaw Node` and
+    `OpenClawPcControlBridge` after confirming they were legacy startup paths
+    outside the current platform model and were either failing or targeting
+    obsolete launchers.

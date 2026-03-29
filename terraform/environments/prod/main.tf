@@ -24,8 +24,8 @@ module "isolated_vm" {
 module "k3s_bootstrap" {
   source = "../../modules/k3s_bootstrap"
 
-  cluster_name      = local.platform_name
-  argocd_namespace  = var.argocd_namespace
-  github_repo_url   = var.github_repo_url
-  github_repo_ref   = var.github_repo_ref
+  cluster_name     = local.platform_name
+  argocd_namespace = var.argocd_namespace
+  github_repo_url  = var.github_repo_url
+  github_repo_ref  = var.github_repo_ref
 }

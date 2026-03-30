@@ -198,3 +198,8 @@ These are the next concrete steps after scaffolding:
     recorded the resulting immutable GHCR image reference in the stage
     environment contract so stage can move from `openclaw:local` to a
     digest-backed CI-produced image.
+51. Replaced the placeholder environment promotion workflow with a
+    digest-based stage-to-prod promotion path that copies approved image and
+    source pins into the prod contract, validates the resulting manifests in
+    CI, and opens a reviewable production promotion pull request instead of
+    mutating `main` directly.

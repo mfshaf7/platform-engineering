@@ -1,5 +1,5 @@
 versions:
-  gatewayImage: ghcr.io/mfshaf7/openclaw-gateway:replace-me
+  gatewayImage: ghcr.io/mfshaf7/openclaw-gateway:replace-me-prod
   telegramSha: replace-me
   hostBridgeSha: replace-me
   isolatedDeploymentSha: replace-me

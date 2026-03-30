@@ -9,34 +9,135 @@ on:
         type: choice
         options:
           - stage
-          - prod
       target_environment:
         required: true
         default: prod
         type: choice
         options:
-          - stage
           - prod
+      promotion_note:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: promote-environment-${{ inputs.source_environment }}-${{ inputs.target_environment }}
+  cancel-in-progress: false
 
 jobs:
   promote:
+    environment: ${{ inputs.target_environment }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tool dependencies
+        run: python -m pip install pyyaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
 
       - name: Guard invalid promotion pair
         run: |
-          test "${{ inputs.source_environment }}" != "${{ inputs.target_environment }}"
+          test "${{ inputs.source_environment }}" = "stage"
+          test "${{ inputs.target_environment }}" = "prod"
 
-      - name: Show source environment file
+      - name: Show source environment contract
         run: cat environments/${{ inputs.source_environment }}/versions.yaml
 
-      - name: Show target environment file
-        run: cat environments/${{ inputs.target_environment }}/versions.yaml
+      - name: Apply digest-based promotion
+        run: python scripts/promote_environment.py "${{ inputs.source_environment }}" "${{ inputs.target_environment }}"
 
-      - name: Show source and target overlays
+      - name: Validate target environment contract
+        run: python scripts/validate_environment_contract.py "${{ inputs.target_environment }}"
+
+      - name: Render promoted prod gateway chart
+        run: helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-prod.yaml
+
+      - name: Render promoted prod platform version chart
+        run: helm template platform-version charts/openclaw-platform-version -f environments/prod/values/platform-version.yaml >/tmp/platform-version-prod.yaml
+
+      - name: Show promotion diff
         run: |
-          find environments/${{ inputs.source_environment }} -maxdepth 2 -type f | sort
-          echo "---"
-          find environments/${{ inputs.target_environment }} -maxdepth 2 -type f | sort
+          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
+
+      - name: Capture promoted image metadata
+        id: promoted
+        run: |
+          python - <<'PY'
+          import yaml
+          with open("environments/prod/versions.yaml", "r", encoding="utf-8") as fh:
+              data = yaml.safe_load(fh)
+          image = data["gateway"]["image"]
+          source = data["sourceRepos"]
+          with open(".promoted_env", "w", encoding="utf-8") as fh:
+              fh.write(f"PROMOTED_IMAGE={image['repository']}@{image['digest']}\n")
+              fh.write(f"PROMOTED_TAG={image['tag']}\n")
+              fh.write(f"PROMOTED_TELEGRAM_SHA={source['telegramEnhanced']['commit']}\n")
+              fh.write(f"PROMOTED_HOST_BRIDGE_SHA={source['hostBridge']['commit']}\n")
+              fh.write(f"PROMOTED_ISOLATED_DEPLOYMENT_SHA={source['isolatedDeployment']['commit']}\n")
+              fh.write(f"PROMOTED_PLATFORM_SHA={source['platformEngineering']['commit']}\n")
+          PY
+          cat .promoted_env >> "$GITHUB_ENV"
+
+      - name: Create production promotion pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: Promote prod to approved stage gateway digest
+          branch: promote/prod-${{ github.run_id }}
+          delete-branch: true
+          title: Promote prod to approved stage gateway digest
+          body: |
+            ## Summary
+
+            - promotes `${{ inputs.target_environment }}` to the approved `${{ inputs.source_environment }}` gateway image digest
+            - records immutable image `${{ env.PROMOTED_IMAGE }}`
+            - copies the approved Telegram, host-bridge, isolated-deployment, and platform-engineering SHAs into the prod contract
+
+            ## Validation
+
+            - `python scripts/validate_environment_contract.py ${{ inputs.target_environment }}`
+            - `helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml`
+            - `helm template platform-version charts/openclaw-platform-version -f environments/prod/values/platform-version.yaml`
+
+            ## Post-Merge Verification
+
+            - verify Argo reconciles `prod` to the merge revision
+            - verify the running `prod` gateway pod image digest matches `${{ env.PROMOTED_IMAGE }}`
+            - verify the production gateway `/healthz` endpoint after rollout
+
+            ## Operator Note
+
+            ${{ inputs.promotion_note }}
+          add-paths: |
+            environments/prod/versions.yaml
+            environments/prod/values/openclaw-gateway.yaml
+            environments/prod/values/platform-version.yaml
+
+      - name: Publish promotion summary
+        run: |
+          {
+            echo "## Environment Promotion"
+            echo
+            echo "- Source environment: \`${{ inputs.source_environment }}\`"
+            echo "- Target environment: \`${{ inputs.target_environment }}\`"
+            echo "- Promoted image: \`${PROMOTED_IMAGE}\`"
+            echo "- Telegram SHA: \`${PROMOTED_TELEGRAM_SHA}\`"
+            echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
+            echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
+            echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
+            echo
+            echo "A pull request was created so production promotion stays reviewable and approval-gated."
+          } >> "$GITHUB_STEP_SUMMARY"

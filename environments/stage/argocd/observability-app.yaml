@@ -17,51 +17,51 @@ spec:
         prometheus:
           prometheusSpec:
             retention: 5d
-          additionalPrometheusRulesMap:
-            platform-control-plane:
-              groups:
-                - name: platform-control-plane
-                  rules:
-                    - alert: ArgoApplicationOutOfSync
-                      expr: argocd_app_info{sync_status!="Synced"} == 1
-                      for: 10m
-                      labels:
-                        severity: warning
-                      annotations:
-                        summary: Argo CD application is out of sync
-                        description: One or more Argo CD applications have remained out of sync for 10 minutes.
-                    - alert: OpenClawGatewayUnavailable
-                      expr: up{job="openclaw-gateway"} == 0
-                      for: 5m
-                      labels:
-                        severity: critical
-                      annotations:
-                        summary: OpenClaw gateway metrics endpoint is unavailable
-                        description: Prometheus cannot scrape the OpenClaw gateway endpoint.
-                    - alert: VaultClusterUnavailable
-                      expr: kube_statefulset_status_replicas_ready{namespace="vault",statefulset="vault"} < kube_statefulset_replicas{namespace="vault",statefulset="vault"}
-                      for: 5m
-                      labels:
-                        severity: critical
-                      annotations:
-                        summary: Vault cluster has unavailable replicas
-                        description: One or more Vault replicas are not ready.
-                    - alert: VaultArgoApplicationUnhealthy
-                      expr: argocd_app_info{name="vault",health_status!="Healthy"} == 1
-                      for: 5m
-                      labels:
-                        severity: critical
-                      annotations:
-                        summary: Vault Argo application is unhealthy
-                        description: The Vault Argo CD application is not healthy.
-                    - alert: PlatformSecretsApplicationUnhealthy
-                      expr: argocd_app_info{name=~"platform-secrets-stage|platform-secrets-prod",health_status!="Healthy"} == 1
-                      for: 5m
-                      labels:
-                        severity: critical
-                      annotations:
-                        summary: Platform secret delivery is unhealthy
-                        description: A platform secrets Argo CD application is not healthy, indicating ESO sync or store issues.
+        additionalPrometheusRulesMap:
+          platform-control-plane:
+            groups:
+              - name: platform-control-plane
+                rules:
+                  - alert: ArgoApplicationOutOfSync
+                    expr: argocd_app_info{sync_status!="Synced"} == 1
+                    for: 10m
+                    labels:
+                      severity: warning
+                    annotations:
+                      summary: Argo CD application is out of sync
+                      description: One or more Argo CD applications have remained out of sync for 10 minutes.
+                  - alert: OpenClawGatewayUnavailable
+                    expr: up{job="openclaw-gateway"} == 0
+                    for: 5m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: OpenClaw gateway metrics endpoint is unavailable
+                      description: Prometheus cannot scrape the OpenClaw gateway endpoint.
+                  - alert: VaultClusterUnavailable
+                    expr: kube_statefulset_status_replicas_ready{namespace="vault",statefulset="vault"} < kube_statefulset_replicas{namespace="vault",statefulset="vault"}
+                    for: 5m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: Vault cluster has unavailable replicas
+                      description: One or more Vault replicas are not ready.
+                  - alert: VaultArgoApplicationUnhealthy
+                    expr: argocd_app_info{name="vault",health_status!="Healthy"} == 1
+                    for: 5m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: Vault Argo application is unhealthy
+                      description: The Vault Argo CD application is not healthy.
+                  - alert: PlatformSecretsApplicationUnhealthy
+                    expr: argocd_app_info{name=~"platform-secrets-stage|platform-secrets-prod",health_status!="Healthy"} == 1
+                    for: 5m
+                    labels:
+                      severity: critical
+                    annotations:
+                      summary: Platform secret delivery is unhealthy
+                      description: A platform secrets Argo CD application is not healthy, indicating ESO sync or store issues.
         alertmanager:
           enabled: true
         prometheus-node-exporter:

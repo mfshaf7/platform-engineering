@@ -204,7 +204,7 @@ These are the next concrete steps after scaffolding:
     CI, and opens a reviewable production promotion pull request instead of
     mutating `main` directly.
 52. Adjusted the prod Argo composition for single-cluster coexistence with
-    stage by leaving the shared `openclaw-platform` AppProject under one root
+    stage by leaving the shared platform AppProject under one root
     only and disabling the prod `prometheus-node-exporter` DaemonSet, which
     otherwise cannot schedule alongside the stage exporter on the same
     single-node host due to host port `9100` contention.

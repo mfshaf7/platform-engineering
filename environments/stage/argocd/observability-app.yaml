@@ -4,7 +4,7 @@ metadata:
   name: openclaw-observability-stage
   namespace: argocd
 spec:
-  project: openclaw-platform
+  project: platform-core
   source:
     repoURL: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     chart: kube-prometheus-stack

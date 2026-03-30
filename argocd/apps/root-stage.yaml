@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openclaw-root-stage
+  name: platform-root-stage
   namespace: argocd
 spec:
   project: default

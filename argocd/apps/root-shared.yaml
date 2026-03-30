@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: platform-root-prod
+  name: platform-root-shared
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/mfshaf7/platform-engineering.git
     targetRevision: main
-    path: environments/prod/argocd
+    path: environments/shared/argocd
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

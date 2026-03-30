@@ -29,13 +29,13 @@ sourceRepos:
     commit: 70b4977ab2c8a990ebc324c8fa83ae1d10c0d2e2
 argocd:
   namespace: argocd
-  project: openclaw-platform
+  project: platform-core
 observability:
   kubePrometheusStackChartVersion: 58.2.2
   grafanaAdminSecretStoreRef: grafana-admin
 externalSecrets:
   chartVersion: 0.10.5
-  clusterSecretStore: openclaw-cluster-secrets
+  secretStore: platform-vault
 hostControl:
   wslDistribution: Platform-Core
   bridgeSystemdUnit: openclaw-host-bridge.service

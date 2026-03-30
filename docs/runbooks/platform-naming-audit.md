@@ -1,0 +1,27 @@
+# Platform Naming Audit
+
+## Purpose
+
+Track remaining places where platform-owned components still carry `openclaw`
+product naming.
+
+## Renamed In This Change
+
+- shared Argo roots now use `platform-root-*`
+- shared Argo project now uses `platform-core`
+- shared Vault and ESO secret plumbing now uses `platform-*` names
+- product secret data in Vault now lives under `products/openclaw/...`
+
+## Remaining Product-Coupled Names To Review
+
+- [charts/openclaw-platform-version/Chart.yaml](../../charts/openclaw-platform-version/Chart.yaml)
+- [charts/openclaw-platform-version/templates/configmap.yaml](../../charts/openclaw-platform-version/templates/configmap.yaml)
+- [charts/openclaw-gateway](../../charts/openclaw-gateway)
+- [environments/stage/argocd/openclaw-gateway-app.yaml](../../environments/stage/argocd/openclaw-gateway-app.yaml)
+- [environments/prod/argocd/openclaw-gateway-app.yaml](../../environments/prod/argocd/openclaw-gateway-app.yaml)
+
+## Rule Going Forward
+
+- platform substrate names must be product-neutral
+- product workloads keep product-specific names
+- shared secret paths should be product-scoped beneath a neutral platform root

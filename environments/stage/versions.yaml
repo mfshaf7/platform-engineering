@@ -32,10 +32,13 @@ sourceRepos:
 
 argocd:
   namespace: argocd
-  project: openclaw-platform
+  project: platform-core
 
 observability:
   kubePrometheusStackChartVersion: "58.2.2"
+
+externalSecrets:
+  secretStore: platform-vault
 
 hostControl:
   wslDistribution: "Platform-Core"

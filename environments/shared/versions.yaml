@@ -1,0 +1,8 @@
+environment: shared
+vault:
+  chartVersion: 0.32.0
+  mode: ha-raft
+  namespace: vault
+externalSecrets:
+  chartVersion: 0.10.5
+  namespace: external-secrets

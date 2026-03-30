@@ -4,7 +4,7 @@ metadata:
   name: openclaw-gateway-stage
   namespace: argocd
 spec:
-  project: openclaw-platform
+  project: platform-core
   source:
     repoURL: https://github.com/mfshaf7/platform-engineering.git
     targetRevision: main

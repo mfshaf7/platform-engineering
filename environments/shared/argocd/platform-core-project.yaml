@@ -1,14 +1,15 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: openclaw-platform
+  name: platform-core
   namespace: argocd
 spec:
-  description: OpenClaw platform workloads and supporting services
+  description: Platform workloads and supporting services
   sourceRepos:
     - https://github.com/mfshaf7/platform-engineering.git
     - oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - https://charts.external-secrets.io
+    - https://helm.releases.hashicorp.com
   destinations:
     - namespace: openclaw
       server: https://kubernetes.default.svc
@@ -21,6 +22,8 @@ spec:
     - namespace: kube-system
       server: https://kubernetes.default.svc
     - namespace: external-secrets
+      server: https://kubernetes.default.svc
+    - namespace: vault
       server: https://kubernetes.default.svc
     - namespace: argocd
       server: https://kubernetes.default.svc

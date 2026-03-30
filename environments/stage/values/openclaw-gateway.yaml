@@ -1,7 +1,7 @@
 image:
-  repository: docker.io/library/openclaw
-  tag: "local"
-  digest: ""
+  repository: ghcr.io/mfshaf7/openclaw-gateway
+  tag: "stage-d929aaef358c"
+  digest: "sha256:63a8b56df348c60cb1ab4546c5c1b0b2141f2dbe6f9f857252e707eb8d747c44"
   pullPolicy: IfNotPresent
 
 command:
@@ -26,7 +26,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 05871229baf141bdba77e2b0a0a8cf23838c5036
   OPENCLAW_HOST_BRIDGE_SHA: 12ed13cb076689c1874b3710342a29706663b259
-  OPENCLAW_PLATFORM_SHA: 4dd7692b2da3b66b1085eddc6123c1cb36043403
+  OPENCLAW_PLATFORM_SHA: 70b4977ab2c8a990ebc324c8fa83ae1d10c0d2e2
 
 extraEnv:
   - name: TERM

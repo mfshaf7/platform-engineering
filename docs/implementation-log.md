@@ -194,3 +194,7 @@ These are the next concrete steps after scaffolding:
     `openclaw:stable-preview` placeholder with the official upstream GHCR base
     image `ghcr.io/openclaw/openclaw:latest` so the CI build can pull a real
     source image instead of depending on a legacy local-only tag.
+50. Built the first governed stage gateway artifact in GitHub Actions and
+    recorded the resulting immutable GHCR image reference in the stage
+    environment contract so stage can move from `openclaw:local` to a
+    digest-backed CI-produced image.

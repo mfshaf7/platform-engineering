@@ -82,7 +82,7 @@ jobs:
               data = yaml.safe_load(fh)
           image = data["gateway"]["image"]
           source = data["sourceRepos"]
-          with open(".promoted_env", "w", encoding="utf-8") as fh:
+          with open("${{ github.env }}", "a", encoding="utf-8") as fh:
               fh.write(f"PROMOTED_IMAGE={image['repository']}@{image['digest']}\n")
               fh.write(f"PROMOTED_TAG={image['tag']}\n")
               fh.write(f"PROMOTED_TELEGRAM_SHA={source['telegramEnhanced']['commit']}\n")
@@ -90,11 +90,11 @@ jobs:
               fh.write(f"PROMOTED_ISOLATED_DEPLOYMENT_SHA={source['isolatedDeployment']['commit']}\n")
               fh.write(f"PROMOTED_PLATFORM_SHA={source['platformEngineering']['commit']}\n")
           PY
-          cat .promoted_env >> "$GITHUB_ENV"
 
       - name: Create production promotion pull request
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.PROMOTION_TOKEN }}
           commit-message: Promote prod to approved stage gateway digest
           branch: promote/prod-${{ github.run_id }}
           delete-branch: true

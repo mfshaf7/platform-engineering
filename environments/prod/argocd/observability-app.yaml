@@ -19,8 +19,9 @@ spec:
             retention: 10d
         alertmanager:
           enabled: true
-        prometheus-node-exporter:
+        nodeExporter:
           enabled: false
+        prometheus-node-exporter:
           hostRootFsMount:
             enabled: false
   destination:

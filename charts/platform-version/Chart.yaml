@@ -1,5 +1,5 @@
 apiVersion: v2
-name: openclaw-platform-version
+name: platform-version
 description: Runtime version metadata published into the cluster
 type: application
 version: 0.1.0

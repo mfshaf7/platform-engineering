@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: openclaw-platform-versions
+  name: platform-versions
 data:
   gatewayImage: {{ .Values.versions.gatewayImage | quote }}
   telegramSha: {{ .Values.versions.telegramSha | quote }}

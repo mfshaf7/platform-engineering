@@ -14,8 +14,6 @@ product naming.
 
 ## Remaining Product-Coupled Names To Review
 
-- [charts/openclaw-platform-version/Chart.yaml](../../charts/openclaw-platform-version/Chart.yaml)
-- [charts/openclaw-platform-version/templates/configmap.yaml](../../charts/openclaw-platform-version/templates/configmap.yaml)
 - [charts/openclaw-gateway](../../charts/openclaw-gateway)
 - [environments/stage/argocd/openclaw-gateway-app.yaml](../../environments/stage/argocd/openclaw-gateway-app.yaml)
 - [environments/prod/argocd/openclaw-gateway-app.yaml](../../environments/prod/argocd/openclaw-gateway-app.yaml)

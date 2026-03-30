@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/mfshaf7/platform-engineering.git
     targetRevision: main
-    path: charts/openclaw-platform-version
+    path: charts/platform-version
     helm:
       valueFiles:
         - ../../environments/stage/values/platform-version.yaml

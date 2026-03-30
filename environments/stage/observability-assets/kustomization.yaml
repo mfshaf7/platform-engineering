@@ -5,4 +5,5 @@ resources:
   - grafana-admin-serviceaccount.yaml
   - grafana-admin-secretstore.yaml
   - grafana-admin-externalsecret.yaml
+  - operator-ui-auth-proxy.yaml
   - platform-overview-dashboard.yaml

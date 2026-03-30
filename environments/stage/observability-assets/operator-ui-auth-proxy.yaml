@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-operator-ui-auth
+type: Opaque
+stringData:
+  htpasswd: |
+    mfshaf7:$apr1$L8WIA0GP$wvshJE6d6PHfw6KoeKJY50
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-operator-ui-auth-proxy
+data:
+  nginx.conf: |
+    worker_processes  1;
+    error_log  /dev/stderr notice;
+    pid        /tmp/nginx.pid;
+
+    events {
+      worker_connections  1024;
+    }
+
+    http {
+      access_log /dev/stdout;
+
+      upstream prometheus_upstream {
+        server openclaw-observability-sta-prometheus.observability-stage.svc.cluster.local:9090;
+      }
+
+      upstream alertmanager_upstream {
+        server openclaw-observability-sta-alertmanager.observability-stage.svc.cluster.local:9093;
+      }
+
+      server {
+        listen 9090;
+
+        auth_basic "Platform Operator Access";
+        auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+        location / {
+          proxy_set_header Host $host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_http_version 1.1;
+          proxy_pass http://prometheus_upstream;
+        }
+      }
+
+      server {
+        listen 9093;
+
+        auth_basic "Platform Operator Access";
+        auth_basic_user_file /etc/nginx/auth/htpasswd;
+
+        location / {
+          proxy_set_header Host $host;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_http_version 1.1;
+          proxy_pass http://alertmanager_upstream;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-operator-ui-auth-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: platform-operator-ui-auth-proxy
+  template:
+    metadata:
+      labels:
+        app: platform-operator-ui-auth-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 9090
+              name: prometheus
+            - containerPort: 9093
+              name: alertmanager
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: auth
+              mountPath: /etc/nginx/auth
+              readOnly: true
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: platform-operator-ui-auth-proxy
+        - name: auth
+          secret:
+            secretName: platform-operator-ui-auth
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-operator-ui-auth-proxy
+spec:
+  type: NodePort
+  selector:
+    app: platform-operator-ui-auth-proxy
+  ports:
+    - name: prometheus
+      port: 9090
+      targetPort: prometheus
+      nodePort: 32091
+    - name: alertmanager
+      port: 9093
+      targetPort: alertmanager
+      nodePort: 32094

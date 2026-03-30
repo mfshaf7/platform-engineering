@@ -16,11 +16,14 @@ Endpoints:
 
 Current credentials:
 
-- Argo CD username: `admin`
-- Argo CD password: retrieve from `argocd-initial-admin-secret` or rotate it
-  after bootstrap
+- Argo CD username: `mfshaf7`
+- Argo CD password: `S3v3n$0u1`
+- Vault username: `mfshaf7`
+- Vault password: `S3v3n$0u1`
+- Prometheus/Alertmanager username: `mfshaf7`
+- Prometheus/Alertmanager password: `S3v3n$0u1`
 - Grafana username: `mfshaf7`
-- Grafana password: Vault-backed and synced through External Secrets
+- Grafana password: `S3v3n$0u1`
 
 Notes:
 

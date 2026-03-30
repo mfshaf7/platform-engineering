@@ -15,13 +15,22 @@ the new material into Kubernetes.
 - `products/openclaw/stage/gateway`
 - `products/openclaw/prod/gateway`
 
+Gateway secrets may include:
+
+- `OPENCLAW_GATEWAY_TOKEN`
+- `TELEGRAM_BOT_TOKEN`
+
+Use a dedicated Telegram bot token per environment. Stage and prod must not
+poll the same bot token.
+
 ## Write Updated Secret Data
 
 ```bash
 export VAULT_TOKEN='...'
 k3s kubectl -n vault exec vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
   vault kv put kv/products/openclaw/stage/gateway \
-  OPENCLAW_GATEWAY_TOKEN='<new-token>'
+  OPENCLAW_GATEWAY_TOKEN='<new-token>' \
+  TELEGRAM_BOT_TOKEN='<stage-bot-token>'
 ```
 
 Repeat for the target product and environment path.

@@ -3,6 +3,7 @@ namespaceOverride: ""
 image:
   repository: ghcr.io/example/openclaw-gateway
   tag: "0.0.1-dev"
+  digest: ""
   pullPolicy: IfNotPresent
 
 replicaCount: 1

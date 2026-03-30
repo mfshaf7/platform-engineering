@@ -1,6 +1,7 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
   tag: "replace-me"
+  digest: "sha256:replace-me"
 
 env:
   OPENCLAW_ENV: prod

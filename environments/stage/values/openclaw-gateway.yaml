@@ -1,6 +1,7 @@
 image:
   repository: docker.io/library/openclaw
   tag: "local"
+  digest: ""
   pullPolicy: IfNotPresent
 
 command:
@@ -25,7 +26,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 05871229baf141bdba77e2b0a0a8cf23838c5036
   OPENCLAW_HOST_BRIDGE_SHA: 12ed13cb076689c1874b3710342a29706663b259
-  OPENCLAW_PLATFORM_SHA: 6706ea9abe8c36231cb7bb1a2daa756c047b5a08
+  OPENCLAW_PLATFORM_SHA: 4bdb7830c819e585c61d694ac0e3b4c8eda206e2
 
 extraEnv:
   - name: TERM

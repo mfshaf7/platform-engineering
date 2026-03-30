@@ -15,6 +15,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: build-gateway-image-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   build-gateway-image:
     runs-on: ubuntu-latest
@@ -42,13 +46,26 @@ jobs:
           env = os.environ["TARGET_ENV"]
           with open(f"environments/{env}/versions.yaml", "r", encoding="utf-8") as fh:
               data = yaml.safe_load(fh)
+          source_bundle = "|".join([
+              env,
+              data['sourceRepos']['telegramEnhanced']['commit'],
+              data['sourceRepos']['hostBridge']['commit'],
+              data['sourceRepos']['isolatedDeployment']['commit'],
+              data['gateway']['build']['baseImage'],
+              data['gateway']['build']['dockerfile'],
+          ])
+          import hashlib
+          source_bundle_ref = hashlib.sha256(source_bundle.encode("utf-8")).hexdigest()[:12]
           out = os.environ["GITHUB_OUTPUT"]
           with open(out, "a", encoding="utf-8") as fh:
               fh.write(f"telegram_ref={data['sourceRepos']['telegramEnhanced']['commit']}\n")
               fh.write(f"host_bridge_ref={data['sourceRepos']['hostBridge']['commit']}\n")
               fh.write(f"deployment_ref={data['sourceRepos']['isolatedDeployment']['commit']}\n")
-              fh.write(f"image_repository={data['gateway']['image']['repository']}\n")
-              fh.write(f"image_tag={data['gateway']['image']['tag']}\n")
+              fh.write(f"publish_repository={data['gateway']['publish']['repository']}\n")
+              fh.write(f"publish_tag_prefix={data['gateway']['publish']['tagPrefix']}\n")
+              fh.write(f"publish_platforms={','.join(data['gateway']['publish']['platforms'])}\n")
+              fh.write(f"publish_tag={data['gateway']['publish']['tagPrefix']}-{source_bundle_ref}\n")
+              fh.write(f"source_bundle_ref={source_bundle_ref}\n")
               fh.write(f"base_image={data['gateway']['build']['baseImage']}\n")
               fh.write(f"dockerfile={data['gateway']['build']['dockerfile']}\n")
           PY
@@ -60,6 +77,8 @@ jobs:
           test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.publish_repository }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.publish_tag_prefix }}" != "replace-me"
 
       - name: Check out Telegram source
         uses: actions/checkout@v4
@@ -93,6 +112,9 @@ jobs:
         env:
           OPENCLAW_TELEGRAM_REPO: ${{ github.workspace }}/openclaw-telegram-enhanced
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -101,10 +123,45 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push gateway image
-        working-directory: openclaw-isolated-deployment
+        id: build_push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./openclaw-isolated-deployment
+          file: ./openclaw-isolated-deployment/${{ steps.env_meta.outputs.dockerfile }}
+          push: true
+          platforms: ${{ steps.env_meta.outputs.publish_platforms }}
+          tags: ${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}
+          build-args: |
+            OPENCLAW_BASE_IMAGE=${{ steps.env_meta.outputs.base_image }}
+          labels: |
+            org.opencontainers.image.title=OpenClaw Gateway
+            org.opencontainers.image.description=Bundled OpenClaw gateway image built from pinned platform source refs
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.env_meta.outputs.publish_tag }}
+            openclaw.environment=${{ inputs.environment }}
+            openclaw.source-bundle-ref=${{ steps.env_meta.outputs.source_bundle_ref }}
+            openclaw.telegram-ref=${{ steps.env_meta.outputs.telegram_ref }}
+            openclaw.host-bridge-ref=${{ steps.env_meta.outputs.host_bridge_ref }}
+            openclaw.isolated-deployment-ref=${{ steps.env_meta.outputs.deployment_ref }}
+            openclaw.platform-engineering-ref=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Publish build summary
         run: |
-          OPENCLAW_LOCAL_IMAGE_TAG="${{ steps.env_meta.outputs.image_repository }}:${{ steps.env_meta.outputs.image_tag }}" \
-          OPENCLAW_BASE_IMAGE="${{ steps.env_meta.outputs.base_image }}" \
-          OPENCLAW_DOCKERFILE="$PWD/${{ steps.env_meta.outputs.dockerfile }}" \
-          ./deployment/build-openclaw-local.sh "$PWD"
-          docker push "${{ steps.env_meta.outputs.image_repository }}:${{ steps.env_meta.outputs.image_tag }}"
+          {
+            echo "## Gateway Image Build"
+            echo
+            echo "- Environment: \`${{ inputs.environment }}\`"
+            echo "- Image: \`${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}\`"
+            echo "- Digest: \`${{ steps.build_push.outputs.digest }}\`"
+            echo "- Telegram SHA: \`${{ steps.env_meta.outputs.telegram_ref }}\`"
+            echo "- Host bridge SHA: \`${{ steps.env_meta.outputs.host_bridge_ref }}\`"
+            echo "- Isolated deployment SHA: \`${{ steps.env_meta.outputs.deployment_ref }}\`"
+            echo "- Platform SHA: \`${{ github.sha }}\`"
+            echo
+            echo "Record this immutable image reference in the target environment before promotion:"
+            echo
+            echo "\`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -24,6 +24,14 @@ environments.
 - `prod` placeholders should remain untouched until there is an approved image
   tag and digest to record.
 
+## Immutable Promotion Rule
+
+- record the produced GHCR digest in the target environment values before
+  rollout
+- prefer `repository@sha256:...` over mutable tag-only deployment references
+- keep the image tag for operator readability, but treat the digest as the
+  deployment truth
+
 ## Current Operator Inputs
 
 - [environments/stage/versions.yaml](../../environments/stage/versions.yaml)

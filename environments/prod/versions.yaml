@@ -4,6 +4,11 @@ gateway:
   build:
     baseImage: openclaw:stable-preview
     dockerfile: deployment/Dockerfile.telegram-bundled.example
+  publish:
+    repository: ghcr.io/mfshaf7/openclaw-gateway
+    tagPrefix: "prod"
+    platforms:
+      - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
     tag: "replace-me-prod"
@@ -38,6 +43,6 @@ externalSecrets:
   clusterSecretStore: "openclaw-cluster-secrets"
 
 hostControl:
-  wslDistribution: "Ubuntu"
+  wslDistribution: "Platform-Core"
   bridgeSystemdUnit: "openclaw-host-bridge.service"
   recoverySystemdUnit: "openclaw-host-recovery.service"

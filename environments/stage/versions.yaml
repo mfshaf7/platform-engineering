@@ -4,6 +4,11 @@ gateway:
   build:
     baseImage: openclaw:stable-preview
     dockerfile: deployment/Dockerfile.telegram-bundled.example
+  publish:
+    repository: ghcr.io/mfshaf7/openclaw-gateway
+    tagPrefix: "stage"
+    platforms:
+      - linux/amd64
   image:
     repository: docker.io/library/openclaw
     tag: "local"
@@ -23,7 +28,7 @@ sourceRepos:
     commit: "8a31ee8b8fbf2f98342c3b5e6e902cfb36d3b5d6"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "6706ea9abe8c36231cb7bb1a2daa756c047b5a08"
+    commit: "4bdb7830c819e585c61d694ac0e3b4c8eda206e2"
 
 argocd:
   namespace: argocd

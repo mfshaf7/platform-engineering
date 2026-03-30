@@ -184,3 +184,8 @@ These are the next concrete steps after scaffolding:
     still intentionally runs `openclaw:local` during the post-cutover soak,
     that production remains a GHCR-backed path, and that the governed build
     workflow must now reject placeholder source refs before building.
+48. Replaced the gateway build workflow's workstation-style `docker build`
+    dependency with a CI-owned Buildx/GHCR path, added immutable source-bundle
+    tagging plus OCI metadata, made the gateway chart digest-aware, and aligned
+    the environment contracts so future stage and production promotion can use
+    digest-backed image references instead of mutable local tags.

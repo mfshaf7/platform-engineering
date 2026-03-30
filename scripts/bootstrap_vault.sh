@@ -56,6 +56,28 @@ path "kv/metadata/products/openclaw/prod/*" {
 EOF
   vault policy write platform-prod-read /tmp/platform-prod-read.hcl
 
+  cat <<EOF >/tmp/platform-observability-stage-read.hcl
+path "kv/data/platform/observability/stage/*" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/observability/stage/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-observability-stage-read /tmp/platform-observability-stage-read.hcl
+
+  cat <<EOF >/tmp/platform-observability-prod-read.hcl
+path "kv/data/platform/observability/prod/*" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/observability/prod/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-observability-prod-read /tmp/platform-observability-prod-read.hcl
+
   vault write auth/kubernetes/role/platform-stage-secrets \
     bound_service_account_names="platform-vault-reader" \
     bound_service_account_namespaces="openclaw-stage" \
@@ -68,5 +90,19 @@ EOF
     bound_service_account_namespaces="openclaw" \
     audience="vault" \
     token_policies="platform-prod-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-observability-stage-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="observability-stage" \
+    audience="vault" \
+    token_policies="platform-observability-stage-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-observability-prod-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="observability" \
+    audience="vault" \
+    token_policies="platform-observability-prod-read" \
     ttl="1h"
 '

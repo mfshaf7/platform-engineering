@@ -16,12 +16,15 @@ Windows localhost forwarding for these ports is managed by the
 
 ## Credentials
 
-Current default credentials:
+Current managed credentials:
 
 - username: `admin`
-- password: `prom-operator`
+- password is sourced from Vault-backed secret delivery
 
-Rotate the Grafana admin credential if this remains a long-lived environment.
+The intended credential source is:
+
+- `kv/platform/observability/prod/grafana-admin`
+- `kv/platform/observability/stage/grafana-admin`
 
 ## Expected Dashboards
 

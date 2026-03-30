@@ -89,6 +89,7 @@ Read in this order:
 7. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
 8. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
 9. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
+10. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
 
 Common operator entrypoints:
 

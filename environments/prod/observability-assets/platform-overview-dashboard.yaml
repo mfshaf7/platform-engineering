@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-overview-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  platform-overview.json: |
+    {
+      "title": "Platform Overview",
+      "tags": ["platform-engineering", "openclaw"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Argo Apps Out Of Sync",
+          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "platform:argocd_apps_out_of_sync:count",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "OpenClaw Gateway Up Ratio",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "expr": "platform:openclaw_gateway_up:ratio",
+              "refId": "A"
+            }
+          ]
+        }
+      ]
+    }

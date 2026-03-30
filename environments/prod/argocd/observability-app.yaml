@@ -14,6 +14,9 @@ spec:
         grafana:
           enabled: true
           defaultDashboardsEnabled: true
+          service:
+            type: NodePort
+            nodePort: 32080
         prometheus:
           prometheusSpec:
             retention: 10d

@@ -1,5 +1,7 @@
 .terraform/
 *.tfstate
 *.tfstate.*
+__pycache__/
+*.py[cod]
 ansible/generated/
 terraform/modules/*/generated-*.txt

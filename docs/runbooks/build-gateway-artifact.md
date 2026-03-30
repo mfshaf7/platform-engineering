@@ -28,6 +28,18 @@ The build uses pinned SHAs from:
 5. build the bundled gateway image
 6. push the image to GHCR using the pinned tag
 
+## Current Runtime Split
+
+- `stage` is still allowed to run `docker.io/library/openclaw:local` while the
+  `Platform-Core` cutover soaks and while no governed published stage image has
+  been promoted yet.
+- the governed image build path already exists in
+  [.github/workflows/build-gateway-image.yaml](../../.github/workflows/build-gateway-image.yaml)
+  and now fails fast if the environment contract still contains placeholder
+  source refs.
+- `prod` should continue to use a published `ghcr.io/mfshaf7/openclaw-gateway`
+  image, not an operator-local tag.
+
 ## Why This Matters
 
 This preserves the current proven bundled-image build path while moving release

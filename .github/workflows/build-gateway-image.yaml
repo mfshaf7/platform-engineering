@@ -55,6 +55,12 @@ jobs:
         env:
           TARGET_ENV: ${{ inputs.environment }}
 
+      - name: Validate pinned source refs
+        run: |
+          test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
+
       - name: Check out Telegram source
         uses: actions/checkout@v4
         with:

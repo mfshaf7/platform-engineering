@@ -175,3 +175,12 @@ These are the next concrete steps after scaffolding:
     WSL distribution, and replaced the repo's implicit `kubectl` dependency
     with the native `k3s kubectl` path so host verification no longer depends
     on Docker Desktop CLI tooling.
+46. Pinned the stage environment metadata to the current Telegram,
+    host-bridge, isolated-deployment, and platform-engineering source SHAs and
+    corrected the recorded WSL distribution to `Platform-Core` so the published
+    environment contract now matches the live post-cutover runtime instead of
+    retaining placeholder values from the migration period.
+47. Formalized the current gateway artifact contract by documenting that stage
+    still intentionally runs `openclaw:local` during the post-cutover soak,
+    that production remains a GHCR-backed path, and that the governed build
+    workflow must now reject placeholder source refs before building.

@@ -14,16 +14,16 @@ gateway:
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: "replace-me"
+    commit: "05871229baf141bdba77e2b0a0a8cf23838c5036"
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
-    commit: "replace-me"
+    commit: "12ed13cb076689c1874b3710342a29706663b259"
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: "replace-me"
+    commit: "8a31ee8b8fbf2f98342c3b5e6e902cfb36d3b5d6"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "977a34c31653c73f072aeb3ded4d7fdcdffc4e3c"
+    commit: "6706ea9abe8c36231cb7bb1a2daa756c047b5a08"
 
 argocd:
   namespace: argocd
@@ -33,6 +33,6 @@ observability:
   kubePrometheusStackChartVersion: "58.2.2"
 
 hostControl:
-  wslDistribution: "Ubuntu"
+  wslDistribution: "Platform-Core"
   bridgeSystemdUnit: "openclaw-host-bridge.service"
   recoverySystemdUnit: "openclaw-host-recovery.service"

@@ -19,7 +19,7 @@
 - Windows `127.0.0.1:18789`, `::1:18789`, and `localhost:18789` all resolve to
   the `Platform-Core` `k3s` gateway and return `200` on `/healthz`.
 - `openclaw-gateway-stage` is `Synced` and `Healthy` in Argo at revision
-  `977a34c31653c73f072aeb3ded4d7fdcdffc4e3c`.
+  `6706ea9abe8c36231cb7bb1a2daa756c047b5a08`.
 - `openclaw-observability-stage` is `Synced` and `Healthy` in Argo.
 - The legacy Docker gateway `upstream-openclaw-openclaw-gateway-1` is stopped.
 
@@ -60,8 +60,9 @@ its `.git` metadata intact.
 
 ## Immediate Next Step
 
-The direct migration and persistence hardening are complete. The next
-engineering step is not more Docker work. It is cleanup and stabilization:
+The direct migration, persistence hardening, and legacy-system cut are
+complete. The next engineering work is platform evolution:
 
-1. keep the legacy Docker gateway stopped while the `k3s` runtime soaks
-2. later, replace localhost-style access with a named service endpoint
+1. pin every stage source SHA so the environment record is fully authoritative
+2. decide when to promote the governed GHCR build path over `openclaw:local`
+3. later, replace localhost-style access with a named service endpoint

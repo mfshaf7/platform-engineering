@@ -81,12 +81,13 @@ This gives a clean separation:
 Read in this order:
 
 1. [docs/architecture/overview.md](docs/architecture/overview.md)
-2. [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
-3. [docs/standards/release-model.md](docs/standards/release-model.md)
-4. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
-5. [docs/implementation-log.md](docs/implementation-log.md)
-6. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
-7. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
+2. [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
+3. [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
+4. [docs/standards/release-model.md](docs/standards/release-model.md)
+5. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
+6. [docs/implementation-log.md](docs/implementation-log.md)
+7. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+8. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
 
 Common operator entrypoints:
 
@@ -128,6 +129,8 @@ platform-engineering/
 ├── terraform/
 └── Makefile
 ```
+
+Product onboarding starts in [products/README.md](products/README.md).
 
 ## Design Goal
 

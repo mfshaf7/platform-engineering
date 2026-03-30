@@ -71,6 +71,8 @@ This zone owns host-integrated actions that should remain outside Kubernetes.
 - host-control actions cross a typed boundary to the host bridge
 - bridge and recovery remain outside Kubernetes because they manage host state
 - secrets are delivered at runtime, not committed in plaintext
+- shared control-plane assets remain product-neutral
+- product-specific runtime contracts live under `products/<product>/`
 
 ## Why This Stack
 

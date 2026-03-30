@@ -51,19 +51,11 @@ resources:
     memory: 4Gi
 
 extraVolumeMounts:
-  - name: openclaw-config
-    mountPath: /home/node/.openclaw/openclaw.json
-    subPath: openclaw.k3s.json
-  - name: openclaw-state
-    mountPath: /home/node/.openclaw/workspace
-    subPath: workspace
+  - name: openclaw-home
+    mountPath: /home/node/.openclaw
 
 extraVolumes:
-  - name: openclaw-config
-    hostPath:
-      path: /home/mfshaf7/.openclaw
-      type: Directory
-  - name: openclaw-state
+  - name: openclaw-home
     hostPath:
       path: /home/mfshaf7/.openclaw
       type: Directory

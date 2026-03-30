@@ -2,5 +2,5 @@ versions:
   gatewayImage: docker.io/library/openclaw:local
   telegramSha: 05871229baf141bdba77e2b0a0a8cf23838c5036
   hostBridgeSha: 12ed13cb076689c1874b3710342a29706663b259
-  isolatedDeploymentSha: 8a31ee8b8fbf2f98342c3b5e6e902cfb36d3b5d6
-  platformSha: 4bdb7830c819e585c61d694ac0e3b4c8eda206e2
+  isolatedDeploymentSha: ebd98b530838152a5b7500859df0027e2454dd1b
+  platformSha: 881e406410e21a1cd86e159f4366485cb7a6c4d8

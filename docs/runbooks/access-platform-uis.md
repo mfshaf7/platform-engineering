@@ -32,3 +32,6 @@ Notes:
 - Vault is intentionally exposed over local HTTP because the in-cluster chart
   is running with `tlsDisable: true`; keep it on localhost only unless you add
   TLS.
+- Argo CD and Vault operator credentials are bootstrapped by
+  [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh),
+  not by a Git-tracked static secret.

@@ -42,6 +42,26 @@ This script:
 - creates least-privilege policies for `stage` and `prod`
 - creates the Vault roles expected by the environment `SecretStore` manifests
 
+## Configure Shared Operator Access
+
+To standardize the local operator login across Argo CD and Vault:
+
+```bash
+export VAULT_TOKEN='...'
+export OPERATOR_USERNAME='mfshaf7'
+export OPERATOR_PASSWORD='S3v3n$0u1'
+./scripts/bootstrap_operator_access.sh
+```
+
+This script:
+
+- enables Vault `userpass` auth if needed
+- creates or updates the `platform-admin` Vault policy
+- creates or updates the Vault user for the operator login
+- creates or updates the Argo CD local account and admin RBAC grant
+- rotates the Argo CD account password hash in `argocd-secret`
+- restarts the Argo CD control-plane pods so the account change is active
+
 ## Migrate Existing Gateway Secrets
 
 If the gateway secrets already exist in Kubernetes, migrate them into Vault:

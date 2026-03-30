@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: prod-b3efb8cf72a5
-  digest: sha256:3dd90ccf04f84717df3d72ad46f1108f456a7c72665cb82de9609fe7a66aa800
+  tag: prod-2e7c8a5ab5a0
+  digest: sha256:44cacdc54f7e52b21b9c0b41281a6f8315ce64c5ac00f7c1121c408ac0d23e4d
 
 command:
   - node

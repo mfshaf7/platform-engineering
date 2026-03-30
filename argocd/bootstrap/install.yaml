@@ -11,4 +11,6 @@ metadata:
 data:
   README: |
     Install Argo CD using the upstream manifest or Helm chart, then apply
-    argocd/apps/root.yaml to register the platform root application.
+    argocd/bootstrap/operator-access.yaml to expose the Argo UI on a stable
+    NodePort, then apply argocd/apps/root.yaml to register the platform root
+    application.

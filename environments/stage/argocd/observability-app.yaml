@@ -25,6 +25,9 @@ spec:
             type: NodePort
             nodePort: 32081
         prometheus:
+          service:
+            type: NodePort
+            nodePort: 32091
           prometheusSpec:
             retention: 5d
         additionalPrometheusRulesMap:
@@ -74,6 +77,9 @@ spec:
                       description: A platform secrets Argo CD application is not healthy, indicating ESO sync or store issues.
         alertmanager:
           enabled: true
+          service:
+            type: NodePort
+            nodePort: 32094
         prometheus-node-exporter:
           hostRootFsMount:
             enabled: false

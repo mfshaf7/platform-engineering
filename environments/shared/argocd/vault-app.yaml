@@ -51,7 +51,8 @@ spec:
             enabled: true
         ui:
           enabled: true
-          serviceType: ClusterIP
+          serviceType: NodePort
+          serviceNodePort: 32200
   destination:
     server: https://kubernetes.default.svc
     namespace: vault

@@ -93,10 +93,11 @@ jobs:
 
       - name: Create production promotion pull request
         uses: peter-evans/create-pull-request@v7
+        id: promotion_branch
         with:
-          token: ${{ secrets.PROMOTION_TOKEN }}
           commit-message: Promote prod to approved stage gateway digest
           branch: promote/prod-${{ github.run_id }}
+          branch-only: true
           delete-branch: true
           title: Promote prod to approved stage gateway digest
           body: |
@@ -138,6 +139,8 @@ jobs:
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
             echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
+            echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.pull-request-branch }}\`"
+            echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.pull-request-branch }}?expand=1\`"
             echo
-            echo "A pull request was created so production promotion stays reviewable and approval-gated."
+            echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

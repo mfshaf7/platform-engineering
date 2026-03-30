@@ -18,9 +18,17 @@
   `/opt/platform-engineering` have been removed after path cutover.
 - Windows `127.0.0.1:18789`, `::1:18789`, and `localhost:18789` all resolve to
   the `Platform-Core` `k3s` gateway and return `200` on `/healthz`.
-- `openclaw-gateway-stage` is `Synced` and `Healthy` in Argo at revision
-  `6706ea9abe8c36231cb7bb1a2daa756c047b5a08`.
-- `openclaw-observability-stage` is `Synced` and `Healthy` in Argo.
+- Argo roots are now `platform-root-shared`, `platform-root-stage`, and
+  `platform-root-prod`.
+- Shared platform services now reconcile under the `platform-core` AppProject.
+- Vault runs as a three-node HA Raft cluster in the `vault` namespace.
+- `platform-secrets-stage` and `platform-secrets-prod` are `Synced` and
+  `Healthy` through External Secrets Operator backed by Vault.
+- `openclaw-gateway-stage`, `openclaw-gateway`, `platform-version-stage`,
+  `platform-version`, `openclaw-observability-stage`, and
+  `openclaw-observability` are `Synced` and `Healthy` in Argo at revision
+  `923daea0601b7097d046a0da6dd4cdf208016fed` for the platform repo-backed
+  applications.
 - The legacy Docker gateway `upstream-openclaw-openclaw-gateway-1` is stopped.
 
 ## Verified Legacy Runtime Dependencies
@@ -60,9 +68,11 @@ its `.git` metadata intact.
 
 ## Immediate Next Step
 
-The direct migration, persistence hardening, and legacy-system cut are
-complete. The next engineering work is platform evolution:
+The direct migration, persistence hardening, governed image delivery,
+platform-neutral control-plane rename, and Vault-backed secret centralization
+are now in place. The next engineering work is broader platform productization:
 
-1. pin every stage source SHA so the environment record is fully authoritative
-2. decide when to promote the governed GHCR build path over `openclaw:local`
+1. continue the naming audit so remaining shared components stay product-neutral
+2. replace any remaining manual secret bootstrap habits with fully governed
+   Vault operator workflows
 3. later, replace localhost-style access with a named service endpoint

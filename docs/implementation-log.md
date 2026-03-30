@@ -208,3 +208,17 @@ These are the next concrete steps after scaffolding:
     only and disabling the prod `prometheus-node-exporter` DaemonSet, which
     otherwise cannot schedule alongside the stage exporter on the same
     single-node host due to host port `9100` contention.
+53. Introduced a platform-first shared control-plane layer by renaming the
+    Argo roots and shared AppProject away from the `openclaw` product prefix,
+    moving the shared version metadata chart to `platform-version`, and
+    documenting the remaining product-coupled names that still need a separate
+    audit.
+54. Deployed shared Vault and External Secrets infrastructure into the cluster,
+    initialized and unsealed the three-node Raft-backed Vault HA set, and
+    configured Kubernetes auth plus least-privilege `stage` and `prod`
+    policies for the platform secret delivery path.
+55. Migrated the live gateway runtime secrets for `stage` and `prod` into
+    Vault under `products/openclaw/...`, forced External Secrets resync, and
+    verified both environment secret apps and the new platform-named Argo roots
+    converged to `Synced` and `Healthy` without disturbing the running gateway
+    workloads.

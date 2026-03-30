@@ -42,6 +42,9 @@ The build uses pinned SHAs from:
     refs
   - builds in CI instead of depending on a workstation Docker daemon
   - emits an immutable digest-backed image reference for promotion
+- the bundled stage/prod image build now extends the official upstream base
+  image `ghcr.io/openclaw/openclaw:latest` instead of the unpublished local-only
+  placeholder `openclaw:stable-preview`
 - `prod` should continue to use a published `ghcr.io/mfshaf7/openclaw-gateway`
   image, not an operator-local tag.
 

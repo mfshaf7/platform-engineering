@@ -2,7 +2,7 @@ environment: prod
 
 gateway:
   build:
-    baseImage: openclaw:stable-preview
+    baseImage: ghcr.io/openclaw/openclaw:latest
     dockerfile: deployment/Dockerfile.telegram-bundled.example
   publish:
     repository: ghcr.io/mfshaf7/openclaw-gateway

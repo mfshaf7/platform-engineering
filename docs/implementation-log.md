@@ -189,3 +189,8 @@ These are the next concrete steps after scaffolding:
     tagging plus OCI metadata, made the gateway chart digest-aware, and aligned
     the environment contracts so future stage and production promotion can use
     digest-backed image references instead of mutable local tags.
+49. Recovered the real gateway base-image provenance from the imported
+    `openclaw:local` runtime image and replaced the unpublished
+    `openclaw:stable-preview` placeholder with the official upstream GHCR base
+    image `ghcr.io/openclaw/openclaw:latest` so the CI build can pull a real
+    source image instead of depending on a legacy local-only tag.

@@ -1,48 +1,42 @@
 environment: prod
-
 gateway:
   build:
     baseImage: ghcr.io/openclaw/openclaw:latest
     dockerfile: deployment/Dockerfile.telegram-bundled.example
   publish:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tagPrefix: "prod"
+    tagPrefix: prod
     platforms:
-      - linux/amd64
+    - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: "replace-me-prod"
-    digest: "sha256:replace-me"
-  chartVersion: "0.1.0"
+    tag: stage-d929aaef358c
+    digest: sha256:63a8b56df348c60cb1ab4546c5c1b0b2141f2dbe6f9f857252e707eb8d747c44
+  chartVersion: 0.1.0
   replicas: 1
-
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: "replace-me"
+    commit: 05871229baf141bdba77e2b0a0a8cf23838c5036
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
-    commit: "replace-me"
+    commit: 12ed13cb076689c1874b3710342a29706663b259
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: "replace-me"
+    commit: f7c7d47007ea4079c2960e27ca9e7908bab2e0a6
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "replace-me"
-
+    commit: 70b4977ab2c8a990ebc324c8fa83ae1d10c0d2e2
 argocd:
   namespace: argocd
   project: openclaw-platform
-
 observability:
-  kubePrometheusStackChartVersion: "58.2.2"
-  grafanaAdminSecretStoreRef: "grafana-admin"
-
+  kubePrometheusStackChartVersion: 58.2.2
+  grafanaAdminSecretStoreRef: grafana-admin
 externalSecrets:
-  chartVersion: "0.10.5"
-  clusterSecretStore: "openclaw-cluster-secrets"
-
+  chartVersion: 0.10.5
+  clusterSecretStore: openclaw-cluster-secrets
 hostControl:
-  wslDistribution: "Platform-Core"
-  bridgeSystemdUnit: "openclaw-host-bridge.service"
-  recoverySystemdUnit: "openclaw-host-recovery.service"
+  wslDistribution: Platform-Core
+  bridgeSystemdUnit: openclaw-host-bridge.service
+  recoverySystemdUnit: openclaw-host-recovery.service

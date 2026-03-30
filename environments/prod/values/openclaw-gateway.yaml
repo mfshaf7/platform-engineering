@@ -19,6 +19,8 @@ env:
   OPENCLAW_PLATFORM_SHA: 70b4977ab2c8a990ebc324c8fa83ae1d10c0d2e2
 
 extraEnv:
+  - name: OPENCLAW_CONFIG_PATH
+    value: /home/node/.openclaw/openclaw.k3s.json
   - name: TERM
     value: xterm-256color
   - name: TZ

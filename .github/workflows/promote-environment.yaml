@@ -91,41 +91,18 @@ jobs:
               fh.write(f"PROMOTED_PLATFORM_SHA={source['platformEngineering']['commit']}\n")
           PY
 
-      - name: Create production promotion pull request
-        uses: peter-evans/create-pull-request@v7
+      - name: Create and push promotion branch
         id: promotion_branch
-        with:
-          commit-message: Promote prod to approved stage gateway digest
-          branch: promote/prod-${{ github.run_id }}
-          branch-only: true
-          delete-branch: true
-          title: Promote prod to approved stage gateway digest
-          body: |
-            ## Summary
-
-            - promotes `${{ inputs.target_environment }}` to the approved `${{ inputs.source_environment }}` gateway image digest
-            - records immutable image `${{ env.PROMOTED_IMAGE }}`
-            - copies the approved Telegram, host-bridge, isolated-deployment, and platform-engineering SHAs into the prod contract
-
-            ## Validation
-
-            - `python scripts/validate_environment_contract.py ${{ inputs.target_environment }}`
-            - `helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml`
-            - `helm template platform-version charts/openclaw-platform-version -f environments/prod/values/platform-version.yaml`
-
-            ## Post-Merge Verification
-
-            - verify Argo reconciles `prod` to the merge revision
-            - verify the running `prod` gateway pod image digest matches `${{ env.PROMOTED_IMAGE }}`
-            - verify the production gateway `/healthz` endpoint after rollout
-
-            ## Operator Note
-
-            ${{ inputs.promotion_note }}
-          add-paths: |
-            environments/prod/versions.yaml
-            environments/prod/values/openclaw-gateway.yaml
-            environments/prod/values/platform-version.yaml
+        env:
+          PROMOTION_BRANCH: promote/prod-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$PROMOTION_BRANCH"
+          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
+          git commit -m "Promote prod to approved stage gateway digest"
+          git push --force-with-lease origin "$PROMOTION_BRANCH"
+          echo "promotion_branch=$PROMOTION_BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Publish promotion summary
         run: |
@@ -139,8 +116,8 @@ jobs:
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
             echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
-            echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.pull-request-branch }}\`"
-            echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.pull-request-branch }}?expand=1\`"
+            echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
+            echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo
             echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

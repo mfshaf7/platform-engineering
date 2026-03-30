@@ -18,6 +18,28 @@ $forwardPorts = @(
 {% endfor %}
 )
 
+$hostForwardRules = @(
+{% for rule in openclaw_windows_host_forward_rules | default([]) %}
+  @{
+    Name = '{{ rule.name }}'
+    ListenAddressSource = '{{ rule.listen_address_source }}'
+    ListenPort = {{ rule.listen_port }}
+    ConnectAddress = '{{ rule.connect_address }}'
+    ConnectPort = {{ rule.connect_port }}
+  }{{ "," if not loop.last else "" }}
+{% endfor %}
+)
+
+function Get-WslHostDockerInternalIp {
+  $resolved = wsl.exe -d $Distro -u root -- sh -lc "getent hosts host.docker.internal | awk '{print \$1; exit}'"
+  $ip = $resolved.Trim()
+  if (-not $ip) {
+    throw "Unable to resolve host.docker.internal from $Distro"
+  }
+
+  return $ip
+}
+
 function Update-LocalhostPortProxy {
   $wslIp = (wsl.exe -d $Distro -u root -- hostname -I).Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
   if (-not $wslIp) {
@@ -27,6 +49,36 @@ function Update-LocalhostPortProxy {
   foreach ($port in $forwardPorts) {
     netsh interface portproxy delete v4tov4 listenport=$port listenaddress=127.0.0.1 | Out-Null
     netsh interface portproxy add v4tov4 listenport=$port listenaddress=127.0.0.1 connectport=$port connectaddress=$wslIp | Out-Null
+  }
+
+  $hostDockerInternalIp = $null
+
+  foreach ($rule in $hostForwardRules) {
+    $listenAddress = switch ($rule.ListenAddressSource) {
+      'wsl_host_docker_internal' {
+        if (-not $hostDockerInternalIp) {
+          $hostDockerInternalIp = Get-WslHostDockerInternalIp
+        }
+        $hostDockerInternalIp
+      }
+      default {
+        throw "Unsupported listen address source: $($rule.ListenAddressSource)"
+      }
+    }
+
+    netsh interface portproxy delete v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress | Out-Null
+    netsh interface portproxy add v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress connectport=$($rule.ConnectPort) connectaddress=$($rule.ConnectAddress) | Out-Null
+
+    $existingRule = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
+    if (-not $existingRule) {
+      New-NetFirewallRule `
+        -DisplayName $rule.Name `
+        -Direction Inbound `
+        -Action Allow `
+        -Protocol TCP `
+        -LocalPort $rule.ListenPort `
+        -Profile Any | Out-Null
+    }
   }
 }
 

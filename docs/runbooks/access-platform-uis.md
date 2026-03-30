@@ -35,3 +35,7 @@ Notes:
 - Argo CD and Vault operator credentials are bootstrapped by
   [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh),
   not by a Git-tracked static secret.
+- Host-side Ollama access for the gateway is refreshed by the managed Windows
+  bootstrap path. It forwards the WSL-resolved `host.docker.internal:11434`
+  address to Windows `127.0.0.1:11434`, so the gateway can keep using the
+  OpenClaw config's Ollama base URL after restarts.

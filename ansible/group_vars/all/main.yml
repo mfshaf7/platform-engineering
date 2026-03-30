@@ -20,6 +20,12 @@ openclaw_windows_localhost_forward_ports:
   - 32081
   - 32200
   - 32443
+openclaw_windows_host_forward_rules:
+  - name: PlatformCore Ollama 11434
+    listen_address_source: wsl_host_docker_internal
+    listen_port: 11434
+    connect_address: 127.0.0.1
+    connect_port: 11434
 openclaw_k3s_version: v1.30.2+k3s2
 openclaw_k3s_config_path: /etc/rancher/k3s/config.yaml
 openclaw_k3s_kubeconfig_path: /etc/rancher/k3s/k3s.yaml

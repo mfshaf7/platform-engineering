@@ -11,6 +11,8 @@ instances.
 - stage Grafana: `http://127.0.0.1:32081`
 
 These NodePort services are exposed by the local `k3s` host.
+Windows localhost forwarding for these ports is managed by the
+`PlatformCoreHostStack` bootstrap path.
 
 ## Credentials
 

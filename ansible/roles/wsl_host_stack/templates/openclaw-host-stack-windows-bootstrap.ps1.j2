@@ -12,6 +12,24 @@ $ErrorActionPreference = 'Stop'
 $wslCommand = "systemctl start $StackTarget && systemctl --quiet is-active $StackTarget $BridgeService $RecoveryService"
 $wslArgs = "-d $Distro -u root --cd $Root /bin/bash -lc `"$wslCommand`""
 
+$forwardPorts = @(
+{% for port in openclaw_windows_localhost_forward_ports %}
+  {{ port }}{{ "," if not loop.last else "" }}
+{% endfor %}
+)
+
+function Update-LocalhostPortProxy {
+  $wslIp = (wsl.exe -d $Distro -u root -- hostname -I).Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
+  if (-not $wslIp) {
+    throw "Unable to determine WSL IP for $Distro"
+  }
+
+  foreach ($port in $forwardPorts) {
+    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=127.0.0.1 | Out-Null
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=127.0.0.1 connectport=$port connectaddress=$wslIp | Out-Null
+  }
+}
+
 $action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument $wslArgs
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet `
@@ -35,4 +53,5 @@ Register-ScheduledTask `
   -Force | Out-Null
 
 Start-ScheduledTask -TaskName $TaskName
+Update-LocalhostPortProxy
 Write-Output "Registered and started task: $TaskName"

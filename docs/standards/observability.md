@@ -9,6 +9,13 @@ Every managed runtime should expose:
 
 Prometheus and Grafana are the default platform observability stack.
 
+Platform operators should maintain alerts for:
+
+- Argo reconciliation drift
+- Vault health and readiness
+- External Secrets sync failures or degraded secret delivery
+- core product runtime availability
+
 Platform-owned assets live under:
 
 - [observability/alerts](../../observability/alerts)

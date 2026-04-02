@@ -28,7 +28,7 @@ sourceRepos:
     commit: "ac80a1593bf759274eacef5a14f05709abcc70d8"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "6e1c21a9aadb7b5f4e1a1a9d28d961593a9cb343"
+    commit: "45073ae519fbe486f9babfed75a021c0e06a00cd"
 
 argocd:
   namespace: argocd

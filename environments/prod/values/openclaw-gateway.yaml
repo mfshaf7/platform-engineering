@@ -1,39 +1,35 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: prod-e00015d7409e
-  digest: sha256:84f1a649cf42879db4f362be121ffb49ec70e51a114bbc07ddc600928ed0d384
-
+  tag: stage-7cb34aee80d1
+  digest: sha256:02db66f38efa6104f4650a4d1082e10180d742a4df61613131ec9a81e7edc147
 command:
-  - node
-  - dist/index.js
-  - gateway
-  - --bind
-  - lan
-  - --port
-  - "18789"
-
+- node
+- dist/index.js
+- gateway
+- --bind
+- lan
+- --port
+- '18789'
 env:
   OPENCLAW_ENV: prod
-  OPENCLAW_TELEGRAM_SHA: 93f2ea6d921ccc4937e4c658cbdb6ab4bbe4c26a
-  OPENCLAW_HOST_BRIDGE_SHA: 12ed13cb076689c1874b3710342a29706663b259
-  OPENCLAW_PLATFORM_SHA: 70b4977ab2c8a990ebc324c8fa83ae1d10c0d2e2
-
+  OPENCLAW_TELEGRAM_SHA: 990f76e567e0104354b8136768f15754616a4f5f
+  OPENCLAW_HOST_BRIDGE_SHA: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
+  OPENCLAW_PLATFORM_SHA: 28bf612b0d96634e13d7655a11b6fab4be8e496d
 extraEnv:
-  - name: OPENCLAW_CONFIG_PATH
-    value: /home/node/.openclaw/openclaw.k3s.json
-  - name: TERM
-    value: xterm-256color
-  - name: TZ
-    value: UTC
-  - name: CLAUDE_WEB_SESSION_KEY
-    value: ""
-  - name: CLAUDE_WEB_COOKIE
-    value: ""
-  - name: CLAUDE_AI_SESSION_KEY
-    value: ""
-  - name: OPENCLAW_ALLOW_INSECURE_PRIVATE_WS
-    value: ""
-
+- name: OPENCLAW_CONFIG_PATH
+  value: /home/node/.openclaw/openclaw.k3s.json
+- name: TERM
+  value: xterm-256color
+- name: TZ
+  value: UTC
+- name: CLAUDE_WEB_SESSION_KEY
+  value: ''
+- name: CLAUDE_WEB_COOKIE
+  value: ''
+- name: CLAUDE_AI_SESSION_KEY
+  value: ''
+- name: OPENCLAW_ALLOW_INSECURE_PRIVATE_WS
+  value: ''
 resources:
   requests:
     cpu: 500m
@@ -41,17 +37,14 @@ resources:
   limits:
     cpu: '2'
     memory: 4Gi
-
 extraVolumeMounts:
-  - name: openclaw-home
-    mountPath: /home/node/.openclaw
-
+- name: openclaw-home
+  mountPath: /home/node/.openclaw
 extraVolumes:
-  - name: openclaw-home
-    hostPath:
-      path: /home/mfshaf7/.openclaw
-      type: Directory
-
+- name: openclaw-home
+  hostPath:
+    path: /home/mfshaf7/.openclaw
+    type: Directory
 serviceMonitor:
   enabled: true
   interval: 30s

@@ -67,7 +67,7 @@ jobs:
         run: helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-prod.yaml
 
       - name: Render promoted prod platform version chart
-        run: helm template platform-version charts/openclaw-platform-version -f environments/prod/values/platform-version.yaml >/tmp/platform-version-prod.yaml
+        run: helm template platform-version charts/platform-version -f environments/prod/values/platform-version.yaml >/tmp/platform-version-prod.yaml
 
       - name: Show promotion diff
         run: |

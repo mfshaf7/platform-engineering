@@ -78,6 +78,17 @@ path "kv/metadata/platform/observability/prod/*" {
 EOF
   vault policy write platform-observability-prod-read /tmp/platform-observability-prod-read.hcl
 
+  cat <<EOF >/tmp/platform-argocd-read.hcl
+path "kv/data/platform/argocd/*" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/argocd/*" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-argocd-read /tmp/platform-argocd-read.hcl
+
   vault write auth/kubernetes/role/platform-stage-secrets \
     bound_service_account_names="platform-vault-reader" \
     bound_service_account_namespaces="openclaw-stage" \
@@ -104,5 +115,12 @@ EOF
     bound_service_account_namespaces="observability" \
     audience="vault" \
     token_policies="platform-observability-prod-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-argocd-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="argocd" \
+    audience="vault" \
+    token_policies="platform-argocd-read" \
     ttl="1h"
 '

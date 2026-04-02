@@ -3,4 +3,7 @@ kind: Kustomization
 resources:
   - platform-core-project.yaml
   - external-secrets-app.yaml
+  - platform-vault-reader-serviceaccount.yaml
+  - platform-vault-secretstore.yaml
+  - platform-engineering-repo-externalsecret.yaml
   - vault-app.yaml

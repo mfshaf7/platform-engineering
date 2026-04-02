@@ -86,6 +86,7 @@ jobs:
           repository: mfshaf7/openclaw-telegram-enhanced
           ref: ${{ steps.env_meta.outputs.telegram_ref }}
           path: openclaw-telegram-enhanced
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
       - name: Check out host-bridge source
         uses: actions/checkout@v4
@@ -93,6 +94,7 @@ jobs:
           repository: mfshaf7/openclaw-host-bridge
           ref: ${{ steps.env_meta.outputs.host_bridge_ref }}
           path: openclaw-host-bridge
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
       - name: Check out isolated-deployment source
         uses: actions/checkout@v4
@@ -100,6 +102,7 @@ jobs:
           repository: mfshaf7/openclaw-isolated-deployment
           ref: ${{ steps.env_meta.outputs.deployment_ref }}
           path: openclaw-isolated-deployment
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
       - name: Sync deployment build copy and verify workspace
         working-directory: openclaw-isolated-deployment

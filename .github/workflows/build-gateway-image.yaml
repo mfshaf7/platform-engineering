@@ -139,6 +139,13 @@ jobs:
         env:
           OPENCLAW_TELEGRAM_REPO: ${{ github.workspace }}/openclaw-telegram-enhanced
 
+      - name: Validate gateway source bundle compatibility
+        working-directory: platform-engineering
+        run: |
+          python scripts/validate_gateway_source_bundle.py \
+            --telegram-repo "${{ github.workspace }}/openclaw-telegram-enhanced" \
+            --deployment-repo "${{ github.workspace }}/openclaw-isolated-deployment"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

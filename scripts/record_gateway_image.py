@@ -63,6 +63,9 @@ def main() -> int:
     gateway_values["image"]["repository"] = repository
     gateway_values["image"]["tag"] = args.tag
     gateway_values["image"]["digest"] = args.digest
+    gateway_values["env"]["OPENCLAW_TELEGRAM_SHA"] = versions["sourceRepos"]["telegramEnhanced"]["commit"]
+    gateway_values["env"]["OPENCLAW_HOST_BRIDGE_SHA"] = versions["sourceRepos"]["hostBridge"]["commit"]
+    gateway_values["env"]["OPENCLAW_PLATFORM_SHA"] = versions["sourceRepos"]["platformEngineering"]["commit"]
 
     platform_values["versions"]["gatewayImage"] = image_ref
     platform_values["versions"]["isolatedDeploymentSha"] = versions["sourceRepos"]["isolatedDeployment"]["commit"]

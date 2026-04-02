@@ -17,7 +17,7 @@ gateway:
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: 7c9275002d9266a725c71dcf10dfa919d6d76a42
+    commit: 7c92750ec69d380ebfae1aa5beb23a69d01debcd
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
     commit: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9

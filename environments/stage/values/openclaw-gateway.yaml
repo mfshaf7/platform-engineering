@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: "stage-8f1ad2c27ef7"
-  digest: "sha256:abbfe46e974b7c0444ada1989a42ef02e34efe1f3f59f048bb05a03f5d32c3c5"
+  tag: "stage-fc43778461ff"
+  digest: "sha256:bad14d09a9b5d6aa46e736cb85b6804cb2c40edefb827c4bc26989d8ad0873a5"
   pullPolicy: IfNotPresent
 
 command:
@@ -26,7 +26,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 846b79052630034b42a291ed21e6ff09eddfd9fa
   OPENCLAW_HOST_BRIDGE_SHA: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
-  OPENCLAW_PLATFORM_SHA: 45073ae519fbe486f9babfed75a021c0e06a00cd
+  OPENCLAW_PLATFORM_SHA: 1b4871dc961d0e23767e3d1cb56db232df777b74
 
 extraEnv:
   - name: OPENCLAW_CONFIG_PATH

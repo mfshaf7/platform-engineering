@@ -61,6 +61,7 @@ jobs:
               fh.write(f"telegram_ref={data['sourceRepos']['telegramEnhanced']['commit']}\n")
               fh.write(f"host_bridge_ref={data['sourceRepos']['hostBridge']['commit']}\n")
               fh.write(f"deployment_ref={data['sourceRepos']['isolatedDeployment']['commit']}\n")
+              fh.write(f"platform_ref={data['sourceRepos']['platformEngineering']['commit']}\n")
               fh.write(f"publish_repository={data['gateway']['publish']['repository']}\n")
               fh.write(f"publish_tag_prefix={data['gateway']['publish']['tagPrefix']}\n")
               fh.write(f"publish_platforms={','.join(data['gateway']['publish']['platforms'])}\n")
@@ -77,8 +78,30 @@ jobs:
           test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.platform_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_repository }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_tag_prefix }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.platform_ref }}" = "${{ github.sha }}"
+
+      - name: Verify pinned refs exist upstream
+        env:
+          CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          check_ref() {
+            local repo="$1"
+            local ref="$2"
+            local url="https://x-access-token:${CROSS_REPO_READ_TOKEN}@github.com/${repo}.git"
+            if ! git ls-remote --exit-code "$url" "$ref" >/dev/null 2>&1; then
+              echo "Pinned ref not found upstream: repo=${repo} ref=${ref}" >&2
+              exit 1
+            fi
+          }
+
+          check_ref "mfshaf7/openclaw-telegram-enhanced" "${{ steps.env_meta.outputs.telegram_ref }}"
+          check_ref "mfshaf7/openclaw-host-bridge" "${{ steps.env_meta.outputs.host_bridge_ref }}"
+          check_ref "mfshaf7/openclaw-isolated-deployment" "${{ steps.env_meta.outputs.deployment_ref }}"
 
       - name: Check out Telegram source
         uses: actions/checkout@v4

@@ -5,8 +5,6 @@ import sys
 
 
 LEGACY_TELEGRAM_IMPORT = 'from "openclaw/plugin-sdk/telegram"'
-EXPORT_PATCH_MARKER = 'pkg.exports["./plugin-sdk/telegram"]'
-EXPORT_TARGET_MARKER = '"./dist/plugin-sdk/telegram.js"'
 
 
 def read_text(path: Path) -> str:
@@ -25,24 +23,21 @@ def main() -> int:
     args = parser.parse_args()
 
     runtime_api = read_text(args.telegram_repo / "runtime-api.ts")
-    dockerfile = read_text(args.deployment_repo / "deployment" / "Dockerfile.telegram-bundled.example")
-
     uses_legacy_sdk_export = LEGACY_TELEGRAM_IMPORT in runtime_api
-    has_export_patch = EXPORT_PATCH_MARKER in dockerfile and EXPORT_TARGET_MARKER in dockerfile
 
-    if uses_legacy_sdk_export and not has_export_patch:
+    if uses_legacy_sdk_export:
         print(
-            "Incompatible gateway source bundle: Telegram runtime-api imports "
-            '"openclaw/plugin-sdk/telegram" but the deployment Dockerfile does not patch '
-            "the matching ./plugin-sdk/telegram package export into /app/package.json.",
+            "Incompatible gateway source bundle: Telegram runtime-api still imports "
+            '"openclaw/plugin-sdk/telegram", but the governed upstream runtime does not ship '
+            "a stable dist/plugin-sdk/telegram.js entrypoint. Use the newer runtime-api contract "
+            'that imports config-runtime/channel-contract/core/telegram-core instead.',
             file=sys.stderr,
         )
         return 1
 
     print(
         "Gateway source bundle compatible: "
-        f"legacy_telegram_sdk_import={str(uses_legacy_sdk_export).lower()} "
-        f"dockerfile_export_patch={str(has_export_patch).lower()}"
+        f"legacy_telegram_sdk_import={str(uses_legacy_sdk_export).lower()}"
     )
     return 0
 

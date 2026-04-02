@@ -61,7 +61,6 @@ jobs:
               fh.write(f"telegram_ref={data['sourceRepos']['telegramEnhanced']['commit']}\n")
               fh.write(f"host_bridge_ref={data['sourceRepos']['hostBridge']['commit']}\n")
               fh.write(f"deployment_ref={data['sourceRepos']['isolatedDeployment']['commit']}\n")
-              fh.write(f"platform_ref={data['sourceRepos']['platformEngineering']['commit']}\n")
               fh.write(f"publish_repository={data['gateway']['publish']['repository']}\n")
               fh.write(f"publish_tag_prefix={data['gateway']['publish']['tagPrefix']}\n")
               fh.write(f"publish_platforms={','.join(data['gateway']['publish']['platforms'])}\n")
@@ -78,10 +77,8 @@ jobs:
           test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
-          test "${{ steps.env_meta.outputs.platform_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_repository }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_tag_prefix }}" != "replace-me"
-          test "${{ steps.env_meta.outputs.platform_ref }}" = "${{ github.sha }}"
 
       - name: Verify pinned refs exist upstream
         env:

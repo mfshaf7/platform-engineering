@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
+import re
 import sys
 
 
 LEGACY_TELEGRAM_IMPORT = 'from "openclaw/plugin-sdk/telegram"'
+WRONG_HOST_CONTROL_HELPER_IMPORT_RE = re.compile(
+    r'import\s*\{[^}]*appendHostControlTopicSystemPrompt[^}]*\}\s*from\s*"\./bot/helpers\.js";',
+    re.DOTALL,
+)
 
 
 def read_text(path: Path) -> str:
@@ -23,7 +28,11 @@ def main() -> int:
     args = parser.parse_args()
 
     runtime_api = read_text(args.telegram_repo / "runtime-api.ts")
+    bot_message_context = read_text(args.telegram_repo / "src" / "bot-message-context.session.ts")
     uses_legacy_sdk_export = LEGACY_TELEGRAM_IMPORT in runtime_api
+    uses_wrong_host_control_helper_import = bool(
+        WRONG_HOST_CONTROL_HELPER_IMPORT_RE.search(bot_message_context)
+    )
 
     if uses_legacy_sdk_export:
         print(
@@ -35,9 +44,22 @@ def main() -> int:
         )
         return 1
 
+    if uses_wrong_host_control_helper_import:
+        print(
+            "Incompatible gateway source bundle: bot-message-context.session.ts imports "
+            "appendHostControlTopicSystemPrompt from ./bot/helpers.js, but that helper is "
+            "exported by ./group-config-helpers.js. This ships a runtime TypeError when "
+            "Telegram processes host-control topic messages.",
+            file=sys.stderr,
+        )
+        return 1
+
     print(
         "Gateway source bundle compatible: "
-        f"legacy_telegram_sdk_import={str(uses_legacy_sdk_export).lower()}"
+        "legacy_telegram_sdk_import="
+        f"{str(uses_legacy_sdk_export).lower()} "
+        "wrong_host_control_helper_import="
+        f"{str(uses_wrong_host_control_helper_import).lower()}"
     )
     return 0
 

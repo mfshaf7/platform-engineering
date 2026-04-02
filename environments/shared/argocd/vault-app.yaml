@@ -47,8 +47,10 @@ spec:
           podAntiAffinity: ""
           readinessProbe:
             enabled: true
+            path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
           livenessProbe:
             enabled: true
+            path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
         ui:
           enabled: true
           serviceType: NodePort

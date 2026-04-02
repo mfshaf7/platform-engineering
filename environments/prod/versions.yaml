@@ -10,8 +10,8 @@ gateway:
     - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: prod-8f2a9197123b
-    digest: sha256:9f70dfeb1040f5bbb35172e7e8c2faa729d87d5f16dfd91abe9e6533d7eca7e1
+    tag: prod-b2c108701e5c
+    digest: sha256:7c2b57e97ae92fca110700d9433ff411375cde6fe82a2a0c8f7b21b2b0b207ee
   chartVersion: 0.1.0
   replicas: 1
 sourceRepos:

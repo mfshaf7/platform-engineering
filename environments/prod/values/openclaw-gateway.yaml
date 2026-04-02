@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: prod-8f2a9197123b
-  digest: sha256:9f70dfeb1040f5bbb35172e7e8c2faa729d87d5f16dfd91abe9e6533d7eca7e1
+  tag: prod-b2c108701e5c
+  digest: sha256:7c2b57e97ae92fca110700d9433ff411375cde6fe82a2a0c8f7b21b2b0b207ee
 command:
 - node
 - dist/index.js
@@ -12,7 +12,7 @@ command:
 - '18789'
 env:
   OPENCLAW_ENV: prod
-  OPENCLAW_TELEGRAM_SHA: 990f76e567e0104354b8136768f15754616a4f5f
+  OPENCLAW_TELEGRAM_SHA: 846b79052630034b42a291ed21e6ff09eddfd9fa
   OPENCLAW_HOST_BRIDGE_SHA: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
   OPENCLAW_PLATFORM_SHA: af9c1fcfed45a18da401341d6771cc9b05526316
 extraEnv:

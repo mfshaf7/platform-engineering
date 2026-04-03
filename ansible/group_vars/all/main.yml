@@ -11,7 +11,7 @@ openclaw_host_recovery_restart_delay_seconds: 2
 openclaw_host_bridge_node_bin_dir: /home/mfshaf7/.nvm/versions/node/v24.14.1/bin
 platform_windows_task_name: PlatformCoreHostStack
 platform_windows_wsl_distro: Platform-Core
-platform_windows_vault_unseal_enabled: false
+platform_windows_vault_unseal_enabled: true
 platform_windows_vault_unseal_timeout_seconds: 180
 platform_windows_vault_tpm_certificate_store_path: Cert:\CurrentUser\My
 platform_windows_vault_tpm_certificate_subject: CN=Platform Vault Unseal
@@ -55,6 +55,8 @@ platform_restart_validation_applications:
   - openclaw-gateway
   - openclaw-observability
   - openclaw-observability-stage
+platform_argocd_reconciliation_timeout_seconds: 180
+platform_argocd_reconciliation_poll_interval_seconds: 5
 platform_windows_localhost_forward_ports:
   - 32090
   - 32091

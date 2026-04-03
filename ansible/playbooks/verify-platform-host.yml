@@ -88,7 +88,7 @@
       command: >-
         {{ platform_k3s_kubectl_command }}
         -n {{ platform_vault_namespace }}
-        exec vault-0 -- sh -lc 'vault status -format=json | grep -q "\"sealed\":false"'
+        exec vault-0 -- sh -lc 'vault status -format=json | grep -Eq "\"sealed\"[[:space:]]*:[[:space:]]*false"'
       environment:
         KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
       register: vault_unsealed
@@ -106,6 +106,9 @@
         KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
       register: argocd_apps
       changed_when: false
+      retries: "{{ ((platform_argocd_reconciliation_timeout_seconds | int) // (platform_argocd_reconciliation_poll_interval_seconds | int)) | int }}"
+      delay: "{{ platform_argocd_reconciliation_poll_interval_seconds | int }}"
+      until: argocd_apps.rc == 0
 
     - name: Check rendered Windows bootstrap artifact exists
       delegate_to: localhost

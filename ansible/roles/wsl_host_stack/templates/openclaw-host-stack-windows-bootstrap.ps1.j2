@@ -62,7 +62,7 @@ function Invoke-WslBash {
 }
 
 function Get-WslHostDockerInternalIp {
-  $resolved = Invoke-WslBash -TargetDistro $Distro -Command "getent hosts host.docker.internal | awk '{print \$1; exit}'"
+  $resolved = Invoke-WslBash -TargetDistro $Distro -Command "getent hosts host.docker.internal | awk '{print `$1; exit}'"
   $ip = $resolved.Trim()
   if (-not $ip) {
     throw "Unable to resolve host.docker.internal from $Distro"

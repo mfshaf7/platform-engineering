@@ -45,6 +45,11 @@ Preferred order:
 2. HSM-backed auto-unseal
 3. Vault Transit auto-unseal using a separately managed trust root
 
+For this local platform, the preferred low-cost path is option `3`, using a
+separate transit Vault outside the workload cluster. See
+[ADR-003-vault-transit-auto-unseal.md](../architecture/ADR-003-vault-transit-auto-unseal.md)
+and [bootstrap-transit-vault.md](bootstrap-transit-vault.md).
+
 Do not store unseal material in Git, local startup scripts, or plaintext host
 files just to simulate unattended recovery.
 

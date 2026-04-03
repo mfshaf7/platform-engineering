@@ -67,6 +67,9 @@ Required when:
 This class requires auto-unseal or an equivalent trusted unseal mechanism for
 Vault.
 
+For this local platform, the preferred low-cost target is a separate transit
+Vault trust root rather than host-stored unseal material.
+
 ## Verification gate
 
 The required verification gate is:

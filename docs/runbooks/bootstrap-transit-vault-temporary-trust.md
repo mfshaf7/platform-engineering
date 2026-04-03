@@ -19,7 +19,7 @@ It is not the final enterprise-grade trust-root design.
 The temporary trust chain is:
 
 1. Windows logon/startup bootstrap runs
-2. Windows releases a DPAPI-protected secret for the transit Vault only
+2. Windows releases a TPM/DPAPI-protected secret for the transit Vault only
 3. `Platform-Transit` starts and unseals transit Vault
 4. `Platform-Core` starts
 5. workload Vault auto-unseals through transit
@@ -49,14 +49,25 @@ host-to-workload unseal shortcut.
 
 ## Secret-handling rule
 
-Use Windows protected storage such as DPAPI or Credential Manager only for the
-transit Vault unseal path.
+Use Windows protected storage only for the transit Vault unseal path.
+
+Preferred order:
+
+1. TPM-backed Windows key protection
+2. DPAPI-backed Windows protection
+3. Credential Manager only as a wrapper around one of the above
 
 Do not:
 
 - store plaintext recovery keys in Git
 - place plaintext unseal keys in scheduled-task arguments
 - reuse the same host secret as a direct workload Vault unseal credential
+
+## Platform note
+
+This workstation currently reports a usable TPM. That makes TPM-backed
+protection the preferred temporary implementation rather than plain DPAPI-only
+release.
 
 ## Operational modes
 

@@ -58,6 +58,9 @@ external trust root exists, use the temporary chain documented in
 [ADR-004-transit-vault-temporary-windows-trust-root.md](../architecture/ADR-004-transit-vault-temporary-windows-trust-root.md)
 and [bootstrap-transit-vault-temporary-trust.md](bootstrap-transit-vault-temporary-trust.md).
 
+When the workstation exposes a usable TPM, prefer TPM-backed Windows protection
+for the transit Vault unseal path over DPAPI-only storage.
+
 Do not store unseal material in Git, local startup scripts, or plaintext host
 files just to simulate unattended recovery.
 

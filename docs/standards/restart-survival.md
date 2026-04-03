@@ -77,6 +77,9 @@ If the platform temporarily uses Windows-protected storage to unseal the
 transit Vault first, document that explicitly as a workstation-trust-rooted
 temporary model rather than a final external-trust-root solution.
 
+When TPM is available on the workstation, prefer TPM-backed protection for that
+temporary Windows trust root.
+
 ## Verification gate
 
 The required verification gate is:

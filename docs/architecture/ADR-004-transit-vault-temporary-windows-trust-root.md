@@ -34,7 +34,8 @@ In practical terms:
 - `Platform-Transit` hosts the dedicated transit Vault
 - `Platform-Core` hosts the workload Vault and the rest of the platform
 
-The preferred Windows protection mechanism is DPAPI-backed secret storage.
+The preferred Windows protection mechanism is TPM-backed key protection with
+DPAPI or Credential Manager layered on top as needed by the implementation.
 
 ## Why This Decision
 
@@ -43,6 +44,12 @@ The preferred Windows protection mechanism is DPAPI-backed secret storage.
 Using Windows to release unseal material only for the transit Vault preserves a
 cleaner split than making the workload Vault depend directly on host-stored
 unseal credentials.
+
+### Stronger than DPAPI-only when TPM is available
+
+If the workstation exposes a usable TPM, the temporary trust root should bind
+the transit-unseal release path to TPM-backed key material rather than relying
+on account-scoped DPAPI alone.
 
 ### Honest temporary model
 
@@ -64,6 +71,8 @@ It is explicitly a workstation-trust-rooted temporary model.
 - Windows becomes the temporary root of trust
 - a workstation compromise can compromise the transit unseal path
 - this model must not be described as equivalent to enterprise external KMS
+- TPM availability and Windows key-protection behavior now become part of the
+  local platform dependency set
 
 ## Guardrails
 
@@ -71,6 +80,7 @@ It is explicitly a workstation-trust-rooted temporary model.
 - do not store plaintext unseal material in permanent startup scripts
 - restrict the Windows-released secret to the transit Vault only
 - keep the workload Vault dependent on transit, not on direct host unseal
+- prefer TPM-backed release over DPAPI-only release when the machine supports it
 - record the eventual migration away from this model when a stronger external
   trust root exists
 

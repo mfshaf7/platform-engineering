@@ -20,6 +20,7 @@ help:
 	@printf "  capture-windows-task-evidence Capture current Windows scheduled-task evidence\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
+	@printf "  prepull-gateway-image Warm the current gateway image digest onto every node before rollout\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
 	@printf "  show-prod-versions Show current prod version pins\n"
@@ -74,6 +75,11 @@ verify-platform-host:
 
 .PHONY: verify-restart-survival
 verify-restart-survival: verify-platform-host
+
+.PHONY: prepull-gateway-image
+prepull-gateway-image:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make prepull-gateway-image ENVIRONMENT=stage"; exit 1; }
+	python3 scripts/prepull_gateway_image.py $(ENVIRONMENT)
 
 .PHONY: render-windows-bootstrap
 render-windows-bootstrap:

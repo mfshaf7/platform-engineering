@@ -60,14 +60,23 @@ python3 scripts/validate_environment_contract.py prod --repo-root .
 
 6. Commit and push the recorded prod values.
 
-7. Refresh Argo:
+7. Warm the recorded digest onto the cluster before rollout:
+
+```bash
+cd /home/<platform-user>/projects/platform-engineering
+make prepull-gateway-image ENVIRONMENT=prod
+```
+
+This avoids making the rollout wait on a first-time cold pull of the gateway image.
+
+8. Refresh Argo:
 
 ```bash
 k3s kubectl -n argocd annotate application openclaw-gateway \
   argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-8. Verify rollout:
+9. Verify rollout:
 
 ```bash
 k3s kubectl -n argocd get application openclaw-gateway \

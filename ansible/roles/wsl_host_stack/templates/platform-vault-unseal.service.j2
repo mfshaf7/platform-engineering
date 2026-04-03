@@ -1,0 +1,14 @@
+[Unit]
+Description=Platform Vault TPM-backed unseal from WSL
+After=network-online.target k3s.service
+Wants=network-online.target k3s.service
+
+[Service]
+Type=oneshot
+ExecStart={{ platform_windows_vault_unseal_wsl_wrapper_path }}
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

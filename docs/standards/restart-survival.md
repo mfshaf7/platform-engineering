@@ -12,9 +12,10 @@ come back, but the actual platform still depends on manual operator repair.
 The platform is restart-survivable only when a normal host restart or logon can
 restore the full managed stack without ad hoc operator intervention.
 
-That includes:
+That includes, depending on the restart type:
 
-- Windows bootstrap
+- Windows bootstrap when Windows actually restarted or the user logged on
+- WSL `systemd` bootstrap when only the WSL distro restarted
 - WSL `systemd`
 - host bridge and recovery services
 - `k3s`
@@ -25,12 +26,12 @@ That includes:
 
 ## Required post-restart outcome
 
-After a normal restart or logon:
+After a normal restart, WSL restart, or logon:
 
-1. the Windows bootstrap path starts the WSL-managed host stack
+1. the correct bootstrap path for the event starts the WSL-managed host stack
 2. `k3s` is active and the node is `Ready`
 3. bridge and recovery are active and answer health checks
-4. Vault is available for runtime secret delivery
+4. Vault is available for runtime secret delivery without ad hoc manual unseal
 5. Vault-backed secrets reconcile without manual repair
 6. core Argo applications return to `Synced` and `Healthy`
 7. the gateway path can reach its required host-side dependencies

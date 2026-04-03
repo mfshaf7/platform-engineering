@@ -6,6 +6,10 @@ openclaw_wsl_required_packages:
 openclaw_wsl_config_path: /etc/wsl.conf
 openclaw_wsl_default_user: mfshaf7
 openclaw_host_bridge_node_binary: "{{ openclaw_host_bridge_node_bin_dir }}/node"
+platform_windows_powershell_binary: /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
+platform_windows_vault_unseal_artifact_linux_path: "{{ platform_repo_root }}/ansible/generated/platform-vault-unseal.ps1"
+platform_windows_vault_unseal_wsl_wrapper_path: /usr/local/bin/platform-vault-unseal-from-wsl.sh
+platform_windows_vault_unseal_service_name: platform-vault-unseal.service
 openclaw_host_bridge_required_paths:
   - "{{ openclaw_host_bridge_root }}"
   - "{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-bridge-supervisor.sh"

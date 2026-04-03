@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+POWERSHELL_BIN="{{ platform_windows_powershell_binary }}"
+HELPER_PATH="{{ platform_windows_vault_unseal_artifact_linux_path }}"
+
+if [[ ! -x "$POWERSHELL_BIN" ]]; then
+  echo "Windows PowerShell binary is missing at $POWERSHELL_BIN" >&2
+  exit 1
+fi
+
+if [[ ! -f "$HELPER_PATH" ]]; then
+  echo "Windows Vault unseal helper is missing at $HELPER_PATH" >&2
+  exit 1
+fi
+
+WIN_HELPER_PATH="$(wslpath -w "$HELPER_PATH")"
+exec "$POWERSHELL_BIN" -NoProfile -ExecutionPolicy Bypass -File "$WIN_HELPER_PATH"

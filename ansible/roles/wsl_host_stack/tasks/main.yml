@@ -54,6 +54,23 @@
   loop: "{{ openclaw_host_runtime_inputs.results }}"
   when: not item.stat.exists
 
+- name: Check generated Windows Vault unseal helper
+  stat:
+    path: "{{ platform_windows_vault_unseal_artifact_linux_path }}"
+  register: platform_windows_vault_unseal_helper
+  when: platform_windows_vault_unseal_enabled | bool
+
+- name: Fail when generated Windows Vault unseal helper is missing
+  fail:
+    msg: >-
+      Missing generated Windows Vault unseal helper at
+      {{ platform_windows_vault_unseal_artifact_linux_path }}.
+      Run `make render-windows-bootstrap` before provisioning the WSL host stack
+      when unattended Vault recovery is enabled.
+  when:
+    - platform_windows_vault_unseal_enabled | bool
+    - not platform_windows_vault_unseal_helper.stat.exists
+
 - name: Install host bridge environment file
   template:
     src: openclaw-host-bridge.env.j2
@@ -86,6 +103,24 @@
     group: root
     mode: "0644"
 
+- name: Install WSL Vault unseal wrapper
+  template:
+    src: platform-vault-unseal-from-wsl.sh.j2
+    dest: "{{ platform_windows_vault_unseal_wsl_wrapper_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: platform_windows_vault_unseal_enabled | bool
+
+- name: Install WSL Vault unseal service unit
+  template:
+    src: platform-vault-unseal.service.j2
+    dest: "/etc/systemd/system/{{ platform_windows_vault_unseal_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: platform_windows_vault_unseal_enabled | bool
+
 - name: Reload systemd
   systemd:
     daemon_reload: true
@@ -104,3 +139,9 @@
   systemd:
     name: "{{ openclaw_stack_target_name }}"
     enabled: true
+
+- name: Enable WSL Vault unseal service
+  systemd:
+    name: "{{ platform_windows_vault_unseal_service_name }}"
+    enabled: true
+  when: platform_windows_vault_unseal_enabled | bool

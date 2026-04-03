@@ -5,6 +5,9 @@
 Use this runbook after Windows restart, WSL restart, or operator logon to prove
 that the full platform came back without hidden manual repair.
 
+For a pure `wsl --shutdown` simulation, the recovery path must come from WSL
+`systemd`. A Windows logon task does not re-run in that scenario.
+
 ## Required gate
 
 Run:
@@ -15,7 +18,7 @@ make verify-restart-survival
 
 This must prove:
 
-- Windows bootstrap executed
+- the required bootstrap path for the scenario executed
 - WSL `systemd` is running
 - `k3s` is enabled and active
 - bridge and recovery are enabled, active, and healthy
@@ -31,7 +34,7 @@ systemctl is-active k3s openclaw-host-stack.target openclaw-host-bridge.service 
 curl -fsS http://127.0.0.1:48721/healthz
 curl -fsS http://127.0.0.1:48722/healthz
 KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault get pods
-KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault exec vault-0 -- vault status
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault get pods --show-labels
 KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n argocd get applications.argoproj.io
 ```
 
@@ -51,8 +54,9 @@ In that case:
 The target restart-safe design is:
 
 1. Windows bootstrap starts WSL
-2. WSL `systemd` starts `k3s` and the host stack
-3. Vault is available without manual unseal
+2. WSL `systemd` starts `k3s` and the host stack after WSL restart
+3. WSL `systemd` also triggers the TPM-backed Vault recovery path after `k3s`
+   returns
 4. External Secrets resyncs
 5. Argo applications return to healthy state
 6. gateway dependencies are reachable again

@@ -33,6 +33,11 @@ $hostForwardRules = @(
   @{
     Name = '{{ rule.name }}'
     ListenAddressSource = '{{ rule.listen_address_source }}'
+    ListenAddressAliases = @(
+{% for alias in rule.listen_address_aliases | default([]) %}
+      '{{ alias }}'{{ "," if not loop.last else "" }}
+{% endfor %}
+    )
     ListenPort = {{ rule.listen_port }}
     ConnectAddress = '{{ rule.connect_address }}'
     ConnectPort = {{ rule.connect_port }}
@@ -107,6 +112,11 @@ function Update-LocalhostPortProxy {
     }
 
     netsh interface portproxy delete v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress | Out-Null
+    foreach ($listenAddressAlias in $rule.ListenAddressAliases) {
+      if ($listenAddressAlias) {
+        netsh interface portproxy delete v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddressAlias | Out-Null
+      }
+    }
     netsh interface portproxy add v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress connectport=$($rule.ConnectPort) connectaddress=$($rule.ConnectAddress) | Out-Null
 
     $existingRule = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue

@@ -27,6 +27,12 @@
       register: recovery_enabled
       changed_when: false
 
+    - name: Check WSL Vault unseal service is enabled
+      command: systemctl is-enabled {{ platform_windows_vault_unseal_service_name }}
+      register: vault_unseal_enabled
+      changed_when: false
+      when: platform_windows_vault_unseal_enabled | bool
+
     - name: Check k3s service is enabled
       command: systemctl is-enabled k3s
       register: k3s_enabled
@@ -59,6 +65,26 @@
       register: recovery_health
       changed_when: false
 
+    - name: Check Windows localhost Ollama endpoint
+      command: >-
+        powershell.exe -NoProfile -Command
+        "$r = Invoke-WebRequest -UseBasicParsing {{ platform_windows_ollama_health_url }} -TimeoutSec 5;
+        Write-Output $r.StatusCode"
+      register: windows_ollama_health
+      changed_when: false
+
+    - name: Check gateway runtime dependency reachability from live pods
+      command: >-
+        {{ platform_k3s_kubectl_command }}
+        -n {{ item }}
+        exec deploy/openclaw-gateway -- sh -lc
+        'wget -qO- --timeout=5 {{ platform_gateway_runtime_dependency_url }} >/dev/null'
+      environment:
+        KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
+      register: gateway_runtime_dependency
+      changed_when: false
+      loop: "{{ platform_gateway_runtime_dependency_namespaces }}"
+
     - name: Check host stack target is active
       command: systemctl is-active {{ openclaw_stack_target_name }}
       register: host_stack_active
@@ -73,6 +99,12 @@
       command: systemctl is-active {{ openclaw_recovery_service_name }}
       register: recovery_active
       changed_when: false
+
+    - name: Check WSL Vault unseal service is active
+      command: systemctl is-active {{ platform_windows_vault_unseal_service_name }}
+      register: vault_unseal_active
+      changed_when: false
+      when: platform_windows_vault_unseal_enabled | bool
 
     - name: Check Vault pods are ready
       command: >-

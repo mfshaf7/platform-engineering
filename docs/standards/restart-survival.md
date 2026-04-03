@@ -94,8 +94,11 @@ The gate must fail if:
 
 - `k3s` is inactive
 - bridge or recovery is inactive or unhealthy
+- the WSL Vault unseal service is not enabled and active when unattended unseal is configured
 - Vault is sealed
 - core Argo applications are not `Synced` and `Healthy`
+- Windows localhost Ollama is unreachable on `127.0.0.1:11434`
+- a live gateway pod cannot reach `http://host.docker.internal:11434/api/tags`
 
 ## Governance rule
 

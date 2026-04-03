@@ -74,9 +74,16 @@ platform_windows_localhost_forward_ports:
 platform_windows_host_forward_rules:
   - name: PlatformCore Ollama 11434
     listen_address_source: wsl_host_docker_internal
+    listen_address_aliases:
+      - host.docker.internal
     listen_port: 11434
     connect_address: 127.0.0.1
     connect_port: 11434
+platform_windows_ollama_health_url: http://127.0.0.1:11434/api/tags
+platform_gateway_runtime_dependency_url: http://host.docker.internal:11434/api/tags
+platform_gateway_runtime_dependency_namespaces:
+  - openclaw
+  - openclaw-stage
 platform_k3s_version: v1.30.2+k3s2
 platform_k3s_config_path: /etc/rancher/k3s/config.yaml
 platform_k3s_kubeconfig_path: /etc/rancher/k3s/k3s.yaml

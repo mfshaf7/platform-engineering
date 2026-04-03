@@ -3,4 +3,4 @@ versions:
   telegramSha: 7c92750ec69d380ebfae1aa5beb23a69d01debcd
   hostBridgeSha: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
   isolatedDeploymentSha: 82231db8b8b6e93befa832b381f8cf278c2b57d0
-  platformSha: af9c1fcfed45a18da401341d6771cc9b05526316
+  platformSha: c784f940fe95d04f31da44857fa1307f6714a4e6

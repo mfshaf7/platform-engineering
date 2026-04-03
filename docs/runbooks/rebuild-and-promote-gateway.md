@@ -50,9 +50,11 @@ gh workflow run "Build Gateway Image" \
 
 ```bash
 cd /home/mfshaf7/projects/platform-engineering
+PLATFORM_SHA="<platform-engineering-build-commit>"
 python3 scripts/record_gateway_image.py prod \
   --tag prod-<computed-tag> \
-  --digest sha256:<published-digest>
+  --digest sha256:<published-digest> \
+  --platform-sha "$PLATFORM_SHA"
 python3 scripts/validate_environment_contract.py prod --repo-root .
 ```
 
@@ -82,6 +84,7 @@ k3s kubectl -n openclaw rollout status deploy/openclaw-gateway --timeout=240s
 Capture at minimum:
 
 - owning repo commit SHAs
+- platform-engineering build commit SHA
 - build run URL
 - published digest
 - recorded prod revision

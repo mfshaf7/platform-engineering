@@ -15,8 +15,18 @@ openclaw_transit_mode: disabled
 openclaw_transit_windows_wsl_distro: Platform-Transit
 openclaw_transit_vault_service_name: vault
 openclaw_transit_vault_health_url: http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+openclaw_transit_vault_windows_proxy_name: Platform Transit Vault 18200
+openclaw_transit_vault_windows_proxy_port: 18200
 openclaw_transit_vault_start_timeout_seconds: 60
 openclaw_transit_vault_unseal_wait_timeout_seconds: 180
+openclaw_transit_vault_version: 1.18.4
+openclaw_transit_vault_zip_url: https://releases.hashicorp.com/vault/{{ openclaw_transit_vault_version }}/vault_{{ openclaw_transit_vault_version }}_linux_amd64.zip
+openclaw_transit_vault_install_root: /opt/openclaw/transit-vault
+openclaw_transit_vault_config_dir: /etc/openclaw/transit-vault
+openclaw_transit_vault_data_dir: /var/lib/openclaw/transit-vault
+openclaw_transit_vault_listen_address: 0.0.0.0:8200
+openclaw_transit_vault_cluster_address: 0.0.0.0:8201
+openclaw_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
 openclaw_vault_namespace: vault

@@ -91,8 +91,9 @@ Read in this order:
 9. [docs/runbooks/restart-validation.md](docs/runbooks/restart-validation.md)
 10. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
 11. [docs/runbooks/vault-auto-unseal.md](docs/runbooks/vault-auto-unseal.md)
-12. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
-13. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
+12. [docs/runbooks/bootstrap-transit-vault.md](docs/runbooks/bootstrap-transit-vault.md)
+13. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
+14. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
 
 Historical records live under [docs/archive/README.md](docs/archive/README.md).
 

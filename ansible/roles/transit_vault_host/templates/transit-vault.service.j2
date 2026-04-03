@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenClaw Transit Vault
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/vault server -config={{ openclaw_transit_vault_config_dir }}/vault.hcl
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

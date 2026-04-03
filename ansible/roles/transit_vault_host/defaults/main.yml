@@ -1,0 +1,9 @@
+openclaw_transit_vault_version: 1.18.4
+openclaw_transit_vault_zip_url: https://releases.hashicorp.com/vault/{{ openclaw_transit_vault_version }}/vault_{{ openclaw_transit_vault_version }}_linux_amd64.zip
+openclaw_transit_vault_install_root: /opt/openclaw/transit-vault
+openclaw_transit_vault_config_dir: /etc/openclaw/transit-vault
+openclaw_transit_vault_data_dir: /var/lib/openclaw/transit-vault
+openclaw_transit_vault_listen_address: 0.0.0.0:8200
+openclaw_transit_vault_cluster_address: 0.0.0.0:8201
+openclaw_transit_vault_api_addr: http://127.0.0.1:8200
+openclaw_transit_vault_service_name: vault

@@ -1,0 +1,8 @@
+---
+- name: Prepare transit Vault host
+  hosts: transit_wsl_hosts
+  become: true
+  vars_files:
+    - ../group_vars/all/main.yml
+  roles:
+    - transit_vault_host

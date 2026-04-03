@@ -10,6 +10,7 @@ help:
 	@printf "Available targets:\n"
 	@printf "  provision-wsl-host Run the WSL host provisioning playbook\n"
 	@printf "  provision-k3s-node Run the k3s node provisioning playbook\n"
+	@printf "  provision-transit-vault-host Run the dedicated transit Vault host provisioning playbook\n"
 	@printf "  capture-cutover-evidence Snapshot pre-cutover host and runtime state\n"
 	@printf "  render-cutover-command-inventory Render migration stop/start command inventory\n"
 	@printf "  render-cutover-record Render the migration cutover record template\n"
@@ -34,6 +35,10 @@ provision-wsl-host:
 .PHONY: provision-k3s-node
 provision-k3s-node:
 	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/provision-k3s-node.yml $(ANSIBLE_EXTRA_VARS_ARG)
+
+.PHONY: provision-transit-vault-host
+provision-transit-vault-host:
+	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/provision-transit-vault-host.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
 .PHONY: capture-cutover-evidence
 capture-cutover-evidence:

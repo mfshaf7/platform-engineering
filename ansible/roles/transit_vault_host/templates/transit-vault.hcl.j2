@@ -1,0 +1,17 @@
+disable_mlock = true
+ui = false
+api_addr = "{{ openclaw_transit_vault_api_addr }}"
+cluster_addr = "http://{{ openclaw_transit_vault_cluster_address }}"
+
+listener "tcp" {
+  address         = "{{ openclaw_transit_vault_listen_address }}"
+  cluster_address = "{{ openclaw_transit_vault_cluster_address }}"
+  tls_disable     = 1
+}
+
+storage "raft" {
+  path    = "{{ openclaw_transit_vault_data_dir }}"
+  node_id = "platform-transit"
+}
+
+service_registration "kubernetes" {}

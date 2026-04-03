@@ -9,6 +9,8 @@ param(
   [string]$TransitDistro = '{{ openclaw_transit_windows_wsl_distro }}',
   [string]$TransitVaultService = '{{ openclaw_transit_vault_service_name }}',
   [string]$TransitVaultHealthUrl = '{{ openclaw_transit_vault_health_url }}',
+  [string]$TransitVaultProxyName = '{{ openclaw_transit_vault_windows_proxy_name }}',
+  [int]$TransitVaultProxyPort = {{ openclaw_transit_vault_windows_proxy_port }},
   [int]$TransitVaultStartTimeoutSeconds = {{ openclaw_transit_vault_start_timeout_seconds }},
   [int]$TransitVaultUnsealWaitTimeoutSeconds = {{ openclaw_transit_vault_unseal_wait_timeout_seconds }},
   [switch]$RunBootstrapOnly
@@ -67,6 +69,15 @@ function Get-WslHostDockerInternalIp {
   return $ip
 }
 
+function Get-TransitWslIp {
+  $resolved = (Invoke-WslBash -TargetDistro $TransitDistro -Command "hostname -I").Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
+  if (-not $resolved) {
+    throw "Unable to determine WSL IP for transit distro $TransitDistro"
+  }
+
+  return $resolved
+}
+
 function Update-LocalhostPortProxy {
   $wslIp = (Invoke-WslBash -TargetDistro $Distro -Command "hostname -I").Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
   if (-not $wslIp) {
@@ -109,6 +120,29 @@ function Update-LocalhostPortProxy {
   }
 }
 
+function Update-TransitVaultPortProxy {
+  if ($TransitMode -eq 'disabled') {
+    return
+  }
+
+  $listenAddress = Get-WslHostDockerInternalIp
+  $transitIp = Get-TransitWslIp
+
+  netsh interface portproxy delete v4tov4 listenport=$TransitVaultProxyPort listenaddress=$listenAddress | Out-Null
+  netsh interface portproxy add v4tov4 listenport=$TransitVaultProxyPort listenaddress=$listenAddress connectport=8200 connectaddress=$transitIp | Out-Null
+
+  $existingRule = Get-NetFirewallRule -DisplayName $TransitVaultProxyName -ErrorAction SilentlyContinue
+  if (-not $existingRule) {
+    New-NetFirewallRule `
+      -DisplayName $TransitVaultProxyName `
+      -Direction Inbound `
+      -Action Allow `
+      -Protocol TCP `
+      -LocalPort $TransitVaultProxyPort `
+      -Profile Any | Out-Null
+  }
+}
+
 function Start-TransitVault {
   if ($TransitMode -eq 'disabled') {
     return
@@ -124,6 +158,7 @@ function Start-TransitVault {
   while ((Get-Date) -lt $deadline) {
     try {
       Invoke-WslBash -TargetDistro $TransitDistro -Command "curl -fsS '$TransitVaultHealthUrl' >/dev/null" | Out-Null
+      Update-TransitVaultPortProxy
       return
     } catch {
       Start-Sleep -Seconds 2

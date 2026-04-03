@@ -73,6 +73,10 @@ Vault trust root rather than host-stored unseal material.
 If the transit trust root is intentionally offline except during unseal
 windows, the platform remains assisted rather than fully unattended.
 
+If the platform temporarily uses Windows-protected storage to unseal the
+transit Vault first, document that explicitly as a workstation-trust-rooted
+temporary model rather than a final external-trust-root solution.
+
 ## Verification gate
 
 The required verification gate is:

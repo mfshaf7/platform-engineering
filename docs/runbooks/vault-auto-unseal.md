@@ -53,6 +53,11 @@ and [bootstrap-transit-vault.md](bootstrap-transit-vault.md).
 If you keep that transit Vault offline except during unseal windows, the model
 becomes assisted auto-unseal rather than fully unattended restart recovery.
 
+If you need a temporary fully automated workstation model before a stronger
+external trust root exists, use the temporary chain documented in
+[ADR-004-transit-vault-temporary-windows-trust-root.md](../architecture/ADR-004-transit-vault-temporary-windows-trust-root.md)
+and [bootstrap-transit-vault-temporary-trust.md](bootstrap-transit-vault-temporary-trust.md).
+
 Do not store unseal material in Git, local startup scripts, or plaintext host
 files just to simulate unattended recovery.
 

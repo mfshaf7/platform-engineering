@@ -10,6 +10,9 @@ a separate transit Vault trust root.
 This runbook does not bootstrap the workload Vault in Kubernetes. It bootstraps
 the separate trust-root Vault that exists only to provide transit auto-unseal.
 
+For the temporary workstation-trust-rooted model, also use
+[bootstrap-transit-vault-temporary-trust.md](bootstrap-transit-vault-temporary-trust.md).
+
 ## Target topology
 
 - workload Vault:
@@ -35,6 +38,18 @@ the separate trust-root Vault that exists only to provide transit auto-unseal.
 - store only transit auto-unseal material there
 - keep operator recovery material outside Git
 - use a tightly scoped token or AppRole for workload Vault auto-unseal
+
+## Provisioning path
+
+Clone `platform-engineering` inside the dedicated `Platform-Transit` distro and
+run:
+
+```bash
+make provision-transit-vault-host
+```
+
+This installs the minimal single-purpose transit Vault service and its systemd
+unit inside that distro.
 
 ## High-level sequence
 
@@ -89,6 +104,16 @@ seal "transit" {
 
 Do not commit the real token into Git. The workload Vault must receive that
 credential through an approved secret-delivery path.
+
+For this workstation-oriented path, the workload Vault should eventually target
+the managed Windows-forwarded transit endpoint on:
+
+```text
+http://host.docker.internal:18200
+```
+
+The generated Windows bootstrap now owns that portproxy when transit
+orchestration is enabled.
 
 ## Recommended local placement
 

@@ -1,0 +1,75 @@
+---
+- name: Ensure base packages are present for transit Vault bootstrap
+  package:
+    name:
+      - curl
+      - ca-certificates
+      - unzip
+    state: present
+
+- name: Ensure transit Vault directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ openclaw_transit_vault_install_root }}"
+    - "{{ openclaw_transit_vault_config_dir }}"
+    - "{{ openclaw_transit_vault_data_dir }}"
+    - /etc/systemd/system
+
+- name: Check whether Vault binary is already installed
+  stat:
+    path: /usr/local/bin/vault
+  register: transit_vault_binary
+
+- name: Download Vault release archive
+  get_url:
+    url: "{{ openclaw_transit_vault_zip_url }}"
+    dest: "/tmp/vault_{{ openclaw_transit_vault_version }}_linux_amd64.zip"
+    mode: "0644"
+  when: not transit_vault_binary.stat.exists
+
+- name: Extract Vault release archive
+  unarchive:
+    src: "/tmp/vault_{{ openclaw_transit_vault_version }}_linux_amd64.zip"
+    dest: "{{ openclaw_transit_vault_install_root }}"
+    remote_src: true
+  when: not transit_vault_binary.stat.exists
+
+- name: Install Vault binary
+  copy:
+    src: "{{ openclaw_transit_vault_install_root }}/vault"
+    dest: /usr/local/bin/vault
+    owner: root
+    group: root
+    mode: "0755"
+    remote_src: true
+  when: not transit_vault_binary.stat.exists
+
+- name: Install transit Vault configuration
+  template:
+    src: transit-vault.hcl.j2
+    dest: "{{ openclaw_transit_vault_config_dir }}/vault.hcl"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install transit Vault systemd unit
+  template:
+    src: transit-vault.service.j2
+    dest: "/etc/systemd/system/{{ openclaw_transit_vault_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd for transit Vault
+  systemd:
+    daemon_reload: true
+
+- name: Enable transit Vault service
+  systemd:
+    name: "{{ openclaw_transit_vault_service_name }}"
+    enabled: true

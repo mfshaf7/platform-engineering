@@ -1,4 +1,15 @@
-# Implementation Log
+# Historical Implementation Log
+
+## Status
+
+This document is historical record, not an active operator runbook.
+
+Use these documents for current governed procedures instead:
+
+- `docs/standards/governed-change-model.md`
+- `docs/runbooks/rebuild-and-promote-gateway.md`
+- `docs/runbooks/host-runtime-drift-recovery.md`
+- `docs/runbooks/change-records/`
 
 ## Purpose
 

@@ -1,5 +1,13 @@
 # Platform-Core Handoff 2026-03-30
 
+## Status
+
+This document is a historical cutover record from March 30, 2026.
+
+It is not the current source of truth for ongoing platform operations. Use the
+active runbooks and standards under `docs/runbooks/` and `docs/standards/`
+instead.
+
 ## Current Live State
 
 - `Platform-Core` is the authoritative WSL runtime path.

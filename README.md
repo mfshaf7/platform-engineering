@@ -85,11 +85,13 @@ Read in this order:
 3. [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
 4. [docs/standards/release-model.md](docs/standards/release-model.md)
 5. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
-6. [docs/implementation-log.md](docs/implementation-log.md)
-7. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
-8. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
-9. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
-10. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
+6. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+7. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
+8. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
+9. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
+10. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
+
+Historical records live under [docs/archive/README.md](docs/archive/README.md).
 
 Common operator entrypoints:
 

@@ -11,6 +11,11 @@ openclaw_host_recovery_restart_delay_seconds: 2
 openclaw_host_bridge_node_bin_dir: /home/mfshaf7/.nvm/versions/node/v24.14.1/bin
 platform_windows_task_name: PlatformCoreHostStack
 platform_windows_wsl_distro: Platform-Core
+platform_windows_vault_unseal_enabled: false
+platform_windows_vault_unseal_timeout_seconds: 180
+platform_windows_vault_tpm_certificate_store_path: Cert:\CurrentUser\My
+platform_windows_vault_tpm_certificate_subject: CN=Platform Vault Unseal
+platform_windows_vault_encrypted_bundle_path: C:\Users\Sevensoul\AppData\Local\OpenClaw\vault\platform-vault-init.cms
 platform_transit_mode: disabled
 platform_transit_windows_wsl_distro: Platform-Transit
 platform_transit_vault_service_name: vault
@@ -34,6 +39,10 @@ platform_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
 platform_vault_namespace: vault
+platform_vault_pod_names:
+  - vault-0
+  - vault-1
+  - vault-2
 platform_argocd_namespace: argocd
 platform_restart_validation_applications:
   - external-secrets

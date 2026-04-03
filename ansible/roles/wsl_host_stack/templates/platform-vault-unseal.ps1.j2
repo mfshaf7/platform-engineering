@@ -1,0 +1,133 @@
+param(
+  [string]$Distro = '{{ platform_windows_wsl_distro }}',
+  [string]$VaultNamespace = '{{ platform_vault_namespace }}',
+  [string]$KubectlCommand = '{{ platform_k3s_kubectl_command }}',
+  [string]$KubeconfigPath = '{{ platform_k3s_kubeconfig_path }}',
+  [string]$CertificateStorePath = '{{ platform_windows_vault_tpm_certificate_store_path }}',
+  [string]$CertificateSubject = '{{ platform_windows_vault_tpm_certificate_subject }}',
+  [string]$EncryptedBundlePath = '{{ platform_windows_vault_encrypted_bundle_path }}',
+  [int]$TimeoutSeconds = {{ platform_windows_vault_unseal_timeout_seconds }}
+)
+
+$ErrorActionPreference = 'Stop'
+
+$VaultPods = @(
+{% for pod in platform_vault_pod_names %}
+  '{{ pod }}'{{ "," if not loop.last else "" }}
+{% endfor %}
+)
+
+function Invoke-WslRoot {
+  param([string]$Command)
+
+  wsl.exe -d $Distro -u root --cd /root -- /bin/bash -lc $Command
+}
+
+function Get-TpmProtectedCertificate {
+  $certificate = Get-ChildItem -Path $CertificateStorePath |
+    Where-Object { $_.Subject -eq $CertificateSubject } |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+
+  if (-not $certificate) {
+    throw "TPM-backed certificate '$CertificateSubject' was not found in $CertificateStorePath."
+  }
+
+  return $certificate
+}
+
+function Read-VaultInitBundle {
+  if (-not (Test-Path -LiteralPath $EncryptedBundlePath)) {
+    throw "Encrypted Vault init bundle not found at $EncryptedBundlePath."
+  }
+
+  $certificate = Get-TpmProtectedCertificate
+  $bundleJson = Unprotect-CmsMessage -Path $EncryptedBundlePath -To $certificate
+  if (-not $bundleJson) {
+    throw "Vault init bundle at $EncryptedBundlePath decrypted to empty content."
+  }
+
+  return $bundleJson | ConvertFrom-Json
+}
+
+function Get-UnsealKeys {
+  $bundle = Read-VaultInitBundle
+  $keys = @()
+
+  if ($bundle.unseal_keys_b64) {
+    $keys = @($bundle.unseal_keys_b64)
+  } elseif ($bundle.unseal_keys_hex) {
+    $keys = @($bundle.unseal_keys_hex)
+  }
+
+  if (-not $keys -or $keys.Count -lt 3) {
+    throw "Vault init bundle does not contain at least three unseal keys."
+  }
+
+  return $keys[0..2]
+}
+
+function Wait-ForVaultPod {
+  param([string]$PodName)
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      Invoke-WslRoot "KUBECONFIG=$KubeconfigPath $KubectlCommand -n $VaultNamespace get pod $PodName >/dev/null"
+      return
+    } catch {
+      Start-Sleep -Seconds 3
+    }
+  }
+
+  throw "Vault pod $PodName did not appear within $TimeoutSeconds seconds."
+}
+
+function Get-VaultStatus {
+  param([string]$PodName)
+
+  try {
+    $json = Invoke-WslRoot "KUBECONFIG=$KubeconfigPath $KubectlCommand -n $VaultNamespace exec $PodName -- vault status -format=json"
+    return $json | ConvertFrom-Json
+  } catch {
+    return $null
+  }
+}
+
+function Invoke-PodUnseal {
+  param(
+    [string]$PodName,
+    [string[]]$Keys
+  )
+
+  Wait-ForVaultPod -PodName $PodName
+  $status = Get-VaultStatus -PodName $PodName
+  if (-not $status) {
+    throw "Vault pod $PodName is unreachable."
+  }
+
+  if (-not $status.initialized) {
+    throw "Vault pod $PodName is not initialized."
+  }
+
+  if (-not $status.sealed) {
+    Write-Output "$PodName already unsealed."
+    return
+  }
+
+  foreach ($key in $Keys) {
+    Invoke-WslRoot "KUBECONFIG=$KubeconfigPath $KubectlCommand -n $VaultNamespace exec $PodName -- sh -lc 'vault operator unseal ''$key'' >/dev/null'" | Out-Null
+  }
+
+  $status = Get-VaultStatus -PodName $PodName
+  if (-not $status -or $status.sealed) {
+    throw "Vault pod $PodName remained sealed after applying the unseal keys."
+  }
+
+  Write-Output "$PodName unsealed."
+}
+
+$keys = Get-UnsealKeys
+foreach ($pod in $VaultPods) {
+  Invoke-PodUnseal -PodName $pod -Keys $keys
+}

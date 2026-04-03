@@ -9,6 +9,7 @@
     openclaw_windows_bootstrap_artifact_dir: "{{ playbook_dir }}/../generated"
     openclaw_windows_bootstrap_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/openclaw-host-stack-windows-bootstrap.ps1"
     openclaw_windows_transit_unseal_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/openclaw-transit-vault-unseal.ps1"
+    openclaw_windows_vault_unseal_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/platform-vault-unseal.ps1"
   tasks:
     - name: Ensure generated artifact directory exists
       file:
@@ -26,4 +27,10 @@
       template:
         src: ../roles/wsl_host_stack/templates/openclaw-transit-vault-unseal.ps1.j2
         dest: "{{ openclaw_windows_transit_unseal_artifact_path }}"
+        mode: "0644"
+
+    - name: Render Windows TPM-backed workload Vault unseal helper
+      template:
+        src: ../roles/wsl_host_stack/templates/platform-vault-unseal.ps1.j2
+        dest: "{{ openclaw_windows_vault_unseal_artifact_path }}"
         mode: "0644"

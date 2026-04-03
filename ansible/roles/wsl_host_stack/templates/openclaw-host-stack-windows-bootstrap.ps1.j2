@@ -5,6 +5,7 @@ param(
   [string]$StackTarget = '{{ openclaw_stack_target_name }}',
   [string]$BridgeService = '{{ openclaw_bridge_service_name }}',
   [string]$RecoveryService = '{{ openclaw_recovery_service_name }}',
+  [string]$PlatformVaultUnsealEnabled = '{{ platform_windows_vault_unseal_enabled | lower }}',
   [string]$TransitMode = '{{ platform_transit_mode }}',
   [string]$TransitDistro = '{{ platform_transit_windows_wsl_distro }}',
   [string]$TransitVaultService = '{{ platform_transit_vault_service_name }}',
@@ -161,6 +162,23 @@ function Invoke-TransitVaultUnseal {
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helperPath
 }
 
+function Invoke-PlatformVaultUnseal {
+  if ($PlatformVaultUnsealEnabled -ne 'true') {
+    return
+  }
+
+  if (-not $PSScriptRoot) {
+    throw "Unable to determine script root for platform Vault unseal helper."
+  }
+
+  $helperPath = Join-Path $PSScriptRoot 'platform-vault-unseal.ps1'
+  if (-not (Test-Path -LiteralPath $helperPath)) {
+    throw "Platform Vault unseal helper not found at $helperPath."
+  }
+
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helperPath
+}
+
 function Start-TransitVault {
   if ($TransitMode -eq 'disabled') {
     return
@@ -233,6 +251,7 @@ function Invoke-Bootstrap {
 
   try {
     Invoke-PlatformCoreBootstrap
+    Invoke-PlatformVaultUnseal
     Wait-ForWorkloadVaultUnsealed
   } finally {
     Stop-TransitVault

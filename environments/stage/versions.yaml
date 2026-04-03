@@ -19,16 +19,16 @@ gateway:
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: "846b79052630034b42a291ed21e6ff09eddfd9fa"
+    commit: "1d03624a13a8a40313c6652768c7de7a370c80cd"
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
-    commit: "18ff28fa1844982a5d4433c6bc81e85fbdc417c9"
+    commit: "a6f6d146fd91aa0f01d5ded4d768639f3a839b3e"
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: "ac80a1593bf759274eacef5a14f05709abcc70d8"
+    commit: "2090fc8468cdd07eba272b1aa7ee14f050b2c497"
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: "1b4871dc961d0e23767e3d1cb56db232df777b74"
+    commit: "7a3b4d0bee7171b738475c0aa736dcea6f37a820"
 
 argocd:
   namespace: argocd

@@ -1,6 +1,6 @@
 param(
-  [string]$TaskName = '{{ openclaw_windows_task_name }}',
-  [string]$Distro = '{{ openclaw_windows_wsl_distro }}',
+  [string]$TaskName = '{{ platform_windows_task_name }}',
+  [string]$Distro = '{{ platform_windows_wsl_distro }}',
   [string]$Root = '{{ openclaw_host_bridge_root }}',
   [string]$StackTarget = '{{ openclaw_stack_target_name }}',
   [string]$BridgeService = '{{ openclaw_bridge_service_name }}',
@@ -22,13 +22,13 @@ $ErrorActionPreference = 'Stop'
 $wslCommand = "systemctl start $StackTarget && systemctl --quiet is-active $StackTarget $BridgeService $RecoveryService"
 
 $forwardPorts = @(
-{% for port in openclaw_windows_localhost_forward_ports %}
+{% for port in platform_windows_localhost_forward_ports %}
   {{ port }}{{ "," if not loop.last else "" }}
 {% endfor %}
 )
 
 $hostForwardRules = @(
-{% for rule in openclaw_windows_host_forward_rules | default([]) %}
+{% for rule in platform_windows_host_forward_rules | default([]) %}
   @{
     Name = '{{ rule.name }}'
     ListenAddressSource = '{{ rule.listen_address_source }}'

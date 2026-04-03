@@ -42,9 +42,9 @@
       failed_when: false
 
     - name: Capture Kubernetes node list
-      command: "{{ openclaw_k3s_kubectl_command }} get nodes -o wide"
+      command: "{{ platform_k3s_kubectl_command }} get nodes -o wide"
       environment:
-        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
+        KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
       register: kubectl_nodes
       changed_when: false
       failed_when: false

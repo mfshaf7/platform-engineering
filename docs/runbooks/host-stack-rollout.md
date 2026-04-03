@@ -41,7 +41,7 @@ When transit orchestration is enabled, that same bootstrap path may also:
 The platform repo now renders the matching Windows bootstrap artifact with:
 
 - `make render-windows-bootstrap`
-- `make render-windows-bootstrap ANSIBLE_EXTRA_VARS="openclaw_windows_wsl_distro=Platform-Core"`
+- `make render-windows-bootstrap ANSIBLE_EXTRA_VARS="platform_windows_wsl_distro=Platform-Core"`
 
 The rendered script path is:
 

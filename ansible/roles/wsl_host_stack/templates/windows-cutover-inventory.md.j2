@@ -4,8 +4,8 @@ Use this inventory during the Windows-facing portion of `Platform-Core` cutover.
 
 ## Target Platform Task
 
-- target task name: `{{ openclaw_windows_task_name }}`
-- target distro: `{{ openclaw_windows_wsl_distro }}`
+- target task name: `{{ platform_windows_task_name }}`
+- target distro: `{{ platform_windows_wsl_distro }}`
 - rendered bootstrap script:
   - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
 
@@ -21,7 +21,7 @@ Run on Windows PowerShell before cutover:
 
 - `Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_stack_task_name }}" -ErrorAction SilentlyContinue`
 - `Get-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}" -ErrorAction SilentlyContinue`
-- `Get-ScheduledTask -TaskName "{{ openclaw_windows_task_name }}" -ErrorAction SilentlyContinue`
+- `Get-ScheduledTask -TaskName "{{ platform_windows_task_name }}" -ErrorAction SilentlyContinue`
 
 ## Controlled Cutover Actions
 

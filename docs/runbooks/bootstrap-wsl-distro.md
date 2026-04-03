@@ -39,7 +39,7 @@ The target distro must end up with:
 9. Render the Windows bootstrap artifact with `make render-windows-bootstrap`.
    The committed default distro name is `Platform-Core`.
    If the actual distro name differs, pass an override such as
-   `ANSIBLE_EXTRA_VARS="openclaw_windows_wsl_distro=Platform-Core"`.
+   `ANSIBLE_EXTRA_VARS="platform_windows_wsl_distro=Platform-Core"`.
 10. Run the rendered PowerShell script on Windows to register the scheduled task.
 11. Run `make verify-platform-host` and require a clean verification result.
 12. Continue with [bootstrap-k3s.md](bootstrap-k3s.md) and then the remaining

@@ -1,7 +1,7 @@
 openclaw_bridge_service_name: openclaw-host-bridge.service
 openclaw_recovery_service_name: openclaw-host-recovery.service
 openclaw_stack_target_name: openclaw-host-stack.target
-openclaw_platform_repo_root: /home/mfshaf7/projects/platform-engineering
+platform_repo_root: /home/mfshaf7/projects/platform-engineering
 openclaw_host_bridge_root: /home/mfshaf7/projects/openclaw-host-bridge
 openclaw_bridge_user: root
 openclaw_host_bridge_config_path: /home/mfshaf7/projects/openclaw-host-bridge/config/policy.local.json
@@ -9,8 +9,8 @@ openclaw_openclaw_config_path: /home/mfshaf7/.openclaw/openclaw.json
 openclaw_host_bridge_restart_delay_seconds: 2
 openclaw_host_recovery_restart_delay_seconds: 2
 openclaw_host_bridge_node_bin_dir: /home/mfshaf7/.nvm/versions/node/v24.14.1/bin
-openclaw_windows_task_name: PlatformCoreHostStack
-openclaw_windows_wsl_distro: Platform-Core
+platform_windows_task_name: PlatformCoreHostStack
+platform_windows_wsl_distro: Platform-Core
 platform_transit_mode: disabled
 platform_transit_windows_wsl_distro: Platform-Transit
 platform_transit_vault_service_name: vault
@@ -33,9 +33,9 @@ platform_transit_vault_cluster_address: 0.0.0.0:8201
 platform_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
-openclaw_vault_namespace: vault
-openclaw_argocd_namespace: argocd
-openclaw_restart_validation_applications:
+platform_vault_namespace: vault
+platform_argocd_namespace: argocd
+platform_restart_validation_applications:
   - external-secrets
   - vault
   - platform-root-shared
@@ -46,7 +46,7 @@ openclaw_restart_validation_applications:
   - openclaw-gateway
   - openclaw-observability
   - openclaw-observability-stage
-openclaw_windows_localhost_forward_ports:
+platform_windows_localhost_forward_ports:
   - 32090
   - 32091
   - 32093
@@ -55,21 +55,21 @@ openclaw_windows_localhost_forward_ports:
   - 32081
   - 32200
   - 32443
-openclaw_windows_host_forward_rules:
+platform_windows_host_forward_rules:
   - name: PlatformCore Ollama 11434
     listen_address_source: wsl_host_docker_internal
     listen_port: 11434
     connect_address: 127.0.0.1
     connect_port: 11434
-openclaw_k3s_version: v1.30.2+k3s2
-openclaw_k3s_config_path: /etc/rancher/k3s/config.yaml
-openclaw_k3s_kubeconfig_path: /etc/rancher/k3s/k3s.yaml
-openclaw_k3s_kubectl_command: /usr/local/bin/k3s kubectl
-openclaw_k3s_write_kubeconfig_mode: "0644"
-openclaw_k3s_disable_components:
+platform_k3s_version: v1.30.2+k3s2
+platform_k3s_config_path: /etc/rancher/k3s/config.yaml
+platform_k3s_kubeconfig_path: /etc/rancher/k3s/k3s.yaml
+platform_k3s_kubectl_command: /usr/local/bin/k3s kubectl
+platform_k3s_write_kubeconfig_mode: "0644"
+platform_k3s_disable_components:
   - traefik
-openclaw_k3s_cluster_cidr: 10.42.0.0/16
-openclaw_k3s_service_cidr: 10.43.0.0/16
+platform_k3s_cluster_cidr: 10.42.0.0/16
+platform_k3s_service_cidr: 10.43.0.0/16
 openclaw_legacy_runtime_state_dir: /home/mfshaf7/.openclaw
 openclaw_legacy_runtime_workspace: /home/mfshaf7/.openclaw/workspace
 openclaw_legacy_runtime_project_name: upstream-openclaw

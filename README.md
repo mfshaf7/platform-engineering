@@ -115,7 +115,7 @@ Common operator entrypoints:
 - `make show-prod-versions`
 
 Use `ANSIBLE_EXTRA_VARS` when the fresh distro name or local paths differ from
-the defaults, for example `openclaw_windows_wsl_distro=Platform-Core`.
+the defaults, for example `platform_windows_wsl_distro=Platform-Core`.
 
 ## Repository Layout
 

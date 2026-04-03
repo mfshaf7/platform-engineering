@@ -1,7 +1,7 @@
-write-kubeconfig-mode: "{{ openclaw_k3s_write_kubeconfig_mode }}"
-cluster-cidr: "{{ openclaw_k3s_cluster_cidr }}"
-service-cidr: "{{ openclaw_k3s_service_cidr }}"
+write-kubeconfig-mode: "{{ platform_k3s_write_kubeconfig_mode }}"
+cluster-cidr: "{{ platform_k3s_cluster_cidr }}"
+service-cidr: "{{ platform_k3s_service_cidr }}"
 disable:
-{% for component in openclaw_k3s_disable_components %}
+{% for component in platform_k3s_disable_components %}
   - "{{ component }}"
 {% endfor %}

@@ -1,6 +1,6 @@
 # Cutover Command Inventory
 
-Use this inventory during controlled migration to `{{ openclaw_windows_wsl_distro }}`.
+Use this inventory during controlled migration to `{{ platform_windows_wsl_distro }}`.
 
 ## New Platform Path
 
@@ -44,9 +44,9 @@ Review each command before execution.
 
 - Register the Windows scheduled task using:
   - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
-- Start or restart the new host stack inside `{{ openclaw_windows_wsl_distro }}`:
+- Start or restart the new host stack inside `{{ platform_windows_wsl_distro }}`:
   - `systemctl restart {{ openclaw_stack_target_name }}`
-- Start or restart `k3s` inside `{{ openclaw_windows_wsl_distro }}`:
+- Start or restart `k3s` inside `{{ platform_windows_wsl_distro }}`:
   - `systemctl restart k3s`
 
 ## Verification Commands

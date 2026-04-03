@@ -18,9 +18,9 @@
     - name: Capture platform full-stack task details
       shell: >
         powershell.exe -NoProfile -Command
-        '$task = Get-ScheduledTask -TaskName "{{ openclaw_windows_task_name }}" -ErrorAction SilentlyContinue;
+        '$task = Get-ScheduledTask -TaskName "{{ platform_windows_task_name }}" -ErrorAction SilentlyContinue;
         if (-not $task) { exit 0 }
-        $info = Get-ScheduledTaskInfo -TaskName "{{ openclaw_windows_task_name }}";
+        $info = Get-ScheduledTaskInfo -TaskName "{{ platform_windows_task_name }}";
         [pscustomobject]@{
           TaskName=$task.TaskName;
           State=$task.State;

@@ -18,7 +18,7 @@
 - name: Install k3s config
   template:
     src: k3s-config.yaml.j2
-    dest: "{{ openclaw_k3s_config_path }}"
+    dest: "{{ platform_k3s_config_path }}"
     owner: root
     group: root
     mode: "0644"
@@ -31,7 +31,7 @@
 - name: Install k3s server
   shell: |
     curl -sfL https://get.k3s.io | \
-      INSTALL_K3S_VERSION="{{ openclaw_k3s_version }}" \
+      INSTALL_K3S_VERSION="{{ platform_k3s_version }}" \
       sh -s - server
   args:
     executable: /bin/bash
@@ -49,7 +49,7 @@
     timeout: 120
 
 - name: Wait for node to become ready
-  command: "{{ openclaw_k3s_kubectl_command }} get nodes"
+  command: "{{ platform_k3s_kubectl_command }} get nodes"
   register: kubectl_nodes
   changed_when: false
   retries: 20

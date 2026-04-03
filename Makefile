@@ -26,7 +26,7 @@ help:
 	@printf "  show-stage-versions Show current stage version pins\n"
 	@printf "\n"
 	@printf "Override variables with ANSIBLE_EXTRA_VARS, for example:\n"
-	@printf "  make render-windows-bootstrap ANSIBLE_EXTRA_VARS=\"openclaw_windows_wsl_distro=Platform-Core\"\n"
+	@printf "  make render-windows-bootstrap ANSIBLE_EXTRA_VARS=\"platform_windows_wsl_distro=Platform-Core\"\n"
 
 .PHONY: provision-wsl-host
 provision-wsl-host:

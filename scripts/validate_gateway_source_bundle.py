@@ -29,6 +29,16 @@ def main() -> int:
 
     runtime_api = read_text(args.telegram_repo / "runtime-api.ts")
     bot_message_context = read_text(args.telegram_repo / "src" / "bot-message-context.session.ts")
+    security_arch_agents = args.deployment_repo / "deployment" / "workspaces" / "security-architecture" / "AGENTS.md"
+    security_arch_skill = (
+        args.deployment_repo
+        / "deployment"
+        / "workspaces"
+        / "security-architecture"
+        / "skills"
+        / "security-architecture"
+        / "SKILL.md"
+    )
     uses_legacy_sdk_export = LEGACY_TELEGRAM_IMPORT in runtime_api
     uses_wrong_host_control_helper_import = bool(
         WRONG_HOST_CONTROL_HELPER_IMPORT_RE.search(bot_message_context)
@@ -54,12 +64,23 @@ def main() -> int:
         )
         return 1
 
+    if not security_arch_agents.exists() or not security_arch_skill.exists():
+        print(
+            "Incompatible gateway source bundle: deployment is missing the tracked "
+            "security-architecture workspace template required to materialize "
+            "/home/node/.openclaw/workspace-security-architecture in the bundled runtime.",
+            file=sys.stderr,
+        )
+        return 1
+
     print(
         "Gateway source bundle compatible: "
         "legacy_telegram_sdk_import="
         f"{str(uses_legacy_sdk_export).lower()} "
         "wrong_host_control_helper_import="
-        f"{str(uses_wrong_host_control_helper_import).lower()}"
+        f"{str(uses_wrong_host_control_helper_import).lower()} "
+        "security_arch_workspace_template="
+        f"{str(security_arch_agents.exists() and security_arch_skill.exists()).lower()}"
     )
     return 0
 

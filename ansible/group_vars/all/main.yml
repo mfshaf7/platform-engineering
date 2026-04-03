@@ -29,7 +29,7 @@ platform_transit_vault_install_root: /opt/openclaw/transit-vault
 platform_transit_vault_config_dir: /etc/openclaw/transit-vault
 platform_transit_vault_data_dir: /var/lib/openclaw/transit-vault
 platform_transit_vault_listen_address: 0.0.0.0:8200
-platform_transit_vault_cluster_address: 0.0.0.0:8201
+platform_transit_vault_cluster_address: 127.0.0.1:8201
 platform_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz

@@ -84,11 +84,27 @@
       register: vault_pods
       changed_when: false
 
-    - name: Check Vault is unsealed on leader pod
+    - name: Resolve active Vault pod
+      command: >-
+        sh -lc '{{ platform_k3s_kubectl_command }}
+        -n {{ platform_vault_namespace }}
+        get pods -l vault-active=true,vault-sealed=false
+        -o jsonpath='"'"'{.items[0].metadata.name}'"'"''
+      environment:
+        KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
+      register: active_vault_pod
+      changed_when: false
+      retries: 12
+      delay: 5
+      until:
+        - active_vault_pod.rc == 0
+        - (active_vault_pod.stdout | trim) != ""
+
+    - name: Check Vault is unsealed on active pod
       command: >-
         {{ platform_k3s_kubectl_command }}
         -n {{ platform_vault_namespace }}
-        exec vault-0 -- sh -lc 'vault status -format=json | grep -Eq "\"sealed\"[[:space:]]*:[[:space:]]*false"'
+        exec {{ active_vault_pod.stdout | trim }} -- sh -lc 'vault status -format=json | grep -Eq "\"sealed\"[[:space:]]*:[[:space:]]*false"'
       environment:
         KUBECONFIG: "{{ platform_k3s_kubeconfig_path }}"
       register: vault_unsealed

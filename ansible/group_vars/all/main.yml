@@ -11,26 +11,26 @@ openclaw_host_recovery_restart_delay_seconds: 2
 openclaw_host_bridge_node_bin_dir: /home/mfshaf7/.nvm/versions/node/v24.14.1/bin
 openclaw_windows_task_name: PlatformCoreHostStack
 openclaw_windows_wsl_distro: Platform-Core
-openclaw_transit_mode: disabled
-openclaw_transit_windows_wsl_distro: Platform-Transit
-openclaw_transit_vault_service_name: vault
-openclaw_transit_vault_health_url: http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
-openclaw_transit_vault_windows_proxy_name: Platform Transit Vault 18200
-openclaw_transit_vault_windows_proxy_port: 18200
-openclaw_transit_vault_start_timeout_seconds: 60
-openclaw_transit_vault_unseal_wait_timeout_seconds: 180
-openclaw_transit_windows_unseal_enabled: false
-openclaw_transit_windows_tpm_certificate_store_path: Cert:\CurrentUser\My
-openclaw_transit_windows_tpm_certificate_subject: CN=Platform Transit Vault Unseal
-openclaw_transit_windows_encrypted_bundle_path: C:\Users\Sevensoul\AppData\Local\OpenClaw\transit-vault\transit-init.cms
-openclaw_transit_vault_version: 1.18.4
-openclaw_transit_vault_zip_url: https://releases.hashicorp.com/vault/{{ openclaw_transit_vault_version }}/vault_{{ openclaw_transit_vault_version }}_linux_amd64.zip
-openclaw_transit_vault_install_root: /opt/openclaw/transit-vault
-openclaw_transit_vault_config_dir: /etc/openclaw/transit-vault
-openclaw_transit_vault_data_dir: /var/lib/openclaw/transit-vault
-openclaw_transit_vault_listen_address: 0.0.0.0:8200
-openclaw_transit_vault_cluster_address: 0.0.0.0:8201
-openclaw_transit_vault_api_addr: http://127.0.0.1:8200
+platform_transit_mode: disabled
+platform_transit_windows_wsl_distro: Platform-Transit
+platform_transit_vault_service_name: vault
+platform_transit_vault_health_url: http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+platform_transit_vault_windows_proxy_name: Platform Transit Vault 18200
+platform_transit_vault_windows_proxy_port: 18200
+platform_transit_vault_start_timeout_seconds: 60
+platform_transit_vault_unseal_wait_timeout_seconds: 180
+platform_transit_windows_unseal_enabled: false
+platform_transit_windows_tpm_certificate_store_path: Cert:\CurrentUser\My
+platform_transit_windows_tpm_certificate_subject: CN=Platform Transit Vault Unseal
+platform_transit_windows_encrypted_bundle_path: C:\Users\Sevensoul\AppData\Local\OpenClaw\transit-vault\transit-init.cms
+platform_transit_vault_version: 1.18.4
+platform_transit_vault_zip_url: https://releases.hashicorp.com/vault/{{ platform_transit_vault_version }}/vault_{{ platform_transit_vault_version }}_linux_amd64.zip
+platform_transit_vault_install_root: /opt/openclaw/transit-vault
+platform_transit_vault_config_dir: /etc/openclaw/transit-vault
+platform_transit_vault_data_dir: /var/lib/openclaw/transit-vault
+platform_transit_vault_listen_address: 0.0.0.0:8200
+platform_transit_vault_cluster_address: 0.0.0.0:8201
+platform_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
 openclaw_vault_namespace: vault

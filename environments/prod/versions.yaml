@@ -23,7 +23,7 @@ sourceRepos:
     commit: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: 82231db7bdc68c8aa1d0c031761c738d439a2b4d
+    commit: 82231db8b8b6e93befa832b381f8cf278c2b57d0
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
     commit: af9c1fcfed45a18da401341d6771cc9b05526316

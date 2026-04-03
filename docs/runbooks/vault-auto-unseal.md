@@ -44,22 +44,25 @@ Preferred order:
 1. cloud KMS-backed auto-unseal
 2. HSM-backed auto-unseal
 3. Vault Transit auto-unseal using a separately managed trust root
+4. Windows-rooted TPM-backed temporary auto-unseal
 
-For this local platform, the preferred low-cost path is option `3`, using a
-separate transit Vault outside the workload cluster. See
+For this local platform, the current temporary implementation target is option
+`4`, using Windows as the workstation trust root with TPM-backed protection for
+the Vault bootstrap secret. See
+[ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md](../architecture/ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md)
+and [bootstrap-windows-rooted-vault-auto-unseal.md](bootstrap-windows-rooted-vault-auto-unseal.md).
+
+The separate transit Vault path remains the preferred low-cost architecture
+when the transit trust root can run on a genuinely separate boundary. See
 [ADR-003-vault-transit-auto-unseal.md](../architecture/ADR-003-vault-transit-auto-unseal.md)
 and [bootstrap-transit-vault.md](bootstrap-transit-vault.md).
 
-If you keep that transit Vault offline except during unseal windows, the model
-becomes assisted auto-unseal rather than fully unattended restart recovery.
-
-If you need a temporary fully automated workstation model before a stronger
-external trust root exists, use the temporary chain documented in
-[ADR-004-transit-vault-temporary-windows-trust-root.md](../architecture/ADR-004-transit-vault-temporary-windows-trust-root.md)
-and [bootstrap-transit-vault-temporary-trust.md](bootstrap-transit-vault-temporary-trust.md).
+Do not treat a second WSL distro on the same workstation as a sufficient
+network trust boundary for transit unless that separation has been explicitly
+verified for the active WSL networking mode.
 
 When the workstation exposes a usable TPM, prefer TPM-backed Windows protection
-for the transit Vault unseal path over DPAPI-only storage.
+over DPAPI-only storage.
 
 Do not store unseal material in Git, local startup scripts, or plaintext host
 files just to simulate unattended recovery.

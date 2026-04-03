@@ -67,18 +67,19 @@ Required when:
 This class requires auto-unseal or an equivalent trusted unseal mechanism for
 Vault.
 
-For this local platform, the preferred low-cost target is a separate transit
-Vault trust root rather than host-stored unseal material.
+For this local platform, the current temporary unattended target is a
+Windows-rooted TPM-backed recovery path rather than same-host WSL transit
+indirection.
 
-If the transit trust root is intentionally offline except during unseal
-windows, the platform remains assisted rather than fully unattended.
-
-If the platform temporarily uses Windows-protected storage to unseal the
-transit Vault first, document that explicitly as a workstation-trust-rooted
-temporary model rather than a final external-trust-root solution.
+If the platform uses Windows-protected storage to recover Vault, document that
+explicitly as a workstation-trust-rooted temporary model rather than a final
+external-trust-root solution.
 
 When TPM is available on the workstation, prefer TPM-backed protection for that
 temporary Windows trust root.
+
+If a future transit trust root is introduced, it must run on a genuinely
+separate boundary rather than relying on same-host WSL distro separation alone.
 
 ## Verification gate
 

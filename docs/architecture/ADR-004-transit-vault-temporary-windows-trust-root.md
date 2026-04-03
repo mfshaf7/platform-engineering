@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-005
 
 ## Context
 
@@ -13,14 +13,21 @@ However, a separate transit Vault on the same workstation still needs its own
 unseal trust root after a full machine restart. Without that, the restart
 problem simply moves from the workload Vault to the transit Vault.
 
+This ADR captured an intermediate design where Windows released secret material
+only for a same-host transit Vault.
+
+That design is no longer the temporary implementation target because same-host
+WSL distro separation did not provide a reliable trust and network boundary for
+the transit endpoint on this workstation.
+
 For the current workstation budget and architecture constraints, the platform
-needs a temporary trust model that:
+still needs a temporary trust model that:
 
 - keeps workload Vault unseal separate from the main platform runtime
 - avoids storing raw workload unseal material in startup scripts
 - allows the transit trust root to recover automatically after Windows restart
 
-## Decision
+## Superseded decision
 
 The temporary trust chain will be:
 

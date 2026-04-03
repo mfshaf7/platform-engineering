@@ -50,6 +50,9 @@ separate transit Vault outside the workload cluster. See
 [ADR-003-vault-transit-auto-unseal.md](../architecture/ADR-003-vault-transit-auto-unseal.md)
 and [bootstrap-transit-vault.md](bootstrap-transit-vault.md).
 
+If you keep that transit Vault offline except during unseal windows, the model
+becomes assisted auto-unseal rather than fully unattended restart recovery.
+
 Do not store unseal material in Git, local startup scripts, or plaintext host
 files just to simulate unattended recovery.
 

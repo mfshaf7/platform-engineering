@@ -83,6 +83,41 @@ For this platform, the recommended minimum-separation placement is:
 This is still one physical workstation, but it is better than collapsing the
 unseal root into the same distro and cluster.
 
+## Availability modes
+
+### Warm mode
+
+Keep the `Platform-Transit` distro running continuously.
+
+Use this mode if you want:
+
+- unattended workload Vault restart recovery
+- the ability for Vault pods to restart and auto-unseal at any time
+
+### Cold mode
+
+Bring `Platform-Transit` online only during the workload Vault unseal window,
+then stop it again after the workload cluster is fully up.
+
+This is possible because the workload Vault only needs the transit trust root
+while performing auto-unseal.
+
+However:
+
+- if workload Vault restarts again while transit is offline, auto-unseal will
+  fail until transit is brought back
+- this mode does not satisfy a strict unattended restart-survival claim
+- this mode should be described as assisted auto-unseal, not full automatic
+  recovery
+
+## Recommended use
+
+For this workstation platform:
+
+- use `warm` mode if you want genuine unattended restart recovery
+- use `cold` mode if you want stronger trust separation while accepting that
+  restart recovery still depends on bringing the transit distro online first
+
 ## Verification
 
 Success means:

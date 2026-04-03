@@ -74,6 +74,26 @@ recovering.
 - still does not equal external KMS if both systems remain on the same physical
   workstation
 
+## Transit availability modes
+
+Two operating modes are allowed:
+
+### Warm transit trust root
+
+- the transit Vault is left running
+- workload Vault can auto-unseal during routine restart without operator action
+- this is the required mode for a true unattended restart-survival claim
+
+### Cold transit trust root
+
+- the transit Vault distro is brought online only for unseal windows
+- workload Vault can auto-unseal only while the transit Vault is reachable
+- the transit Vault may be stopped again after the workload Vault is fully
+  unsealed
+
+This cold mode is operationally valid, but it is not a full unattended restart
+model. It is an assisted auto-unseal model.
+
 ## Guardrails
 
 - the transit Vault must be documented as a separate trust root

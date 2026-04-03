@@ -70,6 +70,9 @@ Vault.
 For this local platform, the preferred low-cost target is a separate transit
 Vault trust root rather than host-stored unseal material.
 
+If the transit trust root is intentionally offline except during unseal
+windows, the platform remains assisted rather than fully unattended.
+
 ## Verification gate
 
 The required verification gate is:

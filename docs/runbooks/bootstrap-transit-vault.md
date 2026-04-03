@@ -50,6 +50,27 @@ the separate trust-root Vault that exists only to provide transit auto-unseal.
 9. restart workload Vault in a controlled window
 10. verify `make verify-restart-survival` passes without manual unseal
 
+## Temporary workstation orchestration
+
+The platform bootstrap can support a temporary workstation-oriented transit
+sequence through the generated Windows bootstrap artifact.
+
+Supported modes:
+
+- `disabled`
+  - current default
+  - no transit orchestration is attempted
+- `warm`
+  - Windows bootstrap starts the transit distro and leaves transit Vault
+    running
+- `cold`
+  - Windows bootstrap starts the transit distro, waits for transit Vault
+    health, starts `Platform-Core`, waits for workload Vault to report
+    unsealed, then stops the transit Vault service again
+
+This keeps the orchestration under the existing governed Windows bootstrap path
+instead of introducing a separate ad hoc startup script.
+
 ## Example workload Vault configuration shape
 
 The workload Vault Helm values will eventually need a `seal "transit"` stanza
@@ -130,3 +151,7 @@ Success means:
 
 This topology is the accepted target design. It is not yet deployed by this
 repository.
+
+The generated bootstrap now supports transit orchestration, but it remains
+disabled by default until a real `Platform-Transit` distro and transit Vault
+exist.

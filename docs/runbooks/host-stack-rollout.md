@@ -26,9 +26,17 @@ The platform repo manages:
 ## Windows Bootstrap
 
 The Windows-side bootstrap is a scheduled task that starts the platform-managed
-systemd target inside WSL:
+bootstrap sequence inside WSL:
 
 - `systemctl start openclaw-host-stack.target`
+
+When transit orchestration is enabled, that same bootstrap path may also:
+
+- start the separate transit distro
+- wait for transit Vault health
+- start `Platform-Core`
+- in `cold` mode, stop the transit Vault service again after workload Vault is
+  unsealed
 
 The platform repo now renders the matching Windows bootstrap artifact with:
 
@@ -51,6 +59,9 @@ the rollback path until post-cutover verification succeeds.
 
 This keeps Windows responsible only for logon-triggered WSL entry while systemd
 inside WSL owns bridge and recovery supervision.
+
+Transit bootstrap orchestration remains optional and is disabled by default
+until the separate transit trust root is actually deployed.
 
 For full replacement of an unreliable distro, use:
 

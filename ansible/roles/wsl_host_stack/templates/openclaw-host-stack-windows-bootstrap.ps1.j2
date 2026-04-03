@@ -4,13 +4,19 @@ param(
   [string]$Root = '{{ openclaw_host_bridge_root }}',
   [string]$StackTarget = '{{ openclaw_stack_target_name }}',
   [string]$BridgeService = '{{ openclaw_bridge_service_name }}',
-  [string]$RecoveryService = '{{ openclaw_recovery_service_name }}'
+  [string]$RecoveryService = '{{ openclaw_recovery_service_name }}',
+  [string]$TransitMode = '{{ openclaw_transit_mode }}',
+  [string]$TransitDistro = '{{ openclaw_transit_windows_wsl_distro }}',
+  [string]$TransitVaultService = '{{ openclaw_transit_vault_service_name }}',
+  [string]$TransitVaultHealthUrl = '{{ openclaw_transit_vault_health_url }}',
+  [int]$TransitVaultStartTimeoutSeconds = {{ openclaw_transit_vault_start_timeout_seconds }},
+  [int]$TransitVaultUnsealWaitTimeoutSeconds = {{ openclaw_transit_vault_unseal_wait_timeout_seconds }},
+  [switch]$RunBootstrapOnly
 )
 
 $ErrorActionPreference = 'Stop'
 
 $wslCommand = "systemctl start $StackTarget && systemctl --quiet is-active $StackTarget $BridgeService $RecoveryService"
-$wslArgs = "-d $Distro -u root --cd $Root /bin/bash -lc `"$wslCommand`""
 
 $forwardPorts = @(
 {% for port in openclaw_windows_localhost_forward_ports %}
@@ -30,8 +36,29 @@ $hostForwardRules = @(
 {% endfor %}
 )
 
+function Test-WslDistroExists {
+  param([string]$Name)
+
+  $distros = (wsl.exe -l -q) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+  return $distros -contains $Name
+}
+
+function Invoke-WslBash {
+  param(
+    [string]$TargetDistro,
+    [string]$Command,
+    [string]$WorkingDirectory = ""
+  )
+
+  if ($WorkingDirectory) {
+    return wsl.exe -d $TargetDistro -u root --cd $WorkingDirectory /bin/bash -lc $Command
+  }
+
+  return wsl.exe -d $TargetDistro -u root -- sh -lc $Command
+}
+
 function Get-WslHostDockerInternalIp {
-  $resolved = wsl.exe -d $Distro -u root -- sh -lc "getent hosts host.docker.internal | awk '{print \$1; exit}'"
+  $resolved = Invoke-WslBash -TargetDistro $Distro -Command "getent hosts host.docker.internal | awk '{print \$1; exit}'"
   $ip = $resolved.Trim()
   if (-not $ip) {
     throw "Unable to resolve host.docker.internal from $Distro"
@@ -41,7 +68,7 @@ function Get-WslHostDockerInternalIp {
 }
 
 function Update-LocalhostPortProxy {
-  $wslIp = (wsl.exe -d $Distro -u root -- hostname -I).Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
+  $wslIp = (Invoke-WslBash -TargetDistro $Distro -Command "hostname -I").Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
   if (-not $wslIp) {
     throw "Unable to determine WSL IP for $Distro"
   }
@@ -82,7 +109,94 @@ function Update-LocalhostPortProxy {
   }
 }
 
-$action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument $wslArgs
+function Start-TransitVault {
+  if ($TransitMode -eq 'disabled') {
+    return
+  }
+
+  if (-not (Test-WslDistroExists -Name $TransitDistro)) {
+    throw "Transit distro '$TransitDistro' is not registered."
+  }
+
+  Invoke-WslBash -TargetDistro $TransitDistro -Command "systemctl start $TransitVaultService && systemctl --quiet is-active $TransitVaultService" | Out-Null
+
+  $deadline = (Get-Date).AddSeconds($TransitVaultStartTimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      Invoke-WslBash -TargetDistro $TransitDistro -Command "curl -fsS '$TransitVaultHealthUrl' >/dev/null" | Out-Null
+      return
+    } catch {
+      Start-Sleep -Seconds 2
+    }
+  }
+
+  throw "Transit Vault did not become healthy within $TransitVaultStartTimeoutSeconds seconds."
+}
+
+function Wait-ForWorkloadVaultUnsealed {
+  if ($TransitMode -ne 'cold') {
+    return
+  }
+
+  $deadline = (Get-Date).AddSeconds($TransitVaultUnsealWaitTimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $statusJson = Invoke-WslBash `
+        -TargetDistro $Distro `
+        -Command "KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault exec vault-0 -- vault status -format=json"
+      if ($statusJson -match '"sealed"\s*:\s*false') {
+        return
+      }
+    } catch {
+      # Retry until the timeout because k3s and vault may still be converging.
+    }
+
+    Start-Sleep -Seconds 3
+  }
+
+  throw "Workload Vault did not report unsealed within $TransitVaultUnsealWaitTimeoutSeconds seconds."
+}
+
+function Stop-TransitVault {
+  if ($TransitMode -ne 'cold') {
+    return
+  }
+
+  if (-not (Test-WslDistroExists -Name $TransitDistro)) {
+    return
+  }
+
+  Invoke-WslBash -TargetDistro $TransitDistro -Command "systemctl stop $TransitVaultService" | Out-Null
+}
+
+function Invoke-PlatformCoreBootstrap {
+  Invoke-WslBash -TargetDistro $Distro -WorkingDirectory $Root -Command $wslCommand | Out-Null
+  Update-LocalhostPortProxy
+}
+
+function Invoke-Bootstrap {
+  Start-TransitVault
+
+  try {
+    Invoke-PlatformCoreBootstrap
+    Wait-ForWorkloadVaultUnsealed
+  } finally {
+    Stop-TransitVault
+  }
+}
+
+if ($RunBootstrapOnly) {
+  Invoke-Bootstrap
+  Write-Output "Completed host bootstrap for $Distro"
+  exit 0
+}
+
+if (-not $PSCommandPath) {
+  throw "Unable to determine script path for scheduled task registration."
+}
+
+$taskArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -RunBootstrapOnly"
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $taskArgs
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
@@ -105,5 +219,4 @@ Register-ScheduledTask `
   -Force | Out-Null
 
 Start-ScheduledTask -TaskName $TaskName
-Update-LocalhostPortProxy
 Write-Output "Registered and started task: $TaskName"

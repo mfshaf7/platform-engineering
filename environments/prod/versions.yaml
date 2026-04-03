@@ -10,23 +10,23 @@ gateway:
     - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: prod-0fcdee61af1b
-    digest: sha256:2d8fa4375d409d6b3d7a47ef9933724811953a27710cbdfffb76c95cec131ac7
+    tag: stage-e0756be8005e
+    digest: sha256:f58e3a3c1b5f5a4f880f1d1cb086a7c78980d0fb8203ab3308aaed3053cd74a7
   chartVersion: 0.1.0
   replicas: 1
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: 7c92750ec69d380ebfae1aa5beb23a69d01debcd
+    commit: 1d03624a13a8a40313c6652768c7de7a370c80cd
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
-    commit: 18ff28fa1844982a5d4433c6bc81e85fbdc417c9
+    commit: a6f6d146fd91aa0f01d5ded4d768639f3a839b3e
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: 82231db8b8b6e93befa832b381f8cf278c2b57d0
+    commit: 2090fc8468cdd07eba272b1aa7ee14f050b2c497
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: c784f940fe95d04f31da44857fa1307f6714a4e6
+    commit: d8e37c185440061f8cf72bea94b9031fda042f3c
 argocd:
   namespace: argocd
   project: platform-core

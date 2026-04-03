@@ -38,8 +38,8 @@ The build uses pinned SHAs from:
   invalid pinned refs
 - the bundled stage/prod image extends the official upstream base image
   `ghcr.io/openclaw/openclaw:latest`
-- `prod` must continue to use a published `ghcr.io/mfshaf7/openclaw-gateway`
-  image recorded by digest, never an operator-local tag
+- `prod` must continue to use the published governed gateway image recorded by
+  digest, never an operator-local tag
 - deployment-owned runtime workspace templates are expected to come from
   `openclaw-isolated-deployment` and are validated before build
 
@@ -56,7 +56,7 @@ The workflow publishes:
 
 Promotion should prefer the immutable digest form:
 
-- `ghcr.io/mfshaf7/openclaw-gateway@sha256:...`
+- `<governed-gateway-image>@sha256:...`
 
 ## Why This Matters
 

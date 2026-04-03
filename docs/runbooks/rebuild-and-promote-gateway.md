@@ -22,16 +22,16 @@ This is the default path for:
 1. Validate the source bundle locally:
 
 ```bash
-cd /home/mfshaf7/projects/platform-engineering
+cd /home/<platform-user>/projects/platform-engineering
 python3 scripts/validate_gateway_source_bundle.py \
-  --telegram-repo /home/mfshaf7/projects/openclaw-telegram-enhanced \
-  --deployment-repo /home/mfshaf7/projects/openclaw-isolated-deployment
+  --telegram-repo /home/<platform-user>/projects/openclaw-telegram-enhanced \
+  --deployment-repo /home/<platform-user>/projects/openclaw-isolated-deployment
 ```
 
 2. Compute the expected publish tag:
 
 ```bash
-cd /home/mfshaf7/projects/platform-engineering
+cd /home/<platform-user>/projects/platform-engineering
 python3 scripts/compute_gateway_publish_tag.py prod
 ```
 
@@ -39,7 +39,7 @@ python3 scripts/compute_gateway_publish_tag.py prod
 
 ```bash
 gh workflow run "Build Gateway Image" \
-  --repo mfshaf7/platform-engineering \
+  --repo <repo-owner>/platform-engineering \
   --ref main \
   -f environment=prod
 ```
@@ -49,7 +49,7 @@ gh workflow run "Build Gateway Image" \
 5. Record the published image into the prod contract:
 
 ```bash
-cd /home/mfshaf7/projects/platform-engineering
+cd /home/<platform-user>/projects/platform-engineering
 PLATFORM_SHA="<platform-engineering-build-commit>"
 python3 scripts/record_gateway_image.py prod \
   --tag prod-<computed-tag> \

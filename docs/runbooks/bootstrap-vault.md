@@ -53,8 +53,8 @@ To standardize the local operator login across Argo CD and Vault:
 
 ```bash
 export VAULT_TOKEN='...'
-export OPERATOR_USERNAME='mfshaf7'
-export OPERATOR_PASSWORD='S3v3n$0u1'
+export OPERATOR_USERNAME='<operator-username>'
+export OPERATOR_PASSWORD='<fresh-operator-password>'
 ./scripts/bootstrap_operator_access.sh
 ```
 

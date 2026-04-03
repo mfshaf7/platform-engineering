@@ -111,11 +111,11 @@ $cert = New-SelfSignedCertificate `
 Example bundle encryption after the one-time transit Vault init:
 
 ```powershell
-New-Item -ItemType Directory -Force 'C:\Users\Sevensoul\AppData\Local\OpenClaw\transit-vault' | Out-Null
+New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\OpenClaw\transit-vault" | Out-Null
 Protect-CmsMessage `
   -To $cert `
   -Path .\transit-init.json `
-  -OutFile 'C:\Users\Sevensoul\AppData\Local\OpenClaw\transit-vault\transit-init.cms'
+  -OutFile "$env:LOCALAPPDATA\OpenClaw\transit-vault\transit-init.cms"
 ```
 
 After the CMS bundle is verified, remove the plaintext init file from the

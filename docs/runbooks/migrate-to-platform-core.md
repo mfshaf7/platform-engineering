@@ -13,7 +13,7 @@ Observed live state after recovery:
 
 - Windows scheduled task `PlatformCoreHostStack` exists
 - Windows scheduled task `OpenClawHostStack` remains disabled
-- `Platform-Core` is accessible as Linux user `mfshaf7`
+- `Platform-Core` is accessible as the configured Linux platform user
 - `openclaw-host-bridge.service` is active in `Platform-Core`
 - `openclaw-host-recovery.service` is active in `Platform-Core`
 - `openclaw-host-stack.target` is active in `Platform-Core`
@@ -47,12 +47,12 @@ Current post-cutover state:
 
 Legacy repo migration into `Platform-Core` is also complete:
 
-- `/home/mfshaf7/projects/openclaw-host-bridge` is present
-- `/home/mfshaf7/projects/openclaw-isolated-deployment` is present
-- `/home/mfshaf7/projects/openclaw-telegram-enhanced` is present
-- `/home/mfshaf7/projects/platform-engineering` is present as a clean clone of
+- `/home/<platform-user>/projects/openclaw-host-bridge` is present
+- `/home/<platform-user>/projects/openclaw-isolated-deployment` is present
+- `/home/<platform-user>/projects/openclaw-telegram-enhanced` is present
+- `/home/<platform-user>/projects/platform-engineering` is present as a clean clone of
   the pushed authoritative repo state
-- `/home/mfshaf7/.openclaw/workspace` is present and still contains its `.git`
+- `/home/<platform-user>/.openclaw/workspace` is present and still contains its `.git`
   metadata
 
 The next intended migration step is:

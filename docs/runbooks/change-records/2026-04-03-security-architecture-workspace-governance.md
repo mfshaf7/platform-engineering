@@ -51,7 +51,7 @@
 ## Live Verification
 
 - App health: Argo `Synced Healthy`
-- Deployed image: `ghcr.io/mfshaf7/openclaw-gateway@sha256:2d8fa4375d409d6b3d7a47ef9933724811953a27710cbdfffb76c95cec131ac7`
+- Deployed image: `<governed-gateway-image>@sha256:2d8fa4375d409d6b3d7a47ef9933724811953a27710cbdfffb76c95cec131ac7`
 - Pod: `openclaw-gateway-5d4999f754-b8wr5`
 - Functional verification: workspace template is present inside the live prod pod at `/home/node/.openclaw/workspace-security-architecture`
 - Residual risk: answer quality still depends on model selection and prompting discipline

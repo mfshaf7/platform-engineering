@@ -47,7 +47,7 @@
 ## Live Verification
 
 - App health: Argo `Synced Healthy`
-- Deployed image: `ghcr.io/mfshaf7/openclaw-gateway@sha256:c3691ae4747237768d0129be3ae280621a94d9091f5e3892d116b73c1865ee9e`
+- Deployed image: `<governed-gateway-image>@sha256:c3691ae4747237768d0129be3ae280621a94d9091f5e3892d116b73c1865ee9e`
 - Pod: `openclaw-gateway-66cbc7447d-m2mss`
 - Functional verification: prod bot provider started cleanly and outbound verification DM succeeded
 - Residual risk: non-host-control topics still depended on host Ollama reachability

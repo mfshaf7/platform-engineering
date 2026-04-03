@@ -11,7 +11,7 @@ instead.
 ## Current Live State
 
 - `Platform-Core` is the authoritative WSL runtime path.
-- Default WSL user in `Platform-Core` is `mfshaf7`.
+- Default WSL user in `Platform-Core` is the configured platform user.
 - `Platform-Core` is the default WSL distribution.
 - The legacy `Ubuntu` WSL distro has been removed.
 - `k3s` is active in `Platform-Core`.
@@ -44,13 +44,13 @@ instead.
 Live `docker inspect` established that the legacy gateway depended on only two
 bind mounts:
 
-- `/home/mfshaf7/.openclaw -> /home/node/.openclaw`
-- `/home/mfshaf7/.openclaw/workspace -> /home/node/.openclaw/workspace`
+- `/home/<platform-user>/.openclaw -> /home/node/.openclaw`
+- `/home/<platform-user>/.openclaw/workspace -> /home/node/.openclaw/workspace`
 
 The dependency classification after verification is:
 
-- runtime state dependency: `/home/mfshaf7/.openclaw`
-- runtime workspace dependency: `/home/mfshaf7/.openclaw/workspace`
+- runtime state dependency: `/home/<platform-user>/.openclaw`
+- runtime workspace dependency: `/home/<platform-user>/.openclaw/workspace`
 - build-only repo dependency: `openclaw-telegram-enhanced`
 - host tooling dependency: `openclaw-host-bridge`
 - deployment/build composition repo: `openclaw-isolated-deployment`
@@ -58,7 +58,7 @@ The dependency classification after verification is:
 ## Repo Migration Into Platform-Core
 
 The legacy Ubuntu repo set has been copied into `Platform-Core` under
-`/home/mfshaf7/projects`:
+`/home/<platform-user>/projects`:
 
 - `openclaw-host-bridge`
 - `openclaw-isolated-deployment`
@@ -69,9 +69,9 @@ The moved `platform-engineering` checkout from legacy Ubuntu was stale relative
 to the pushed live cutover state. The active working copy was replaced with a
 clean local clone of the live authoritative repo:
 
-- `/home/mfshaf7/projects/platform-engineering`
+- `/home/<platform-user>/projects/platform-engineering`
 
-`/home/mfshaf7/.openclaw/workspace` was also copied into `Platform-Core` with
+`/home/<platform-user>/.openclaw/workspace` was also copied into `Platform-Core` with
 its `.git` metadata intact.
 
 ## Immediate Next Step

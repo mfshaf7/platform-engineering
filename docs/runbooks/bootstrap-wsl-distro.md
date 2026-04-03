@@ -11,7 +11,7 @@ the local `k3s` control plane.
 The target distro must end up with:
 
 - `systemd` enabled through `/etc/wsl.conf`
-- the canonical `openclaw-host-bridge` checkout present at `/home/mfshaf7/projects/openclaw-host-bridge`
+- the canonical `openclaw-host-bridge` checkout present at `/home/<platform-user>/projects/openclaw-host-bridge`
 - the platform repo available to run Ansible playbooks
 - local policy and OpenClaw config files created outside Git
 - `k3s` installed through the platform Ansible role
@@ -22,7 +22,7 @@ The target distro must end up with:
 2. Clone:
    - `platform-engineering`
    - `openclaw-host-bridge`
-3. Place the host-bridge checkout at `/home/mfshaf7/projects/openclaw-host-bridge` or override the
+3. Place the host-bridge checkout at `/home/<platform-user>/projects/openclaw-host-bridge` or override the
    Ansible variable if a different path is required.
 4. Install the host runtime prerequisites needed by the bridge:
    - Node at the path configured by `openclaw_host_bridge_node_bin_dir`
@@ -57,18 +57,18 @@ Required recovery sequence:
 2. run `wsl.exe --shutdown`
 3. run `wsl.exe -l -v`
 4. enter `Platform-Core` as `root`
-5. create and configure Linux user `mfshaf7`
+5. create and configure the platform Linux user
 6. resume this runbook at repository clone, local-config creation, and Ansible
    provisioning
 
-Do not switch the canonical Linux identity away from `mfshaf7`.
+Do not switch the canonical Linux identity away from the configured platform user.
 
 Recommended pickup prompt before the shutdown step:
 
 > Pickup point: `Platform-Core` first-run recovery. Next step is
 > `wsl.exe --shutdown`, which may disconnect this session. After reconnect,
 > re-check `wsl.exe -l -v`, enter `Platform-Core` as `root`, create/configure
-> user `mfshaf7`, and continue WSL bootstrap.
+> the platform user, and continue WSL bootstrap.
 
 ## Migration Safety Rules
 

@@ -4,7 +4,7 @@ openclaw_wsl_required_packages:
   - curl
   - ca-certificates
 openclaw_wsl_config_path: /etc/wsl.conf
-openclaw_wsl_default_user: mfshaf7
+openclaw_wsl_default_user: "{{ platform_linux_user }}"
 openclaw_host_bridge_node_binary: "{{ openclaw_host_bridge_node_bin_dir }}/node"
 platform_windows_powershell_binary: /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
 platform_windows_vault_unseal_artifact_linux_path: "{{ platform_repo_root }}/ansible/generated/platform-vault-unseal.ps1"

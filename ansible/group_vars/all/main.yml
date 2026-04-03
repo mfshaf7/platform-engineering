@@ -1,21 +1,26 @@
 openclaw_bridge_service_name: openclaw-host-bridge.service
 openclaw_recovery_service_name: openclaw-host-recovery.service
 openclaw_stack_target_name: openclaw-host-stack.target
-platform_repo_root: /home/mfshaf7/projects/platform-engineering
-openclaw_host_bridge_root: /home/mfshaf7/projects/openclaw-host-bridge
+platform_linux_user: "{{ lookup('env', 'PLATFORM_LINUX_USER') | default(lookup('env', 'USER'), true) | default('platform', true) }}"
+platform_linux_home: "{{ lookup('env', 'PLATFORM_LINUX_HOME') | default('/home/' ~ platform_linux_user, true) }}"
+platform_projects_root: "{{ lookup('env', 'PLATFORM_PROJECTS_ROOT') | default(platform_linux_home ~ '/projects', true) }}"
+platform_windows_local_appdata_dir: "{{ lookup('env', 'PLATFORM_WINDOWS_LOCAL_APPDATA_DIR') | default('%LOCALAPPDATA%', true) }}"
+platform_repo_root: "{{ platform_projects_root }}/platform-engineering"
+openclaw_host_bridge_root: "{{ platform_projects_root }}/openclaw-host-bridge"
 openclaw_bridge_user: root
-openclaw_host_bridge_config_path: /home/mfshaf7/projects/openclaw-host-bridge/config/policy.local.json
-openclaw_openclaw_config_path: /home/mfshaf7/.openclaw/openclaw.json
+openclaw_host_bridge_config_path: "{{ openclaw_host_bridge_root }}/config/policy.local.json"
+openclaw_openclaw_config_path: "{{ platform_linux_home }}/.openclaw/openclaw.json"
 openclaw_host_bridge_restart_delay_seconds: 2
 openclaw_host_recovery_restart_delay_seconds: 2
-openclaw_host_bridge_node_bin_dir: /home/mfshaf7/.nvm/versions/node/v24.14.1/bin
+openclaw_host_bridge_node_bin_dir: "{{ platform_linux_home }}/.nvm/versions/node/v24.14.1/bin"
 platform_windows_task_name: PlatformCoreHostStack
 platform_windows_wsl_distro: Platform-Core
 platform_windows_vault_unseal_enabled: true
+platform_windows_vault_unseal_service_name: platform-vault-unseal.service
 platform_windows_vault_unseal_timeout_seconds: 180
 platform_windows_vault_tpm_certificate_store_path: Cert:\CurrentUser\My
 platform_windows_vault_tpm_certificate_subject: CN=Platform Vault Unseal
-platform_windows_vault_encrypted_bundle_path: C:\Users\Sevensoul\AppData\Local\OpenClaw\vault\platform-vault-init.cms
+platform_windows_vault_encrypted_bundle_path: "{{ platform_windows_local_appdata_dir }}\\OpenClaw\\vault\\platform-vault-init.cms"
 platform_transit_mode: disabled
 platform_transit_windows_wsl_distro: Platform-Transit
 platform_transit_vault_service_name: vault
@@ -27,7 +32,7 @@ platform_transit_vault_unseal_wait_timeout_seconds: 180
 platform_transit_windows_unseal_enabled: false
 platform_transit_windows_tpm_certificate_store_path: Cert:\CurrentUser\My
 platform_transit_windows_tpm_certificate_subject: CN=Platform Transit Vault Unseal
-platform_transit_windows_encrypted_bundle_path: C:\Users\Sevensoul\AppData\Local\OpenClaw\transit-vault\transit-init.cms
+platform_transit_windows_encrypted_bundle_path: "{{ platform_windows_local_appdata_dir }}\\OpenClaw\\transit-vault\\transit-init.cms"
 platform_transit_vault_version: 1.18.4
 platform_transit_vault_zip_url: https://releases.hashicorp.com/vault/{{ platform_transit_vault_version }}/vault_{{ platform_transit_vault_version }}_linux_amd64.zip
 platform_transit_vault_install_root: /opt/openclaw/transit-vault
@@ -81,8 +86,8 @@ platform_k3s_disable_components:
   - traefik
 platform_k3s_cluster_cidr: 10.42.0.0/16
 platform_k3s_service_cidr: 10.43.0.0/16
-openclaw_legacy_runtime_state_dir: /home/mfshaf7/.openclaw
-openclaw_legacy_runtime_workspace: /home/mfshaf7/.openclaw/workspace
+openclaw_legacy_runtime_state_dir: "{{ platform_linux_home }}/.openclaw"
+openclaw_legacy_runtime_workspace: "{{ openclaw_legacy_runtime_state_dir }}/workspace"
 openclaw_legacy_runtime_project_name: upstream-openclaw
 openclaw_legacy_runtime_service_name: openclaw-gateway
 openclaw_legacy_runtime_container_name: upstream-openclaw-openclaw-gateway-1
@@ -91,4 +96,4 @@ openclaw_legacy_runtime_gateway_port: 18789
 openclaw_legacy_runtime_bridge_port: 18790
 openclaw_legacy_windows_stack_task_name: OpenClawHostStack
 openclaw_legacy_windows_bridge_task_name: OpenClawHostBridge
-openclaw_legacy_windows_bridge_repo_root: /home/mfshaf7/projects/openclaw-host-bridge
+openclaw_legacy_windows_bridge_repo_root: "{{ openclaw_host_bridge_root }}"

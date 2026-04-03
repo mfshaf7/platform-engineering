@@ -16,14 +16,13 @@ Endpoints:
 
 Current credentials:
 
-- Argo CD username: `mfshaf7`
-- Argo CD password: `S3v3n$0u1`
-- Vault username: `mfshaf7`
-- Vault password: `S3v3n$0u1`
-- Prometheus/Alertmanager username: `mfshaf7`
-- Prometheus/Alertmanager password: `S3v3n$0u1`
-- Grafana username: `mfshaf7`
-- Grafana password: `S3v3n$0u1`
+- Operator usernames and passwords must not be stored in Git-tracked docs.
+- Retrieve the current operator username from your platform secret manager or
+  local operator credential handoff.
+- If operator access must be reissued, run
+  [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh)
+  with a freshly chosen password, then update the live secret sources outside
+  the repo.
 
 Notes:
 
@@ -35,6 +34,8 @@ Notes:
 - Argo CD and Vault operator credentials are bootstrapped by
   [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh),
   not by a Git-tracked static secret.
+- Prometheus, Alertmanager, and Grafana operator auth must be sourced from
+  Vault-backed cluster secrets, not hard-coded in this runbook.
 - Host-side Ollama access for the gateway is refreshed by the managed Windows
   bootstrap path. It forwards the WSL-resolved `host.docker.internal:11434`
   address to Windows `127.0.0.1:11434`, so the gateway can keep using the

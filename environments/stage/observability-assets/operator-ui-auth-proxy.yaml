@@ -1,13 +1,4 @@
 apiVersion: v1
-kind: Secret
-metadata:
-  name: platform-operator-ui-auth
-type: Opaque
-stringData:
-  htpasswd: |
-    mfshaf7:$apr1$L8WIA0GP$wvshJE6d6PHfw6KoeKJY50
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: platform-operator-ui-auth-proxy

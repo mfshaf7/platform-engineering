@@ -37,14 +37,15 @@ function Get-TransitVaultStatus {
 }
 
 function Read-TransitInitBundle {
-  if (-not (Test-Path -LiteralPath $EncryptedBundlePath)) {
-    throw "Encrypted transit init bundle not found at $EncryptedBundlePath."
+  $expandedBundlePath = [Environment]::ExpandEnvironmentVariables($EncryptedBundlePath)
+  if (-not (Test-Path -LiteralPath $expandedBundlePath)) {
+    throw "Encrypted transit init bundle not found at $expandedBundlePath."
   }
 
   $certificate = Get-TpmProtectedCertificate
-  $bundleJson = Unprotect-CmsMessage -Path $EncryptedBundlePath -To $certificate
+  $bundleJson = Unprotect-CmsMessage -Path $expandedBundlePath -To $certificate
   if (-not $bundleJson) {
-    throw "Transit init bundle at $EncryptedBundlePath decrypted to empty content."
+    throw "Transit init bundle at $expandedBundlePath decrypted to empty content."
   }
 
   return $bundleJson | ConvertFrom-Json

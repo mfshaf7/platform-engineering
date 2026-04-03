@@ -118,7 +118,7 @@ It is intentionally concise and operator-readable.
     against the legacy gateway container so the live mount list could be
     verified instead of inferred.
 31. Corrected the stale platform host-stack path assumptions by repointing the
-    managed OpenClaw config and Node paths at the real `mfshaf7` home in
+    managed OpenClaw config and Node paths at the configured platform home in
     `Platform-Core`, repaired Windows portproxy forwarding for `48721` and
     `48722`, and revalidated bridge and recovery reachability from the legacy
     gateway container.
@@ -151,14 +151,14 @@ These are the next concrete steps after scaffolding:
     Deployment strategy to `Recreate` so a second host-network pod would not
     deadlock on the single-node `Platform-Core` host.
 37. Migrated the legacy Ubuntu repo set and OpenClaw workspace into
-    `Platform-Core` under `/home/mfshaf7/projects` and
-    `/home/mfshaf7/.openclaw/workspace` so the runtime, build inputs, and
+    `Platform-Core` under `/home/<platform-user>/projects` and
+    `/home/<platform-user>/.openclaw/workspace` so the runtime, build inputs, and
     operator repos now live in the target distro.
 38. Reconciled the moved `platform-engineering` checkout by preserving the raw
     migrated legacy copy as a dated backup and replacing the active working copy
     with a clean clone of the pushed authoritative repository state.
 39. Hardened `Platform-Core` logon persistence after repo migration by
-    repointing the managed host paths at `/home/mfshaf7/projects`, switching the
+    repointing the managed host paths at `/home/<platform-user>/projects`, switching the
     Windows scheduled task to start the platform-managed `systemd` target
     directly, tightening host verification to require active bridge and recovery
     units, and revalidating Windows localhost gateway health after the updated
@@ -175,12 +175,12 @@ These are the next concrete steps after scaffolding:
     and `OpenClawPcControlBridge`, deleted the obsolete `node.cmd` launcher,
     and removed the unused `/opt/openclaw-host-bridge` and
     `/opt/platform-engineering` repo copies after revalidating that the live
-    Platform-Core stack depended only on `/home/mfshaf7/projects`.
+    Platform-Core stack depended only on `/home/<platform-user>/projects`.
 43. Refreshed the stage Argo applications after the final cleanup publish so
     the live gateway, root, and platform-version applications reconciled to
     platform revision `977a34c31653c73f072aeb3ded4d7fdcdffc4e3c`.
 44. Removed the rollback-only `platform-engineering` backup directories after
-    the final cut so `/home/mfshaf7/projects` now contains only the active
+    the final cut so `/home/<platform-user>/projects` now contains only the active
     authoritative repos.
 45. Removed the legacy `Ubuntu` WSL distro, made `Platform-Core` the default
     WSL distribution, and replaced the repo's implicit `kubectl` dependency

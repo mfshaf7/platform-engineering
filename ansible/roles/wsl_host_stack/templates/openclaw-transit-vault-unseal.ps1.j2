@@ -1,0 +1,93 @@
+param(
+  [string]$TransitDistro = '{{ openclaw_transit_windows_wsl_distro }}',
+  [string]$TransitVaultService = '{{ openclaw_transit_vault_service_name }}',
+  [string]$CertificateStorePath = '{{ openclaw_transit_windows_tpm_certificate_store_path }}',
+  [string]$CertificateSubject = '{{ openclaw_transit_windows_tpm_certificate_subject }}',
+  [string]$EncryptedBundlePath = '{{ openclaw_transit_windows_encrypted_bundle_path }}'
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Invoke-WslRoot {
+  param([string]$Command)
+
+  wsl.exe -d $TransitDistro -u root --cd /root -- /bin/bash -lc $Command
+}
+
+function Get-TpmProtectedCertificate {
+  $certificate = Get-ChildItem -Path $CertificateStorePath |
+    Where-Object { $_.Subject -eq $CertificateSubject } |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+
+  if (-not $certificate) {
+    throw "TPM-backed certificate '$CertificateSubject' was not found in $CertificateStorePath."
+  }
+
+  return $certificate
+}
+
+function Get-TransitVaultStatus {
+  try {
+    $json = Invoke-WslRoot "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json"
+    return $json | ConvertFrom-Json
+  } catch {
+    return $null
+  }
+}
+
+function Read-TransitInitBundle {
+  if (-not (Test-Path -LiteralPath $EncryptedBundlePath)) {
+    throw "Encrypted transit init bundle not found at $EncryptedBundlePath."
+  }
+
+  $certificate = Get-TpmProtectedCertificate
+  $bundleJson = Unprotect-CmsMessage -Path $EncryptedBundlePath -To $certificate
+  if (-not $bundleJson) {
+    throw "Transit init bundle at $EncryptedBundlePath decrypted to empty content."
+  }
+
+  return $bundleJson | ConvertFrom-Json
+}
+
+function Invoke-TransitVaultUnseal {
+  $status = Get-TransitVaultStatus
+  if (-not $status) {
+    throw "Transit Vault is unreachable. Start $TransitVaultService in $TransitDistro before unseal."
+  }
+
+  if (-not $status.initialized) {
+    throw "Transit Vault is not initialized yet."
+  }
+
+  if (-not $status.sealed) {
+    Write-Output "Transit Vault is already unsealed."
+    return
+  }
+
+  $bundle = Read-TransitInitBundle
+  $keys = @()
+
+  if ($bundle.unseal_keys_b64) {
+    $keys = @($bundle.unseal_keys_b64)
+  } elseif ($bundle.unseal_keys_hex) {
+    $keys = @($bundle.unseal_keys_hex)
+  }
+
+  if (-not $keys -or $keys.Count -lt 3) {
+    throw "Transit init bundle does not contain at least three unseal keys."
+  }
+
+  foreach ($key in $keys[0..2]) {
+    Invoke-WslRoot "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '$key'" | Out-Null
+  }
+
+  $status = Get-TransitVaultStatus
+  if (-not $status -or $status.sealed) {
+    throw "Transit Vault remained sealed after applying the unseal keys."
+  }
+
+  Write-Output "Transit Vault unsealed."
+}
+
+Invoke-TransitVaultUnseal

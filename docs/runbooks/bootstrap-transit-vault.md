@@ -51,6 +51,13 @@ make provision-transit-vault-host
 This installs the minimal single-purpose transit Vault service and its systemd
 unit inside that distro.
 
+The generated Windows bootstrap artifacts also now include a dedicated transit
+unseal helper for the temporary workstation trust-rooted path:
+
+```bash
+ansible-playbook ansible/playbooks/render-windows-bootstrap.yml
+```
+
 ## High-level sequence
 
 1. bootstrap the separate WSL distro

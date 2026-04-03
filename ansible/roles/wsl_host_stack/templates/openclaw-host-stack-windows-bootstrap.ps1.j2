@@ -13,6 +13,7 @@ param(
   [int]$TransitVaultProxyPort = {{ openclaw_transit_vault_windows_proxy_port }},
   [int]$TransitVaultStartTimeoutSeconds = {{ openclaw_transit_vault_start_timeout_seconds }},
   [int]$TransitVaultUnsealWaitTimeoutSeconds = {{ openclaw_transit_vault_unseal_wait_timeout_seconds }},
+  [string]$TransitUnsealEnabled = '{{ openclaw_transit_windows_unseal_enabled | lower }}',
   [switch]$RunBootstrapOnly
 )
 
@@ -143,6 +144,23 @@ function Update-TransitVaultPortProxy {
   }
 }
 
+function Invoke-TransitVaultUnseal {
+  if ($TransitUnsealEnabled -ne 'true') {
+    return
+  }
+
+  if (-not $PSScriptRoot) {
+    throw "Unable to determine script root for transit unseal helper."
+  }
+
+  $helperPath = Join-Path $PSScriptRoot 'openclaw-transit-vault-unseal.ps1'
+  if (-not (Test-Path -LiteralPath $helperPath)) {
+    throw "Transit unseal helper not found at $helperPath."
+  }
+
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helperPath
+}
+
 function Start-TransitVault {
   if ($TransitMode -eq 'disabled') {
     return
@@ -153,6 +171,7 @@ function Start-TransitVault {
   }
 
   Invoke-WslBash -TargetDistro $TransitDistro -Command "systemctl start $TransitVaultService && systemctl --quiet is-active $TransitVaultService" | Out-Null
+  Invoke-TransitVaultUnseal
 
   $deadline = (Get-Date).AddSeconds($TransitVaultStartTimeoutSeconds)
   while ((Get-Date) -lt $deadline) {

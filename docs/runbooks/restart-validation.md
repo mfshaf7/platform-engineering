@@ -1,12 +1,58 @@
 # Restart Validation
 
-Validate after restart or logon:
+## Purpose
 
-- `make verify-platform-host` passes
+Use this runbook after Windows restart, WSL restart, or operator logon to prove
+that the full platform came back without hidden manual repair.
+
+## Required gate
+
+Run:
+
+```bash
+make verify-restart-survival
+```
+
+This must prove:
+
 - Windows bootstrap executed
-- WSL services are enabled and active
-- bridge health endpoint is reachable
-- recovery health endpoint is reachable
-- cluster workloads are healthy
-- Argo CD is synced
-- Prometheus targets are healthy
+- WSL `systemd` is running
+- `k3s` is enabled and active
+- bridge and recovery are enabled, active, and healthy
+- Vault pods are present and Vault is unsealed
+- core Argo applications are `Synced` and `Healthy`
+
+## Manual checks
+
+If deeper inspection is needed, confirm:
+
+```bash
+systemctl is-active k3s openclaw-host-stack.target openclaw-host-bridge.service openclaw-host-recovery.service
+curl -fsS http://127.0.0.1:48721/healthz
+curl -fsS http://127.0.0.1:48722/healthz
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault get pods
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n vault exec vault-0 -- vault status
+KUBECONFIG=/etc/rancher/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n argocd get applications.argoproj.io
+```
+
+## Current architecture limit
+
+If Vault is using manual Shamir unseal, a normal restart is still an
+operator-assisted recovery model.
+
+In that case:
+
+- the verification gate should fail while Vault is sealed
+- the platform should not be described as fully restart-survivable
+- use [vault-recovery.md](vault-recovery.md) for controlled recovery
+
+## Target state
+
+The target restart-safe design is:
+
+1. Windows bootstrap starts WSL
+2. WSL `systemd` starts `k3s` and the host stack
+3. Vault is available without manual unseal
+4. External Secrets resyncs
+5. Argo applications return to healthy state
+6. gateway dependencies are reachable again

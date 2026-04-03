@@ -49,6 +49,16 @@
       register: host_stack_status
       changed_when: false
 
+    - name: Check bridge health endpoint
+      command: curl -fsS {{ openclaw_bridge_health_url }}
+      register: bridge_health
+      changed_when: false
+
+    - name: Check recovery health endpoint
+      command: curl -fsS {{ openclaw_recovery_health_url }}
+      register: recovery_health
+      changed_when: false
+
     - name: Check host stack target is active
       command: systemctl is-active {{ openclaw_stack_target_name }}
       register: host_stack_active
@@ -62,6 +72,39 @@
     - name: Check recovery service is active
       command: systemctl is-active {{ openclaw_recovery_service_name }}
       register: recovery_active
+      changed_when: false
+
+    - name: Check Vault pods are ready
+      command: >-
+        {{ openclaw_k3s_kubectl_command }}
+        -n {{ openclaw_vault_namespace }}
+        get pods
+      environment:
+        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
+      register: vault_pods
+      changed_when: false
+
+    - name: Check Vault is unsealed on leader pod
+      command: >-
+        {{ openclaw_k3s_kubectl_command }}
+        -n {{ openclaw_vault_namespace }}
+        exec vault-0 -- sh -lc 'vault status -format=json | grep -q "\"sealed\":false"'
+      environment:
+        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
+      register: vault_unsealed
+      changed_when: false
+
+    - name: Check core Argo applications are synced and healthy
+      command: >-
+        sh -lc '{{ openclaw_k3s_kubectl_command }}
+        -n {{ openclaw_argocd_namespace }}
+        get applications.argoproj.io {{ openclaw_restart_validation_applications | join(" ") }}
+        -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
+        --no-headers |
+        awk '"'"'$2 != "Synced" || $3 != "Healthy" { exit 1 }'"'"''
+      environment:
+        KUBECONFIG: "{{ openclaw_k3s_kubeconfig_path }}"
+      register: argocd_apps
       changed_when: false
 
     - name: Check rendered Windows bootstrap artifact exists

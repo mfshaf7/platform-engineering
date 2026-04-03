@@ -84,12 +84,14 @@ Read in this order:
 2. [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
 3. [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
 4. [docs/standards/release-model.md](docs/standards/release-model.md)
-5. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
-6. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
-7. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
-8. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
-9. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
-10. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
+5. [docs/standards/restart-survival.md](docs/standards/restart-survival.md)
+6. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
+7. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+8. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
+9. [docs/runbooks/restart-validation.md](docs/runbooks/restart-validation.md)
+10. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
+11. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
+12. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
 
 Historical records live under [docs/archive/README.md](docs/archive/README.md).
 

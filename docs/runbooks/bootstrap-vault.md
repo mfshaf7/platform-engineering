@@ -25,6 +25,11 @@ the recovery keys and root token handling policy that matches your environment.
 
 For this local platform, keep the unseal keys and root token outside the repo.
 
+If the platform is expected to recover automatically after routine restart, do
+not stop at manual Shamir unseal. Use
+[vault-auto-unseal.md](vault-auto-unseal.md) to move the platform to an
+unattended restart model.
+
 ## Configure Vault For ESO
 
 After Vault is initialized and unsealed:

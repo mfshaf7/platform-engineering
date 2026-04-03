@@ -18,6 +18,7 @@ help:
 	@printf "  render-windows-cutover-inventory Render Windows task cutover inventory\n"
 	@printf "  capture-windows-task-evidence Capture current Windows scheduled-task evidence\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
+	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
 	@printf "  show-prod-versions Show current prod version pins\n"
@@ -65,6 +66,9 @@ capture-windows-task-evidence:
 .PHONY: verify-platform-host
 verify-platform-host:
 	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/verify-platform-host.yml $(ANSIBLE_EXTRA_VARS_ARG)
+
+.PHONY: verify-restart-survival
+verify-restart-survival: verify-platform-host
 
 .PHONY: render-windows-bootstrap
 render-windows-bootstrap:

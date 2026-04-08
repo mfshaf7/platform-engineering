@@ -54,8 +54,9 @@ The platform-managed task name is:
 
 - `PlatformCoreHostStack`
 
-During migration, keep the legacy Windows task `OpenClawHostStack` available as
-the rollback path until post-cutover verification succeeds.
+After post-cutover verification and one real reboot/logon validation, retire
+the legacy Windows startup hooks and keep `PlatformCoreHostStack` as the only
+supported Windows bootstrap path.
 
 This keeps Windows responsible only for logon-triggered WSL entry while systemd
 inside WSL owns bridge and recovery supervision.

@@ -12,7 +12,7 @@ The first-run distro recovery is complete, the host-control path is healthy in
 Observed live state after recovery:
 
 - Windows scheduled task `PlatformCoreHostStack` exists
-- Windows scheduled task `OpenClawHostStack` remains disabled
+- legacy Windows scheduled tasks have been retired from the active startup path
 - `Platform-Core` is accessible as the configured Linux platform user
 - `openclaw-host-bridge.service` is active in `Platform-Core`
 - `openclaw-host-recovery.service` is active in `Platform-Core`
@@ -99,6 +99,11 @@ After the new path is healthy:
 4. record the cleanup result
 
 Cleanup happens only after post-cutover verification succeeds.
+
+The supported Windows bootstrap after cleanup is only:
+
+- `PlatformCoreHostStack`
+- `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
 
 ## Rollback Trigger
 

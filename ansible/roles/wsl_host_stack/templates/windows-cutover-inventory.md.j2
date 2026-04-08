@@ -51,12 +51,12 @@ Use only if the new path regresses service health.
 - Restart the legacy bridge-only task if needed:
   - `Start-ScheduledTask -TaskName "{{ openclaw_legacy_windows_bridge_task_name }}"`
 
-## Legacy Script References
+## Bootstrap Source Of Truth
 
-Legacy registration scripts remain available in:
+Use only the platform-managed bootstrap artifact during cutover and after
+cleanup:
 
-- `{{ openclaw_legacy_windows_bridge_repo_root }}/scripts/register-openclaw-host-stack-task.ps1`
-- `{{ openclaw_legacy_windows_bridge_repo_root }}/scripts/register-openclaw-host-bridge-task.ps1`
+- `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
 
 ## Operator Reminder
 

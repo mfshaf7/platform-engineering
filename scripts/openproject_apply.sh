@@ -14,6 +14,7 @@ POSTGRES_SECRETS_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/platform-po
 POSTGRES_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/platform-postgresql-app.yaml"
 SECRETS_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/openproject-secrets-app.yaml"
 APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/openproject-app.yaml"
+SYNC_ADMIN_PASSWORD_SCRIPT="${REPO_ROOT}/scripts/openproject_sync_admin_password.sh"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -76,6 +77,9 @@ wait_for_application "${SECRETS_APP_NAME}" 300
 echo "Applying OpenProject application manifest"
 kubectl_cmd apply -f "${APP_MANIFEST}"
 wait_for_application "${APP_NAME}" 900
+
+echo "Syncing the OpenProject admin password from the Vault-backed Kubernetes secret"
+"${SYNC_ADMIN_PASSWORD_SCRIPT}"
 
 echo
 kubectl_cmd -n "${POSTGRES_NAMESPACE}" get pods

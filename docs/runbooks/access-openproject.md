@@ -18,6 +18,9 @@ This follows the repo's existing operator pattern:
 - username: `admin`
 - password source: Vault path `kv/products/openproject/prod/admin`
 - the upstream chart keeps the bootstrap login name fixed as `admin`
+- OpenProject requires the password stored there to be at least 10 characters
+- if login fails after a fresh deploy or after rotating the Vault password, run
+  `make openproject-sync-admin-password`
 
 The application database is internal-only at:
 

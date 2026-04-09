@@ -21,6 +21,7 @@ help:
 	@printf "  openproject-apply  Register and wait for the OpenProject Argo apps\n"
 	@printf "  openproject-status Show current OpenProject Argo and workload status\n"
 	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
+	@printf "  openproject-sync-admin-password Reconcile the admin password from Vault-backed secret into OpenProject\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -84,6 +85,10 @@ openproject-status:
 .PHONY: openproject-access
 openproject-access:
 	./scripts/openproject_access.sh
+
+.PHONY: openproject-sync-admin-password
+openproject-sync-admin-password:
+	./scripts/openproject_sync_admin_password.sh
 
 .PHONY: openproject-uninstall
 openproject-uninstall:

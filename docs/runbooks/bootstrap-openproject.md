@@ -38,6 +38,7 @@ an Argo-managed internal service.
 - `scripts/openproject_apply.sh`
 - `scripts/openproject_status.sh`
 - `scripts/openproject_access.sh`
+- `scripts/openproject_sync_admin_password.sh`
 - `scripts/openproject_uninstall.sh`
 
 ## Bootstrap Sequence
@@ -58,11 +59,18 @@ kubectl -n vault exec vault-0 -- \
   vault kv put kv/platform/postgresql/prod/openproject password='<openproject-db-password>'
 ```
 
+Use an OpenProject admin password that is at least 10 characters long. Shorter
+passwords are rejected by the application and the sync helper will fail fast.
+
 2. Register and reconcile the PostgreSQL and OpenProject Argo applications:
 
 ```bash
 make openproject-apply
 ```
+
+`make openproject-apply` also reconciles the `admin` password from the
+Vault-backed Kubernetes secret into the live OpenProject database after the web
+deployment becomes healthy.
 
 3. Confirm workload readiness:
 
@@ -110,6 +118,9 @@ make openproject-access
 - password source: Vault path `kv/products/openproject/prod/admin`
 - the upstream chart does not expose an initial admin username override, only
   password, display name, and email
+- in this Argo CD plus External Secrets flow, the upstream chart still seeds the
+  database with its default bootstrap password, so this repo explicitly runs
+  `make openproject-sync-admin-password` as part of `make openproject-apply`
 - the chart is configured to require an admin password reset on first login
 
 ## What Is Intentionally Deferred In V1

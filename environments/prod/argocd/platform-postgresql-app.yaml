@@ -11,6 +11,8 @@ spec:
     targetRevision: 18.5.16
     helm:
       values: |
+        global:
+          defaultFips: off
         fullnameOverride: platform-postgresql
         architecture: standalone
         auth:

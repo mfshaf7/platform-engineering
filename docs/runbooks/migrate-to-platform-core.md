@@ -104,6 +104,7 @@ The supported Windows bootstrap after cleanup is only:
 
 - `PlatformCoreHostStack`
 - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
+- `%LOCALAPPDATA%\OpenClaw\bootstrap\openclaw-host-stack-windows-bootstrap.ps1`
 
 ## Rollback Trigger
 

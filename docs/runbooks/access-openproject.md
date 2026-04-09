@@ -47,3 +47,6 @@ Then refresh the managed Windows bootstrap path:
 make render-windows-bootstrap
 powershell.exe -NoProfile -Command "Start-ScheduledTask -TaskName 'PlatformCoreHostStack'"
 ```
+
+The managed task should run the Windows-local bootstrap copy under
+`%LOCALAPPDATA%\OpenClaw\bootstrap\`.

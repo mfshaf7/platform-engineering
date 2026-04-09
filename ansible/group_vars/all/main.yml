@@ -5,6 +5,7 @@ platform_linux_user: "{{ lookup('env', 'PLATFORM_LINUX_USER') | default(lookup('
 platform_linux_home: "{{ lookup('env', 'PLATFORM_LINUX_HOME') | default('/home/' ~ platform_linux_user, true) }}"
 platform_projects_root: "{{ lookup('env', 'PLATFORM_PROJECTS_ROOT') | default(platform_linux_home ~ '/projects', true) }}"
 platform_windows_local_appdata_dir: "{{ lookup('env', 'PLATFORM_WINDOWS_LOCAL_APPDATA_DIR') | default('%LOCALAPPDATA%', true) }}"
+platform_windows_bootstrap_artifact_dir: "{{ platform_windows_local_appdata_dir }}\\OpenClaw\\bootstrap"
 platform_repo_root: "{{ platform_projects_root }}/platform-engineering"
 openclaw_host_bridge_root: "{{ platform_projects_root }}/openclaw-host-bridge"
 openclaw_bridge_user: root

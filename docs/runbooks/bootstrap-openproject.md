@@ -78,6 +78,9 @@ make render-windows-bootstrap
 powershell.exe -NoProfile -Command "Start-ScheduledTask -TaskName 'PlatformCoreHostStack'"
 ```
 
+The scheduled task should be backed by the Windows-local bootstrap copy under
+`%LOCALAPPDATA%\OpenClaw\bootstrap\`.
+
 ## Readiness Checks
 
 Verify:

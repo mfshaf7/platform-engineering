@@ -47,8 +47,12 @@ The rendered script path is:
 
 - `ansible/generated/openclaw-host-stack-windows-bootstrap.ps1`
 
-Run that PowerShell script on Windows to register the scheduled task for the
-configured distro and host-bridge root.
+The task should run the Windows-local mirrored copy at:
+
+- `%LOCALAPPDATA%\OpenClaw\bootstrap\openclaw-host-stack-windows-bootstrap.ps1`
+
+`make render-windows-bootstrap` refreshes both the repo-local generated artifact
+and the Windows-local copy used by the scheduled task.
 
 The platform-managed task name is:
 

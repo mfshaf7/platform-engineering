@@ -10,10 +10,21 @@
     openclaw_windows_bootstrap_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/openclaw-host-stack-windows-bootstrap.ps1"
     openclaw_windows_transit_unseal_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/openclaw-transit-vault-unseal.ps1"
     openclaw_windows_vault_unseal_artifact_path: "{{ openclaw_windows_bootstrap_artifact_dir }}/platform-vault-unseal.ps1"
+    platform_windows_local_appdata_wsl_path: "{{ lookup('pipe', \"cmd.exe /c echo %LOCALAPPDATA% | tr -d '\\r' | sed 's#\\\\#/#g' | sed 's#^\\([A-Za-z]\\):#/mnt/\\L\\1#'\") | trim }}"
+    platform_windows_bootstrap_artifact_dir_wsl_path: "{{ platform_windows_local_appdata_wsl_path }}/OpenClaw/bootstrap"
+    platform_windows_bootstrap_artifact_path_wsl: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}/openclaw-host-stack-windows-bootstrap.ps1"
+    platform_windows_transit_unseal_artifact_path_wsl: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}/openclaw-transit-vault-unseal.ps1"
+    platform_windows_vault_unseal_artifact_path_wsl: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}/platform-vault-unseal.ps1"
   tasks:
     - name: Ensure generated artifact directory exists
       file:
         path: "{{ openclaw_windows_bootstrap_artifact_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure Windows-local bootstrap artifact directory exists
+      file:
+        path: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}"
         state: directory
         mode: "0755"
 
@@ -23,14 +34,32 @@
         dest: "{{ openclaw_windows_bootstrap_artifact_path }}"
         mode: "0644"
 
+    - name: Render Windows-local scheduled-task bootstrap script
+      template:
+        src: ../roles/wsl_host_stack/templates/openclaw-host-stack-windows-bootstrap.ps1.j2
+        dest: "{{ platform_windows_bootstrap_artifact_path_wsl }}"
+        mode: "0644"
+
     - name: Render Windows TPM-backed transit unseal helper
       template:
         src: ../roles/wsl_host_stack/templates/openclaw-transit-vault-unseal.ps1.j2
         dest: "{{ openclaw_windows_transit_unseal_artifact_path }}"
         mode: "0644"
 
+    - name: Render Windows-local TPM-backed transit unseal helper
+      template:
+        src: ../roles/wsl_host_stack/templates/openclaw-transit-vault-unseal.ps1.j2
+        dest: "{{ platform_windows_transit_unseal_artifact_path_wsl }}"
+        mode: "0644"
+
     - name: Render Windows TPM-backed workload Vault unseal helper
       template:
         src: ../roles/wsl_host_stack/templates/platform-vault-unseal.ps1.j2
         dest: "{{ openclaw_windows_vault_unseal_artifact_path }}"
+        mode: "0644"
+
+    - name: Render Windows-local TPM-backed workload Vault unseal helper
+      template:
+        src: ../roles/wsl_host_stack/templates/platform-vault-unseal.ps1.j2
+        dest: "{{ platform_windows_vault_unseal_artifact_path_wsl }}"
         mode: "0644"

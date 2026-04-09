@@ -12,8 +12,6 @@ spec:
     helm:
       values: |
         fullnameOverride: platform-postgresql
-        image:
-          tag: 18.3.0
         architecture: standalone
         auth:
           enablePostgresUser: true

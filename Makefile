@@ -18,6 +18,10 @@ help:
 	@printf "  render-runtime-reachability Render post-cutover runtime reachability checklist\n"
 	@printf "  render-windows-cutover-inventory Render Windows task cutover inventory\n"
 	@printf "  capture-windows-task-evidence Capture current Windows scheduled-task evidence\n"
+	@printf "  openproject-apply  Register and wait for the OpenProject Argo apps\n"
+	@printf "  openproject-status Show current OpenProject Argo and workload status\n"
+	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
+	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  prepull-gateway-image Warm the current gateway image digest onto every node before rollout\n"
@@ -68,6 +72,22 @@ render-windows-cutover-inventory:
 .PHONY: capture-windows-task-evidence
 capture-windows-task-evidence:
 	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/capture-windows-task-evidence.yml $(ANSIBLE_EXTRA_VARS_ARG)
+
+.PHONY: openproject-apply
+openproject-apply:
+	./scripts/openproject_apply.sh
+
+.PHONY: openproject-status
+openproject-status:
+	./scripts/openproject_status.sh
+
+.PHONY: openproject-access
+openproject-access:
+	./scripts/openproject_access.sh
+
+.PHONY: openproject-uninstall
+openproject-uninstall:
+	./scripts/openproject_uninstall.sh
 
 .PHONY: verify-platform-host
 verify-platform-host:

@@ -10,6 +10,8 @@ spec:
     - oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     - https://charts.external-secrets.io
     - https://helm.releases.hashicorp.com
+    - https://charts.openproject.org
+    - https://charts.bitnami.com/bitnami
   destinations:
     - namespace: openclaw
       server: https://kubernetes.default.svc
@@ -26,6 +28,10 @@ spec:
     - namespace: vault
       server: https://kubernetes.default.svc
     - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: platform-postgresql
+      server: https://kubernetes.default.svc
+    - namespace: openproject
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"

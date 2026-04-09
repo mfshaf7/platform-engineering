@@ -56,6 +56,44 @@ path "kv/metadata/products/openclaw/prod/*" {
 EOF
   vault policy write platform-prod-read /tmp/platform-prod-read.hcl
 
+  cat <<EOF >/tmp/platform-openproject-prod-read.hcl
+path "kv/data/products/openproject/prod/*" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/products/openproject/prod/*" {
+  capabilities = ["read", "list"]
+}
+
+path "kv/data/platform/postgresql/prod/openproject" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/postgresql/prod/openproject" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-openproject-prod-read /tmp/platform-openproject-prod-read.hcl
+
+  cat <<EOF >/tmp/platform-postgresql-prod-read.hcl
+path "kv/data/platform/postgresql/prod/service" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/postgresql/prod/service" {
+  capabilities = ["read", "list"]
+}
+
+path "kv/data/platform/postgresql/prod/openproject" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/platform/postgresql/prod/openproject" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-postgresql-prod-read /tmp/platform-postgresql-prod-read.hcl
+
   cat <<EOF >/tmp/platform-observability-stage-read.hcl
 path "kv/data/platform/observability/stage/*" {
   capabilities = ["read"]
@@ -101,6 +139,20 @@ EOF
     bound_service_account_namespaces="openclaw" \
     audience="vault" \
     token_policies="platform-prod-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-openproject-prod-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="openproject" \
+    audience="vault" \
+    token_policies="platform-openproject-prod-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-postgresql-prod-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="platform-postgresql" \
+    audience="vault" \
+    token_policies="platform-postgresql-prod-read" \
     ttl="1h"
 
   vault write auth/kubernetes/role/platform-observability-stage-secrets \

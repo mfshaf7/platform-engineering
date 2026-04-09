@@ -13,6 +13,7 @@ Endpoints:
 - Alertmanager stage: `http://127.0.0.1:32094`
 - Grafana prod: `http://127.0.0.1:32080`
 - Grafana stage: `http://127.0.0.1:32081`
+- OpenProject: `http://127.0.0.1:32083`
 
 Current credentials:
 

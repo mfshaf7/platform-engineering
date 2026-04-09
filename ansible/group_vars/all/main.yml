@@ -69,6 +69,7 @@ platform_windows_localhost_forward_ports:
   - 32094
   - 32080
   - 32081
+  - 32083
   - 32200
   - 32443
 platform_windows_host_forward_rules:

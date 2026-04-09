@@ -14,6 +14,24 @@ gateway:
     digest: sha256:68d8e9403d75159b2f20a2edb4c68335a35f174ced5053654ce137cb73d0dec5
   chartVersion: 0.1.0
   replicas: 1
+openproject:
+  chartVersion: 13.4.4
+  appVersion: 17.2.3
+  namespace: openproject
+  service:
+    nodePort: 32083
+  persistence:
+    storageClassName: local-path
+    appVolumeSize: 8Gi
+platformPostgresql:
+  chartVersion: 18.5.16
+  appVersion: 18.3.0
+  namespace: platform-postgresql
+  service:
+    port: 5432
+  persistence:
+    storageClassName: local-path
+    volumeSize: 8Gi
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced

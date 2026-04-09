@@ -9,7 +9,7 @@ connects environment-scoped `ExternalSecret` consumers through Kubernetes auth.
 
 - `vault` runs once per cluster as shared infrastructure
 - `external-secrets` remains the delivery mechanism into Kubernetes namespaces
-- each environment gets its own namespaced `SecretStore`
+- each consuming namespace gets its own namespaced `SecretStore`
 - Vault policies and roles are split by environment to preserve least privilege
 
 ## Deploy Shared Apps
@@ -44,8 +44,12 @@ This script:
 - enables the `kv` v2 secrets engine
 - enables Kubernetes auth
 - configures Kubernetes auth against the in-cluster API
-- creates least-privilege policies for `stage` and `prod`
+- creates least-privilege policies for each platform-managed consumer namespace
 - creates the Vault roles expected by the environment `SecretStore` manifests
+
+After adding a new Vault-backed service such as OpenProject, rerun the same
+script so the matching policy and Kubernetes auth role exist before Argo
+reconciles the service `SecretStore`.
 
 ## Configure Shared Operator Access
 
@@ -90,13 +94,15 @@ The environment roots apply:
 
 - [environments/stage/secrets](../../environments/stage/secrets)
 - [environments/prod/secrets](../../environments/prod/secrets)
+- [environments/prod/openproject-secrets](../../environments/prod/openproject-secrets)
+- [environments/prod/platform-postgresql-secrets](../../environments/prod/platform-postgresql-secrets)
 
-Each environment owns:
+Each consuming namespace owns:
 
 - a dedicated `ServiceAccount`
 - a dedicated Vault-backed `SecretStore`
-- the `ExternalSecret` that materializes the product-owned
-  `openclaw-gateway-secrets`
+- the `ExternalSecret` objects that materialize the runtime secrets needed in
+  that namespace
 
 The shared control-plane resources are platform-named:
 

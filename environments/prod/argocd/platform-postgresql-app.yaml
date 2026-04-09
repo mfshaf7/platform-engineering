@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-postgresql
+  namespace: argocd
+spec:
+  project: platform-core
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: postgresql
+    targetRevision: 18.5.16
+    helm:
+      values: |
+        fullnameOverride: platform-postgresql
+        image:
+          tag: 18.3.0
+        architecture: standalone
+        auth:
+          enablePostgresUser: true
+          existingSecret: platform-postgresql-credentials
+          secretKeys:
+            adminPasswordKey: postgres-password
+            userPasswordKey: password
+          username: openproject
+          database: openproject
+        primary:
+          service:
+            type: ClusterIP
+            ports:
+              postgresql: 5432
+          persistence:
+            enabled: true
+            storageClass: local-path
+            accessModes:
+              - ReadWriteOnce
+            size: 8Gi
+        metrics:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-postgresql
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

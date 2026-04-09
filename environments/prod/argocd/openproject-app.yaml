@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openproject
+  namespace: argocd
+spec:
+  project: platform-core
+  source:
+    repoURL: https://charts.openproject.org
+    chart: openproject
+    targetRevision: 13.4.4
+    helm:
+      values: |
+        develop: true
+        ingress:
+          enabled: false
+        service:
+          type: NodePort
+          ports:
+            http:
+              containerPort: 8080
+              port: 8080
+              protocol: TCP
+              nodePort: 32083
+        openproject:
+          https: false
+          hsts: false
+          host: 127.0.0.1:32083
+          admin_user:
+            name: Platform OpenProject Admin
+            mail: openproject-admin@local.invalid
+            password_reset: "true"
+            secret: openproject-admin-secret
+            secretKeys:
+              password: password
+          realtime_collaboration:
+            enabled: true
+            hocuspocus:
+              protocol: ws
+        persistence:
+          enabled: true
+          accessModes:
+            - ReadWriteOnce
+          size: 8Gi
+          storageClassName: local-path
+        postgresql:
+          bundled: false
+          connection:
+            host: platform-postgresql.platform-postgresql.svc.cluster.local
+            port: 5432
+          auth:
+            existingSecret: openproject-postgresql-credentials
+            secretKeys:
+              userPasswordKey: password
+            username: openproject
+            database: openproject
+        memcached:
+          bundled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openproject
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,84 @@
+name: Manage Stage Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        required: true
+        default: suspend
+        type: choice
+        options:
+          - suspend
+          - resume
+      operation_note:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: manage-stage-environment
+  cancel-in-progress: false
+
+jobs:
+  update-stage-environment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Update stage environment state
+        run: python scripts/set_stage_environment_state.py "${{ inputs.action }}"
+
+      - name: Show stage environment diff
+        run: git diff -- environments/stage/argocd/kustomization.yaml
+
+      - name: Detect whether a commit is needed
+        id: diff
+        run: |
+          if git diff --quiet -- environments/stage/argocd/kustomization.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push stage lifecycle branch
+        if: steps.diff.outputs.changed == 'true'
+        id: lifecycle_branch
+        env:
+          LIFECYCLE_BRANCH: stage/${{ inputs.action }}-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$LIFECYCLE_BRANCH"
+          git add environments/stage/argocd/kustomization.yaml
+          git commit -m "Set stage environment to ${{ inputs.action }}"
+          git push --force-with-lease origin "$LIFECYCLE_BRANCH"
+          echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish lifecycle summary
+        run: |
+          {
+            echo "## Stage Environment"
+            echo
+            echo "- Requested action: \`${{ inputs.action }}\`"
+            echo "- Note: \`${{ inputs.operation_note || 'none' }}\`"
+            if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
+              echo "- Lifecycle branch: \`${{ steps.lifecycle_branch.outputs.lifecycle_branch }}\`"
+              echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1\`"
+              echo
+              echo "Open the compare URL to review and merge the stage lifecycle change."
+            else
+              echo "- No git changes were required because stage was already in the requested state."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

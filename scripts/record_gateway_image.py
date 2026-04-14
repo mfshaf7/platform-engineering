@@ -43,12 +43,7 @@ def main() -> int:
 
     env_root = args.repo_root / "environments" / args.environment
     versions_path = env_root / "versions.yaml"
-    gateway_values_path = env_root / "values" / "openclaw-gateway.yaml"
-    platform_values_path = env_root / "values" / "platform-version.yaml"
-
     versions = load_yaml(versions_path)
-    gateway_values = load_yaml(gateway_values_path)
-    platform_values = load_yaml(platform_values_path)
 
     repository = versions["gateway"]["image"]["repository"]
     expected_prefix = f"{versions['gateway']['publish']['tagPrefix']}-"
@@ -73,22 +68,11 @@ def main() -> int:
     versions["gateway"]["image"]["digest"] = args.digest
     versions["sourceRepos"]["platformEngineering"]["commit"] = platform_sha
 
-    gateway_values["image"]["repository"] = repository
-    gateway_values["image"]["tag"] = args.tag
-    gateway_values["image"]["digest"] = args.digest
-    gateway_values["env"]["OPENCLAW_TELEGRAM_SHA"] = versions["sourceRepos"]["telegramEnhanced"]["commit"]
-    gateway_values["env"]["OPENCLAW_HOST_BRIDGE_SHA"] = versions["sourceRepos"]["hostBridge"]["commit"]
-    gateway_values["env"]["OPENCLAW_PLATFORM_SHA"] = platform_sha
-
-    platform_values["versions"]["gatewayImage"] = image_ref
-    platform_values["versions"]["isolatedDeploymentSha"] = versions["sourceRepos"]["isolatedDeployment"]["commit"]
-    platform_values["versions"]["telegramSha"] = versions["sourceRepos"]["telegramEnhanced"]["commit"]
-    platform_values["versions"]["hostBridgeSha"] = versions["sourceRepos"]["hostBridge"]["commit"]
-    platform_values["versions"]["platformSha"] = platform_sha
-
     write_yaml(versions_path, versions)
-    write_yaml(gateway_values_path, gateway_values)
-    write_yaml(platform_values_path, platform_values)
+
+    from sync_environment_contract import sync_environment
+
+    sync_environment(args.environment, args.repo_root)
 
     print(f"Recorded {image_ref} for {args.environment} with platformSha={platform_sha}")
     return 0

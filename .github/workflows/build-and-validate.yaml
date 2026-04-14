@@ -45,6 +45,9 @@ jobs:
       - name: Render stage platform version chart
         run: helm template platform-version-stage charts/platform-version -f environments/stage/values/platform-version.yaml >/tmp/platform-version-stage.yaml
 
+      - name: Check environment contract synchronization
+        run: python scripts/sync_environment_contract.py --check stage prod
+
       - name: Validate stage environment contract
         run: python scripts/validate_environment_contract.py stage
 

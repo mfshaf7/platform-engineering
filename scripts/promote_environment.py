@@ -47,9 +47,6 @@ def main() -> int:
 
     source_versions = load_yaml(source_root / "versions.yaml")
     target_versions = load_yaml(target_root / "versions.yaml")
-    target_gateway_values = load_yaml(target_root / "values" / "openclaw-gateway.yaml")
-    target_platform_values = load_yaml(target_root / "values" / "platform-version.yaml")
-
     source_gateway_image = source_versions["gateway"]["image"]
     source_repos = source_versions["sourceRepos"]
 
@@ -67,26 +64,11 @@ def main() -> int:
     target_versions["sourceRepos"]["isolatedDeployment"]["commit"] = source_repos["isolatedDeployment"]["commit"]
     target_versions["sourceRepos"]["platformEngineering"]["commit"] = source_repos["platformEngineering"]["commit"]
 
-    target_gateway_values["image"]["repository"] = source_gateway_image["repository"]
-    target_gateway_values["image"]["tag"] = source_gateway_image["tag"]
-    target_gateway_values["image"]["digest"] = source_gateway_image["digest"]
-    target_gateway_values["env"]["OPENCLAW_TELEGRAM_SHA"] = source_repos["telegramEnhanced"]["commit"]
-    target_gateway_values["env"]["OPENCLAW_HOST_BRIDGE_SHA"] = source_repos["hostBridge"]["commit"]
-    target_gateway_values["env"]["OPENCLAW_PLATFORM_SHA"] = source_repos["platformEngineering"]["commit"]
-
-    target_platform_values["versions"]["gatewayImage"] = build_gateway_image_ref(
-        source_gateway_image["repository"],
-        source_gateway_image["tag"],
-        source_gateway_image["digest"],
-    )
-    target_platform_values["versions"]["telegramSha"] = source_repos["telegramEnhanced"]["commit"]
-    target_platform_values["versions"]["hostBridgeSha"] = source_repos["hostBridge"]["commit"]
-    target_platform_values["versions"]["isolatedDeploymentSha"] = source_repos["isolatedDeployment"]["commit"]
-    target_platform_values["versions"]["platformSha"] = source_repos["platformEngineering"]["commit"]
-
     write_yaml(target_root / "versions.yaml", target_versions)
-    write_yaml(target_root / "values" / "openclaw-gateway.yaml", target_gateway_values)
-    write_yaml(target_root / "values" / "platform-version.yaml", target_platform_values)
+
+    from sync_environment_contract import sync_environment
+
+    sync_environment(args.target_environment, args.repo_root)
 
     print(
         f"Promoted {args.source_environment} gateway image "

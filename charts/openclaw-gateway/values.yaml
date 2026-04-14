@@ -52,7 +52,7 @@ serviceMonitor:
 prepull:
   enabled: false
   syncWave: -1
-  ttlSecondsAfterFinished: 300
+  terminationGracePeriodSeconds: 0
   resources:
     requests:
       cpu: 10m

@@ -70,6 +70,6 @@ operator-local memory step.
 - `Build Gateway Image` only creates the OCI artifact. It does not complete a prod rollout.
 - After the build succeeds, record the immutable digest into the target environment contract before expecting Argo to deploy it.
 - `prod` gateway is a single-node `hostNetwork` workload that binds host port `18789`.
-- Because of that host-port constraint, prod uses the chart-managed pre-pull Job plus a `Recreate` deployment strategy.
-- Do not manually delete the old prod gateway pod as a first rollout step. Let Argo run the pre-pull Job and own the cutover.
-- If rollout appears slow, inspect the pre-pull Job and image-pull events first. A cold GHCR pull can block `ContainerCreating` even when the build itself was correct.
+- Because of that host-port constraint, prod uses the chart-managed pre-pull DaemonSet plus a `Recreate` deployment strategy.
+- Do not manually delete the old prod gateway pod as a first rollout step. Let Argo run the pre-pull DaemonSet and own the cutover.
+- If rollout appears slow, inspect the pre-pull DaemonSet and image-pull events first. A cold GHCR pull can block `ContainerCreating` even when the build itself was correct.

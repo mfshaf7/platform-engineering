@@ -1,34 +1,36 @@
 {{- if .Values.prepull.enabled }}
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: DaemonSet
 metadata:
   name: {{ include "openclaw-gateway.prepullJobName" . }}
   labels:
-    app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
-    app.kubernetes.io/component: gateway-image-prepull
+    app.kubernetes.io/name: gateway-image-prepull
+    openclaw.io/prepull-target: {{ include "openclaw-gateway.prepullJobName" . }}
     openclaw.io/image-identity: {{ include "openclaw-gateway.imageIdentity" . | quote }}
   annotations:
     argocd.argoproj.io/sync-wave: {{ .Values.prepull.syncWave | quote }}
 spec:
-  ttlSecondsAfterFinished: {{ .Values.prepull.ttlSecondsAfterFinished }}
-  backoffLimit: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway-image-prepull
+      openclaw.io/prepull-target: {{ include "openclaw-gateway.prepullJobName" . }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
-        app.kubernetes.io/component: gateway-image-prepull
+        app.kubernetes.io/name: gateway-image-prepull
+        openclaw.io/prepull-target: {{ include "openclaw-gateway.prepullJobName" . }}
         openclaw.io/image-identity: {{ include "openclaw-gateway.imageIdentity" . | quote }}
     spec:
-      restartPolicy: Never
+      terminationGracePeriodSeconds: {{ .Values.prepull.terminationGracePeriodSeconds }}
       enableServiceLinks: false
       containers:
         - name: warm
           image: {{ include "openclaw-gateway.imageRef" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - node
-            - -e
-            - process.exit(0)
+            - sh
+            - -lc
+            - trap 'exit 0' TERM INT; sleep infinity & wait
           resources:
             {{- toYaml .Values.prepull.resources | nindent 12 }}
 {{- end }}

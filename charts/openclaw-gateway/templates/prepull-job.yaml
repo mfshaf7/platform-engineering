@@ -1,0 +1,34 @@
+{{- if .Values.prepull.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openclaw-gateway.prepullJobName" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
+    app.kubernetes.io/component: gateway-image-prepull
+    openclaw.io/image-identity: {{ include "openclaw-gateway.imageIdentity" . | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.prepull.syncWave | quote }}
+spec:
+  ttlSecondsAfterFinished: {{ .Values.prepull.ttlSecondsAfterFinished }}
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "openclaw-gateway.name" . }}
+        app.kubernetes.io/component: gateway-image-prepull
+        openclaw.io/image-identity: {{ include "openclaw-gateway.imageIdentity" . | quote }}
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      containers:
+        - name: warm
+          image: {{ include "openclaw-gateway.imageRef" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - node
+            - -e
+            - process.exit(0)
+          resources:
+            {{- toYaml .Values.prepull.resources | nindent 12 }}
+{{- end }}

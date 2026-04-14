@@ -13,6 +13,10 @@ command:
 hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
 enableServiceLinks: false
+strategy:
+  type: Recreate
+prepull:
+  enabled: true
 env:
   OPENCLAW_ENV: prod
   OPENCLAW_TELEGRAM_SHA: 5ffa7bbc55600ed39b33cf74fb8a17ed4a8b1674

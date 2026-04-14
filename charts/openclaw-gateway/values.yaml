@@ -8,6 +8,12 @@ image:
 
 replicaCount: 1
 
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 25%
+
 hostNetwork: false
 dnsPolicy: ClusterFirst
 
@@ -42,6 +48,18 @@ extraVolumes: []
 serviceMonitor:
   enabled: true
   interval: 30s
+
+prepull:
+  enabled: false
+  syncWave: -1
+  ttlSecondsAfterFinished: 300
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi
 
 secretRefs:
   - name: openclaw-gateway-secrets

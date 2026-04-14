@@ -19,6 +19,10 @@ on:
         required: false
         type: string
         default: ""
+      suspend_stage_environment:
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -60,6 +64,10 @@ jobs:
       - name: Apply digest-based promotion
         run: python scripts/promote_environment.py "${{ inputs.source_environment }}" "${{ inputs.target_environment }}"
 
+      - name: Suspend stage environment after promotion
+        if: inputs.suspend_stage_environment
+        run: python scripts/set_stage_environment_state.py suspend
+
       - name: Validate target environment contract
         run: python scripts/validate_environment_contract.py "${{ inputs.target_environment }}"
 
@@ -71,7 +79,7 @@ jobs:
 
       - name: Show promotion diff
         run: |
-          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
+          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml
 
       - name: Capture promoted image metadata
         id: promoted
@@ -99,7 +107,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$PROMOTION_BRANCH"
-          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
+          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml
           git commit -m "Promote prod to approved stage gateway digest"
           git push --force-with-lease origin "$PROMOTION_BRANCH"
           echo "promotion_branch=$PROMOTION_BRANCH" >> "$GITHUB_OUTPUT"
@@ -116,6 +124,7 @@ jobs:
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
             echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
+            echo "- Suspend stage environment: \`${{ inputs.suspend_stage_environment }}\`"
             echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
             echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo

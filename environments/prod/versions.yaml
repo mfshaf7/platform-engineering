@@ -35,13 +35,13 @@ platformPostgresql:
 sourceRepos:
   telegramEnhanced:
     repository: github.com/mfshaf7/openclaw-telegram-enhanced
-    commit: 2a7435c9aea18541eba54f4de61c9bade155b3b6
+    commit: 5ffa7bbc55600ed39b33cf74fb8a17ed4a8b1674
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
     commit: a6f6d146fd91aa0f01d5ded4d768639f3a839b3e
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-isolated-deployment
-    commit: 28c4200a67e004cc6551cd3225c061b7132776e6
+    commit: c61af103dc76e7af51cec4ba2f0a25d7dbf26d40
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
     commit: 685eb89cd8542db1d79f65c480bfb011003be23a

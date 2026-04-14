@@ -12,9 +12,6 @@ command:
 - lan
 - --port
 - '18789'
-hostNetwork: true
-dnsPolicy: ClusterFirstWithHostNet
-enableServiceLinks: false
 service:
   type: ClusterIP
   port: 18789

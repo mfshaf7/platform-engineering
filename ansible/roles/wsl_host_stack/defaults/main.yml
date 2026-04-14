@@ -6,6 +6,7 @@ openclaw_wsl_required_packages:
 openclaw_wsl_config_path: /etc/wsl.conf
 openclaw_wsl_default_user: "{{ platform_linux_user }}"
 openclaw_host_bridge_node_binary: "{{ openclaw_host_bridge_node_bin_dir }}/node"
+openclaw_windows_health_snapshot_path: /mnt/c/ProgramData/OpenClaw/Platform-Core/runtime/windows-health.json
 platform_windows_powershell_binary: /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
 platform_windows_vault_unseal_artifact_linux_path: "{{ platform_repo_root }}/ansible/generated/platform-vault-unseal.ps1"
 platform_windows_vault_unseal_wsl_wrapper_path: /usr/local/bin/platform-vault-unseal-from-wsl.sh

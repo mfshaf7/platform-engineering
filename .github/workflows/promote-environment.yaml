@@ -128,5 +128,8 @@ jobs:
             echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
             echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo
+            echo "Prod gateway rollout guardrail: this environment uses chart-managed image pre-pull plus Recreate semantics because host port 18789 is single-node."
+            echo "Do not manually delete the old prod gateway pod as a first step; merge the contract change and let Argo own the swap."
+            echo
             echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

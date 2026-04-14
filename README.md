@@ -97,6 +97,11 @@ Read in this order:
 
 Historical records live under [docs/archive/README.md](docs/archive/README.md).
 
+Gateway rollout note:
+
+- `prod` gateway is a single-node host-port workload. Safe cutover depends on the chart-managed pre-pull job and `Recreate` rollout strategy, not manual pod deletion.
+- `Build Gateway Image` produces the artifact only. Record the digest into the environment contract and let Argo reconcile the rollout.
+
 Common operator entrypoints:
 
 - `make help`

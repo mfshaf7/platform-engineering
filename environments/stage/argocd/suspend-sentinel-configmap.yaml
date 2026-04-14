@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stage-suspend-sentinel
+  namespace: argocd
+data:
+  state: suspended

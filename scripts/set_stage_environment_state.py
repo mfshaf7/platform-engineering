@@ -2,10 +2,13 @@
 import argparse
 from pathlib import Path
 
+SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
+
+
 def discover_stage_resources(stage_argocd_root: Path) -> list[str]:
     resources = []
     for path in sorted(stage_argocd_root.glob("*.yaml")):
-        if path.name == "kustomization.yaml":
+        if path.name in {"kustomization.yaml", SUSPEND_SENTINEL}:
             continue
         resources.append(path.name)
     return resources
@@ -68,7 +71,7 @@ def main() -> int:
         print("resumed" if current_resources else "suspended")
         return 0
 
-    desired_resources = managed_resources if args.state == "resume" else []
+    desired_resources = managed_resources if args.state == "resume" else [SUSPEND_SENTINEL]
     if current_resources == desired_resources:
         print(f"Stage environment already {args.state}d")
         return 0

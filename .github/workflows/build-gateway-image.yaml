@@ -188,22 +188,22 @@ jobs:
           {
             echo "## Gateway Image Build"
             echo
-            echo "- Environment: `${{ inputs.environment }}`"
-            echo "- Image: `${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}`"
-            echo "- Digest: `${{ steps.build_push.outputs.digest }}`"
-            echo "- Telegram SHA: `${{ steps.env_meta.outputs.telegram_ref }}`"
-            echo "- Host bridge SHA: `${{ steps.env_meta.outputs.host_bridge_ref }}`"
-            echo "- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`"
-            echo "- Platform SHA: `${{ github.sha }}`"
+            echo '- Environment: `${{ inputs.environment }}`'
+            echo '- Image: `${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}`'
+            echo '- Digest: `${{ steps.build_push.outputs.digest }}`'
+            echo '- Telegram SHA: `${{ steps.env_meta.outputs.telegram_ref }}`'
+            echo '- Host bridge SHA: `${{ steps.env_meta.outputs.host_bridge_ref }}`'
+            echo '- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`'
+            echo '- Platform SHA: `${{ github.sha }}`'
             echo
             echo "Managed plugin packaging path:"
             echo
             echo "- Telegram and host-control were packaged as plugin artifacts before the image build"
-            echo "- Gateway image installs them through `openclaw plugins install`, not by copying source into /app/extensions"
+            echo '- Gateway image installs them through `openclaw plugins install`, not by copying source into /app/extensions'
             echo
             echo "Record this immutable image reference in the target environment before promotion:"
             echo
-            echo "`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}`"
+            echo '`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}`'
             echo
             echo "Prod guardrail: a successful build is not a safe cutover by itself."
             echo "Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change."

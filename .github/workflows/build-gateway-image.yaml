@@ -183,6 +183,64 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Smoke test managed host-control plugin discovery
+        env:
+          IMAGE_REF: ${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p smoke-test
+          cat > smoke-test/openclaw.smoke.json <<'JSON'
+          {
+            "plugins": {
+              "allow": [
+                "host-control"
+              ],
+              "entries": {
+                "host-control": {
+                  "enabled": true,
+                  "config": {
+                    "enabled": true,
+                    "bridgeUrl": "http://127.0.0.1:48721",
+                    "authTokenEnv": "OPENCLAW_GATEWAY_TOKEN",
+                    "allowWriteOperations": true,
+                    "allowExportOperations": true,
+                    "allowBrowserInspect": false
+                  }
+                }
+              }
+            }
+          }
+          JSON
+
+          set +e
+          timeout 20s docker run --rm \
+            -e OPENCLAW_CONFIG_PATH=/tmp/openclaw.smoke.json \
+            -e OPENCLAW_GATEWAY_TOKEN=smoke-test-token \
+            -v "${PWD}/smoke-test/openclaw.smoke.json:/tmp/openclaw.smoke.json:ro" \
+            "${IMAGE_REF}" \
+            node dist/index.js gateway --bind 127.0.0.1 --port 18789 \
+            > smoke-test/gateway.log 2>&1
+          status=$?
+          set -e
+
+          cat smoke-test/gateway.log
+
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "Gateway smoke test failed before timeout" >&2
+            exit "$status"
+          fi
+
+          if grep -q 'plugin not found: host-control' smoke-test/gateway.log; then
+            echo "Built image does not register the host-control plugin at runtime." >&2
+            exit 1
+          fi
+
+          if grep -q 'stale config entry ignored' smoke-test/gateway.log; then
+            echo "Built image emitted stale plugin-config warnings during host-control smoke test." >&2
+            exit 1
+          fi
+
       - name: Publish build summary
         run: |
           {

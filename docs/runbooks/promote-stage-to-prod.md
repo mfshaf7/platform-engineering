@@ -40,3 +40,16 @@ environments.
 - [.github/workflows/promote-environment.yaml](../../.github/workflows/promote-environment.yaml)
 - [scripts/promote_environment.py](../../scripts/promote_environment.py)
 - [scripts/validate_environment_contract.py](../../scripts/validate_environment_contract.py)
+
+## Stage Behavior Gate
+
+Do not treat stage as promotion-ready from health endpoints alone. When the
+candidate changes Telegram, host-control, or the OpenClaw base image, stage must
+prove the real operator paths:
+
+- normal Telegram reply
+- Telegram file send from the shared media path
+- Telegram screenshot delivery
+- deterministic host-control topic routing
+- any admin/high-risk host-control path only when it is deliberately enabled in
+  the stage contract

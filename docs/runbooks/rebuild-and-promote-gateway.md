@@ -83,6 +83,20 @@ k3s kubectl -n openclaw get deploy openclaw-gateway \
 k3s kubectl -n openclaw rollout status deploy/openclaw-gateway --timeout=240s
 ```
 
+Functional verification for Telegram and host control is required after base
+image changes or host-control contract changes. At minimum verify:
+
+- normal stage Telegram polling and reply
+- direct Telegram file delivery from a staged host file
+- desktop screenshot delivery through Telegram
+- host-control topic routing for a deterministic read action
+- admin/high-risk host-control action only if the environment contract
+  intentionally enables it
+
+For direct Telegram file delivery, confirm the environment contract mounts the
+shared host media path at `/home/node/.openclaw/media`; otherwise bridge staging
+can succeed while Telegram delivery still fails inside the container.
+
 ## Required completion evidence
 
 Capture at minimum:
@@ -94,6 +108,7 @@ Capture at minimum:
 - recorded prod revision
 - deployed pod image
 - one functional verification result
+- evidence for the Telegram/host-control behavior checks above when those seams changed
 
 ## Failure handling
 

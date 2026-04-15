@@ -18,7 +18,7 @@ service:
 env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: ade295dfdffb1f38d9ee30d9e29ce3ce554d7c8f
-  OPENCLAW_HOST_BRIDGE_SHA: 2786d899430bd7c9a6d0964f905c3989782fce7f
+  OPENCLAW_HOST_BRIDGE_SHA: b13f377581062f0c8955e8c7f8c8dbad6f22a38f
   OPENCLAW_PLATFORM_SHA: cd34f62c8c5db9c86bc8d7aebe2d40d79f8ce069
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
@@ -55,6 +55,9 @@ extraVolumeMounts:
 - name: openclaw-home
   mountPath: /home/node/.openclaw/logs
   subPath: logs
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/media
+  subPath: media
 - name: openclaw-home
   mountPath: /home/node/.openclaw/tasks
   subPath: tasks

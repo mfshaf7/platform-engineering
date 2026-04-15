@@ -20,10 +20,10 @@ sourceRepos:
     commit: ade295dfdffb1f38d9ee30d9e29ce3ce554d7c8f
   hostBridge:
     repository: github.com/mfshaf7/openclaw-host-bridge
-    commit: 2786d899430bd7c9a6d0964f905c3989782fce7f
+    commit: b13f377581062f0c8955e8c7f8c8dbad6f22a38f
   isolatedDeployment:
     repository: github.com/mfshaf7/openclaw-runtime-distribution
-    commit: 7be9de5f1a773d91bda73a24f264898e00cdb220
+    commit: 3864b2437832af5f954fcfa02c5bafc3e9c052cd
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
     commit: cd34f62c8c5db9c86bc8d7aebe2d40d79f8ce069

@@ -1,8 +1,8 @@
 replicaCount: 1
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: stage-9c9c097bd29e
-  digest: sha256:b287c5e43b72e3ba12733b61f248cad033306ee64381aa0b88c7262f89a573d8
+  tag: stage-064008982f38
+  digest: sha256:c499ecf82368b467eb94e16b4f562338bd8b90fecaca69c3a5ba1870b523ac89
   pullPolicy: IfNotPresent
 command:
 - node
@@ -19,7 +19,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: d94644b6e8d0ce511a7273595c1ec83176f7c570
   OPENCLAW_HOST_BRIDGE_SHA: 2786d899430bd7c9a6d0964f905c3989782fce7f
-  OPENCLAW_PLATFORM_SHA: d3c3cbc368be9ef7e854471cf7b7e27192a3e2be
+  OPENCLAW_PLATFORM_SHA: d6057d0d7fc0bead496422bf03239521cc6904a4
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.stage.k3s.json

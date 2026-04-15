@@ -70,13 +70,13 @@ def main() -> int:
         and 'src/' not in telegram_files
         and 'src/**/*.ts' in telegram_files
         and '!src/**/*.test.ts' in telegram_files
-        and '!src/**/*.test-helpers.ts' in telegram_files
-        and '!src/**/*.test-support.ts' in telegram_files
-        and '!src/**/*.test-utils.ts' in telegram_files
-        and '!src/**/*.test-harness.ts' in telegram_files
-        and '!src/**/*.fixture-test-support.ts' in telegram_files
-        and '!src/**/*.e2e.test.ts' in telegram_files
-        and '!src/**/*.e2e-harness.ts' in telegram_files
+        and '!src/**/*test-helpers.ts' in telegram_files
+        and '!src/**/*test-support.ts' in telegram_files
+        and '!src/**/*test-utils.ts' in telegram_files
+        and '!src/**/*test-harness.ts' in telegram_files
+        and '!src/**/*fixture-test-support.ts' in telegram_files
+        and '!src/**/*e2e.test.ts' in telegram_files
+        and '!src/**/*e2e-harness.ts' in telegram_files
         and '!src/**/*.d.ts' in telegram_files
     )
 

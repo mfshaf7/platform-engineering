@@ -1,108 +1,35 @@
-# Platform Engineering
+# platform-engineering
 
-`platform-engineering` is the shared platform control-plane repository fo
-governed runtime delivery, GitOps reconciliation, DevSecOps controls, and
-observability across managed environments.
+GitOps, host provisioning, and release orchestration for the Platform-Core stack.
 
-It exists to solve the release and runtime drift problem that showed up in the
-current delivery model:
+## Documents
 
-- source repos changed
-- deployment copies changed
-- live runtime changed
-- operators could not prove which version was actually running
-
-This repository defines the approved runtime shape, release policy, security
-guardrails, observability standards, and deployment control model.
-
-## Chosen Stack
-
-This repository standardizes on:
-
-- GitHub for source control and approvals
-- GitHub Actions for CI, packaging, and promotion automation
-- GHCR for immutable OCI artifacts
-- Terraform for environment and cluster bootstrap inputs
-- Kubernetes for workload orchestration
-- Argo CD for GitOps reconciliation and drift visibility
-- Helm for workload packaging
-- External Secrets Operator for runtime secret delivery
-- Prometheus and Grafana for observability
-- Ansible for WSL and host-side service configuration
-- `systemd` for bridge and recovery ownership inside WSL
-
-## Repository Role
-
-This repository owns:
-
-- approved environment state
-- release version pinning
-- Argo CD application layout
-- Helm charts and overlays
-- Terraform bootstrap definitions
-- Ansible host-configuration playbooks
-- observability assets
-- security and governance policies
-- architecture and runbooks
-
-It does not replace the source repositories:
-
-- `openclaw-telegram-enhanced`
-- `openclaw-host-bridge`
-- `openclaw-runtime-distribution`
-
-## Architecture Summary
-
-```text
-GitHub repos
-  -> GitHub Actions
-  -> GHCR artifacts
-  -> Terraform bootstrap
-  -> Argo CD
-  -> Kubernetes cluste
-  -> Product workloads + observability
-
-Windows/WSL host
-  -> Ansible
-  -> systemd
-  -> host bridge + host recovery
-```
-
-This gives a clean separation:
-
-- source repos own code
-- this repo owns approved deployment state
-- Argo CD owns cluster reconciliation
-- Ansible owns host-side configuration
-- runtime must reconcile back to what is declared here
-
-## Start Here
-
-Read in this order:
-
-1. [docs/architecture/overview.md](docs/architecture/overview.md)
-2. [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
-3. [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
-4. [docs/standards/release-model.md](docs/standards/release-model.md)
-5. [docs/standards/restart-survival.md](docs/standards/restart-survival.md)
-6. [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md)
-7. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
-8. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
-9. [docs/runbooks/restart-validation.md](docs/runbooks/restart-validation.md)
-10. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
-11. [docs/runbooks/vault-auto-unseal.md](docs/runbooks/vault-auto-unseal.md)
-12. [docs/runbooks/bootstrap-transit-vault.md](docs/runbooks/bootstrap-transit-vault.md)
-13. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
-14. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
+1. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+2. [docs/runbooks/rebuild-and-promote-gateway.md](docs/runbooks/rebuild-and-promote-gateway.md)
+3. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
+4. [docs/runbooks/restart-validation.md](docs/runbooks/restart-validation.md)
+5. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
+6. [docs/runbooks/vault-auto-unseal.md](docs/runbooks/vault-auto-unseal.md)
+7. [docs/runbooks/bootstrap-transit-vault.md](docs/runbooks/bootstrap-transit-vault.md)
+8. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
+9. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
 
 Historical records live under [docs/archive/README.md](docs/archive/README.md).
 
-Gateway rollout note:
+## Gateway rollout note
 
 - `prod` gateway is a single-node host-port workload. Safe cutover depends on warming the exact target digest before the prod contract change is pushed, then letting Argo reconcile the `Recreate` rollout.
 - `Build Gateway Image` produces the artifact only. `python3 scripts/record_gateway_image.py prod ...` performs the required external pre-pull before it writes the prod digest.
 
-Common operator entrypoints:
+## Stage promotion policy
+
+- `stage` is suspended by default.
+- Bring `stage` up only when you are actively testing a candidate change.
+- Normal gateway rehearsal should resume `gateway,version`, which activates `gateway + secrets + version`.
+- Prod promotion is blocked until the current stage candidate is explicitly approved through `Confirm Stage Promotion Readiness` and still matches `environments/stage/versions.yaml`.
+- Successful prod promotion should normally suspend `stage` again.
+
+## Common operator entrypoints
 
 - `make help`
 - `make provision-wsl-host`
@@ -126,32 +53,11 @@ the defaults, for example `platform_windows_wsl_distro=Platform-Core`.
 
 ```text
 platform-engineering/
-├── .github/workflows/
-├── ansible/
-├── argocd/
-├── charts/
-├── docs/
-│   ├── architecture/
-│   ├── runbooks/
-│   └── standards/
-├── environments/
-├── observability/
-├── policies/
-├── products/
-├── security/
-├── terraform/
-└── Makefile
+|-- .github/workflows/
+|-- ansible/
+|-- charts/
+|-- docs/
+|-- environments/
+|-- scripts/
+`-- Makefile
 ```
-
-Product onboarding starts in [products/README.md](products/README.md).
-
-## Design Goal
-
-The end state is straightforward:
-
-- deployed versions are declared in Git
-- the cluster reconciles itself to those versions
-- the host side is configured idempotently
-- runtime can report what is running
-- observability proves health and drift state
-- rollback means redeploying a previous approved version, not editing production

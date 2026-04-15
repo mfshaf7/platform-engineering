@@ -2,6 +2,8 @@
 import argparse
 from pathlib import Path
 
+from stage_promotion_readiness import reset_stage_promotion_readiness
+
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 
 COMPONENT_RESOURCE_MAP = {
@@ -39,8 +41,7 @@ def load_resources(path: Path) -> list[str]:
     in_resources = False
     with path.open("r", encoding="utf-8") as fh:
         for raw_line in fh:
-            line = raw_line.rstrip("\n")
-            stripped = line.strip()
+            stripped = raw_line.strip()
             if stripped == "resources:":
                 in_resources = True
                 continue
@@ -156,21 +157,37 @@ def main() -> int:
 
     if args.state == "resume":
         desired_components = current_components | target_components
+        affected_components = target_components
     else:
         suspended_components = expand_components(requested_components, REVERSE_COMPONENT_DEPENDENCIES)
         desired_components = current_components - suspended_components
+        affected_components = suspended_components
 
     desired_resources = resources_for_components(desired_components)
     if not desired_resources:
         desired_resources = [SUSPEND_SENTINEL]
 
     if current_resources == desired_resources:
-        scope = ",".join(sorted(target_components if args.state == "resume" else suspended_components))
+        scope = ",".join(sorted(affected_components)) or "none"
         print(f"Stage components already {args.state}d for {scope}")
         return 0
 
     write_kustomization(kustomization_path, desired_resources)
+
     active = ",".join(sorted(desired_components)) or "none"
+    if desired_resources == [SUSPEND_SENTINEL]:
+        reset_stage_promotion_readiness(
+            args.repo_root,
+            status="inactive",
+            note="Stage suspended; explicit resume and approval are required before the next prod promotion.",
+        )
+    else:
+        reset_stage_promotion_readiness(
+            args.repo_root,
+            status="pending",
+            note=f"Stage lifecycle changed; active components now {active}. Re-approve stage before promoting to prod.",
+        )
+
     print(
         f"Stage state={args.state} target={','.join(sorted(requested_components))} "
         f"active={active} resources={len(desired_resources)}"

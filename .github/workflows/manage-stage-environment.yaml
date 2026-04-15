@@ -12,7 +12,7 @@ on:
           - resume
       components:
         required: true
-        default: all
+        default: gateway,version
         type: string
       operation_note:
         required: false
@@ -41,16 +41,28 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install tool dependencies
+        run: python -m pip install pyyaml
+
       - name: Update stage environment state
         run: python scripts/set_stage_environment_state.py "${{ inputs.action }}" --components "${{ inputs.components }}"
 
+      - name: Capture stage readiness status
+        id: readiness
+        run: |
+          {
+            echo "status_line<<__READINESS__"
+            python scripts/stage_promotion_readiness.py status
+            echo "__READINESS__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Show stage environment diff
-        run: git diff -- environments/stage/argocd/kustomization.yaml
+        run: git diff -- environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
 
       - name: Detect whether a commit is needed
         id: diff
         run: |
-          if git diff --quiet -- environments/stage/argocd/kustomization.yaml; then
+          if git diff --quiet -- environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -65,7 +77,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$LIFECYCLE_BRANCH"
-          git add environments/stage/argocd/kustomization.yaml
+          git add environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Set stage components (${{ inputs.components }}) to ${{ inputs.action }}"
           git push --force-with-lease origin "$LIFECYCLE_BRANCH"
           echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"
@@ -77,13 +89,14 @@ jobs:
             echo
             echo '- Requested action: `${{ inputs.action }}`'
             echo '- Target components: `${{ inputs.components }}`'
-            echo '- Note: `${{ inputs.operation_note || '"'"'none'"'"' }}`'
+            echo '- Note: `${{ inputs.operation_note }}`'
+            echo '- Readiness: `${{ steps.readiness.outputs.status_line }}`'
             if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
               echo '- Lifecycle branch: `${{ steps.lifecycle_branch.outputs.lifecycle_branch }}`'
               echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1`'
               echo
-              echo "Open the compare URL to review and merge the stage lifecycle change."
+              echo 'Merging this branch changes the desired stage lifecycle and resets stage promotion approval.'
             else
-              echo "- No git changes were required because stage was already in the requested state."
+              echo '- No git changes were required because stage was already in the requested state.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"

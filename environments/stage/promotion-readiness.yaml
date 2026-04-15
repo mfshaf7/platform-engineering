@@ -1,0 +1,19 @@
+status: inactive
+requiredComponents:
+- gateway
+- secrets
+- version
+approvedAt: null
+approvedBy: null
+note: Stage suspended; explicit resume and approval are required before the next prod
+  promotion.
+approvedCandidate:
+  image:
+    repository: null
+    tag: null
+    digest: null
+  sourceRepos:
+    telegramEnhanced: null
+    hostBridge: null
+    isolatedDeployment: null
+    platformEngineering: null

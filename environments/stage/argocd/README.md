@@ -9,8 +9,25 @@ The stage environment is intended to:
 - validate Helm values against a second namespace set
 - rehearse image/version promotion before touching `prod`
 
-Stage can be suspended when production is established by reducing
-`kustomization.yaml` to the `suspend-sentinel-configmap.yaml` placeholder.
-Resume restores every real stage application manifest in this directory, which
-lets operators bring the entire stage environment back only when they need to
-rehearse or test again.
+Stage can still be fully suspended with the `suspend-sentinel-configmap.yaml`
+placeholder, but lifecycle operations are now component-aware rather than
+all-or-nothing.
+
+Available stage components:
+
+- `gateway`
+- `secrets`
+- `version`
+- `observability`
+- `dashboards`
+
+Dependency rules:
+
+- resuming `gateway` also resumes `secrets` and `version`
+- resuming `dashboards` also resumes `observability`
+- suspending `secrets` or `version` also suspends `gateway`
+- suspending `observability` also suspends `dashboards`
+
+That lets operators bring back only the exact stage component they are working
+on, instead of disturbing healthy production-adjacent systems with a full stage
+resume.

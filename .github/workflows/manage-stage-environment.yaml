@@ -10,6 +10,10 @@ on:
         options:
           - suspend
           - resume
+      components:
+        required: true
+        default: all
+        type: string
       operation_note:
         required: false
         type: string
@@ -38,7 +42,7 @@ jobs:
           python-version: "3.12"
 
       - name: Update stage environment state
-        run: python scripts/set_stage_environment_state.py "${{ inputs.action }}"
+        run: python scripts/set_stage_environment_state.py "${{ inputs.action }}" --components "${{ inputs.components }}"
 
       - name: Show stage environment diff
         run: git diff -- environments/stage/argocd/kustomization.yaml
@@ -62,7 +66,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$LIFECYCLE_BRANCH"
           git add environments/stage/argocd/kustomization.yaml
-          git commit -m "Set stage environment to ${{ inputs.action }}"
+          git commit -m "Set stage components (${{ inputs.components }}) to ${{ inputs.action }}"
           git push --force-with-lease origin "$LIFECYCLE_BRANCH"
           echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"
 
@@ -71,11 +75,12 @@ jobs:
           {
             echo "## Stage Environment"
             echo
-            echo "- Requested action: \`${{ inputs.action }}\`"
-            echo "- Note: \`${{ inputs.operation_note || 'none' }}\`"
+            echo '- Requested action: `${{ inputs.action }}`'
+            echo '- Target components: `${{ inputs.components }}`'
+            echo '- Note: `${{ inputs.operation_note || '"'"'none'"'"' }}`'
             if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
-              echo "- Lifecycle branch: \`${{ steps.lifecycle_branch.outputs.lifecycle_branch }}\`"
-              echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1\`"
+              echo '- Lifecycle branch: `${{ steps.lifecycle_branch.outputs.lifecycle_branch }}`'
+              echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1`'
               echo
               echo "Open the compare URL to review and merge the stage lifecycle change."
             else

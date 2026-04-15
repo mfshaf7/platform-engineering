@@ -4,6 +4,26 @@ from pathlib import Path
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 
+COMPONENT_RESOURCE_MAP = {
+    "gateway": "openclaw-gateway-app.yaml",
+    "secrets": "platform-secrets-app.yaml",
+    "version": "platform-version-app.yaml",
+    "observability": "observability-app.yaml",
+    "dashboards": "platform-dashboards-app.yaml",
+}
+
+COMPONENT_DEPENDENCIES = {
+    "gateway": {"secrets", "version"},
+    "dashboards": {"observability"},
+}
+
+REVERSE_COMPONENT_DEPENDENCIES = {}
+for component, dependencies in COMPONENT_DEPENDENCIES.items():
+    for dependency in dependencies:
+        REVERSE_COMPONENT_DEPENDENCIES.setdefault(dependency, set()).add(component)
+
+RESOURCE_COMPONENT_MAP = {resource: component for component, resource in COMPONENT_RESOURCE_MAP.items()}
+
 
 def discover_stage_resources(stage_argocd_root: Path) -> list[str]:
     resources = []
@@ -43,12 +63,66 @@ def write_kustomization(path: Path, resources: list[str]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def parse_components(raw: str | None, available_components: set[str]) -> set[str]:
+    if raw is None:
+        return set(available_components)
+    items = {part.strip() for part in raw.split(",") if part.strip()}
+    if not items:
+        raise SystemExit("components must not be empty when provided")
+    if "all" in items:
+        return set(available_components)
+    unknown = sorted(items - available_components)
+    if unknown:
+        raise SystemExit(
+            "unknown components: "
+            + ", ".join(unknown)
+            + " (valid: all, " + ", ".join(sorted(available_components)) + ")"
+        )
+    return items
+
+
+def expand_components(components: set[str], dependency_map: dict[str, set[str]]) -> set[str]:
+    expanded = set(components)
+    pending = list(components)
+    while pending:
+        component = pending.pop()
+        for dependency in dependency_map.get(component, set()):
+            if dependency not in expanded:
+                expanded.add(dependency)
+                pending.append(dependency)
+    return expanded
+
+
+def resources_for_components(components: set[str]) -> list[str]:
+    return [
+        resource
+        for resource in COMPONENT_RESOURCE_MAP.values()
+        if RESOURCE_COMPONENT_MAP[resource] in components
+    ]
+
+
+def components_for_resources(resources: list[str]) -> set[str]:
+    return {
+        RESOURCE_COMPONENT_MAP[resource]
+        for resource in resources
+        if resource in RESOURCE_COMPONENT_MAP
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "state",
         choices=("resume", "suspend", "status"),
         help="Desired stage environment state",
+    )
+    parser.add_argument(
+        "--components",
+        help=(
+            "Comma-separated stage components to target. "
+            "Use 'all' or omit to target the full stage environment. "
+            "Known components: gateway,secrets,version,observability,dashboards"
+        ),
     )
     parser.add_argument(
         "--repo-root",
@@ -65,22 +139,41 @@ def main() -> int:
     if not managed_resources:
         raise SystemExit(f"No stage Argo resources found in {stage_argocd_root}")
 
+    available_components = set(COMPONENT_RESOURCE_MAP)
     current_resources = load_resources(kustomization_path)
+    current_components = components_for_resources(current_resources)
 
     if args.state == "status":
-        print("resumed" if current_resources else "suspended")
+        if current_resources == [SUSPEND_SENTINEL]:
+            print("suspended")
+        else:
+            active = ",".join(sorted(current_components)) or "none"
+            print(f"active:{active}")
         return 0
 
-    desired_resources = managed_resources if args.state == "resume" else [SUSPEND_SENTINEL]
+    requested_components = parse_components(args.components, available_components)
+    target_components = expand_components(requested_components, COMPONENT_DEPENDENCIES)
+
+    if args.state == "resume":
+        desired_components = current_components | target_components
+    else:
+        suspended_components = expand_components(requested_components, REVERSE_COMPONENT_DEPENDENCIES)
+        desired_components = current_components - suspended_components
+
+    desired_resources = resources_for_components(desired_components)
+    if not desired_resources:
+        desired_resources = [SUSPEND_SENTINEL]
+
     if current_resources == desired_resources:
-        print(f"Stage environment already {args.state}d")
+        scope = ",".join(sorted(target_components if args.state == "resume" else suspended_components))
+        print(f"Stage components already {args.state}d for {scope}")
         return 0
 
     write_kustomization(kustomization_path, desired_resources)
-
+    active = ",".join(sorted(desired_components)) or "none"
     print(
-        f"Stage environment set to {args.state} "
-        f"({len(desired_resources)} Argo resources)"
+        f"Stage state={args.state} target={','.join(sorted(requested_components))} "
+        f"active={active} resources={len(desired_resources)}"
     )
     return 0
 

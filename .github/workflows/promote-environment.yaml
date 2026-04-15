@@ -53,10 +53,16 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Guard invalid promotion pai
+      - name: Guard invalid promotion pair
         run: |
           test "${{ inputs.source_environment }}" = "stage"
           test "${{ inputs.target_environment }}" = "prod"
+
+      - name: Validate source environment contract
+        run: python scripts/validate_environment_contract.py "${{ inputs.source_environment }}"
+
+      - name: Validate stage promotion readiness
+        run: python scripts/stage_promotion_readiness.py validate
 
       - name: Show source environment contract
         run: cat environments/${{ inputs.source_environment }}/versions.yaml
@@ -64,9 +70,13 @@ jobs:
       - name: Apply digest-based promotion
         run: python scripts/promote_environment.py "${{ inputs.source_environment }}" "${{ inputs.target_environment }}"
 
-      - name: Suspend stage environment after promotion
-        if: inputs.suspend_stage_environment
-        run: python scripts/set_stage_environment_state.py suspend
+      - name: Update stage lifecycle after promotion
+        run: |
+          if [ "${{ inputs.suspend_stage_environment }}" = "true" ]; then
+            python scripts/set_stage_environment_state.py suspend --components all
+          else
+            python scripts/stage_promotion_readiness.py reset --status pending --note "Prod promotion completed; re-approve stage before the next promotion."
+          fi
 
       - name: Validate target environment contract
         run: python scripts/validate_environment_contract.py "${{ inputs.target_environment }}"
@@ -77,9 +87,18 @@ jobs:
       - name: Render promoted prod platform version chart
         run: helm template platform-version charts/platform-version -f environments/prod/values/platform-version.yaml >/tmp/platform-version-prod.yaml
 
+      - name: Capture post-promotion readiness status
+        id: readiness
+        run: |
+          {
+            echo "status_line<<__READINESS__"
+            python scripts/stage_promotion_readiness.py status
+            echo "__READINESS__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Show promotion diff
         run: |
-          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml
+          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
 
       - name: Capture promoted image metadata
         id: promoted
@@ -107,7 +126,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$PROMOTION_BRANCH"
-          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml
+          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Promote prod to approved stage gateway digest"
           git push --force-with-lease origin "$PROMOTION_BRANCH"
           echo "promotion_branch=$PROMOTION_BRANCH" >> "$GITHUB_OUTPUT"
@@ -124,12 +143,13 @@ jobs:
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
             echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
+            echo "- Promotion note: \`${{ inputs.promotion_note }}\`"
             echo "- Suspend stage environment: \`${{ inputs.suspend_stage_environment }}\`"
+            echo "- Stage readiness after promotion: \`${{ steps.readiness.outputs.status_line }}\`"
             echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
             echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo
-            echo "Prod gateway rollout guardrail: host port 18789 is single-node, so the target digest must be warmed before the prod contract change is merged."
-            echo "Do not manually delete the old prod gateway pod as a first step; complete the external pre-pull, merge the contract change, then let Argo own the swap."
+            echo "Prod promotion is allowed only from an approved stage candidate. Any stage lifecycle change resets readiness and requires a fresh approval before the next promotion."
             echo
             echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

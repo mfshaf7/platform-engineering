@@ -9,9 +9,8 @@ The stage environment is intended to:
 - validate Helm values against a second namespace set
 - rehearse image/version promotion before touching `prod`
 
-Stage can still be fully suspended with the `suspend-sentinel-configmap.yaml`
-placeholder, but lifecycle operations are now component-aware rather than
-all-or-nothing.
+Stage is suspended by default in source control. Bring it up only when you are
+actively testing a candidate change, then suspend it again after promotion.
 
 Available stage components:
 
@@ -28,6 +27,13 @@ Dependency rules:
 - suspending `secrets` also suspends `gateway`
 - suspending `observability` also suspends `dashboards`
 
-That lets operators bring back only the exact stage component they are working
-on, instead of disturbing healthy production-adjacent systems with a full stage
-resume.
+Normal gateway validation should resume only `gateway,version`, which produces
+an active stage lane of `gateway + secrets + version`.
+
+Promotion policy:
+
+- stage is off by default
+- every stage lifecycle change resets promotion readiness to `pending` or `inactive`
+- prod promotion is blocked until the current stage candidate is explicitly approved
+- the approval must still match `environments/stage/versions.yaml` at promotion time
+- after a successful prod promotion, suspend stage again unless there is an explicit reason to keep testing

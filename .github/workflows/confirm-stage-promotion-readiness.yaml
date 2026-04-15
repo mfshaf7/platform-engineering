@@ -1,0 +1,97 @@
+name: Confirm Stage Promotion Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval_note:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: confirm-stage-promotion-readiness
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tool dependencies
+        run: python -m pip install pyyaml
+
+      - name: Validate stage environment contract
+        run: python scripts/validate_environment_contract.py stage
+
+      - name: Capture current stage lifecycle status
+        id: stage_status
+        run: echo "value=$(python scripts/set_stage_environment_state.py status)" >> "$GITHUB_OUTPUT"
+
+      - name: Approve stage promotion readiness
+        run: python scripts/stage_promotion_readiness.py approve --approved-by "${{ github.actor }}" --note "${{ inputs.approval_note }}"
+
+      - name: Capture readiness status
+        id: readiness
+        run: |
+          {
+            echo "status_line<<__READINESS__"
+            python scripts/stage_promotion_readiness.py status
+            echo "__READINESS__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Show readiness diff
+        run: git diff -- environments/stage/promotion-readiness.yaml
+
+      - name: Detect whether a commit is needed
+        id: diff
+        run: |
+          if git diff --quiet -- environments/stage/promotion-readiness.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push readiness branch
+        if: steps.diff.outputs.changed == 'true'
+        id: readiness_branch
+        env:
+          READINESS_BRANCH: stage/approve-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$READINESS_BRANCH"
+          git add environments/stage/promotion-readiness.yaml
+          git commit -m "Approve current stage candidate for prod promotion"
+          git push --force-with-lease origin "$READINESS_BRANCH"
+          echo "readiness_branch=$READINESS_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish readiness summary
+        run: |
+          {
+            echo "## Stage Promotion Readiness"
+            echo
+            echo '- Stage lifecycle: `${{ steps.stage_status.outputs.value }}`'
+            echo '- Readiness: `${{ steps.readiness.outputs.status_line }}`'
+            echo '- Approval note: `${{ inputs.approval_note }}`'
+            if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
+              echo '- Readiness branch: `${{ steps.readiness_branch.outputs.readiness_branch }}`'
+              echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.readiness_branch.outputs.readiness_branch }}?expand=1`'
+              echo
+              echo 'Merge this branch only after stage testing is complete. Prod promotion is blocked until this approval is on main.'
+            else
+              echo '- No git changes were required because the current stage candidate was already approved.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

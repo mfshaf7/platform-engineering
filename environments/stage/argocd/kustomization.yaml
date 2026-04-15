@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - openclaw-gateway-app.yaml
   - platform-secrets-app.yaml
-  - platform-version-app.yaml

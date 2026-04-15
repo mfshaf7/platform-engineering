@@ -23,9 +23,9 @@ Available stage components:
 
 Dependency rules:
 
-- resuming `gateway` also resumes `secrets` and `version`
+- resuming `gateway` also resumes `secrets`
 - resuming `dashboards` also resumes `observability`
-- suspending `secrets` or `version` also suspends `gateway`
+- suspending `secrets` also suspends `gateway`
 - suspending `observability` also suspends `dashboards`
 
 That lets operators bring back only the exact stage component they are working

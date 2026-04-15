@@ -13,7 +13,7 @@ COMPONENT_RESOURCE_MAP = {
 }
 
 COMPONENT_DEPENDENCIES = {
-    "gateway": {"secrets", "version"},
+    "gateway": {"secrets"},
     "dashboards": {"observability"},
 }
 

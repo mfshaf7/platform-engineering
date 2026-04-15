@@ -1,12 +1,12 @@
-status: inactive
+status: pending
 requiredComponents:
 - gateway
 - secrets
 - version
 approvedAt: null
 approvedBy: null
-note: Stage suspended; explicit resume and approval are required before the next prod
-  promotion.
+note: Stage lifecycle changed; active components now gateway,secrets,version. Re-approve
+  stage before promoting to prod.
 approvedCandidate:
   image:
     repository: null

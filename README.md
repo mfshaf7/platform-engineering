@@ -20,6 +20,7 @@ Historical records live under [docs/archive/README.md](docs/archive/README.md).
 
 - `prod` gateway is a single-node host-port workload. Safe cutover depends on warming the exact target digest before the prod contract change is pushed, then letting Argo reconcile the `Recreate` rollout.
 - `Build Gateway Image` produces the artifact only. `python3 scripts/record_gateway_image.py prod ...` performs the required external pre-pull before it writes the prod digest.
+- `stage` rehearsals now use the same external pre-pull path by default, so `python3 scripts/record_gateway_image.py stage ...` warms the exact target digest before the stage contract change is written.
 
 ## Stage promotion policy
 

@@ -81,7 +81,7 @@ def main() -> int:
     image_ref = f"{repository}@{args.digest}"
     platform_sha = args.platform_sha or versions["sourceRepos"]["platformEngineering"]["commit"]
 
-    if args.environment == "prod" and not args.skip_prepull:
+    if args.environment in {"prod", "stage"} and not args.skip_prepull:
         prepull_image(
             args.environment,
             image_ref=image_ref,

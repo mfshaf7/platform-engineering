@@ -60,6 +60,8 @@ python3 scripts/validate_environment_contract.py prod --repo-root .
 
 `record_gateway_image.py` performs the external pre-pull before it writes the prod digest, so the contract change is not committed until the target image is already warm on-node.
 
+For stage rehearsals, use the same pattern with `stage` instead of `prod`; `record_gateway_image.py stage ...` now performs the external pre-pull before it writes the stage digest too.
+
 6. Commit and push the recorded prod values.
 
 7. Refresh Argo if needed:

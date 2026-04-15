@@ -7,6 +7,7 @@
 - Do not manually delete or restart the old prod gateway pod as a first resort.
 - Prod cutover must use the external pre-pull sequence: warm the exact target digest on the node first, then commit the prod contract change, then let Argo reconcile.
 - `python3 scripts/record_gateway_image.py prod ...` now performs that external pre-pull before it writes the prod digest by default.
+- `stage` gateway rehearsals must use the same external pre-pull guardrail. `python3 scripts/record_gateway_image.py stage ...` now warms the exact target digest before it writes the stage contract by default.
 - If investigating a slow prod rollout, check the node image pull and deployment image first. Do not add a chart hook or Argo-managed pre-pull resource back onto the sync path.
 - If you need a fresh gateway image, trigger `Build Gateway Image`, wait for the digest, run `record_gateway_image.py` for prod, then commit and push the resulting contract change.
 

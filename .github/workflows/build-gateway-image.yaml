@@ -134,7 +134,7 @@ jobs:
           path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
-      - name: Package managed local plugins and verify workspace
+      - name: Prepare bundled Telegram overlay and managed host-control artifact
         working-directory: openclaw-runtime-distribution
         run: ./deployment/package-local-plugins.sh "$PWD"
         env:
@@ -170,7 +170,7 @@ jobs:
             OPENCLAW_BASE_IMAGE=${{ steps.env_meta.outputs.base_image }}
           labels: |
             org.opencontainers.image.title=OpenClaw Gateway
-            org.opencontainers.image.description=Managed-plugin OpenClaw gateway image built from pinned platform source refs
+            org.opencontainers.image.description=OpenClaw gateway image with bundled Telegram overlay and managed host-control plugin built from pinned platform source refs
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.env_meta.outputs.publish_tag }}
@@ -183,7 +183,7 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      - name: Smoke test managed host-control plugin discovery
+      - name: Smoke test bundled Telegram overlay and host-control runtime
         env:
           IMAGE_REF: ${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}
         run: |
@@ -241,6 +241,11 @@ jobs:
             exit 1
           fi
 
+          if grep -q 'duplicate plugin id detected; global plugin will be overridden by bundled plugin' smoke-test/gateway.log; then
+            echo "Built image still tries to override bundled Telegram at runtime." >&2
+            exit 1
+          fi
+
           docker run --rm \
             -e OPENCLAW_CONFIG_PATH=/tmp/openclaw.smoke.json \
             -e OPENCLAW_GATEWAY_TOKEN=smoke-test-token \
@@ -250,20 +255,34 @@ jobs:
 
           cat smoke-test/plugins-list.log
 
-          if ! grep -q 'global: /home/node/.openclaw/extensions' smoke-test/plugins-list.log; then
-            echo "Built image did not expose the managed global plugin source root." >&2
-            exit 1
-          fi
-
           if ! grep -q 'Host Control' smoke-test/plugins-list.log; then
             echo "Built image did not register host-control in the runtime plugin registry." >&2
             exit 1
           fi
 
           if ! grep -q 'global:host-control/index.mjs' smoke-test/plugins-list.log; then
-            echo "Built image did not load host-control from the managed global source root." >&2
+            echo "Built image did not load host-control from the managed global plugin source root." >&2
             exit 1
           fi
+
+          if ! grep -q 'Telegram' smoke-test/plugins-list.log || ! grep -q 'stock:telegram/index.js' smoke-test/plugins-list.log; then
+            echo "Built image did not keep the bundled Telegram channel active." >&2
+            exit 1
+          fi
+
+          if grep -q 'global:telegram/' smoke-test/plugins-list.log; then
+            echo "Built image still contains a global same-id Telegram override." >&2
+            exit 1
+          fi
+
+          docker run --rm "${IMAGE_REF}" sh -lc '
+            grep -R -n -m 1 "tryHandleForcedHostControlReadTelegram" /app/dist/extensions/telegram &&
+            grep -R -n -m 1 "parseDirectReadIntent" /app/dist/extensions/telegram &&
+            grep -R -n -m 1 "appendHostControlTopicSystemPrompt" /app/dist/extensions/telegram &&
+            test ! -d /home/node/.openclaw/extensions/telegram
+          ' > smoke-test/telegram-overlay.log 2>&1
+
+          cat smoke-test/telegram-overlay.log
 
       - name: Publish build summary
         run: |
@@ -278,17 +297,18 @@ jobs:
             echo '- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`'
             echo '- Platform SHA: `${{ github.sha }}`'
             echo
-            echo "Managed plugin packaging path:"
+            echo 'Bundled Telegram overlay + managed host-control path:'
             echo
-            echo "- Telegram and host-control were packaged as plugin artifacts before the image build"
-            echo '- Gateway image installs them through `openclaw plugins install`, not by copying source into /app/extensions'
+            echo '- Telegram was staged into `deployment/.build/telegram-bundled-overlay` and overlaid onto `/app/dist/extensions/telegram` during image build'
+            echo '- Host-control was packaged as the only managed plugin artifact and installed through `openclaw plugins install`'
+            echo '- Build smoke test confirmed bundled Telegram stayed active, no global same-id Telegram override remained, and host-control registered with live config'
             echo
-            echo "Record this immutable image reference in the target environment before promotion:"
+            echo 'Record this immutable image reference in the target environment before promotion:'
             echo
             echo '`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}`'
             echo
-            echo "Prod guardrail: a successful build is not a safe cutover by itself."
-            echo "Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change."
-            echo "Use record_gateway_image.py for prod so the external pre-pull happens before Argo sees the new digest."
-            echo "Do not manually delete the old prod gateway pod as a first response to a slow rollout."
+            echo 'Prod guardrail: a successful build is not a safe cutover by itself.'
+            echo 'Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change.'
+            echo 'Use record_gateway_image.py for prod so the external pre-pull happens before Argo sees the new digest.'
+            echo 'Do not manually delete the old prod gateway pod as a first response to a slow rollout.'
           } >> "$GITHUB_STEP_SUMMARY"

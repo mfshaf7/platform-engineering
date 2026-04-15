@@ -7,6 +7,7 @@ import sys
 
 LEGACY_TELEGRAM_IMPORT = 'from "openclaw/plugin-sdk/telegram"'
 UNSUPPORTED_TELEGRAM_CORE_IMPORT = 'from "openclaw/plugin-sdk/telegram-core"'
+UNSUPPORTED_TELEGRAM_PREVIEW_IMPORT = 'import { resolveTelegramPreviewStreamMode } from "openclaw/plugin-sdk/config-runtime";'
 WRONG_HOST_CONTROL_HELPER_IMPORT_RE = re.compile(
     r'import\s*\{[^}]*appendHostControlTopicSystemPrompt[^}]*\}\s*from\s*"\./bot/helpers\.js";',
     re.DOTALL,
@@ -42,6 +43,7 @@ def main() -> int:
 
     runtime_api = read_text(args.telegram_repo / 'runtime-api.ts')
     telegram_package = read_json(args.telegram_repo / 'package.json')
+    bot_helpers = read_text(args.telegram_repo / 'src' / 'bot' / 'helpers.ts')
     bot_message_context = read_text(args.telegram_repo / 'src' / 'bot-message-context.session.ts')
     build_openclaw_local = read_text(args.deployment_repo / 'deployment' / 'build-openclaw-local.sh')
     plugin_dockerfile = read_text(args.deployment_repo / EXPECTED_BUILD_DOCKERFILE)
@@ -61,6 +63,7 @@ def main() -> int:
 
     uses_legacy_sdk_export = LEGACY_TELEGRAM_IMPORT in runtime_api
     uses_unsupported_telegram_core_import = UNSUPPORTED_TELEGRAM_CORE_IMPORT in runtime_api
+    uses_private_preview_import = UNSUPPORTED_TELEGRAM_PREVIEW_IMPORT in bot_helpers
     uses_wrong_host_control_helper_import = bool(WRONG_HOST_CONTROL_HELPER_IMPORT_RE.search(bot_message_context))
 
     telegram_openclaw = telegram_package.get('openclaw', {})
@@ -120,6 +123,7 @@ def main() -> int:
     checks = [
         (not uses_legacy_sdk_export, 'Incompatible gateway source bundle: Telegram runtime-api still imports "openclaw/plugin-sdk/telegram". Use only stable public subpaths such as core/channel-actions/channel-status/channel-config-schema instead.'),
         (not uses_unsupported_telegram_core_import, 'Incompatible gateway source bundle: Telegram runtime-api still imports "openclaw/plugin-sdk/telegram-core", which is not a public package export in the governed runtime.'),
+        (not uses_private_preview_import, 'Incompatible gateway source bundle: Telegram bot helpers import resolveTelegramPreviewStreamMode from the plugin SDK config runtime. That helper is not part of the governed external overlay contract; keep Telegram preview-stream mode resolution local to the overlay.'),
         (not uses_wrong_host_control_helper_import, 'Incompatible gateway source bundle: bot-message-context.session.ts still imports appendHostControlTopicSystemPrompt from ./bot/helpers.js instead of ./group-config-helpers.js.'),
         (has_plugin_compat_metadata, 'Incompatible gateway source bundle: Telegram package.json is missing OpenClaw compat/build metadata required for reproducible bundled overlays.'),
         (telegram_publishable_files, 'Incompatible gateway source bundle: Telegram package.json must use an explicit files allowlist that excludes tests, harnesses, helpers, and declaration-only files from the staged overlay.'),
@@ -149,6 +153,7 @@ def main() -> int:
         'Gateway source bundle compatible: '
         f'legacy_telegram_sdk_import={str(uses_legacy_sdk_export).lower()} '
         f'unsupported_telegram_core_import={str(uses_unsupported_telegram_core_import).lower()} '
+        f'private_preview_import={str(uses_private_preview_import).lower()} '
         f'wrong_host_control_helper_import={str(uses_wrong_host_control_helper_import).lower()} '
         f'telegram_publishable_files={str(telegram_publishable_files).lower()} '
         f'telegram_overlay_metadata={str(telegram_overlay_metadata).lower()} '

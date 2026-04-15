@@ -192,6 +192,13 @@ jobs:
           mkdir -p smoke-test
           cat > smoke-test/openclaw.smoke.json <<'JSON'
           {
+            "gateway": {
+              "mode": "local",
+              "auth": {
+                "mode": "token",
+                "token": "smoke-test-token"
+              }
+            },
             "plugins": {
               "allow": [
                 "host-control"

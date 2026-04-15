@@ -1,6 +1,6 @@
 versions:
-  gatewayImage: ghcr.io/mfshaf7/openclaw-gateway@sha256:2b08ac9e25bcc7f3e67c02d8437ce192f09e7298dc1d7f0d67fd65c913aba671
+  gatewayImage: ghcr.io/mfshaf7/openclaw-gateway@sha256:58c1e3e35241d9a9007dea9ffc32b3f1fbe1818741d3f4d05c7baf0497afca96
   telegramSha: 6cc0da02e38d8ad6e709185643d6f462be2a37b2
   hostBridgeSha: 9ffa7ab79c0a3c16a38a0c7b7c4e57bcb840105d
-  isolatedDeploymentSha: cef5d72e84482d9530cf79a553135657be7722cf
-  platformSha: 6012d6e3e97f0ce6a01d3b57d9f65bc8df833032
+  isolatedDeploymentSha: 7be9de5f1a773d91bda73a24f264898e00cdb220
+  platformSha: eeb48590ce05614d0491f4984238b22cccef322f

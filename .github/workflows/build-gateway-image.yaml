@@ -134,7 +134,7 @@ jobs:
           path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
-      - name: Prepare bundled Telegram overlay and managed host-control artifact
+      - name: Prepare bundled Telegram and host-control packaged-runtime inputs
         working-directory: openclaw-runtime-distribution
         run: ./deployment/package-local-plugins.sh "$PWD"
         env:
@@ -267,11 +267,6 @@ jobs:
             exit 1
           fi
 
-          if ! grep -q 'global:host-control/index.mjs' smoke-test/plugins-list.log; then
-            echo "Built image did not load host-control from the managed global plugin source root." >&2
-            exit 1
-          fi
-
           if ! grep -q 'Telegram' smoke-test/plugins-list.log || ! grep -q 'stock:telegram/index.js' smoke-test/plugins-list.log; then
             echo "Built image did not keep the bundled Telegram channel active." >&2
             exit 1
@@ -291,6 +286,30 @@ jobs:
 
           cat smoke-test/telegram-overlay.log
 
+          docker run --rm "${IMAGE_REF}" node - <<'NODE' > smoke-test/telegram-runtime-contract.log 2>&1
+          const fs = require("fs");
+          const manifest = JSON.parse(fs.readFileSync("/app/dist/extensions/telegram/openclaw.plugin.json", "utf8"));
+          const configuredState = fs.readFileSync("/app/dist/extensions/telegram/configured-state.js", "utf8");
+          const runtimeApi = fs.readFileSync("/app/dist/extensions/telegram/runtime-api.js", "utf8");
+
+          if (!configuredState.includes("TELEGRAM_BOT_TOKEN")) {
+            throw new Error("Compiled Telegram configured-state no longer keys off TELEGRAM_BOT_TOKEN.");
+          }
+          if (!manifest.channelEnvVars || !Array.isArray(manifest.channelEnvVars.telegram) || !manifest.channelEnvVars.telegram.includes("TELEGRAM_BOT_TOKEN")) {
+            throw new Error("Compiled Telegram manifest no longer advertises TELEGRAM_BOT_TOKEN as the channel env contract.");
+          }
+          if (!manifest.configSchema || Object.keys(manifest.configSchema.properties ?? {}).length !== 0) {
+            throw new Error("Compiled Telegram manifest config schema changed; review runtime config assumptions before upgrading.");
+          }
+          if (!runtimeApi.includes("monitorTelegramProvider") || !runtimeApi.includes("setTelegramRuntime")) {
+            throw new Error("Compiled Telegram runtime-api no longer exports the expected monitoring/runtime hooks.");
+          }
+
+          console.log("Compiled Telegram runtime contract OK");
+          NODE
+
+          cat smoke-test/telegram-runtime-contract.log
+
       - name: Publish build summary
         run: |
           {
@@ -304,11 +323,11 @@ jobs:
             echo '- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`'
             echo '- Platform SHA: `${{ github.sha }}`'
             echo
-            echo 'Bundled Telegram overlay + managed host-control path:'
+            echo 'Bundled Telegram + host-control packaged-runtime seam:'
             echo
-            echo '- Telegram was staged into `deployment/.build/telegram-bundled-overlay` and overlaid onto `/app/dist/extensions/telegram` during image build'
-            echo '- Host-control was packaged as the only managed plugin artifact and installed through `openclaw plugins install`'
-            echo '- Build smoke test confirmed bundled Telegram stayed active, no global same-id Telegram override remained, and host-control registered with live config'
+            echo '- Telegram was staged into the packaged bundled-runtime seam under `/app/dist/extensions/telegram` during image build'
+            echo '- Host-control was staged from its packlist into `/app/extensions/host-control` during image build'
+            echo '- Build smoke test confirmed bundled Telegram stayed active, the compiled Telegram runtime contract still keys off `TELEGRAM_BOT_TOKEN`, no global same-id Telegram override remained, and host-control stayed registered from the bundled seam'
             echo
             echo 'Record this immutable image reference in the target environment before promotion:'
             echo

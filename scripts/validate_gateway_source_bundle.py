@@ -107,17 +107,14 @@ def main() -> int:
     uses_bundled_telegram_overlay_build = EXPECTED_BUILD_DOCKERFILE in build_openclaw_local
     build_script_runs_packager = '"$ROOT/deployment/package-local-plugins.sh" "$ROOT"' in build_openclaw_local
     dockerfile_still_copies_direct_repo_sources = any(snippet in plugin_dockerfile for snippet in DISALLOWED_DIRECT_SOURCE_COPY_SNIPPETS)
-    dockerfile_overlays_bundled_telegram = 'deployment/.build/telegram-bundled-overlay/' in plugin_dockerfile and '/app/dist/extensions/telegram/' in plugin_dockerfile
-    dockerfile_preserves_bundled_telegram = 'rm -rf /app/extensions/telegram' not in plugin_dockerfile and 'rm -rf /app/dist/extensions/telegram' not in plugin_dockerfile
-    dockerfile_uses_posix_shell_install = 'RUN set -eu;' in plugin_dockerfile and 'set -euo pipefail' not in plugin_dockerfile
-    dockerfile_uses_official_unsafe_install = '--dangerously-force-unsafe-install' in plugin_dockerfile
-    dockerfile_installs_only_packaged_plugins = 'COPY --chown=node:node deployment/.build/plugin-artifacts/ /tmp/openclaw-plugin-artifacts/' in plugin_dockerfile
-
+    dockerfile_stages_bundled_plugin_root = 'COPY --chown=node:node deployment/.build/bundled-plugins/ /app/extensions/' in plugin_dockerfile
+    dockerfile_sets_bundled_plugin_env = 'ENV OPENCLAW_BUNDLED_PLUGINS_DIR=/app/extensions' in plugin_dockerfile
+    dockerfile_preserves_bundled_runtime = 'rm -rf /app/extensions/telegram' not in plugin_dockerfile and 'rm -rf /app/dist/extensions/telegram' not in plugin_dockerfile
     package_script_uses_direct_telegram_source = 'OPENCLAW_TELEGRAM_REPO' in package_plugins_script and '$ROOT/openclaw-telegram-enhanced' not in package_plugins_script and 'sync-telegram-build-copy.sh' not in package_plugins_script
     package_script_guards_packlists = 'npm pack --json --dry-run' in package_plugins_script and 'includes non-runtime files' in package_plugins_script
-    package_script_stages_telegram_overlay = 'TELEGRAM_OVERLAY_DIR' in package_plugins_script and 'stage_packlist_files "$TELEGRAM_PLUGIN_ROOT" "$TELEGRAM_OVERLAY_DIR"' in package_plugins_script
-    package_script_packs_host_control = 'HOST_CONTROL_PLUGIN_ROOT' in package_plugins_script and '(cd "$HOST_CONTROL_PLUGIN_ROOT" && npm pack --pack-destination "$ARTIFACT_DIR" >/dev/null)' in package_plugins_script
-    package_script_no_longer_packs_telegram = '(cd "$TELEGRAM_PLUGIN_ROOT" && npm pack --pack-destination "$ARTIFACT_DIR"' not in package_plugins_script
+    package_script_stages_bundled_telegram = 'TELEGRAM_OVERLAY_DIR' in package_plugins_script and 'stage_packlist_files "$TELEGRAM_PLUGIN_ROOT" "$TELEGRAM_OVERLAY_DIR"' in package_plugins_script
+    package_script_stages_bundled_host_control = 'HOST_CONTROL_OVERLAY_DIR' in package_plugins_script and 'stage_packlist_files "$HOST_CONTROL_PLUGIN_ROOT" "$HOST_CONTROL_OVERLAY_DIR"' in package_plugins_script
+    package_script_no_longer_packs_plugins = '--pack-destination "$ARTIFACT_DIR"' not in package_plugins_script
     verify_router_contract_uses_direct_source = 'CANON_TELEGRAM' in verify_router_contract_script and 'DEPLOY_ROUTER' not in verify_router_contract_script
 
     checks = [
@@ -131,16 +128,14 @@ def main() -> int:
         (uses_bundled_telegram_overlay_build, f'Incompatible gateway source bundle: deployment/build-openclaw-local.sh must default to {EXPECTED_BUILD_DOCKERFILE} so local builds use the bundled Telegram overlay path.'),
         (build_script_runs_packager, 'Incompatible gateway source bundle: deployment/build-openclaw-local.sh must prepare staged build inputs before docker build.'),
         (not dockerfile_still_copies_direct_repo_sources, 'Incompatible gateway source bundle: managed build Dockerfile still copies Telegram or host-control directly from a repo checkout instead of staged build inputs.'),
-        (dockerfile_overlays_bundled_telegram, 'Incompatible gateway source bundle: managed build Dockerfile must overlay the bundled Telegram runtime from deployment/.build/telegram-bundled-overlay.'),
-        (dockerfile_preserves_bundled_telegram, 'Incompatible gateway source bundle: managed build Dockerfile must preserve the bundled Telegram runtime and overlay it in place instead of deleting it.'),
-        (dockerfile_uses_posix_shell_install, 'Incompatible gateway source bundle: managed build Dockerfile install layer must stay POSIX-sh compatible.'),
-        (dockerfile_uses_official_unsafe_install, 'Incompatible gateway source bundle: managed build Dockerfile must use OpenClaw official --dangerously-force-unsafe-install flag when installing the trusted pinned host-control plugin.'),
-        (dockerfile_installs_only_packaged_plugins, 'Incompatible gateway source bundle: managed build Dockerfile must install host-control only from the staged plugin-artifacts directory.'),
+        (dockerfile_stages_bundled_plugin_root, 'Incompatible gateway source bundle: managed build Dockerfile must stage the bundled plugin root from deployment/.build/bundled-plugins into /app/extensions.'),
+        (dockerfile_sets_bundled_plugin_env, 'Incompatible gateway source bundle: managed build Dockerfile must set OPENCLAW_BUNDLED_PLUGINS_DIR=/app/extensions.'),
+        (dockerfile_preserves_bundled_runtime, 'Incompatible gateway source bundle: managed build Dockerfile must preserve the bundled runtime seam instead of deleting it.'),
         (package_script_uses_direct_telegram_source, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must stage Telegram directly from OPENCLAW_TELEGRAM_REPO and must not rely on a copied tree in another repo.'),
         (package_script_guards_packlists, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must dry-run npm pack and block non-runtime files from entering staged build inputs.'),
-        (package_script_stages_telegram_overlay, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must stage Telegram packlist files into deployment/.build/telegram-bundled-overlay.'),
-        (package_script_packs_host_control, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must package host-control as the managed plugin artifact for the gateway image build.'),
-        (package_script_no_longer_packs_telegram, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must not pack Telegram as a same-id managed plugin artifact because bundled Telegram wins at runtime.'),
+        (package_script_stages_bundled_telegram, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must stage Telegram packlist files into the bundled plugin root.'),
+        (package_script_stages_bundled_host_control, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must stage host-control packlist files into the bundled plugin root.'),
+        (package_script_no_longer_packs_plugins, 'Incompatible gateway source bundle: deployment/package-local-plugins.sh must not build plugin tarballs for the bundled runtime seam.'),
         (verify_router_contract_uses_direct_source, 'Incompatible gateway source bundle: verify-telegram-router-contract.sh must validate the standalone Telegram source repo directly, not a copied deployment tree.'),
         (security_arch_agents.exists() and security_arch_skill.exists(), 'Incompatible gateway source bundle: deployment is missing the tracked security-architecture workspace template required to materialize /home/node/.openclaw/workspace-security-architecture in the runtime.'),
     ]
@@ -162,10 +157,11 @@ def main() -> int:
         f'build_script_runs_packager={str(build_script_runs_packager).lower()} '
         f'package_script_uses_direct_telegram_source={str(package_script_uses_direct_telegram_source).lower()} '
         f'package_script_guards_packlists={str(package_script_guards_packlists).lower()} '
-        f'package_script_stages_telegram_overlay={str(package_script_stages_telegram_overlay).lower()} '
-        f'package_script_packs_host_control={str(package_script_packs_host_control).lower()} '
-        f'package_script_no_longer_packs_telegram={str(package_script_no_longer_packs_telegram).lower()} '
-        f'dockerfile_uses_official_unsafe_install={str(dockerfile_uses_official_unsafe_install).lower()} '
+        f'dockerfile_stages_bundled_plugin_root={str(dockerfile_stages_bundled_plugin_root).lower()} '
+        f'dockerfile_sets_bundled_plugin_env={str(dockerfile_sets_bundled_plugin_env).lower()} '
+        f'package_script_stages_bundled_telegram={str(package_script_stages_bundled_telegram).lower()} '
+        f'package_script_stages_bundled_host_control={str(package_script_stages_bundled_host_control).lower()} '
+        f'package_script_no_longer_packs_plugins={str(package_script_no_longer_packs_plugins).lower()} '
         f'verify_router_contract_uses_direct_source={str(verify_router_contract_uses_direct_source).lower()} '
         f'security_arch_workspace_template={str((security_arch_agents.exists() and security_arch_skill.exists())).lower()}'
     )

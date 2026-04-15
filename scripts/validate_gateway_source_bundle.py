@@ -43,7 +43,6 @@ def main() -> int:
     runtime_api = read_text(args.telegram_repo / 'runtime-api.ts')
     telegram_package = read_json(args.telegram_repo / 'package.json')
     bot_message_context = read_text(args.telegram_repo / 'src' / 'bot-message-context.session.ts')
-    telegram_npmignore = read_text(args.telegram_repo / '.npmignore')
     build_openclaw_local = read_text(args.deployment_repo / 'deployment' / 'build-openclaw-local.sh')
     plugin_dockerfile = read_text(args.deployment_repo / EXPECTED_BUILD_DOCKERFILE)
     package_plugins_script = read_text(args.deployment_repo / 'deployment' / 'package-local-plugins.sh')
@@ -64,8 +63,22 @@ def main() -> int:
     uses_unsupported_telegram_core_import = UNSUPPORTED_TELEGRAM_CORE_IMPORT in runtime_api
     uses_wrong_host_control_helper_import = bool(WRONG_HOST_CONTROL_HELPER_IMPORT_RE.search(bot_message_context))
     telegram_openclaw = telegram_package.get('openclaw', {})
+    telegram_files = telegram_package.get('files')
     has_plugin_compat_metadata = isinstance(telegram_openclaw.get('compat'), dict) and isinstance(telegram_openclaw.get('build'), dict)
-    telegram_ignores_tests = '.test.ts' in telegram_npmignore and '.test.mjs' in telegram_npmignore
+    telegram_publishable_files = (
+        isinstance(telegram_files, list)
+        and 'src/' not in telegram_files
+        and 'src/**/*.ts' in telegram_files
+        and '!src/**/*.test.ts' in telegram_files
+        and '!src/**/*.test-helpers.ts' in telegram_files
+        and '!src/**/*.test-support.ts' in telegram_files
+        and '!src/**/*.test-utils.ts' in telegram_files
+        and '!src/**/*.test-harness.ts' in telegram_files
+        and '!src/**/*.fixture-test-support.ts' in telegram_files
+        and '!src/**/*.e2e.test.ts' in telegram_files
+        and '!src/**/*.e2e-harness.ts' in telegram_files
+        and '!src/**/*.d.ts' in telegram_files
+    )
 
     uses_managed_plugin_build = EXPECTED_BUILD_DOCKERFILE in build_openclaw_local
     dockerfile_still_copies_bundled_sources = any(snippet in plugin_dockerfile for snippet in DISALLOWED_BUNDLED_COPY_SNIPPETS)
@@ -95,7 +108,7 @@ def main() -> int:
         (not uses_unsupported_telegram_core_import, 'Incompatible gateway source bundle: Telegram runtime-api still imports "openclaw/plugin-sdk/telegram-core", which is not a public package export in the governed runtime.'),
         (not uses_wrong_host_control_helper_import, 'Incompatible gateway source bundle: bot-message-context.session.ts still imports appendHostControlTopicSystemPrompt from ./bot/helpers.js instead of ./group-config-helpers.js.'),
         (has_plugin_compat_metadata, 'Incompatible gateway source bundle: Telegram package.json is missing OpenClaw compat/build metadata required for publishable managed plugin packages.'),
-        (telegram_ignores_tests, 'Incompatible gateway source bundle: Telegram package must exclude test-only files from the published artifact via .npmignore.'),
+        (telegram_publishable_files, 'Incompatible gateway source bundle: Telegram package.json must use an explicit files allowlist that excludes tests, harnesses, helpers, and declaration-only files from the published plugin artifact.'),
         (host_control_publishable_metadata, 'Incompatible gateway source bundle: host-control package.json must be publishable metadata with compat/build entries and a files whitelist that excludes tests.'),
         (uses_managed_plugin_build, f'Incompatible gateway source bundle: deployment/build-openclaw-local.sh must default to {EXPECTED_BUILD_DOCKERFILE} so builds use managed plugin installation instead of bundled source copies.'),
         (not dockerfile_still_copies_bundled_sources, 'Incompatible gateway source bundle: managed plugin Dockerfile still copies Telegram or host-control source directly into /app/extensions.'),
@@ -119,7 +132,7 @@ def main() -> int:
         f'unsupported_telegram_core_import={str(uses_unsupported_telegram_core_import).lower()} '
         f'wrong_host_control_helper_import={str(uses_wrong_host_control_helper_import).lower()} '
         f'plugin_compat_metadata={str(has_plugin_compat_metadata).lower()} '
-        f'telegram_ignores_tests={str(telegram_ignores_tests).lower()} '
+        f'telegram_publishable_files={str(telegram_publishable_files).lower()} '
         f'host_control_publishable_metadata={str(host_control_publishable_metadata).lower()} '
         f'managed_plugin_build={str(uses_managed_plugin_build).lower()} '
         f'package_script_uses_direct_telegram_source={str(package_script_uses_direct_telegram_source).lower()} '

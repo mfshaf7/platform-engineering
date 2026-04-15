@@ -108,7 +108,7 @@ jobs:
 
           check_ref "mfshaf7/openclaw-telegram-enhanced" "${{ steps.env_meta.outputs.telegram_ref }}"
           check_ref "mfshaf7/openclaw-host-bridge" "${{ steps.env_meta.outputs.host_bridge_ref }}"
-          check_ref "mfshaf7/openclaw-isolated-deployment" "${{ steps.env_meta.outputs.deployment_ref }}"
+          check_ref "mfshaf7/openclaw-runtime-distribution" "${{ steps.env_meta.outputs.deployment_ref }}"
 
       - name: Check out Telegram source
         uses: actions/checkout@v4
@@ -126,16 +126,16 @@ jobs:
           path: openclaw-host-bridge
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
-      - name: Check out isolated-deployment source
+      - name: Check out runtime-distribution source
         uses: actions/checkout@v4
         with:
-          repository: mfshaf7/openclaw-isolated-deployment
+          repository: mfshaf7/openclaw-runtime-distribution
           ref: ${{ steps.env_meta.outputs.deployment_ref }}
-          path: openclaw-isolated-deployment
+          path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
       - name: Package managed local plugins and verify workspace
-        working-directory: openclaw-isolated-deployment
+        working-directory: openclaw-runtime-distribution
         run: ./deployment/package-local-plugins.sh "$PWD"
         env:
           OPENCLAW_TELEGRAM_REPO: ${{ github.workspace }}/openclaw-telegram-enhanced
@@ -145,7 +145,7 @@ jobs:
         run: |
           python scripts/validate_gateway_source_bundle.py \
             --telegram-repo "${{ github.workspace }}/openclaw-telegram-enhanced" \
-            --deployment-repo "${{ github.workspace }}/openclaw-isolated-deployment"
+            --deployment-repo "${{ github.workspace }}/openclaw-runtime-distribution"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -161,8 +161,8 @@ jobs:
         id: build_push
         uses: docker/build-push-action@v6
         with:
-          context: ./openclaw-isolated-deployment
-          file: ./openclaw-isolated-deployment/${{ steps.env_meta.outputs.dockerfile }}
+          context: ./openclaw-runtime-distribution
+          file: ./openclaw-runtime-distribution/${{ steps.env_meta.outputs.dockerfile }}
           push: true
           platforms: ${{ steps.env_meta.outputs.publish_platforms }}
           tags: ${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}
@@ -178,7 +178,7 @@ jobs:
             openclaw.source-bundle-ref=${{ steps.env_meta.outputs.source_bundle_ref }}
             openclaw.telegram-ref=${{ steps.env_meta.outputs.telegram_ref }}
             openclaw.host-bridge-ref=${{ steps.env_meta.outputs.host_bridge_ref }}
-            openclaw.isolated-deployment-ref=${{ steps.env_meta.outputs.deployment_ref }}
+            openclaw.runtime-distribution-ref=${{ steps.env_meta.outputs.deployment_ref }}
             openclaw.platform-engineering-ref=${{ github.sha }}
           provenance: mode=max
           sbom: true
@@ -193,7 +193,7 @@ jobs:
             echo "- Digest: `${{ steps.build_push.outputs.digest }}`"
             echo "- Telegram SHA: `${{ steps.env_meta.outputs.telegram_ref }}`"
             echo "- Host bridge SHA: `${{ steps.env_meta.outputs.host_bridge_ref }}`"
-            echo "- Isolated deployment SHA: `${{ steps.env_meta.outputs.deployment_ref }}`"
+            echo "- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`"
             echo "- Platform SHA: `${{ github.sha }}`"
             echo
             echo "Managed plugin packaging path:"

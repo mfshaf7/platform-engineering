@@ -49,7 +49,7 @@ It does not replace the source repositories:
 
 - `openclaw-telegram-enhanced`
 - `openclaw-host-bridge`
-- `openclaw-isolated-deployment`
+- `openclaw-runtime-distribution`
 
 ## Architecture Summary
 

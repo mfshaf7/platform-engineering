@@ -48,5 +48,5 @@ extraVolumeMounts:
 extraVolumes:
 - name: openclaw-home
   hostPath:
-    path: /home/mfshaf7/.openclaw
+    path: /home/mfshaf7/.openclaw-stage
     type: Directory

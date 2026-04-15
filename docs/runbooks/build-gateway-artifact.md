@@ -34,7 +34,7 @@ The build uses pinned SHAs from:
 
 - both `stage` and `prod` use governed GHCR-backed gateway images pinned by
   immutable digest
-- the build path fails fast if the environment contract contains placeholder or
+- the build path fails fast if the environment contract contains placeholder o
   invalid pinned refs
 - the bundled stage/prod image extends the official upstream base image
   `ghcr.io/openclaw/openclaw:latest`
@@ -64,12 +64,11 @@ This preserves the current proven bundled-image build path while moving release
 authority into the platform repo instead of leaving image creation as an
 operator-local memory step.
 
-
 ## Prod Cutover Guardrails
 
 - `Build Gateway Image` only creates the OCI artifact. It does not complete a prod rollout.
-- After the build succeeds, record the immutable digest into the target environment contract before expecting Argo to deploy it.
+- After the build succeeds, warm the exact target digest on the prod node before committing the prod contract change.
+- `python3 scripts/record_gateway_image.py prod ...` performs that external pre-pull automatically unless you pass `--skip-prepull`.
 - `prod` gateway is a single-node `hostNetwork` workload that binds host port `18789`.
-- Because of that host-port constraint, prod uses the chart-managed pre-pull DaemonSet plus a `Recreate` deployment strategy.
-- Do not manually delete the old prod gateway pod as a first rollout step. Let Argo run the pre-pull DaemonSet and own the cutover.
-- If rollout appears slow, inspect the pre-pull DaemonSet and image-pull events first. A cold GHCR pull can block `ContainerCreating` even when the build itself was correct.
+- Do not manually delete the old prod gateway pod as a first rollout step.
+- Do not put a chart hook or Argo-managed pre-pull resource back on the sync path. The warm-up must happen before Argo sees the new digest.

@@ -46,7 +46,7 @@ gh workflow run "Build Gateway Image" \
 
 4. Wait for the workflow to complete successfully and capture the digest from the build summary or logs.
 
-5. Record the published image into the prod contract:
+5. Warm the exact target digest and record it into the prod contract in one step:
 
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
@@ -58,25 +58,18 @@ python3 scripts/record_gateway_image.py prod \
 python3 scripts/validate_environment_contract.py prod --repo-root .
 ```
 
+`record_gateway_image.py` performs the external pre-pull before it writes the prod digest, so the contract change is not committed until the target image is already warm on-node.
+
 6. Commit and push the recorded prod values.
 
-7. Warm the recorded digest onto the cluster before rollout:
-
-```bash
-cd /home/<platform-user>/projects/platform-engineering
-make prepull-gateway-image ENVIRONMENT=prod
-```
-
-This avoids making the rollout wait on a first-time cold pull of the gateway image.
-
-8. Refresh Argo:
+7. Refresh Argo if needed:
 
 ```bash
 k3s kubectl -n argocd annotate application openclaw-gateway \
   argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-9. Verify rollout:
+8. Verify rollout:
 
 ```bash
 k3s kubectl -n argocd get application openclaw-gateway \
@@ -125,7 +118,7 @@ Most likely cause:
 Action:
 
 - fix the owning source repo
-- keep the validator
+- keep the validato
 - rerun the build only after validation passes
 
 ### Argo stays on old revision

@@ -5,6 +5,8 @@ import re
 
 import yaml
 
+from prepull_gateway_image import prepull_image
+
 
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -32,6 +34,21 @@ def main() -> int:
             "Platform-engineering commit used by the build workflow. "
             "Defaults to the existing environment pin when omitted."
         ),
+    )
+    parser.add_argument(
+        "--skip-prepull",
+        action="store_true",
+        help="Skip the mandatory external pre-pull step before recording the digest.",
+    )
+    parser.add_argument(
+        "--kubectl",
+        default="k3s kubectl",
+        help="kubectl command prefix used to access the cluster for external pre-pull.",
+    )
+    parser.add_argument(
+        "--timeout",
+        default="90m",
+        help="How long to wait for the external pre-pull daemonset rollout.",
     )
     parser.add_argument(
         "--repo-root",
@@ -63,6 +80,14 @@ def main() -> int:
 
     image_ref = f"{repository}@{args.digest}"
     platform_sha = args.platform_sha or versions["sourceRepos"]["platformEngineering"]["commit"]
+
+    if args.environment == "prod" and not args.skip_prepull:
+        prepull_image(
+            args.environment,
+            image_ref=image_ref,
+            kubectl=args.kubectl,
+            timeout=args.timeout,
+        )
 
     versions["gateway"]["image"]["tag"] = args.tag
     versions["gateway"]["image"]["digest"] = args.digest

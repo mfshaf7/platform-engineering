@@ -1,6 +1,6 @@
 # Platform Engineering
 
-`platform-engineering` is the shared platform control-plane repository for
+`platform-engineering` is the shared platform control-plane repository fo
 governed runtime delivery, GitOps reconciliation, DevSecOps controls, and
 observability across managed environments.
 
@@ -59,7 +59,7 @@ GitHub repos
   -> GHCR artifacts
   -> Terraform bootstrap
   -> Argo CD
-  -> Kubernetes cluster
+  -> Kubernetes cluste
   -> Product workloads + observability
 
 Windows/WSL host
@@ -99,8 +99,8 @@ Historical records live under [docs/archive/README.md](docs/archive/README.md).
 
 Gateway rollout note:
 
-- `prod` gateway is a single-node host-port workload. Safe cutover depends on the chart-managed pre-pull DaemonSet and `Recreate` rollout strategy, not manual pod deletion.
-- `Build Gateway Image` produces the artifact only. Record the digest into the environment contract and let Argo reconcile the rollout.
+- `prod` gateway is a single-node host-port workload. Safe cutover depends on warming the exact target digest before the prod contract change is pushed, then letting Argo reconcile the `Recreate` rollout.
+- `Build Gateway Image` produces the artifact only. `python3 scripts/record_gateway_image.py prod ...` performs the required external pre-pull before it writes the prod digest.
 
 Common operator entrypoints:
 

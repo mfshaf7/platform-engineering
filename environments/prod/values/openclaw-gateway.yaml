@@ -15,8 +15,6 @@ dnsPolicy: ClusterFirstWithHostNet
 enableServiceLinks: false
 strategy:
   type: Recreate
-prepull:
-  enabled: true
 env:
   OPENCLAW_ENV: prod
   OPENCLAW_TELEGRAM_SHA: 5ffa7bbc55600ed39b33cf74fb8a17ed4a8b1674
@@ -26,7 +24,7 @@ extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.k3s.json
 - name: TERM
-  value: xterm-256color
+  value: xterm-256colo
 - name: TZ
   value: UTC
 - name: CLAUDE_WEB_SESSION_KEY

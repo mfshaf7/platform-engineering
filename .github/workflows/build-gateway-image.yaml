@@ -200,6 +200,7 @@ jobs:
             echo "\`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}\`"
             echo
             echo "Prod guardrail: a successful build is not a safe cutover by itself."
-            echo "Prod gateway binds host port 18789 on a single node, so rollout must go through the GitOps contract and chart-managed pre-pull DaemonSet flow."
+            echo "Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change."
+            echo "Use record_gateway_image.py for prod so the external pre-pull happens before Argo sees the new digest."
             echo "Do not manually delete the old prod gateway pod as a first response to a slow rollout."
           } >> "$GITHUB_STEP_SUMMARY"

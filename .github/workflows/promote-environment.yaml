@@ -53,7 +53,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Guard invalid promotion pair
+      - name: Guard invalid promotion pai
         run: |
           test "${{ inputs.source_environment }}" = "stage"
           test "${{ inputs.target_environment }}" = "prod"
@@ -128,8 +128,8 @@ jobs:
             echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
             echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo
-            echo "Prod gateway rollout guardrail: this environment uses a chart-managed image pre-pull DaemonSet plus Recreate semantics because host port 18789 is single-node."
-            echo "Do not manually delete the old prod gateway pod as a first step; merge the contract change and let Argo own the swap."
+            echo "Prod gateway rollout guardrail: host port 18789 is single-node, so the target digest must be warmed before the prod contract change is merged."
+            echo "Do not manually delete the old prod gateway pod as a first step; complete the external pre-pull, merge the contract change, then let Argo own the swap."
             echo
             echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -49,17 +49,5 @@ serviceMonitor:
   enabled: true
   interval: 30s
 
-prepull:
-  enabled: false
-  syncWave: -1
-  terminationGracePeriodSeconds: 0
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 50m
-      memory: 128Mi
-
 secretRefs:
   - name: openclaw-gateway-secrets

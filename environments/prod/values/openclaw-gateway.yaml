@@ -53,3 +53,4 @@ extraVolumes:
 serviceMonitor:
   enabled: true
   interval: 30s
+replicaCount: 0

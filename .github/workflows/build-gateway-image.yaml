@@ -33,6 +33,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Install YAML dependency
         run: python -m pip install pyyaml
 
@@ -72,13 +77,14 @@ jobs:
         env:
           TARGET_ENV: ${{ inputs.environment }}
 
-      - name: Validate pinned source refs
+      - name: Validate pinned refs and build contract
         run: |
           test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_repository }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_tag_prefix }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.dockerfile }}" = "deployment/Dockerfile.plugin-install.example"
 
       - name: Verify pinned refs exist upstream
         env:
@@ -128,14 +134,9 @@ jobs:
           path: openclaw-isolated-deployment
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
-      - name: Sync deployment build copy and verify workspace
+      - name: Package managed local plugins and verify workspace
         working-directory: openclaw-isolated-deployment
-        run: |
-          ./deployment/sync-telegram-build-copy.sh "$PWD"
-          ./deployment/verify-workspace-sync.sh "$PWD"
-          ./deployment/verify-telegram-router-contract.sh "$PWD"
-          ./deployment/verify-bridge-workspace.sh "$PWD"
-          ./deployment/verify-host-control-contract.sh "$PWD"
+        run: ./deployment/package-local-plugins.sh "$PWD"
         env:
           OPENCLAW_TELEGRAM_REPO: ${{ github.workspace }}/openclaw-telegram-enhanced
 
@@ -169,7 +170,7 @@ jobs:
             OPENCLAW_BASE_IMAGE=${{ steps.env_meta.outputs.base_image }}
           labels: |
             org.opencontainers.image.title=OpenClaw Gateway
-            org.opencontainers.image.description=Bundled OpenClaw gateway image built from pinned platform source refs
+            org.opencontainers.image.description=Managed-plugin OpenClaw gateway image built from pinned platform source refs
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.env_meta.outputs.publish_tag }}
@@ -187,17 +188,22 @@ jobs:
           {
             echo "## Gateway Image Build"
             echo
-            echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Image: \`${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}\`"
-            echo "- Digest: \`${{ steps.build_push.outputs.digest }}\`"
-            echo "- Telegram SHA: \`${{ steps.env_meta.outputs.telegram_ref }}\`"
-            echo "- Host bridge SHA: \`${{ steps.env_meta.outputs.host_bridge_ref }}\`"
-            echo "- Isolated deployment SHA: \`${{ steps.env_meta.outputs.deployment_ref }}\`"
-            echo "- Platform SHA: \`${{ github.sha }}\`"
+            echo "- Environment: `${{ inputs.environment }}`"
+            echo "- Image: `${{ steps.env_meta.outputs.publish_repository }}:${{ steps.env_meta.outputs.publish_tag }}`"
+            echo "- Digest: `${{ steps.build_push.outputs.digest }}`"
+            echo "- Telegram SHA: `${{ steps.env_meta.outputs.telegram_ref }}`"
+            echo "- Host bridge SHA: `${{ steps.env_meta.outputs.host_bridge_ref }}`"
+            echo "- Isolated deployment SHA: `${{ steps.env_meta.outputs.deployment_ref }}`"
+            echo "- Platform SHA: `${{ github.sha }}`"
+            echo
+            echo "Managed plugin packaging path:"
+            echo
+            echo "- Telegram and host-control were packaged as plugin artifacts before the image build"
+            echo "- Gateway image installs them through `openclaw plugins install`, not by copying source into /app/extensions"
             echo
             echo "Record this immutable image reference in the target environment before promotion:"
             echo
-            echo "\`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}\`"
+            echo "`${{ steps.env_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}`"
             echo
             echo "Prod guardrail: a successful build is not a safe cutover by itself."
             echo "Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change."

@@ -278,9 +278,9 @@ jobs:
           fi
 
           docker run --rm "${IMAGE_REF}" sh -lc '
-            grep -R -n -m 1 "tryHandleForcedHostControlReadTelegram" /app/dist/extensions/telegram &&
-            grep -R -n -m 1 "parseDirectReadIntent" /app/dist/extensions/telegram &&
-            grep -R -n -m 1 "appendHostControlTopicSystemPrompt" /app/dist/extensions/telegram &&
+            grep -R -n -m 1 "tryHandleForcedHostControlReadTelegram" /app/extensions/telegram &&
+            grep -R -n -m 1 "parseDirectReadIntent" /app/extensions/telegram &&
+            grep -R -n -m 1 "appendHostControlTopicSystemPrompt" /app/extensions/telegram &&
             test ! -d /home/node/.openclaw/extensions/telegram
           ' > smoke-test/telegram-overlay.log 2>&1
 
@@ -288,24 +288,21 @@ jobs:
 
           docker run --rm "${IMAGE_REF}" node - <<'NODE' > smoke-test/telegram-runtime-contract.log 2>&1
           const fs = require("fs");
-          const manifest = JSON.parse(fs.readFileSync("/app/dist/extensions/telegram/openclaw.plugin.json", "utf8"));
-          const configuredState = fs.readFileSync("/app/dist/extensions/telegram/configured-state.js", "utf8");
-          const runtimeApi = fs.readFileSync("/app/dist/extensions/telegram/runtime-api.js", "utf8");
+          const manifest = JSON.parse(fs.readFileSync("/app/extensions/telegram/openclaw.plugin.json", "utf8"));
+          const runtimeApi = fs.readFileSync("/app/extensions/telegram/runtime-api.ts", "utf8");
+          const tokenSource = fs.readFileSync("/app/extensions/telegram/src/token.ts", "utf8");
 
-          if (!configuredState.includes("TELEGRAM_BOT_TOKEN")) {
-            throw new Error("Compiled Telegram configured-state no longer keys off TELEGRAM_BOT_TOKEN.");
-          }
-          if (!manifest.channelEnvVars || !Array.isArray(manifest.channelEnvVars.telegram) || !manifest.channelEnvVars.telegram.includes("TELEGRAM_BOT_TOKEN")) {
-            throw new Error("Compiled Telegram manifest no longer advertises TELEGRAM_BOT_TOKEN as the channel env contract.");
+          if (!tokenSource.includes("TELEGRAM_BOT_TOKEN")) {
+            throw new Error("Telegram overlay token source no longer keys off TELEGRAM_BOT_TOKEN.");
           }
           if (!manifest.configSchema || Object.keys(manifest.configSchema.properties ?? {}).length !== 0) {
-            throw new Error("Compiled Telegram manifest config schema changed; review runtime config assumptions before upgrading.");
+            throw new Error("Telegram overlay manifest config schema changed; review runtime config assumptions before upgrading.");
           }
           if (!runtimeApi.includes("monitorTelegramProvider") || !runtimeApi.includes("setTelegramRuntime")) {
-            throw new Error("Compiled Telegram runtime-api no longer exports the expected monitoring/runtime hooks.");
+            throw new Error("Telegram overlay runtime-api no longer exports the expected monitoring/runtime hooks.");
           }
 
-          console.log("Compiled Telegram runtime contract OK");
+          console.log("Telegram overlay runtime contract OK");
           NODE
 
           cat smoke-test/telegram-runtime-contract.log

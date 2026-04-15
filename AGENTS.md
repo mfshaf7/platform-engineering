@@ -18,3 +18,17 @@
 - Prod promotion must fail closed unless `scripts/stage_promotion_readiness.py validate` passes against the current stage candidate.
 - Use `Confirm Stage Promotion Readiness` only after stage testing is complete and the current candidate is explicitly approved for prod.
 - After a successful prod promotion, suspend stage again unless there is an explicit follow-up test in progress.
+
+## Workflow Dispatch Guardrails
+
+- Trigger GitHub Actions only from the real WSL repo state, not a stale workspace copy.
+- Before dispatching a workflow on a branch, verify the remote ref exists on GitHub.
+- Prefer the exact workflow file name or workflow ID when dispatching; do not rely only on the display name.
+- Do not bundle branch creation, push, and dispatch into one opaque shell chain when a ref check would surface the real problem earlier.
+
+## Workspace Source Of Truth
+
+- Treat the WSL repos under `/home/mfshaf7/projects/...` as the primary working copies and source of truth.
+- Do not assume the Windows workspace mirror is current.
+- Use the Windows side only for temporary helper files or tasks that are explicitly Windows-local.
+- Before making repo conclusions, checks, or workflow changes, inspect the WSL copy first.

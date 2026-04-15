@@ -44,7 +44,38 @@ resources:
     memory: 4Gi
 extraVolumeMounts:
 - name: openclaw-home
-  mountPath: /home/node/.openclaw
+  mountPath: /home/node/.openclaw/agents
+  subPath: agents
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/canvas
+  subPath: canvas
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/devices
+  subPath: devices
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/identity
+  subPath: identity
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/logs
+  subPath: logs
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/media
+  subPath: media
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/tasks
+  subPath: tasks
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/telegram
+  subPath: telegram
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/workspace
+  subPath: workspace
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/openclaw.k3s.json
+  subPath: openclaw.k3s.json
+- name: openclaw-home
+  mountPath: /home/node/.openclaw/update-check.json
+  subPath: update-check.json
 extraVolumes:
 - name: openclaw-home
   hostPath:

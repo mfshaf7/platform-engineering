@@ -1,7 +1,7 @@
 environment: stage
 gateway:
   build:
-    baseImage: ghcr.io/openclaw/openclaw:latest
+    baseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
     dockerfile: deployment/Dockerfile.plugin-install.example
   publish:
     repository: ghcr.io/mfshaf7/openclaw-gateway

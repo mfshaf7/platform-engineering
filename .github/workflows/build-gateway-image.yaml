@@ -221,14 +221,14 @@ jobs:
             "${IMAGE_REF}" \
             node dist/index.js gateway --bind 127.0.0.1 --port 18789 \
             > smoke-test/gateway.log 2>&1
-          status=$?
+          gateway_status=$?
           set -e
 
           cat smoke-test/gateway.log
 
-          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+          if [ "$gateway_status" -ne 0 ] && [ "$gateway_status" -ne 124 ]; then
             echo "Gateway smoke test failed before timeout" >&2
-            exit "$status"
+            exit "$gateway_status"
           fi
 
           if grep -q 'plugin not found: host-control' smoke-test/gateway.log; then
@@ -238,6 +238,30 @@ jobs:
 
           if grep -q 'stale config entry ignored' smoke-test/gateway.log; then
             echo "Built image emitted stale plugin-config warnings during host-control smoke test." >&2
+            exit 1
+          fi
+
+          docker run --rm \
+            -e OPENCLAW_CONFIG_PATH=/tmp/openclaw.smoke.json \
+            -e OPENCLAW_GATEWAY_TOKEN=smoke-test-token \
+            -v "${PWD}/smoke-test/openclaw.smoke.json:/tmp/openclaw.smoke.json:ro" \
+            "${IMAGE_REF}" \
+            openclaw plugins list > smoke-test/plugins-list.log 2>&1
+
+          cat smoke-test/plugins-list.log
+
+          if ! grep -q 'global: /home/node/.openclaw/extensions' smoke-test/plugins-list.log; then
+            echo "Built image did not expose the managed global plugin source root." >&2
+            exit 1
+          fi
+
+          if ! grep -q 'Host Control' smoke-test/plugins-list.log; then
+            echo "Built image did not register host-control in the runtime plugin registry." >&2
+            exit 1
+          fi
+
+          if ! grep -q 'global:host-control/index.mjs' smoke-test/plugins-list.log; then
+            echo "Built image did not load host-control from the managed global source root." >&2
             exit 1
           fi
 

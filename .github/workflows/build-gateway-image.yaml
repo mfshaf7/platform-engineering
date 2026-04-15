@@ -267,7 +267,7 @@ jobs:
             exit 1
           fi
 
-          if ! grep -q 'Telegram' smoke-test/plugins-list.log || ! grep -q 'stock:telegram/index.js' smoke-test/plugins-list.log; then
+          if ! grep -q 'Telegram' smoke-test/plugins-list.log || ! grep -Eq 'stock:telegram/index\.(js|ts)' smoke-test/plugins-list.log; then
             echo "Built image did not keep the bundled Telegram channel active." >&2
             exit 1
           fi

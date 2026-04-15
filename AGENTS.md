@@ -23,6 +23,10 @@
 ## Workflow Dispatch Guardrails
 
 - Trigger GitHub Actions only from the real WSL repo state, not a stale workspace copy.
+- Extract GitHub dispatch tokens entirely inside WSL from the k3s secret path (`argocd/platform-engineering-repo`, data key `password`).
+- Do not mix PowerShell interpolation with WSL secret reads or `gh workflow run`; that path repeatedly corrupts token reads and workflow inputs.
+- Use `scripts/dispatch_github_workflow_from_k3s_secret.sh` for secret-backed workflow dispatch instead of ad hoc one-liners.
+- Never copy, retype, or reuse a GitHub token from prior terminal output. Always decode it fresh inside WSL.
 - Before dispatching a workflow on a branch, verify the remote ref exists on GitHub.
 - Prefer the exact workflow file name or workflow ID when dispatching; do not rely only on the display name.
 - Do not bundle branch creation, push, and dispatch into one opaque shell chain when a ref check would surface the real problem earlier.

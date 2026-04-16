@@ -110,6 +110,10 @@ jobs:
           path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
+      - name: Install Telegram repo dependencies
+        working-directory: openclaw-telegram-enhanced
+        run: npm ci
+
       - name: Prepare bundled Telegram and host-control packaged-runtime inputs
         working-directory: openclaw-runtime-distribution
         run: ./deployment/package-local-plugins.sh "$PWD"

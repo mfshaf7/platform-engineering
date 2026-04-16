@@ -20,6 +20,7 @@
 
 - Owning repo or layer:
 - Related repos:
+- Related ADR:
 
 ## Root Cause
 

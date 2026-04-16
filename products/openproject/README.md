@@ -39,3 +39,6 @@ OpenProject is currently:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [scripts/README.md](scripts/README.md)
 - [runbooks/README.md](runbooks/README.md)
+
+Product-specific operational procedures such as backup and restore also live
+under `runbooks/` and should not be added back to shared platform runbooks.

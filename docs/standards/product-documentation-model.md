@@ -19,9 +19,11 @@ Product docs explain how one product uses those control planes.
 Keep these in `docs/`:
 
 - cluster and Argo architecture
+- shared component architecture, access, and operations
 - Vault and secret-delivery patterns
 - host provisioning and shared host stack
 - shared standards and governance
+- shared decisions and change records
 - product-neutral operator workflows
 - platform-wide incident and rollback procedures
 

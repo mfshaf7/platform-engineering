@@ -24,6 +24,7 @@ Target location:
 
 The shared platform entrypoint docs are:
 
+- [../components/README.md](../components/README.md)
 - [access-platform-uis.md](access-platform-uis.md)
 - [access-grafana.md](access-grafana.md)
 

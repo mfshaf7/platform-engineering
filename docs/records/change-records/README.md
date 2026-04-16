@@ -4,7 +4,8 @@
 
 This directory stores short evidence records for production-impacting changes.
 
-These are not full incident diaries. They are structured completion records for governed fixes.
+These are not full incident diaries. They are structured completion records for
+governed fixes.
 
 Use a change record when a production issue required one or more of:
 
@@ -31,16 +32,13 @@ Use:
 
 - `YYYY-MM-DD-short-slug.md`
 
-Examples:
-
-- `2026-04-03-telegram-runtime-contract.md`
-- `2026-04-03-security-architecture-workspace-governance.md`
-- `2026-04-03-ollama-portproxy-drift.md`
-
 ## Rules
 
 - Keep records short and factual.
-- Link to the owning repos and runbooks instead of duplicating long explanations.
+- Link to the owning repos and runbooks instead of duplicating long
+  explanations.
+- Link the related ADR when the governed change implemented or superseded a
+  shared design decision.
 - Separate source/artifact fixes from host/runtime drift fixes.
 - If a live-only emergency repair happened first, record both:
   - the emergency action

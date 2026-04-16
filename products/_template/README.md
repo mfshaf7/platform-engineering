@@ -34,3 +34,13 @@ The product README should answer:
 - where to find direct access and login guidance, if the product exposes any
 - which operator flow is shared platform vs product-specific
 - where product-local scripts and runbooks live
+
+## Governance Expectation
+
+Product-local work still uses shared governance artifacts when required:
+
+- ADR in `../../docs/decisions/adr/` when shared platform design changed
+- change record in `../../docs/records/change-records/` when governed live
+  state changed
+- PR declaration in `../../.github/pull_request_template.md` for meaningful
+  changes

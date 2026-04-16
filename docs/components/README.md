@@ -1,0 +1,46 @@
+# Shared Platform Components
+
+This directory is the operator-facing index for shared platform components.
+
+Use it when the question is:
+
+- where is this shared component documented
+- how do I access it
+- what namespace or Argo app owns it
+- where is the architecture guidance
+- where is the operations guidance
+
+Product-specific runtimes do not belong here. Use `products/<product>/` for:
+
+- OpenClaw
+- OpenProject
+- future product integrations
+
+## Current Shared Components
+
+| Component | Overview | Architecture | Access | Operations |
+| --- | --- | --- | --- | --- |
+| Argo CD | [README.md](argo-cd/README.md) | [architecture.md](argo-cd/architecture.md) | [access.md](argo-cd/access.md) | [operations.md](argo-cd/operations.md) |
+| Vault | [README.md](vault/README.md) | [architecture.md](vault/architecture.md) | [access.md](vault/access.md) | [operations.md](vault/operations.md) |
+| Observability | [README.md](observability/README.md) | [architecture.md](observability/architecture.md) | [access.md](observability/access.md) | [operations.md](observability/operations.md) |
+| External Secrets Operator | [README.md](external-secrets/README.md) | [architecture.md](external-secrets/architecture.md) | [access.md](external-secrets/access.md) | [operations.md](external-secrets/operations.md) |
+| Platform PostgreSQL | [README.md](platform-postgresql/README.md) | [architecture.md](platform-postgresql/architecture.md) | [access.md](platform-postgresql/access.md) | [operations.md](platform-postgresql/operations.md) |
+
+Each shared component directory should keep the same file contract:
+
+- `README.md`
+- `architecture.md`
+- `access.md`
+- `operations.md`
+
+## Read With
+
+- [../architecture/current-platform-topology.md](../architecture/current-platform-topology.md)
+- [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md)
+- [../../products/openclaw/README.md](../../products/openclaw/README.md)
+- [../../products/openproject/README.md](../../products/openproject/README.md)
+
+## Rule
+
+When a shared platform component changes, update its component document here in
+the same change.

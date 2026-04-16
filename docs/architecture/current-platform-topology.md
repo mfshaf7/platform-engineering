@@ -16,6 +16,7 @@ Last validated against the live local cluster on `2026-04-16`.
 
 ## Read This With
 
+- [../components/README.md](../components/README.md)
 - [overview.md](overview.md)
 - [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md)
 - [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)
@@ -91,6 +92,14 @@ These are the current direct operator-facing surfaces:
 
 For exact URLs, credentials, and shell-local fallback commands, use
 [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md).
+
+For per-component architecture and operations, use:
+
+- [../components/argo-cd/README.md](../components/argo-cd/README.md)
+- [../components/vault/README.md](../components/vault/README.md)
+- [../components/observability/README.md](../components/observability/README.md)
+- [../components/external-secrets/README.md](../components/external-secrets/README.md)
+- [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
 
 ## Internal-Only Or Currently Absent Surfaces
 

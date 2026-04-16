@@ -91,5 +91,5 @@ Verify all of:
 Each bootstrap or rollout change must update:
 
 - this runbook
-- the relevant change record under [docs/runbooks/change-records/](change-records/README.md)
+- the relevant change record under [docs/records/change-records/](../records/change-records/README.md)
 - affected manifests or playbooks

@@ -10,9 +10,13 @@ Do not let the platform root drift back into a product-specific dumping ground.
 Start with:
 
 - `README.md`
+- `docs/components/README.md`
+- `docs/decisions/adr/README.md`
+- `docs/records/change-records/README.md`
 - `docs/architecture/overview.md`
 - `docs/architecture/current-platform-topology.md`
 - `docs/runbooks/access-platform-uis.md`
+- `docs/standards/enterprise-workflow-model.md`
 - `docs/standards/product-boundaries.md`
 - `docs/standards/product-documentation-model.md`
 
@@ -23,6 +27,9 @@ Then route by scope:
     `charts/`, `environments/`, `observability/`, `terraform/`
 - product-specific integration concern
   - go to `products/<product>/` and read that product's `AGENTS.md`
+
+For shared components, route through `docs/components/<component>/README.md`
+before editing scattered runbooks.
 
 Current product-local agent guides:
 
@@ -99,8 +106,27 @@ When any of these change, update the shared docs in the same change:
 
 The minimum shared docs to keep aligned are:
 
+- `docs/components/README.md`
+- `docs/decisions/adr/README.md`
+- `docs/records/change-records/README.md`
 - `docs/architecture/current-platform-topology.md`
 - `docs/runbooks/access-platform-uis.md`
 
 If the change is product-specific, also update the owning product docs and
 runbooks under `products/<product>/`.
+
+## Governance Artifact Rule
+
+Use the shared workflow model:
+
+- ADRs under `docs/decisions/adr/` for shared design and control decisions
+- change records under `docs/records/change-records/` for production-impacting
+  rollout evidence
+- if a change altered both long-lived design and live governed state, both are
+  required
+
+For any meaningful PR, fill the governance declaration in:
+
+- `.github/pull_request_template.md`
+
+Do not use one as a substitute for the other.

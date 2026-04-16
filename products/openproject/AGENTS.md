@@ -22,6 +22,7 @@ declared, operated, and verified on this platform.
 Keep OpenProject-specific platform material here:
 
 - access, bootstrap, and uninstall runbooks
+- backup and restore runbooks
 - product-scoped operator scripts
 - OpenProject visibility and operator checks
 
@@ -43,6 +44,21 @@ unless it is genuinely shared platform behavior.
   not silently folded into OpenProject-only docs when the control is broader
   than the product.
 
+## Governance Rule
+
+When an OpenProject change also changes shared platform design, use:
+
+- `../../docs/decisions/adr/`
+
+When an OpenProject change materially changes governed stage, prod, or
+host-owned live state, use:
+
+- `../../docs/records/change-records/`
+
+For meaningful PRs, fill the shared governance declaration in:
+
+- `../../.github/pull_request_template.md`
+
 ## Documentation Sync Rule
 
 When OpenProject access, exposure, or admin credential flow changes, update:
@@ -50,6 +66,10 @@ When OpenProject access, exposure, or admin credential flow changes, update:
 - `runtime-contract.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
+
+When OpenProject backup, restore, or recovery workflow changes, also update:
+
+- `runbooks/openproject-backup-restore.md`
 
 If the change affects shared platform entrypoints, also update:
 

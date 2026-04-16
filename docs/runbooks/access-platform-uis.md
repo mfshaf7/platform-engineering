@@ -86,6 +86,14 @@ python3 products/openclaw/scripts/set_stage_environment_state.py status
 
 ## Product-Specific Access
 
+Use the shared component docs for shared services:
+
+- Argo CD: [../components/argo-cd/README.md](../components/argo-cd/README.md)
+- Vault: [../components/vault/README.md](../components/vault/README.md)
+- Observability: [../components/observability/README.md](../components/observability/README.md)
+- External Secrets: [../components/external-secrets/README.md](../components/external-secrets/README.md)
+- Platform PostgreSQL: [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
+
 Use the product-local runbooks for product details:
 
 - OpenClaw: [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)

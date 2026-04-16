@@ -17,6 +17,8 @@ The goal is to remove ambiguity about:
 This overview explains the platform model. For the concrete deployed shape and
 operator entrypoints, read these next:
 
+- [README.md](README.md)
+- [../components/README.md](../components/README.md)
 - [current-platform-topology.md](current-platform-topology.md)
 - [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md)
 - [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)

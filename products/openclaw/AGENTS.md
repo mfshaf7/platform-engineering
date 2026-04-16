@@ -16,6 +16,7 @@ OpenClaw is governed, packaged, promoted, and operated on this platform.
 - `visibility-and-operations.md`
 - `runbooks/access-openclaw.md`
 - `scripts/README.md`
+- `skills-src/README.md`
 - `runbooks/README.md`
 
 ## Directory Contract
@@ -25,6 +26,7 @@ Keep OpenClaw-specific platform material here:
 - architecture and owner-model docs
 - release runbooks
 - product-scoped operator scripts
+- product-scoped Codex skills for governed OpenClaw delivery
 - product visibility and operating checks
 - product-local guidance about stage/prod behavior
 

@@ -90,6 +90,10 @@ jobs:
           path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
+      - name: Install Telegram source dependencies
+        working-directory: openclaw-telegram-enhanced
+        run: npm ci
+
       - name: Prepare Telegram overlay artifact inputs
         working-directory: openclaw-runtime-distribution
         run: ./deployment/package-telegram-overlay.sh "$PWD"

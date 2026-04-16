@@ -102,6 +102,7 @@ The minimum acceptable documentation surface is:
 Use these explicitly:
 
 - [enterprise-workflow-model.md](enterprise-workflow-model.md)
+- [review-and-approval-model.md](review-and-approval-model.md)
 - [../decisions/adr/README.md](../decisions/adr/README.md)
 - [../records/change-records/README.md](../records/change-records/README.md)
 

@@ -15,8 +15,11 @@ Start with:
 - `docs/records/change-records/README.md`
 - `docs/architecture/overview.md`
 - `docs/architecture/current-platform-topology.md`
+- `docs/workflows/README.md`
 - `docs/runbooks/access-platform-uis.md`
+- `docs/standards/README.md`
 - `docs/standards/enterprise-workflow-model.md`
+- `docs/standards/review-and-approval-model.md`
 - `docs/standards/product-boundaries.md`
 - `docs/standards/product-documentation-model.md`
 
@@ -110,6 +113,7 @@ The minimum shared docs to keep aligned are:
 - `docs/decisions/adr/README.md`
 - `docs/records/change-records/README.md`
 - `docs/architecture/current-platform-topology.md`
+- `docs/workflows/README.md`
 - `docs/runbooks/access-platform-uis.md`
 
 If the change is product-specific, also update the owning product docs and

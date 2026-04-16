@@ -19,6 +19,7 @@ without renaming or cloning the platform layer:
 - shared version metadata publication
 - policy, security, and operator standards
 - shared documentation indexes and platform-level runbooks
+- shared workflow catalog for repo-root GitHub automation
 - shared operator commands that are not tied to one product runtime
 
 ## Product-Owned

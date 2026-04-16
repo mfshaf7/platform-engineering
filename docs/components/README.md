@@ -33,6 +33,9 @@ Each shared component directory should keep the same file contract:
 - `access.md`
 - `operations.md`
 
+Use [_template/](_template/README.md) when adding a new shared component doc
+set.
+
 ## Read With
 
 - [../architecture/current-platform-topology.md](../architecture/current-platform-topology.md)

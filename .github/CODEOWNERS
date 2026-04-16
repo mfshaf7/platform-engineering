@@ -1,0 +1,17 @@
+# Shared platform governance
+* @mfshaf7
+
+# Shared platform docs and controls
+/.github/ @mfshaf7
+/docs/ @mfshaf7
+/scripts/ @mfshaf7
+/ansible/ @mfshaf7
+/argocd/ @mfshaf7
+/charts/ @mfshaf7
+/environments/ @mfshaf7
+/observability/ @mfshaf7
+/terraform/ @mfshaf7
+
+# Product integrations
+/products/openclaw/ @mfshaf7
+/products/openproject/ @mfshaf7

@@ -62,8 +62,11 @@ That split is implemented under:
 - [docs/records/change-records/README.md](docs/records/change-records/README.md)
 - [docs/architecture/overview.md](docs/architecture/overview.md)
 - [docs/architecture/current-platform-topology.md](docs/architecture/current-platform-topology.md)
+- [docs/workflows/README.md](docs/workflows/README.md)
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
+- [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
+- [docs/standards/review-and-approval-model.md](docs/standards/review-and-approval-model.md)
 - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
 - [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
 - [docs/standards/product-documentation-model.md](docs/standards/product-documentation-model.md)
@@ -94,7 +97,10 @@ Those documents are meant to answer:
 
 For enterprise workflow governance, also use:
 
+- [docs/workflows/README.md](docs/workflows/README.md)
+- [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
+- [docs/standards/review-and-approval-model.md](docs/standards/review-and-approval-model.md)
 - [.github/pull_request_template.md](.github/pull_request_template.md)
 
 ## Shared Component Map
@@ -138,7 +144,7 @@ the product-local script indexes:
 `make validate` now includes the shared structure guard
 `scripts/validate_repo_structure.py` so product-specific files cannot drift back
 into shared `docs/runbooks/` or `scripts/` unnoticed. It also validates the
-governance documentation and review surface.
+governance documentation, workflow docs, and review surface.
 
 ## Repository Layout
 

@@ -11,6 +11,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Validate review and ownership controls exist
+        run: test -f .github/CODEOWNERS && test -f .github/pull_request_template.md && test -f docs/standards/review-and-approval-model.md
+
       - name: Validate security directory exists
         run: test -f security/supply-chain-security.md && test -f security/secret-management.md
 

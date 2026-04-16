@@ -1,4 +1,5 @@
 openclaw_bridge_service_name: openclaw-host-bridge.service
+openclaw_stage_bridge_service_name: openclaw-host-bridge-stage.service
 openclaw_recovery_service_name: openclaw-host-recovery.service
 openclaw_stack_target_name: openclaw-host-stack.target
 platform_linux_user: "{{ lookup('env', 'PLATFORM_LINUX_USER') | default(lookup('env', 'USER'), true) | default('platform', true) }}"
@@ -11,9 +12,17 @@ openclaw_host_bridge_root: "{{ platform_projects_root }}/openclaw-host-bridge"
 openclaw_bridge_user: root
 openclaw_host_bridge_config_path: "{{ openclaw_host_bridge_root }}/config/policy.local.json"
 openclaw_openclaw_config_path: "{{ platform_linux_home }}/.openclaw/openclaw.json"
+openclaw_stage_host_bridge_config_path: "{{ openclaw_host_bridge_root }}/config/policy.stage.local.json"
+openclaw_stage_openclaw_config_path: "{{ platform_linux_home }}/.openclaw-stage/openclaw.stage.k3s.json"
 openclaw_host_bridge_restart_delay_seconds: 2
 openclaw_host_recovery_restart_delay_seconds: 2
 openclaw_host_bridge_node_bin_dir: "{{ platform_linux_home }}/.nvm/versions/node/v24.14.1/bin"
+openclaw_host_bridge_pid_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge.pid"
+openclaw_host_bridge_lock_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge.lock"
+openclaw_host_bridge_log_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge.log"
+openclaw_stage_bridge_pid_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge-stage.pid"
+openclaw_stage_bridge_lock_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge-stage.lock"
+openclaw_stage_bridge_log_path: "{{ openclaw_host_bridge_root }}/tmp/openclaw-host-bridge-stage.log"
 platform_windows_task_name: PlatformCoreHostStack
 platform_windows_wsl_distro: Platform-Core
 platform_windows_vault_unseal_enabled: true
@@ -43,6 +52,8 @@ platform_transit_vault_listen_address: 0.0.0.0:8200
 platform_transit_vault_cluster_address: 127.0.0.1:8201
 platform_transit_vault_api_addr: http://127.0.0.1:8200
 openclaw_bridge_health_url: http://127.0.0.1:48721/healthz
+openclaw_stage_bridge_health_url: http://127.0.0.1:48731/healthz
+openclaw_stage_gateway_bridge_url: http://172.27.88.8:48731
 openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
 platform_vault_namespace: vault
 platform_vault_pod_names:

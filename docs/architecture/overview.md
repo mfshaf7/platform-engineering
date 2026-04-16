@@ -65,6 +65,14 @@ This zone owns the application runtime.
 
 This zone owns host-integrated actions that should remain outside Kubernetes.
 
+For OpenClaw host control, the supported environment split is:
+
+- prod bridge always on through `openclaw-host-stack.target`
+- stage bridge provisioned separately and started only for active stage test
+  windows
+- stage suspension should stop the stage bridge so an extra Windows-visible host
+  listener is not left up unnecessarily
+
 ## Trust Boundaries
 
 - product runtime logic is bundled into immutable artifacts

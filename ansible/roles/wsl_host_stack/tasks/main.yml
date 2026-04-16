@@ -71,21 +71,57 @@
     - platform_windows_vault_unseal_enabled | bool
     - not platform_windows_vault_unseal_helper.stat.exists
 
-- name: Install host bridge environment file
+- name: Install prod bridge environment file
   template:
     src: openclaw-host-bridge.env.j2
     dest: /etc/openclaw/host-bridge/openclaw-host-bridge.env
     owner: root
     group: root
     mode: "0644"
+  vars:
+    bridge_env_file_path: /etc/openclaw/host-bridge/openclaw-host-bridge.env
+    bridge_config_path: "{{ openclaw_host_bridge_config_path }}"
+    openclaw_config_path: "{{ openclaw_openclaw_config_path }}"
+    bridge_pid_path: "{{ openclaw_host_bridge_pid_path }}"
+    bridge_lock_path: "{{ openclaw_host_bridge_lock_path }}"
+    bridge_log_path: "{{ openclaw_host_bridge_log_path }}"
 
-- name: Install bridge service unit
+- name: Install stage bridge environment file
+  template:
+    src: openclaw-host-bridge.env.j2
+    dest: /etc/openclaw/host-bridge/openclaw-host-bridge-stage.env
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    bridge_env_file_path: /etc/openclaw/host-bridge/openclaw-host-bridge-stage.env
+    bridge_config_path: "{{ openclaw_stage_host_bridge_config_path }}"
+    openclaw_config_path: "{{ openclaw_stage_openclaw_config_path }}"
+    bridge_pid_path: "{{ openclaw_stage_bridge_pid_path }}"
+    bridge_lock_path: "{{ openclaw_stage_bridge_lock_path }}"
+    bridge_log_path: "{{ openclaw_stage_bridge_log_path }}"
+
+- name: Install prod bridge service unit
   template:
     src: openclaw-host-bridge.service.j2
     dest: "/etc/systemd/system/{{ openclaw_bridge_service_name }}"
     owner: root
     group: root
     mode: "0644"
+  vars:
+    bridge_env_file_path: /etc/openclaw/host-bridge/openclaw-host-bridge.env
+    bridge_wanted_by: "{{ openclaw_stack_target_name }}"
+
+- name: Install stage bridge service unit
+  template:
+    src: openclaw-host-bridge.service.j2
+    dest: "/etc/systemd/system/{{ openclaw_stage_bridge_service_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    bridge_env_file_path: /etc/openclaw/host-bridge/openclaw-host-bridge-stage.env
+    bridge_wanted_by: multi-user.target
 
 - name: Install recovery service unit
   template:
@@ -129,6 +165,11 @@
   systemd:
     name: "{{ openclaw_bridge_service_name }}"
     enabled: true
+
+- name: Disable stage bridge service by default
+  systemd:
+    name: "{{ openclaw_stage_bridge_service_name }}"
+    enabled: false
 
 - name: Enable recovery service
   systemd:

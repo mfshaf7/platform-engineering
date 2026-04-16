@@ -19,4 +19,6 @@ openclaw_host_bridge_required_paths:
 openclaw_host_runtime_required_paths:
   - "{{ openclaw_host_bridge_config_path }}"
   - "{{ openclaw_openclaw_config_path }}"
+  - "{{ openclaw_stage_host_bridge_config_path }}"
+  - "{{ openclaw_stage_openclaw_config_path }}"
   - "{{ openclaw_host_bridge_node_binary }}"

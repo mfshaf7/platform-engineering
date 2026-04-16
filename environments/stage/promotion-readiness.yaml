@@ -5,7 +5,7 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage candidate changed after gateway digest record.
+note: Stage candidate changed after health-fix gateway rebuild.
 approvedCandidate:
   image:
     repository: null

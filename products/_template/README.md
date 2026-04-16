@@ -30,6 +30,13 @@ The product README should answer:
 - what the product is
 - what this repo owns for the product
 - what upstream repo or chart remains canonical
+- current workflow maturity:
+  - source-only
+  - platform-integrated
+  - fully governed
+- whether stage exists for the product
+- whether governed prod promotion exists for the product
+- the highest implemented operator endpoint today
 - where to find runtime, dependency, and visibility docs
 - where to find direct access and login guidance, if the product exposes any
 - which operator flow is shared platform vs product-specific

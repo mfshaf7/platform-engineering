@@ -29,6 +29,21 @@ OpenProject is currently:
   storage
 - exposed through the existing Windows localhost-friendly operator access model
 
+## Current Workflow Maturity
+
+OpenProject is currently `platform-integrated`, not `fully governed` in the
+same end-to-end sense as OpenClaw.
+
+That means:
+
+- product docs, access guidance, scripts, and platform-managed deployment exist
+- the product has a real operating model on the shared platform
+- but it does not currently have a distinct OpenClaw-style source-to-stage-to-
+  prod workflow with separate rehearsal and promotion gates
+
+The highest implemented endpoint today is the platform-managed OpenProject
+runtime on the local cluster plus its documented operator procedures.
+
 ## Start Here
 
 - [AGENTS.md](AGENTS.md)

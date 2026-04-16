@@ -20,6 +20,60 @@ Every meaningful change should move through these stages:
 7. attest and record
 8. follow up
 
+For architecture-shaping changes, discussion and framing happen before these
+stages are executed as implementation work.
+
+## Architecture Discussion Trigger
+
+Before implementation begins, discuss and frame the change first when the
+request introduces:
+
+- a new product
+- a new shared component or control plane
+- a new ingress, gateway, service-mesh, or network authority layer
+- a new identity, secret-delivery, storage, or observability subsystem
+- a new privileged host-control or runtime-control capability
+- a feature where multiple plausible long-term architectures exist
+
+That discussion should make these explicit:
+
+- the target role in the platform
+- owner repo and control plane
+- trust-boundary impact
+- expected workflow maturity
+- operator surface and visibility model
+- rollout and rollback expectations
+
+The purpose is to avoid accidental architecture by implementation.
+
+## Workflow Maturity Rule
+
+Not every product has the same end-to-end delivery maturity yet.
+
+Treat each product or component as being in one of these states:
+
+| Maturity | Meaning |
+| --- | --- |
+| source-only | canonical source and repo-local validation exist, but no governed platform rollout path exists yet |
+| platform-integrated | product docs, access path, and platform-managed runtime exist, but the product does not yet have a full source-to-stage-to-prod workflow |
+| fully governed | source, runtime composition, stage rehearsal, approval, promotion, and production evidence all exist |
+
+Agent and operator behavior must match the actual maturity, not the desired
+future state.
+
+If a product does not yet have a full end-to-end governed workflow:
+
+- stop at the highest real governed layer that exists
+- do not imply that stage or prod promotion exists when it does not
+- do not invent fake release evidence for a path that is not implemented
+- update the product README and `AGENTS.md` so the current maturity is explicit
+- if a live change is still required, treat it as platform or host-owned change
+  with a change record and follow-up to create the missing governed path
+
+The correct answer is not always “carry it to prod.” The correct answer is “go
+as far as the real control plane exists, and document the missing layer
+honestly.”
+
 ## Stage Outputs
 
 | Stage | Required output |
@@ -55,6 +109,19 @@ needs each responsibility covered explicitly.
 | runtime composition or artifact defect | product/runtime distribution owner | change record required when rebuilt and promoted |
 | host or environment drift repair | platform or host owner | change record required; runbook or provisioning path must be updated |
 | temporary containment | incident owner plus owning layer | change record required if live state changed; governed follow-up must also be tracked |
+
+## Product Workflow Expectation
+
+Each product directory under `products/<product>/` should state explicitly:
+
+- the current workflow maturity
+- whether stage exists for that product
+- whether a governed prod promotion path exists
+- the highest operator endpoint that is actually implemented today
+- what evidence is expected when the product changes
+
+That product-local statement is authoritative for delivery maturity unless a
+shared platform standard overrides it.
 
 ## ADR Vs Change Record Matrix
 

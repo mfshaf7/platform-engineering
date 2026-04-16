@@ -4,6 +4,6 @@ versions:
   hostBridgeSha: e5b78abbfe1501c90710aa0e3084a1bd86d17060
   runtimeDistributionSha: f86a780c5ac8aa20fb64fa65037ff6b3b6f54ffe
   platformSha: c127e73c2f4c460d03d0ebb8890ed52378649d07
-  telegramOverlayStatus: candidate
-  telegramOverlaySourceSha: 8935fe4f29f1b33ee65144238e01e64c66468505
-  telegramOverlayImage: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:9c99823aeb17c2b7ab66f9a800000dc6707a9d979e32af30c1c532857e0492c0
+  telegramOverlayStatus: inactive
+  telegramOverlaySourceSha: disabled
+  telegramOverlayImage: disabled

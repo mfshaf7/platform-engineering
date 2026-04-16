@@ -1,35 +1,15 @@
 schemaVersion: 1
 product: openclaw
 environment: stage
-status: recorded
-verifiedAt: '2026-04-16T23:27:56Z'
-verifiedBy: mfshaf7
-evidenceRef: telegram://openclaw-stage/-1002519919856?messages=935,937,941&auditIds=f8205e3f-f8a9-4c84-a130-da7d184fdb91,f458b99e-3aa3-4650-be3f-7f34054909a2,21a1626d-979f-4428-9ae5-5c80d8a90fa0,ebef8b44-8b39-434a-af11-69c78d0a9bf1,250b636b-ab76-426e-ab72-dff167bb53b2,bce0bd94-fb0f-43fb-b23d-ac694d354c71
-note: Stage overlay rehearsal completed. Normal stage reply was exercised from topic
-  1 and the Telegram-triggered host-control topic completed fresh file and screenshot
-  delivery successfully. The bridge-backed evidence is recorded in the stage audit
-  log with Telegram actor session metadata. A non-blocking stored model override log
-  error was observed during the run, but it did not prevent the tested user-path or
-  media-delivery flows from succeeding.
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: Stage suspended; re-run stage rehearsal checks after the next deliberate resume.
 candidateRef:
   path: environments/stage/release-candidate.yaml
-  status: candidate
-  sourceBundleRef: 5511329f03fc
-  imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
-checks:
-- id: artifact-delivery
-  status: passed
-- id: primary-user-path
-  status: passed
-- id: privileged-path-posture
-  status: passed
-- id: runtime-start
-  status: passed
-- id: screenshot-delivery
-  status: passed
+  status: pending-build
+  sourceBundleRef: null
+  imageDigest: null
+  requiredChecks: []
+checks: []

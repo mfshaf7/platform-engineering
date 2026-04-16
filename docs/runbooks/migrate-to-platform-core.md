@@ -48,12 +48,20 @@ Current post-cutover state:
 Legacy repo migration into `Platform-Core` is also complete:
 
 - `/home/<platform-user>/projects/openclaw-host-bridge` is present
+- `/home/<platform-user>/projects/openclaw-runtime-distribution` is present
 - `/home/<platform-user>/projects/openclaw-isolated-deployment` is present
 - `/home/<platform-user>/projects/openclaw-telegram-enhanced` is present
 - `/home/<platform-user>/projects/platform-engineering` is present as a clean clone of
   the pushed authoritative repo state
 - `/home/<platform-user>/.openclaw/workspace` is present and still contains its `.git`
   metadata
+
+Current repo intent after migration:
+
+- `openclaw-runtime-distribution` is the active governed stage/prod build and
+  composition repo
+- `openclaw-isolated-deployment` remains the reference architecture and
+  isolated-model documentation repo
 
 The next intended migration step is:
 

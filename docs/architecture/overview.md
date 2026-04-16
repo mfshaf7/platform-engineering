@@ -29,7 +29,8 @@ There are four control planes:
 
 - product repositories such as `openclaw-telegram-enhanced`
 - host integration repositories such as `openclaw-host-bridge`
-- deployment or image composition repositories such as `openclaw-isolated-deployment`
+- active image composition repositories such as `openclaw-runtime-distribution`
+- reference architecture repositories such as `openclaw-isolated-deployment`
 
 These repositories define the components that will be packaged and promoted.
 

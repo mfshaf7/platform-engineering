@@ -50,12 +50,17 @@ If runtime cannot report those values, production is not fully attestable.
 
 1. build candidate artifacts
 2. publish metadata and attestations
-3. update [environments/prod/versions.yaml](../../environments/prod/versions.yaml) in a pull request
-4. approve and merge the pull request
-5. Argo CD reconciles the cluster runtime
-6. Ansible applies host-side changes if required
-7. Prometheus and Grafana confirm service health
-8. runtime attestation must match the approved manifest
+3. derive source pins from the actual local repo checkouts instead of copying
+   SHAs by hand where possible
+4. compute the deterministic source-bundle tag from those pins, clear any stale
+   digest from the previous artifact candidate, and reject build output that no
+   longer matches the current tag
+5. update [environments/prod/versions.yaml](../../environments/prod/versions.yaml) in a pull request
+6. approve and merge the pull request
+7. Argo CD reconciles the cluster runtime
+8. Ansible applies host-side changes if required
+9. Prometheus and Grafana confirm service health
+10. runtime attestation must match the approved manifest
 
 ## Rollback Path
 

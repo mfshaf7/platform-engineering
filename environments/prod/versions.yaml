@@ -5,12 +5,12 @@ gateway:
     dockerfile: deployment/Dockerfile.plugin-install.example
   publish:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tagPrefix: prod
+    tagPrefix: gateway
     platforms:
     - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: prod-95436119931b
+    tag: gateway-a2dd5b58b622
     digest: sha256:3e64268b0e996b41ae580006c320cadcf59759c45b8b63d7a4030b20a4d6debb
   chartVersion: 0.1.0
   replicas: 1

@@ -26,6 +26,12 @@ help:
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  prepull-gateway-image Warm the current gateway image digest onto every node before rollout\n"
+	@printf "  gateway-tag Print the deterministic gateway release tag for an environment\n"
+	@printf "  gateway-pin Pin source SHAs for an environment from local repo checkouts\n"
+	@printf "  gateway-validate Validate an environment contract\n"
+	@printf "  gateway-record Record a built image digest into an environment contract\n"
+	@printf "  gateway-promote Promote one validated environment candidate into another\n"
+	@printf "  gateway-readiness Manage stage promotion readiness\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
 	@printf "  show-prod-versions Show current prod version pins\n"
@@ -105,6 +111,41 @@ verify-restart-survival: verify-platform-host
 prepull-gateway-image:
 	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make prepull-gateway-image ENVIRONMENT=stage"; exit 1; }
 	python3 scripts/prepull_gateway_image.py $(ENVIRONMENT)
+
+.PHONY: gateway-tag
+gateway-tag:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-tag ENVIRONMENT=stage"; exit 1; }
+	python3 scripts/gateway_release.py tag $(ENVIRONMENT)
+
+.PHONY: gateway-pin
+gateway-pin:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-pin ENVIRONMENT=stage"; exit 1; }
+	python3 scripts/gateway_release.py pin $(ENVIRONMENT)
+
+.PHONY: gateway-validate
+gateway-validate:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-validate ENVIRONMENT=stage"; exit 1; }
+	python3 scripts/gateway_release.py validate $(ENVIRONMENT) $(if $(REQUIRE_DETERMINISTIC_TAG),--require-deterministic-tag,)
+
+.PHONY: gateway-record
+gateway-record:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
+	@test -n "$(DIGEST)" || { echo "DIGEST is required, for example: make gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
+	python3 scripts/gateway_release.py record $(ENVIRONMENT) --digest $(DIGEST) $(if $(TAG),--tag $(TAG),) $(if $(PLATFORM_SHA),--platform-sha $(PLATFORM_SHA),)
+
+.PHONY: gateway-promote
+gateway-promote:
+	@test -n "$(SOURCE_ENVIRONMENT)" || { echo "SOURCE_ENVIRONMENT is required, for example: make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
+	@test -n "$(TARGET_ENVIRONMENT)" || { echo "TARGET_ENVIRONMENT is required, for example: make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
+	python3 scripts/gateway_release.py promote $(SOURCE_ENVIRONMENT) $(TARGET_ENVIRONMENT)
+
+.PHONY: gateway-readiness
+gateway-readiness:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make gateway-readiness ACTION=validate"; exit 1; }
+	python3 scripts/gateway_release.py readiness $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(APPROVED_BY),--approved-by $(APPROVED_BY),)
+
+.PHONY: pin-gateway-source-repos
+pin-gateway-source-repos: gateway-pin
 
 .PHONY: render-windows-bootstrap
 render-windows-bootstrap:

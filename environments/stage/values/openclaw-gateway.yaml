@@ -1,7 +1,7 @@
 replicaCount: 1
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: stage-33230d464b1f
+  tag: gateway-61c6f2efbd9c
   digest: sha256:4984578563a6a0add1ff426b029225da0c9af66934efb7b0fccbe45852565468
   pullPolicy: IfNotPresent
 command:

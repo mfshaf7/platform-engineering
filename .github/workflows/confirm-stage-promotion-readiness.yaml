@@ -34,21 +34,21 @@ jobs:
         run: python -m pip install pyyaml
 
       - name: Validate stage environment contract
-        run: python scripts/validate_environment_contract.py stage
+        run: python scripts/gateway_release.py validate stage
 
       - name: Capture current stage lifecycle status
         id: stage_status
         run: echo "value=$(python scripts/set_stage_environment_state.py status)" >> "$GITHUB_OUTPUT"
 
       - name: Approve stage promotion readiness
-        run: python scripts/stage_promotion_readiness.py approve --approved-by "${{ github.actor }}" --note "${{ inputs.approval_note }}"
+        run: python scripts/gateway_release.py readiness approve --approved-by "${{ github.actor }}" --note "${{ inputs.approval_note }}"
 
       - name: Capture readiness status
         id: readiness
         run: |
           {
             echo "status_line<<__READINESS__"
-            python scripts/stage_promotion_readiness.py status
+            python scripts/gateway_release.py readiness status
             echo "__READINESS__"
           } >> "$GITHUB_OUTPUT"
 

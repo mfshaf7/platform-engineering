@@ -19,11 +19,14 @@ That workspace existed only as live state under `~/.openclaw` and was not tracke
 
 ## Decision
 
-Tracked deployment workspaces that must exist inside the runtime image will be materialized from `openclaw-isolated-deployment`.
+Tracked deployment workspaces that must exist inside the runtime image will be
+materialized from the active build/composition repo. For the current governed
+stage/prod path, that repo is `openclaw-runtime-distribution`.
 
 The image build is responsible for copying those templates into `/home/node/.openclaw/...` as part of the bundled artifact.
 
-`platform-engineering` is responsible for validating that required templates are present in the pinned deployment repo before a build can succeed.
+`platform-engineering` is responsible for validating that required templates are
+present in the pinned build/composition repo before a build can succeed.
 
 ## Consequences
 
@@ -35,7 +38,7 @@ The image build is responsible for copying those templates into `/home/node/.ope
 
 ### Negative
 
-- deployment repo now owns more runtime content than only Docker build glue
+- the active build/composition repo now owns more runtime content than only Docker build glue
 - new specialized workspaces require explicit template maintenance
 
 ## Current application

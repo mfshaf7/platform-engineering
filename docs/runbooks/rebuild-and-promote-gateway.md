@@ -19,20 +19,28 @@ This is the default path for:
 
 ## Procedure
 
-1. Validate the source bundle locally:
+1. Pin the source bundle from the actual local repo checkouts:
+
+```bash
+cd /home/<platform-user>/projects/platform-engineering
+python3 scripts/gateway_release.py pin stage
+```
+
+This helper resolves full SHAs from the local `openclaw-telegram-enhanced`,
+`openclaw-host-bridge`, `openclaw-runtime-distribution`, and
+`platform-engineering` checkouts, refuses dirty repos by default, synchronizes
+derived values files, updates the deterministic candidate tag, clears any stale
+digest from the previous build, and validates the candidate contract. Use
+`--allow-dirty` only when you intentionally want to pin the current committed
+HEAD while local uncommitted changes are present.
+
+2. Validate the source bundle locally:
 
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
 python3 scripts/validate_gateway_source_bundle.py \
   --telegram-repo /home/<platform-user>/projects/openclaw-telegram-enhanced \
-  --deployment-repo /home/<platform-user>/projects/openclaw-isolated-deployment
-```
-
-2. Compute the expected publish tag:
-
-```bash
-cd /home/<platform-user>/projects/platform-engineering
-python3 scripts/compute_gateway_publish_tag.py prod
+  --deployment-repo /home/<platform-user>/projects/openclaw-runtime-distribution
 ```
 
 3. Trigger the governed build workflow:
@@ -51,16 +59,20 @@ gh workflow run "Build Gateway Image" \
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
 PLATFORM_SHA="<platform-engineering-build-commit>"
-python3 scripts/record_gateway_image.py prod \
-  --tag prod-<computed-tag> \
+python3 scripts/gateway_release.py record prod \
   --digest sha256:<published-digest> \
   --platform-sha "$PLATFORM_SHA"
-python3 scripts/validate_environment_contract.py prod --repo-root .
 ```
 
-`record_gateway_image.py` performs the external pre-pull before it writes the prod digest, so the contract change is not committed until the target image is already warm on-node.
+`gateway_release.py record` now performs three checks in one governed step:
 
-For stage rehearsals, use the same pattern with `stage` instead of `prod`; `record_gateway_image.py stage ...` now performs the external pre-pull before it writes the stage digest too.
+- the tag must exactly match the deterministic source-bundle tag in `versions.yaml`
+- the external pre-pull happens before the digest is written
+- the environment contract is revalidated immediately after the write
+
+That prevents stale build output from being attached to the current pins.
+
+For stage rehearsals, use the same pattern with `stage` instead of `prod`; `gateway_release.py record stage ...` now performs the external pre-pull before it writes the stage digest too.
 
 6. Commit and push the recorded prod values.
 

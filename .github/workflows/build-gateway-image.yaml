@@ -45,37 +45,13 @@ jobs:
         id: env_meta
         working-directory: platform-engineering
         run: |
-          python - <<'PY'
-          import os
-          import yaml
-          env = os.environ["TARGET_ENV"]
-          with open(f"environments/{env}/versions.yaml", "r", encoding="utf-8") as fh:
-              data = yaml.safe_load(fh)
-          source_bundle = "|".join([
-              env,
-              data['sourceRepos']['telegramEnhanced']['commit'],
-              data['sourceRepos']['hostBridge']['commit'],
-              data['sourceRepos']['isolatedDeployment']['commit'],
-              data['gateway']['build']['baseImage'],
-              data['gateway']['build']['dockerfile'],
-          ])
-          import hashlib
-          source_bundle_ref = hashlib.sha256(source_bundle.encode("utf-8")).hexdigest()[:12]
-          out = os.environ["GITHUB_OUTPUT"]
-          with open(out, "a", encoding="utf-8") as fh:
-              fh.write(f"telegram_ref={data['sourceRepos']['telegramEnhanced']['commit']}\n")
-              fh.write(f"host_bridge_ref={data['sourceRepos']['hostBridge']['commit']}\n")
-              fh.write(f"deployment_ref={data['sourceRepos']['isolatedDeployment']['commit']}\n")
-              fh.write(f"publish_repository={data['gateway']['publish']['repository']}\n")
-              fh.write(f"publish_tag_prefix={data['gateway']['publish']['tagPrefix']}\n")
-              fh.write(f"publish_platforms={','.join(data['gateway']['publish']['platforms'])}\n")
-              fh.write(f"publish_tag={data['gateway']['publish']['tagPrefix']}-{source_bundle_ref}\n")
-              fh.write(f"source_bundle_ref={source_bundle_ref}\n")
-              fh.write(f"base_image={data['gateway']['build']['baseImage']}\n")
-              fh.write(f"dockerfile={data['gateway']['build']['dockerfile']}\n")
-          PY
+          python scripts/gateway_release.py metadata "$TARGET_ENV" --github-output "$GITHUB_OUTPUT"
         env:
           TARGET_ENV: ${{ inputs.environment }}
+
+      - name: Validate environment contract
+        working-directory: platform-engineering
+        run: python scripts/gateway_release.py validate "${{ inputs.environment }}" --require-deterministic-tag
 
       - name: Validate pinned refs and build contract
         run: |
@@ -174,7 +150,6 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.env_meta.outputs.publish_tag }}
-            openclaw.environment=${{ inputs.environment }}
             openclaw.source-bundle-ref=${{ steps.env_meta.outputs.source_bundle_ref }}
             openclaw.telegram-ref=${{ steps.env_meta.outputs.telegram_ref }}
             openclaw.host-bridge-ref=${{ steps.env_meta.outputs.host_bridge_ref }}
@@ -332,6 +307,6 @@ jobs:
             echo
             echo 'Prod guardrail: a successful build is not a safe cutover by itself.'
             echo 'Prod gateway binds host port 18789 on a single node, so warm the exact target digest before committing the prod contract change.'
-            echo 'Use record_gateway_image.py for prod so the external pre-pull happens before Argo sees the new digest.'
+            echo 'Use gateway_release.py record for prod so the external pre-pull happens before Argo sees the new digest.'
             echo 'Do not manually delete the old prod gateway pod as a first response to a slow rollout.'
           } >> "$GITHUB_STEP_SUMMARY"

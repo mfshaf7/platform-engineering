@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 
-from stage_promotion_readiness import reset_stage_promotion_readiness
+from stage_readiness import reset_stage_promotion_readiness
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 

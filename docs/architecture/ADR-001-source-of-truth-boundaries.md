@@ -21,8 +21,10 @@ Define source-of-truth boundaries as follows:
 
 - `openclaw-telegram-enhanced`
   - owns Telegram/plugin behavior and Telegram-side tests
+- `openclaw-runtime-distribution`
+  - owns the current governed bundled runtime composition and tracked workspace templates required inside the deployed image
 - `openclaw-isolated-deployment`
-  - owns bundled runtime composition and tracked workspace templates required inside the deployed image
+  - owns the isolated deployment reference architecture, guidance, and model-scoped reference copies
 - `platform-engineering`
   - owns environment pins, source-bundle validation, build workflow policy, digest recording, and Argo promotion
 - host/runtime environment

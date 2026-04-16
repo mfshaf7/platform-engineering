@@ -5,8 +5,7 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage lifecycle changed; active components now gateway,secrets,version. Re-approve
-  stage before promoting to prod.
+note: Stage candidate changed after gateway digest record.
 approvedCandidate:
   image:
     repository: null

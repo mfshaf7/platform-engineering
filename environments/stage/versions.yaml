@@ -10,8 +10,8 @@ gateway:
     - linux/amd64
   image:
     repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: stage-b4fb96f777b5
-    digest: sha256:8f1b3341a39965182f0abac9386ccf6810b2acc6254b272a776e6f0aa7acf410
+    tag: stage-3e54a34071e7
+    digest: sha256:6b9ec9ac73d293c5c6ee22de720f949424cfe910ce59a703d9497ed4660cba2d
   chartVersion: 0.1.0
   replicas: 1
 sourceRepos:
@@ -26,7 +26,7 @@ sourceRepos:
     commit: 3864b2437832af5f954fcfa02c5bafc3e9c052cd
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: cd34f62c8c5db9c86bc8d7aebe2d40d79f8ce069
+    commit: d9062177655601ee264c6e354a260f6bab352c11
 argocd:
   namespace: argocd
   project: platform-core

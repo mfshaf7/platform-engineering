@@ -62,6 +62,10 @@ Resume stage only when you need a rehearsal or validation window:
 - that config must explicitly set `channels.telegram.commands.native: true`
   or Telegram-native operator commands such as `/platform` will fall back to
   the embedded agent path instead of the deterministic handler
+- stage resume now validates one authenticated read-only bridge request after
+  `/healthz`, not just service liveness; if the local audit path under
+  `~/.openclaw-stage/logs/openclaw-host-audit/` is not writable, resume should
+  fail instead of leaving a bridge that crashes on the first real request
 
 ```bash
 python3 products/openclaw/scripts/set_stage_environment_state.py resume --components gateway,version

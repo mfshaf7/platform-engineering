@@ -2,15 +2,15 @@ schemaVersion: 1
 product: openclaw
 environment: stage
 status: recorded
-verifiedAt: '2026-04-16T20:41:54Z'
+verifiedAt: '2026-04-16T21:01:48Z'
 verifiedBy: mfshaf7
-evidenceRef: telegram://openclaw-stage/-1002519919856?messages=876,879,881,883,885,887
-note: Manual Telegram operator acceptance for /platform completed on stage. Successful
-  outbound replies were emitted to chat -1002519919856 as messages 876, 879, 881,
-  883, 885, and 887 for overview, endpoints, health, govern, argo-cd, and ghost. Live
-  native rendering in the deployed stage pod matches the expected stage catalog content.
-  Broader promotion-gate checks remain blocked pending normal reply, artifact delivery,
-  screenshot delivery, and privileged-path posture validation.
+evidenceRef: telegram://openclaw-stage/-1002519919856?messages=876,879,881,883,885,887;bridge-audit://openclaw-stage/2026-04-16.jsonl?ids=5b05bf28-64f1-4e19-9616-bf289b38fd78,f40813a2-6b79-4a12-baa6-71d62b71ffba,cec823b0-f8d9-4bc1-91a5-6e4bba5fba55,8bd5c6bf-39c8-4b68-9854-4cbb4be6c01b,4c380935-66bc-4847-b3cf-2b6a4b78ea37
+note: Manual stage /platform acceptance remains passed. Stage host-control privileged-path
+  posture is now verified through the live bridge audit path after repairing local
+  stage audit-directory drift. A reversible config.allowed_roots.add/remove cycle
+  succeeded through the authenticated stage bridge request seam, and the stage policy
+  file returned to its original allowed roots. Remaining promotion-gate checks stay
+  blocked pending normal Telegram reply, artifact delivery, and screenshot delivery.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
@@ -28,7 +28,7 @@ checks:
 - id: primary-user-path
   status: blocked
 - id: privileged-path-posture
-  status: blocked
+  status: passed
 - id: runtime-start
   status: passed
 - id: screenshot-delivery

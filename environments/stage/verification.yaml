@@ -2,13 +2,15 @@ schemaVersion: 1
 product: openclaw
 environment: stage
 status: recorded
-verifiedAt: '2026-04-16T20:02:46Z'
-verifiedBy: codex
-evidenceRef: session://platform-operator-stage-rehearsal-2026-04-17
-note: Stage gateway is running the recorded digest, Telegram provider started cleanly,
-  and /platform renders inside the deployed runtime. Promotion remains blocked because
-  this session cannot produce a real inbound Telegram command/reply and the stage
-  pod cannot reach the configured host bridge at 172.27.88.8:48731.
+verifiedAt: '2026-04-16T20:41:54Z'
+verifiedBy: mfshaf7
+evidenceRef: telegram://openclaw-stage/-1002519919856?messages=876,879,881,883,885,887
+note: Manual Telegram operator acceptance for /platform completed on stage. Successful
+  outbound replies were emitted to chat -1002519919856 as messages 876, 879, 881,
+  883, 885, and 887 for overview, endpoints, health, govern, argo-cd, and ghost. Live
+  native rendering in the deployed stage pod matches the expected stage catalog content.
+  Broader promotion-gate checks remain blocked pending normal reply, artifact delivery,
+  screenshot delivery, and privileged-path posture validation.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate

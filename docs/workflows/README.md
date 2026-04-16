@@ -15,6 +15,7 @@ Use it when the question is:
 | --- | --- | --- | --- |
 | `build-and-validate.yaml` | [build-and-validate.md](build-and-validate.md) | push, pull_request | validates shared repo shape and configuration |
 | `build-gateway-image.yaml` | [build-gateway-image.md](build-gateway-image.md) | manual | builds and pushes the OpenClaw gateway image |
+| `build-telegram-overlay-image.yaml` | [build-telegram-overlay-image.md](build-telegram-overlay-image.md) | manual | builds and pushes the stage-only OpenClaw Telegram overlay experiment image |
 | `confirm-stage-promotion-readiness.yaml` | [confirm-stage-promotion-readiness.md](confirm-stage-promotion-readiness.md) | manual | records stage verification evidence and approval for the current candidate |
 | `drift-check.yaml` | [drift-check.md](drift-check.md) | schedule, manual | checks for missing platform overlays and app manifests |
 | `manage-stage-environment.yaml` | [manage-stage-environment.md](manage-stage-environment.md) | manual | resumes or suspends stage desired state |

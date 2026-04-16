@@ -13,6 +13,7 @@ The reusable operator workflow for this path is published separately under
 - `gateway_release.py`
 - `prepull_gateway_image.py`
 - `set_stage_environment_state.py`
+- `telegram_overlay_experiment.py`
 - `validate_gateway_source_bundle.py`
 
 ## Internal Helper Modules
@@ -34,6 +35,11 @@ The reusable operator workflow for this path is published separately under
 - `make openclaw-gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod`
 - `make openclaw-gateway-prod-verification ACTION=<status|reset|record|validate>`
 - `make openclaw-gateway-readiness ACTION=<status|reset|approve|validate>`
+- `make openclaw-telegram-overlay-status`
+- `make openclaw-telegram-overlay-pin TELEGRAM_REF=<git-ref>`
+- `make openclaw-telegram-overlay-validate`
+- `make openclaw-telegram-overlay-record DIGEST=sha256:...`
+- `make openclaw-telegram-overlay-disable`
 - `make openclaw-stage-state STATE=<resume|suspend|status> COMPONENTS=gateway,version`
 
 ## Release Gold Path
@@ -49,6 +55,17 @@ The reusable operator workflow for this path is published separately under
 For a fixed pinned source bundle, the recorded gateway digest is expected to be
 reusable across `stage` and `prod`. Promotion should reuse the approved digest
 instead of rebuilding a second environment-branded image for the same bundle.
+
+## Stage Telegram Overlay Experiment
+
+The stage-only Telegram overlay experiment is a bounded operator lane for small
+Telegram-only fixes:
+
+1. `openclaw-telegram-overlay-pin`
+2. `Build Telegram Overlay Image` workflow
+3. `openclaw-telegram-overlay-record`
+4. stage rehearsal against the recorded overlay artifact
+5. disable the experiment before any normal `stage -> prod` promotion
 
 ## Stage Release-State Objects
 

@@ -116,6 +116,21 @@ concerns.
 | `platform-engineering/products/openclaw` | platform-side product contract, architecture, runbooks, and release workflow |
 | `security-architecture` | trust-boundary judgment, product security overlay, and cross-cutting security domains |
 
+## Stage Telegram Overlay Experiment
+
+The platform now also supports a bounded stage-only Telegram delivery
+experiment:
+
+- Telegram source still lives in `openclaw-telegram-enhanced`
+- runtime seam ownership still lives in `openclaw-runtime-distribution`
+- `platform-engineering` pins a separate immutable Telegram overlay artifact for
+  stage only
+- the experiment mounts back onto `/app/extensions/telegram`
+- prod promotion is blocked while the experiment is active
+
+This is intended to reduce the cost of small Telegram-only fixes without
+turning mutable runtime patching into the normal model.
+
 ## Current Shape
 
 - prod is the active governed environment

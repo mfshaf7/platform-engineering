@@ -72,6 +72,9 @@ unless it is genuinely shared platform behavior.
   or UAT is recorded in `environments/prod/verification.yaml`.
 - `products/openclaw/platform-operator-catalog.yaml` is the platform-owned
   source of truth for the read-only Telegram `/platform` operator surface.
+- the stage Telegram overlay experiment is allowed only as an explicit
+  stage-only contract and must be disabled before any `stage -> prod`
+  promotion.
 - Prod promotion must fail closed unless
   `python3 products/openclaw/scripts/gateway_release.py readiness validate`
   passes against the current stage candidate.

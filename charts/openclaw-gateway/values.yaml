@@ -22,6 +22,9 @@ enableServiceLinks: true
 command: []
 args: []
 
+podAnnotations: {}
+extraInitContainers: []
+
 service:
   type: ClusterIP
   port: 18789

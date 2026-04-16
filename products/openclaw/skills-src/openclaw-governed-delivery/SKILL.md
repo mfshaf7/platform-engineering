@@ -25,13 +25,21 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
 3. Update platform-side OpenClaw docs if behavior, runtime contract, or
    operator flow changed.
 4. Use the governed product path:
-   - `python3 products/openclaw/scripts/gateway_release.py pin stage`
-   - governed GitHub build
-   - `python3 products/openclaw/scripts/gateway_release.py record stage --digest ...`
+   - normal lane:
+     - `python3 products/openclaw/scripts/gateway_release.py pin stage`
+     - governed GitHub build
+     - `python3 products/openclaw/scripts/gateway_release.py record stage --digest ...`
+   - bounded stage-only Telegram lane for small Telegram fixes:
+     - `python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage`
+     - `Build Telegram Overlay Image` workflow
+     - `python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage --digest ...`
    - deliberate stage resume through `set_stage_environment_state.py`
    - real stage behavior checks
    - `python3 products/openclaw/scripts/gateway_release.py verification record ...`
-   - readiness approval when stage evidence is good
+   - if the Telegram overlay experiment is active:
+     - keep the work stage-only
+     - disable the experiment before any normal `stage -> prod` readiness approval or promotion
+   - readiness approval when the standard stage contract is promotable and stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
    - `python3 products/openclaw/scripts/gateway_release.py prod-verification record ...`
    - stage suspension when appropriate
@@ -51,6 +59,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
 - Do not patch the running pod as the final answer.
 - Do not rebuild a separate prod-branded image for the same approved source
   bundle.
+- Do not promote stage while the Telegram overlay experiment is active.
 - Keep stage suspended by default outside deliberate rehearsal windows.
 - Real behavior checks matter more than `/healthz` alone.
 

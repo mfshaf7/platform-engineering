@@ -301,7 +301,7 @@ jobs:
             echo
             echo 'Bundled Telegram + host-control packaged-runtime seam:'
             echo
-            echo '- Telegram was staged into the packaged bundled-runtime seam under `/app/dist/extensions/telegram` during image build'
+            echo '- Telegram was staged into the packaged bundled-runtime seam under `/app/extensions/telegram` during image build'
             echo '- Host-control was staged from its packlist into `/app/extensions/host-control` during image build'
             echo '- Build smoke test confirmed bundled Telegram stayed active, the compiled Telegram runtime contract still keys off `TELEGRAM_BOT_TOKEN`, no global same-id Telegram override remained, and host-control stayed registered from the bundled seam'
             echo

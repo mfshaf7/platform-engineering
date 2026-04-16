@@ -23,10 +23,17 @@ spec:
         openclaw.io/telegram-sha: {{ .Values.env.OPENCLAW_TELEGRAM_SHA | quote }}
         openclaw.io/host-bridge-sha: {{ .Values.env.OPENCLAW_HOST_BRIDGE_SHA | quote }}
         openclaw.io/platform-sha: {{ .Values.env.OPENCLAW_PLATFORM_SHA | quote }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       hostNetwork: {{ .Values.hostNetwork }}
       dnsPolicy: {{ .Values.dnsPolicy }}
       enableServiceLinks: {{ .Values.enableServiceLinks }}
+      {{- with .Values.extraInitContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: gateway
           image: {{ include "openclaw-gateway.imageRef" . | quote }}

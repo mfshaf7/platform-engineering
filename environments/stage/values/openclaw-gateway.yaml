@@ -150,3 +150,8 @@ extraVolumes:
   hostPath:
     path: /home/mfshaf7/.openclaw-stage
     type: Directory
+podAnnotations:
+  openclaw.io/telegram-overlay-status: inactive
+  openclaw.io/telegram-overlay-source-sha: disabled
+  openclaw.io/telegram-overlay-image: disabled
+extraInitContainers: []

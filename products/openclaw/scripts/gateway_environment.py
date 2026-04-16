@@ -28,6 +28,13 @@ ENVIRONMENT_PROFILES = {
     },
 }
 
+TELEGRAM_OVERLAY_STATUSES = {"inactive", "pending-build", "candidate"}
+TELEGRAM_OVERLAY_VOLUME_NAME = "telegram-overlay-runtime"
+TELEGRAM_OVERLAY_INIT_CONTAINER_NAME = "telegram-overlay-stage"
+TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH = "/app/extensions/telegram"
+TELEGRAM_OVERLAY_VOLUME_ROOT = "/work"
+TELEGRAM_OVERLAY_SUBPATH = "telegram"
+
 
 def load_yaml(path: Path):
     with path.open("r", encoding="utf-8") as fh:
@@ -51,6 +58,48 @@ def _set_extra_env(gateway_values: dict, name: str, value: str) -> None:
             entry["value"] = value
             return
     entries.append({"name": name, "value": value})
+
+
+def _remove_extra_env(gateway_values: dict, name: str) -> None:
+    entries = gateway_values.get("extraEnv", [])
+    gateway_values["extraEnv"] = [
+        entry
+        for entry in entries
+        if not (isinstance(entry, dict) and entry.get("name") == name)
+    ]
+
+
+def _set_named_list_entry(container: dict, key: str, entry_key: str, entry: dict) -> None:
+    entries = list(container.get(key, []))
+    filtered = [
+        current
+        for current in entries
+        if not (isinstance(current, dict) and current.get(entry_key) == entry[entry_key])
+    ]
+    filtered.append(entry)
+    container[key] = filtered
+
+
+def _remove_named_list_entry(container: dict, key: str, entry_key: str, entry_value: str) -> None:
+    entries = list(container.get(key, []))
+    container[key] = [
+        current
+        for current in entries
+        if not (isinstance(current, dict) and current.get(entry_key) == entry_value)
+    ]
+
+
+def _set_pod_annotation(gateway_values: dict, key: str, value: str) -> None:
+    annotations = gateway_values.setdefault("podAnnotations", {})
+    if not isinstance(annotations, dict):
+        raise ValueError("gateway podAnnotations must be a mapping")
+    annotations[key] = value
+
+
+def _remove_pod_annotation(gateway_values: dict, key: str) -> None:
+    annotations = gateway_values.get("podAnnotations")
+    if isinstance(annotations, dict):
+        annotations.pop(key, None)
 
 
 def load_platform_operator_catalog(repo_root: Path) -> dict:
@@ -90,6 +139,141 @@ def _volume_host_path_map(gateway_values: dict) -> dict[str, str]:
     }
 
 
+def _init_container_map(gateway_values: dict) -> dict[str, dict]:
+    return {
+        entry["name"]: entry
+        for entry in gateway_values.get("extraInitContainers", [])
+        if isinstance(entry, dict) and "name" in entry
+    }
+
+
+def _volume_map(gateway_values: dict) -> dict[str, dict]:
+    return {
+        entry["name"]: entry
+        for entry in gateway_values.get("extraVolumes", [])
+        if isinstance(entry, dict) and "name" in entry
+    }
+
+
+def telegram_overlay_state(versions: dict) -> dict:
+    experiments = versions.get("experiments") or {}
+    overlay = experiments.get("telegramOverlay") or {}
+    return {
+        "status": overlay.get("status") or "inactive",
+        "publish": dict(overlay.get("publish") or {}),
+        "source": dict(overlay.get("source") or {}),
+        "image": dict(overlay.get("image") or {}),
+    }
+
+
+def telegram_overlay_image_ref(overlay: dict) -> str:
+    image = overlay.get("image") or {}
+    repository = image.get("repository") or ""
+    tag = image.get("tag") or ""
+    digest = image.get("digest") or ""
+    if not repository:
+        return "disabled"
+    return build_gateway_image_ref(repository, tag, digest, treat_placeholder_as_missing=False)
+
+
+def telegram_overlay_runtime_active(environment: str, overlay: dict) -> bool:
+    return (
+        environment == "stage"
+        and overlay.get("status") == "candidate"
+        and not is_placeholder((overlay.get("image") or {}).get("digest"))
+        and not is_placeholder((overlay.get("source") or {}).get("commit"))
+    )
+
+
+def sync_telegram_overlay(environment: str, versions: dict, gateway_values: dict, platform_values: dict) -> None:
+    overlay = telegram_overlay_state(versions)
+    active = telegram_overlay_runtime_active(environment, overlay)
+    overlay_status = overlay["status"]
+    overlay_source = overlay["source"].get("commit") or ""
+    overlay_image_ref = telegram_overlay_image_ref(overlay)
+
+    _set_pod_annotation(gateway_values, "openclaw.io/telegram-overlay-status", overlay_status)
+    _set_pod_annotation(
+        gateway_values,
+        "openclaw.io/telegram-overlay-source-sha",
+        overlay_source or "disabled",
+    )
+    _set_pod_annotation(
+        gateway_values,
+        "openclaw.io/telegram-overlay-image",
+        overlay_image_ref if active else "disabled",
+    )
+
+    platform_values["versions"]["telegramOverlayStatus"] = overlay_status
+    platform_values["versions"]["telegramOverlaySourceSha"] = overlay_source or "disabled"
+    platform_values["versions"]["telegramOverlayImage"] = overlay_image_ref if active else "disabled"
+
+    if active:
+        _set_extra_env(gateway_values, "OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA", overlay_source)
+        _set_named_list_entry(
+            gateway_values,
+            "extraInitContainers",
+            "name",
+            {
+                "name": TELEGRAM_OVERLAY_INIT_CONTAINER_NAME,
+                "image": overlay_image_ref,
+                "imagePullPolicy": "IfNotPresent",
+                "command": [
+                    "sh",
+                    "-lc",
+                    "rm -rf /work/telegram && mkdir -p /work/telegram && cp -a /telegram-overlay/telegram/. /work/telegram/",
+                ],
+                "volumeMounts": [
+                    {
+                        "name": TELEGRAM_OVERLAY_VOLUME_NAME,
+                        "mountPath": TELEGRAM_OVERLAY_VOLUME_ROOT,
+                    }
+                ],
+            },
+        )
+        _set_named_list_entry(
+            gateway_values,
+            "extraVolumeMounts",
+            "mountPath",
+            {
+                "name": TELEGRAM_OVERLAY_VOLUME_NAME,
+                "mountPath": TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH,
+                "subPath": TELEGRAM_OVERLAY_SUBPATH,
+                "readOnly": True,
+            },
+        )
+        _set_named_list_entry(
+            gateway_values,
+            "extraVolumes",
+            "name",
+            {
+                "name": TELEGRAM_OVERLAY_VOLUME_NAME,
+                "emptyDir": {},
+            },
+        )
+        return
+
+    _remove_extra_env(gateway_values, "OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA")
+    _remove_named_list_entry(
+        gateway_values,
+        "extraInitContainers",
+        "name",
+        TELEGRAM_OVERLAY_INIT_CONTAINER_NAME,
+    )
+    _remove_named_list_entry(
+        gateway_values,
+        "extraVolumeMounts",
+        "mountPath",
+        TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH,
+    )
+    _remove_named_list_entry(
+        gateway_values,
+        "extraVolumes",
+        "name",
+        TELEGRAM_OVERLAY_VOLUME_NAME,
+    )
+
+
 def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path]]:
     env_root = repo_root / "environments" / environment
     versions_path = env_root / "versions.yaml"
@@ -127,6 +311,7 @@ def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path
     platform_values["versions"]["hostBridgeSha"] = source_repos["hostBridge"]["commit"]
     platform_values["versions"]["runtimeDistributionSha"] = source_repos["runtimeDistribution"]["commit"]
     platform_values["versions"]["platformSha"] = source_repos["platformEngineering"]["commit"]
+    sync_telegram_overlay(environment, versions, gateway_values, platform_values)
 
     changed = []
     for path, data in (
@@ -199,6 +384,13 @@ def validate_environment_contract(
     gateway_env = gateway_values["env"]
     platform_versions = platform_values["versions"]
     extra_env = _extra_env_map(gateway_values)
+    overlay = telegram_overlay_state(versions)
+    overlay_active = telegram_overlay_runtime_active(environment, overlay)
+    overlay_source = overlay["source"].get("commit") or ""
+    overlay_image_ref = telegram_overlay_image_ref(overlay)
+    init_containers = _init_container_map(gateway_values)
+    volume_mounts = _volume_mount_map(gateway_values)
+    volumes = _volume_map(gateway_values)
 
     expected_gateway_image = build_gateway_image_ref(
         gateway_image["repository"],
@@ -294,6 +486,78 @@ def validate_environment_contract(
         platform_versions["platformSha"],
         source_repos["platformEngineering"]["commit"],
     )
+    if overlay["status"] not in TELEGRAM_OVERLAY_STATUSES:
+        errors.append(
+            f"telegram overlay status must be one of {sorted(TELEGRAM_OVERLAY_STATUSES)!r}, got {overlay['status']!r}"
+        )
+    if environment != "stage" and overlay["status"] != "inactive":
+        errors.append("telegram overlay experiment must stay inactive outside stage")
+    expect_equal(
+        errors,
+        "telegram overlay status in platform version values",
+        platform_versions.get("telegramOverlayStatus"),
+        overlay["status"],
+    )
+    expect_equal(
+        errors,
+        "telegram overlay source SHA in platform version values",
+        platform_versions.get("telegramOverlaySourceSha"),
+        overlay_source or "disabled",
+    )
+    expect_equal(
+        errors,
+        "telegram overlay image in platform version values",
+        platform_versions.get("telegramOverlayImage"),
+        overlay_image_ref if overlay_active else "disabled",
+    )
+    pod_annotations = gateway_values.get("podAnnotations") or {}
+    expect_equal(
+        errors,
+        "telegram overlay status pod annotation",
+        pod_annotations.get("openclaw.io/telegram-overlay-status"),
+        overlay["status"],
+    )
+    expect_equal(
+        errors,
+        "telegram overlay source pod annotation",
+        pod_annotations.get("openclaw.io/telegram-overlay-source-sha"),
+        overlay_source or "disabled",
+    )
+    expect_equal(
+        errors,
+        "telegram overlay image pod annotation",
+        pod_annotations.get("openclaw.io/telegram-overlay-image"),
+        overlay_image_ref if overlay_active else "disabled",
+    )
+    overlay_init = init_containers.get(TELEGRAM_OVERLAY_INIT_CONTAINER_NAME)
+    overlay_mount = volume_mounts.get(TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH)
+    overlay_volume = volumes.get(TELEGRAM_OVERLAY_VOLUME_NAME)
+    if overlay_active:
+        expect_equal(
+            errors,
+            "telegram overlay source env",
+            extra_env.get("OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA"),
+            overlay_source,
+        )
+        if overlay_init is None:
+            errors.append("telegram overlay init container missing while experiment is active")
+        else:
+            expect_equal(errors, "telegram overlay init image", overlay_init.get("image"), overlay_image_ref)
+        if overlay_mount is None:
+            errors.append("telegram overlay volume mount missing while experiment is active")
+        else:
+            expect_equal(errors, "telegram overlay subPath", overlay_mount.get("subPath"), TELEGRAM_OVERLAY_SUBPATH)
+        if overlay_volume is None or "emptyDir" not in overlay_volume:
+            errors.append("telegram overlay volume missing emptyDir while experiment is active")
+    else:
+        if extra_env.get("OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA") is not None:
+            errors.append("telegram overlay source env should be absent while experiment is inactive")
+        if overlay_init is not None:
+            errors.append("telegram overlay init container should be absent while experiment is inactive")
+        if overlay_mount is not None:
+            errors.append("telegram overlay mount should be absent while experiment is inactive")
+        if overlay_volume is not None:
+            errors.append("telegram overlay volume should be absent while experiment is inactive")
     validate_environment_profile(errors, environment, gateway_values)
 
     return versions, errors

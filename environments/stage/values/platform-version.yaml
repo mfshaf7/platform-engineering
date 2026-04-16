@@ -4,3 +4,6 @@ versions:
   hostBridgeSha: e5b78abbfe1501c90710aa0e3084a1bd86d17060
   runtimeDistributionSha: ac3308f4279ae3b39ca83aaca6dafd7c0df6540e
   platformSha: 79c1565bdec8594fafde2824cd59c0fff191abae
+  telegramOverlayStatus: inactive
+  telegramOverlaySourceSha: disabled
+  telegramOverlayImage: disabled

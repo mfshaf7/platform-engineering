@@ -1,36 +1,33 @@
 schemaVersion: 1
 product: openclaw
 environment: stage
-status: candidate
-recordedAt: '2026-04-16T19:46:21Z'
-recordedPlatformEngineeringCommit: 79c1565bdec8594fafde2824cd59c0fff191abae
-note: Read-only /platform operator surface candidate built from merged stage pins.
+status: pending-build
+recordedAt: null
+recordedPlatformEngineeringCommit: null
+note: Stage Telegram overlay experiment pins changed; build and record a new overlay
+  artifact before rehearsal.
 candidate:
-  sourceBundleRef: 1fb1b11b4142
+  sourceBundleRef: null
   image:
-    repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: gateway-1fb1b11b4142
-    digest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
+    repository: null
+    tag: null
+    digest: null
   build:
-    baseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-    dockerfile: deployment/Dockerfile.plugin-install.example
-    platforms:
-    - linux/amd64
+    baseImage: null
+    dockerfile: null
+    platforms: []
   sourceRepos:
-    telegramEnhanced: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
-    hostBridge: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-    runtimeDistribution: ac3308f4279ae3b39ca83aaca6dafd7c0df6540e
-    platformEngineering: 79c1565bdec8594fafde2824cd59c0fff191abae
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
-  capabilities:
-  - artifact-delivery
-  - host-control
-  - privileged-control
-  - runtime
-  - screenshot-delivery
-  - telegram-channel
+    telegramEnhanced: null
+    hostBridge: null
+    runtimeDistribution: null
+    platformEngineering: null
+  telegramOverlay:
+    status: inactive
+    runtimeActive: false
+    sourceCommit: null
+    image:
+      repository: null
+      tag: null
+      digest: null
+  requiredChecks: []
+  capabilities: []

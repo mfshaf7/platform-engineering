@@ -33,7 +33,7 @@ work.
 
 - lifecycle branch when desired state changed
 - compare URL in the workflow summary
-- updated stage kustomization and promotion-readiness files
+- updated stage kustomization, verification, and promotion-readiness files
 
 ## Operator Evidence
 

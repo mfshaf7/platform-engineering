@@ -44,12 +44,15 @@ The build uses pinned SHAs from:
 - the build workflow now reads the computed source-bundle metadata through
   `products/openclaw/scripts/gateway_release.py metadata` and validates the environment
   contract before build
-- the bundled stage/prod image extends the official upstream base image
-  `ghcr.io/openclaw/openclaw:latest`
+- the bundled stage/prod image extends the official upstream base image pinned
+  by digest in the environment contract
 - `prod` must continue to use the published governed gateway image recorded by
   digest, never an operator-local tag
 - deployment-owned runtime workspace templates are expected to come from
   `openclaw-runtime-distribution` and are validated before build
+- for `stage`, the resulting digest is recorded into
+  `environments/stage/release-candidate.yaml` before verification and approval
+  are allowed
 
 ## Output Contract
 

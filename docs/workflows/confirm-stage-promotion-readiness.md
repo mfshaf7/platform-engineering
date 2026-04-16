@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This workflow records approval of the current stage candidate for later prod
-promotion.
+This workflow records structured stage verification evidence and approval of the
+current stage candidate for later prod promotion.
 
 It does not promote anything by itself. It writes the approval state that prod
 promotion requires.
@@ -14,6 +14,12 @@ promotion requires.
 
 ## Inputs Or Parameters
 
+- `verification_evidence_ref`
+  - required evidence reference for the stage rehearsal
+- `verification_results`
+  - required check results in `check-id=status` form
+- `verification_note`
+  - optional operator note stored with the verification update
 - `approval_note`
   - optional reviewer note stored with the readiness update
 
@@ -30,6 +36,7 @@ candidate.
 
 - readiness branch when approval changed Git state
 - compare URL in the workflow summary
+- updated `environments/stage/verification.yaml`
 - updated `environments/stage/promotion-readiness.yaml`
 
 ## Operator Evidence
@@ -37,6 +44,7 @@ candidate.
 Capture:
 
 - workflow run URL
+- verification evidence reference and recorded check results
 - readiness status line from the summary
 - readiness branch or merged PR URL when a change was created
 

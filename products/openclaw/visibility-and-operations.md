@@ -54,6 +54,9 @@ Relevant evidence surfaces:
 - bridge audit logs
 - recovery service health
 - stage on-demand bridge lifecycle for stage rehearsals
+- `environments/stage/release-candidate.yaml`
+- `environments/stage/verification.yaml`
+- `environments/stage/promotion-readiness.yaml`
 
 ## Release Evidence
 

@@ -34,6 +34,7 @@ Promotion policy:
 
 - stage is off by default
 - every stage lifecycle change resets promotion readiness to `pending` or `inactive`
+- every stage lifecycle change also resets stage verification to `pending`
 - prod promotion is blocked until the current stage candidate is explicitly approved
-- the approval must still match `environments/stage/versions.yaml` at promotion time
+- the approval must still match `environments/stage/release-candidate.yaml` and `environments/stage/verification.yaml` at promotion time
 - after a successful prod promotion, suspend stage again unless there is an explicit reason to keep testing

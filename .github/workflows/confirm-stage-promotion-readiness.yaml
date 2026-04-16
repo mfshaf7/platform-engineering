@@ -3,6 +3,18 @@ name: Confirm Stage Promotion Readiness
 on:
   workflow_dispatch:
     inputs:
+      verification_evidence_ref:
+        required: true
+        type: string
+        default: ""
+      verification_results:
+        required: true
+        type: string
+        default: "runtime-start=passed,primary-user-path=passed,artifact-delivery=passed,screenshot-delivery=passed,privileged-path-posture=not_applicable"
+      verification_note:
+        required: false
+        type: string
+        default: ""
       approval_note:
         required: false
         type: string
@@ -41,6 +53,14 @@ jobs:
         id: stage_status
         run: echo "value=$(python products/openclaw/scripts/set_stage_environment_state.py status)" >> "$GITHUB_OUTPUT"
 
+      - name: Record structured stage verification
+        run: |
+          python products/openclaw/scripts/gateway_release.py verification record \
+            --verified-by "${{ github.actor }}" \
+            --evidence-ref "${{ inputs.verification_evidence_ref }}" \
+            --note "${{ inputs.verification_note }}" \
+            --check-results "${{ inputs.verification_results }}"
+
       - name: Approve stage promotion readiness
         run: python products/openclaw/scripts/gateway_release.py readiness approve --approved-by "${{ github.actor }}" --note "${{ inputs.approval_note }}"
 
@@ -54,12 +74,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Show readiness diff
-        run: git diff -- environments/stage/promotion-readiness.yaml
+        run: git diff -- environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
 
       - name: Detect whether a commit is needed
         id: diff
         run: |
-          if git diff --quiet -- environments/stage/promotion-readiness.yaml; then
+          if git diff --quiet -- environments/stage/verification.yaml environments/stage/promotion-readiness.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -74,8 +94,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$READINESS_BRANCH"
-          git add environments/stage/promotion-readiness.yaml
-          git commit -m "Approve current stage candidate for prod promotion"
+          git add environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
+          git commit -m "Record stage verification and approve candidate for prod promotion"
           git push --force-with-lease origin "$READINESS_BRANCH"
           echo "readiness_branch=$READINESS_BRANCH" >> "$GITHUB_OUTPUT"
 
@@ -86,6 +106,9 @@ jobs:
             echo
             echo '- Stage lifecycle: `${{ steps.stage_status.outputs.value }}`'
             echo '- Readiness: `${{ steps.readiness.outputs.status_line }}`'
+            echo '- Verification evidence: `${{ inputs.verification_evidence_ref }}`'
+            echo '- Verification results: `${{ inputs.verification_results }}`'
+            echo '- Verification note: `${{ inputs.verification_note }}`'
             echo '- Approval note: `${{ inputs.approval_note }}`'
             if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
               echo '- Readiness branch: `${{ steps.readiness_branch.outputs.readiness_branch }}`'

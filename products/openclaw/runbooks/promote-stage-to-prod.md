@@ -9,12 +9,16 @@ environments.
 
 1. update and validate `stage`
 2. build and publish the gateway artifact for the approved stage source bundle
-3. allow Argo CD to reconcile `stage`
-4. verify stage workload, observability, and host integration expectations
-5. run `.github/workflows/promote-environment.yaml`
-6. approve the protected `prod` promotion job and review the generated PR
-7. merge the production promotion change
-8. verify `prod` after reconciliation
+3. record the stage candidate into `environments/stage/release-candidate.yaml`
+4. allow Argo CD to reconcile `stage`
+5. rehearse the current candidate on `stage` and record structured evidence in
+   `environments/stage/verification.yaml`
+6. run `.github/workflows/confirm-stage-promotion-readiness.yaml` to approve
+   the exact verified candidate
+7. run `.github/workflows/promote-environment.yaml`
+8. approve the protected `prod` promotion job and review the generated PR
+9. merge the production promotion change
+10. verify `prod` after reconciliation
 
 ## Current Promotion Contract
 
@@ -22,6 +26,10 @@ environments.
 - promotion to `prod` is allowed only from `stage` to `prod`.
 - the promotion workflow copies the approved digest and source SHAs into the
   `prod` contract and opens a PR instead of mutating `main` directly.
+- promotion approval must match both
+  `environments/stage/release-candidate.yaml` and
+  `environments/stage/verification.yaml`; changing either invalidates
+  readiness until the next approval is recorded.
 - the promoted artifact is source-bundle based, not stage-branded; prod should
   reuse the approved stage digest instead of rebuilding a separate prod-only
   image for the same pinned source bundle.
@@ -58,6 +66,18 @@ prove the real operator paths:
 - if stage and prod intentionally share Telegram groups or topics, the startup
   backlog policy must be explicit so the promoted bot does not replay buffered
   traffic when it comes online
+
+The current default promotion checks are recorded through
+`products/openclaw/verification-catalog.yaml`:
+
+- `runtime-start`
+- `primary-user-path`
+- `artifact-delivery`
+- `screenshot-delivery`
+- `privileged-path-posture`
+
+These are policy-driven checks, not a permanently fixed schema. Candidate
+requirements may evolve as OpenClaw gains new capabilities.
 
 ## Stage Bridge Lifecycle
 

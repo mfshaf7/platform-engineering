@@ -13,7 +13,14 @@ from gateway_environment import (
     write_yaml,
 )
 from prepull_gateway_image import prepull_image
-from stage_readiness import validate_stage_promotion_readiness
+from stage_readiness import (
+    current_stage_components,
+    record_stage_release_candidate,
+    reset_stage_promotion_readiness,
+    reset_stage_release_candidate,
+    reset_stage_verification,
+    validate_stage_promotion_readiness,
+)
 
 
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -172,6 +179,24 @@ def pin_gateway_source_repos(
     if errors:
         raise SystemExit("\n".join(errors))
 
+    if environment == "stage":
+        readiness_status = "pending" if current_stage_components(repo_root) else "inactive"
+        reset_stage_release_candidate(
+            repo_root,
+            status="pending-build",
+            note="Stage source pins changed; build and record a new stage candidate before verification or approval.",
+        )
+        reset_stage_verification(
+            repo_root,
+            status="pending",
+            note="Stage source pins changed; re-run stage rehearsal checks after recording the new candidate.",
+        )
+        reset_stage_promotion_readiness(
+            repo_root,
+            status=readiness_status,
+            note="Stage source pins changed; build, verify, and re-approve the next stage candidate before promoting to prod.",
+        )
+
     print(f"Pinned {environment} source repos in {versions_path.relative_to(repo_root)}")
     return 0
 
@@ -186,6 +211,9 @@ def record_gateway_image(
     skip_prepull: bool = False,
     kubectl: str = "k3s kubectl",
     timeout: str = "90m",
+    required_checks: list[str] | None = None,
+    capabilities: list[str] | None = None,
+    note: str = "",
 ) -> int:
     env_root = repo_root / "environments" / environment
     versions_path = env_root / "versions.yaml"
@@ -238,6 +266,29 @@ def record_gateway_image(
     )
     if errors:
         raise SystemExit("\n".join(errors))
+
+    if environment == "stage":
+        candidate_note = note or "Governed stage candidate recorded from the current stage source bundle."
+        candidate = record_stage_release_candidate(
+            repo_root,
+            note=candidate_note,
+            required_checks=required_checks,
+            capabilities=capabilities,
+        )
+        reset_stage_verification(
+            repo_root,
+            status="pending",
+            note="New stage candidate recorded; rehearse the current candidate before approval.",
+        )
+        reset_stage_promotion_readiness(
+            repo_root,
+            status="pending",
+            note="New stage candidate recorded; verification and approval are required before promoting to prod.",
+        )
+        print(
+            f"Recorded stage candidate {candidate['candidate']['sourceBundleRef']} with required checks "
+            + ", ".join(candidate["candidate"]["requiredChecks"])
+        )
 
     print(f"Recorded {image_ref} for {environment} with platformSha={platform_sha}")
     return 0

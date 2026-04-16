@@ -58,12 +58,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Show stage environment diff
-        run: git diff -- environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
+        run: git diff -- environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
 
       - name: Detect whether a commit is needed
         id: diff
         run: |
-          if git diff --quiet -- environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml; then
+          if git diff --quiet -- environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -78,7 +78,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$LIFECYCLE_BRANCH"
-          git add environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
+          git add environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Set stage components (${{ inputs.components }}) to ${{ inputs.action }}"
           git push --force-with-lease origin "$LIFECYCLE_BRANCH"
           echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"
@@ -96,7 +96,7 @@ jobs:
               echo '- Lifecycle branch: `${{ steps.lifecycle_branch.outputs.lifecycle_branch }}`'
               echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1`'
               echo
-              echo 'Merging this branch changes the desired stage lifecycle and resets stage promotion approval.'
+              echo 'Merging this branch changes the desired stage lifecycle, resets stage verification, and resets stage promotion approval.'
             else
               echo '- No git changes were required because stage was already in the requested state.'
             fi

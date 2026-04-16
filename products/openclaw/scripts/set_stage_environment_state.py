@@ -8,7 +8,7 @@ import time
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from stage_readiness import reset_stage_promotion_readiness
+from stage_readiness import reset_stage_promotion_readiness, reset_stage_verification
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 DEFAULT_STAGE_BRIDGE_SERVICE_NAME = "openclaw-host-bridge-stage.service"
@@ -294,12 +294,22 @@ def main() -> int:
 
         active = ",".join(sorted(desired_components)) or "none"
         if desired_resources == [SUSPEND_SENTINEL]:
+            reset_stage_verification(
+                args.repo_root,
+                status="pending",
+                note="Stage suspended; re-run stage rehearsal checks after the next deliberate resume.",
+            )
             reset_stage_promotion_readiness(
                 args.repo_root,
                 status="inactive",
                 note="Stage suspended; explicit resume and approval are required before the next prod promotion.",
             )
         else:
+            reset_stage_verification(
+                args.repo_root,
+                status="pending",
+                note=f"Stage lifecycle changed; active components now {active}. Re-run stage rehearsal checks before the next approval.",
+            )
             reset_stage_promotion_readiness(
                 args.repo_root,
                 status="pending",

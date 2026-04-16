@@ -78,6 +78,29 @@ Branch protection is an external GitHub setting, but the intended policy is:
 
 This repository documents the model; GitHub settings must enforce it.
 
+## Single-User Reality Constraint
+
+This repository currently lives under a single-user personal GitHub account.
+
+That means GitHub can enforce:
+
+- protected `main`
+- required status checks
+- PR-based merge flow
+- environment review gates
+- code-owner routing metadata
+
+But GitHub cannot create true separation of duty without an additional human
+reviewer account or team.
+
+So in the current model:
+
+- `CODEOWNERS` documents routing and ownership
+- branch protection blocks direct push and requires PR flow
+- environment gates still create an explicit approval step
+- independent reviewer enforcement remains a human/team scaling issue, not a
+  repository-structure issue
+
 ## Evidence Before Approval
 
 Before merging a meaningful change, reviewers should be able to answer:

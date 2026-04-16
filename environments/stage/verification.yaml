@@ -5,7 +5,8 @@ status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: New stage candidate recorded; rehearse the current candidate before approval.
+note: Stage lifecycle changed; active components now gateway,secrets,version. Re-run
+  stage rehearsal checks before the next approval.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate

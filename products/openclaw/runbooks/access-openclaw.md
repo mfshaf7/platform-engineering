@@ -57,6 +57,12 @@ Read-only Telegram operator inventory:
 
 Resume stage only when you need a rehearsal or validation window:
 
+- local stage runtime config must exist at
+  `~/.openclaw-stage/openclaw.stage.k3s.json`
+- that config must explicitly set `channels.telegram.commands.native: true`
+  or Telegram-native operator commands such as `/platform` will fall back to
+  the embedded agent path instead of the deterministic handler
+
 ```bash
 python3 products/openclaw/scripts/set_stage_environment_state.py resume --components gateway,version
 ```

@@ -1,19 +1,19 @@
-status: approved
+status: inactive
 requiredComponents:
 - gateway
 - secrets
 - version
-approvedAt: '2026-04-16T06:43:35Z'
-approvedBy: codex
-note: Approve stage candidate after bridge root repair and Telegram startup backlog
-  validation.
+approvedAt: null
+approvedBy: null
+note: Stage suspended; explicit resume and approval are required before the next prod
+  promotion.
 approvedCandidate:
   image:
-    repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: gateway-10d71142ef17
-    digest: sha256:dc168345074a9903215dafc1cd13398a92e7d4b2a361ea96fb6ca59f07a82c5c
+    repository: null
+    tag: null
+    digest: null
   sourceRepos:
-    telegramEnhanced: 912fdf93e47a71a67bbb2e4f87c8921e2d515486
-    hostBridge: 7973aa4dc6f826053aec02e75f859f35ea52d8aa
-    isolatedDeployment: 3864b2437832af5f954fcfa02c5bafc3e9c052cd
-    platformEngineering: a08a8559bf65c5446806aaf7153a050bcdb016ed
+    telegramEnhanced: null
+    hostBridge: null
+    isolatedDeployment: null
+    platformEngineering: null

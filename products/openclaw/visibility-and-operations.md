@@ -54,6 +54,7 @@ Relevant evidence surfaces:
 - bridge audit logs
 - recovery service health
 - stage on-demand bridge lifecycle for stage rehearsals
+- `products/openclaw/platform-operator-catalog.yaml`
 - `environments/stage/release-candidate.yaml`
 - `environments/stage/verification.yaml`
 - `environments/stage/promotion-readiness.yaml`

@@ -33,7 +33,12 @@ class RepoPin:
 REPO_PINS = (
     RepoPin("telegramEnhanced", "telegram repo", "openclaw-telegram-enhanced", "telegram_ref"),
     RepoPin("hostBridge", "host bridge repo", "openclaw-host-bridge", "host_bridge_ref"),
-    RepoPin("isolatedDeployment", "deployment repo", "openclaw-runtime-distribution", "deployment_ref"),
+    RepoPin(
+        "runtimeDistribution",
+        "runtime distribution repo",
+        "openclaw-runtime-distribution",
+        "runtime_distribution_ref",
+    ),
     RepoPin("platformEngineering", "platform repo", "platform-engineering", "platform_ref"),
 )
 
@@ -91,11 +96,11 @@ def pin_gateway_source_repos(
     workspace_root: Path,
     telegram_repo: Path | None = None,
     host_bridge_repo: Path | None = None,
-    deployment_repo: Path | None = None,
+    runtime_distribution_repo: Path | None = None,
     platform_repo: Path | None = None,
     telegram_ref: str = "HEAD",
     host_bridge_ref: str = "HEAD",
-    deployment_ref: str = "HEAD",
+    runtime_distribution_ref: str = "HEAD",
     platform_ref: str = "HEAD",
     allow_dirty: bool = False,
     skip_origin_check: bool = False,
@@ -107,13 +112,13 @@ def pin_gateway_source_repos(
     path_overrides = {
         "telegramEnhanced": telegram_repo,
         "hostBridge": host_bridge_repo,
-        "isolatedDeployment": deployment_repo,
+        "runtimeDistribution": runtime_distribution_repo,
         "platformEngineering": platform_repo or repo_root,
     }
     ref_overrides = {
         "telegramEnhanced": telegram_ref,
         "hostBridge": host_bridge_ref,
-        "isolatedDeployment": deployment_ref,
+        "runtimeDistribution": runtime_distribution_ref,
         "platformEngineering": platform_ref,
     }
 
@@ -271,13 +276,13 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
     require_real_value("source gateway image digest", source_gateway_image["digest"])
     require_real_value("source telegram SHA", source_repos["telegramEnhanced"]["commit"])
     require_real_value("source host bridge SHA", source_repos["hostBridge"]["commit"])
-    require_real_value("source deployment repo SHA", source_repos["isolatedDeployment"]["commit"])
+    require_real_value("source runtime distribution SHA", source_repos["runtimeDistribution"]["commit"])
     require_real_value("source platform SHA", source_repos["platformEngineering"]["commit"])
 
     target_versions["gateway"]["image"] = dict(source_gateway_image)
     target_versions["sourceRepos"]["telegramEnhanced"]["commit"] = source_repos["telegramEnhanced"]["commit"]
     target_versions["sourceRepos"]["hostBridge"]["commit"] = source_repos["hostBridge"]["commit"]
-    target_versions["sourceRepos"]["isolatedDeployment"]["commit"] = source_repos["isolatedDeployment"]["commit"]
+    target_versions["sourceRepos"]["runtimeDistribution"]["commit"] = source_repos["runtimeDistribution"]["commit"]
     target_versions["sourceRepos"]["platformEngineering"]["commit"] = source_repos["platformEngineering"]["commit"]
 
     write_yaml(target_root / "versions.yaml", target_versions)

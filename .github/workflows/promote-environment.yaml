@@ -114,7 +114,7 @@ jobs:
               fh.write(f"PROMOTED_TAG={image['tag']}\n")
               fh.write(f"PROMOTED_TELEGRAM_SHA={source['telegramEnhanced']['commit']}\n")
               fh.write(f"PROMOTED_HOST_BRIDGE_SHA={source['hostBridge']['commit']}\n")
-              fh.write(f"PROMOTED_ISOLATED_DEPLOYMENT_SHA={source['isolatedDeployment']['commit']}\n")
+              fh.write(f"PROMOTED_RUNTIME_DISTRIBUTION_SHA={source['runtimeDistribution']['commit']}\n")
               fh.write(f"PROMOTED_PLATFORM_SHA={source['platformEngineering']['commit']}\n")
           PY
 
@@ -141,7 +141,7 @@ jobs:
             echo "- Promoted image: \`${PROMOTED_IMAGE}\`"
             echo "- Telegram SHA: \`${PROMOTED_TELEGRAM_SHA}\`"
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
-            echo "- Isolated deployment SHA: \`${PROMOTED_ISOLATED_DEPLOYMENT_SHA}\`"
+            echo "- Runtime distribution SHA: \`${PROMOTED_RUNTIME_DISTRIBUTION_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
             echo "- Promotion note: \`${{ inputs.promotion_note }}\`"
             echo "- Suspend stage environment: \`${{ inputs.suspend_stage_environment }}\`"

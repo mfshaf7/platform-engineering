@@ -15,5 +15,5 @@ approvedCandidate:
   sourceRepos:
     telegramEnhanced: null
     hostBridge: null
-    isolatedDeployment: null
+    runtimeDistribution: null
     platformEngineering: null

@@ -103,7 +103,7 @@ def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path
     )
     platform_values["versions"]["telegramSha"] = source_repos["telegramEnhanced"]["commit"]
     platform_values["versions"]["hostBridgeSha"] = source_repos["hostBridge"]["commit"]
-    platform_values["versions"]["isolatedDeploymentSha"] = source_repos["isolatedDeployment"]["commit"]
+    platform_values["versions"]["runtimeDistributionSha"] = source_repos["runtimeDistribution"]["commit"]
     platform_values["versions"]["platformSha"] = source_repos["platformEngineering"]["commit"]
 
     changed = []
@@ -254,9 +254,9 @@ def validate_environment_contract(
     )
     expect_equal(
         errors,
-        "deployment repo SHA in platform version values",
-        platform_versions["isolatedDeploymentSha"],
-        source_repos["isolatedDeployment"]["commit"],
+        "runtime distribution SHA in platform version values",
+        platform_versions["runtimeDistributionSha"],
+        source_repos["runtimeDistribution"]["commit"],
     )
     expect_equal(
         errors,

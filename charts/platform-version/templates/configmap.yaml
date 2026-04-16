@@ -6,5 +6,5 @@ data:
   gatewayImage: {{ .Values.versions.gatewayImage | quote }}
   telegramSha: {{ .Values.versions.telegramSha | quote }}
   hostBridgeSha: {{ .Values.versions.hostBridgeSha | quote }}
-  isolatedDeploymentSha: {{ .Values.versions.isolatedDeploymentSha | quote }}
+  runtimeDistributionSha: {{ .Values.versions.runtimeDistributionSha | quote }}
   platformSha: {{ .Values.versions.platformSha | quote }}

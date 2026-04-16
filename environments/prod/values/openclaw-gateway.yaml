@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: gateway-a2dd5b58b622
-  digest: sha256:3e64268b0e996b41ae580006c320cadcf59759c45b8b63d7a4030b20a4d6debb
+  tag: gateway-61c6f2efbd9c
+  digest: sha256:4984578563a6a0add1ff426b029225da0c9af66934efb7b0fccbe45852565468
 command:
 - node
 - dist/index.js
@@ -17,9 +17,9 @@ strategy:
   type: Recreate
 env:
   OPENCLAW_ENV: prod
-  OPENCLAW_TELEGRAM_SHA: 6cc0da02e38d8ad6e709185643d6f462be2a37b2
-  OPENCLAW_HOST_BRIDGE_SHA: 9ffa7ab79c0a3c16a38a0c7b7c4e57bcb840105d
-  OPENCLAW_PLATFORM_SHA: f3089ef1a57c77120551add4f55eb67750fdecdf
+  OPENCLAW_TELEGRAM_SHA: ccdda5a541c1ae3ad6ae84cac0c623fc12659715
+  OPENCLAW_HOST_BRIDGE_SHA: 7973aa4dc6f826053aec02e75f859f35ea52d8aa
+  OPENCLAW_PLATFORM_SHA: aa3ad01ec4834a673b8e6615fcde9d87080e9b67
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.k3s.json

@@ -7,6 +7,9 @@ OpenClaw provides the platform's AI runtime and typed host-control integration.
 This document describes how OpenClaw is expected to exist on this platform, not
 how the upstream or component source repos are implemented.
 
+For the platform-side architecture and repo boundary model, see
+[architecture-and-owner-model.md](architecture-and-owner-model.md).
+
 ## Runtime Identity
 
 - prod namespace: `openclaw`

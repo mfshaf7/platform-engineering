@@ -29,7 +29,6 @@ document:
 | `openclaw-telegram-enhanced` | Telegram behavior, delivery, approvals, channel-specific UX | source SHA in `versions.yaml` and functional stage verification | tests, package metadata, gateway logs, real Telegram checks |
 | `openclaw-host-bridge` | host policy enforcement, host-side health, audit, attestation, WSL runtime behavior | source SHA in `versions.yaml` plus host provisioning/runtime expectations | bridge `/healthz`, status script, journal, audit logs |
 | `openclaw-runtime-distribution` | active gateway composition and bundled runtime validation | current governed build input and image assembly path | verifier scripts, build checklist, packaging path, resulting digest |
-| `openclaw-isolated-deployment` | reference architecture and isolated deployment explanation | documentation and reference context only unless explicitly pinned | architecture docs, repository map, runtime-shape explanation |
 | `security-architecture` | security standards and review criteria | control expectations, not artifact input | standards, ADRs, findings, review outputs |
 
 ## Minimum Repo Documentation Contract
@@ -46,8 +45,10 @@ Every active repo should keep at least:
 3. one operator-facing or maintainer-facing workflow document when the repo owns
    a non-trivial lifecycle
 
-Reference-only repos should say they are reference-only in the README instead of
-leaving that role implicit.
+Platform-side product architecture should live under
+`platform-engineering/products/<product>/`, and security architecture should
+live under `security-architecture/`, instead of depending on a separate
+reference repo.
 
 ## Minimum Runtime Contract For Platform Consumption
 

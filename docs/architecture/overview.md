@@ -68,7 +68,8 @@ are intentionally absent until resumed.
 - product repositories such as `openclaw-telegram-enhanced`
 - host integration repositories such as `openclaw-host-bridge`
 - active image composition repositories such as `openclaw-runtime-distribution`
-- reference architecture repositories such as `openclaw-isolated-deployment`
+- product integration docs under `products/<product>/`
+- security overlays under `security-architecture`
 
 These repositories define the components that will be packaged and promoted.
 

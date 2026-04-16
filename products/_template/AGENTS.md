@@ -13,6 +13,7 @@ Document only the product-specific platform integration rules here.
 Examples:
 
 - product-local scripts and runbooks
+- product-local access and login guidance
 - product-specific release or rollout guardrails
 - product-specific visibility and operating checks
 
@@ -29,4 +30,5 @@ Examples:
 - what it does not own
 - what to read first
 - where product-local scripts and runbooks live
+- how product-local access docs stay aligned with shared platform access docs
 - product-specific guardrails that future agents must preserve

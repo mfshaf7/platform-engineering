@@ -13,6 +13,14 @@ It should stay product-neutral.
 - `runbooks/`
   - shared platform operations and platform-level procedures
 
+## Start Here For Real Operator Context
+
+If you need to understand the current live platform rather than just the
+governance model, start with:
+
+- `architecture/current-platform-topology.md`
+- `runbooks/access-platform-uis.md`
+
 ## Product-Specific Docs
 
 Product-specific runtime and operating docs belong under:

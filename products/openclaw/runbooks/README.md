@@ -7,6 +7,7 @@ are not shared platform procedures.
 
 ## Runbooks
 
+- [access-openclaw.md](access-openclaw.md)
 - [build-gateway-artifact.md](build-gateway-artifact.md)
 - [record-gateway-image.md](record-gateway-image.md)
 - [rebuild-and-promote-gateway.md](rebuild-and-promote-gateway.md)

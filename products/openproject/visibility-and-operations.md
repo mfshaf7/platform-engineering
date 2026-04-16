@@ -5,6 +5,8 @@
 - namespace: `openproject`
 - Argo application: `openproject`
 - secrets application: `openproject-secrets`
+- direct product UI: `http://127.0.0.1:32083` on the supported Windows
+  operator path
 
 ## Health And Readiness
 
@@ -23,6 +25,11 @@ Primary evidence surfaces:
 - Kubernetes pod logs
 - namespace workload status
 - localhost operator access path
+
+Use the access runbook for the current direct access model and shell-local
+fallback:
+
+- [runbooks/access-openproject.md](runbooks/access-openproject.md)
 
 ## Version And Package Evidence
 

@@ -13,6 +13,17 @@ This follows the repo's existing operator pattern:
 - fixed NodePort on the local `k3s` node
 - Windows localhost reachability refreshed by `PlatformCoreHostStack`
 
+From WSL, do not assume the same Windows localhost port is reachable inside the
+shell. If you need a shell-local endpoint, use:
+
+```bash
+k3s kubectl -n openproject port-forward svc/openproject 8080:8080
+```
+
+Then open:
+
+- `http://127.0.0.1:8080/login`
+
 ## Credentials
 
 - username: `admin`
@@ -38,10 +49,10 @@ make openproject-access
 ## Fallback
 
 If Windows localhost is not responding but the service is healthy inside the
-cluster, use the direct WSL node URL printed by:
+cluster, first use the shell-local fallback:
 
 ```bash
-make openproject-access
+k3s kubectl -n openproject port-forward svc/openproject 8080:8080
 ```
 
 Then refresh the managed Windows bootstrap path:
@@ -51,5 +62,11 @@ make render-windows-bootstrap
 powershell.exe -NoProfile -Command "Start-ScheduledTask -TaskName 'PlatformCoreHostStack'"
 ```
 
-The managed task should run the Windows-local bootstrap copy under
+If you still want the helper summary, run:
+
+```bash
+make openproject-access
+```
+
+The managed Windows task should run the Windows-local bootstrap copy under
 `%LOCALAPPDATA%\OpenClaw\bootstrap\`.

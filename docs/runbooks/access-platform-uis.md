@@ -1,43 +1,102 @@
 # Access Platform UIs
 
-The local Platform-Core host exposes the main operator surfaces on Windows
-localhost through stable NodePorts plus the managed Windows portproxy refresh.
+## Purpose
 
-Endpoints:
+This runbook defines the current operator access paths for the shared platform
+and the currently integrated products.
 
-- Argo CD: `https://127.0.0.1:32443`
-- Vault UI: `http://127.0.0.1:32200`
-- Prometheus prod: `http://127.0.0.1:32090`
-- Prometheus stage: `http://127.0.0.1:32091`
-- Alertmanager prod: `http://127.0.0.1:32093`
-- Alertmanager stage: `http://127.0.0.1:32094`
-- Grafana prod: `http://127.0.0.1:32080`
-- Grafana stage: `http://127.0.0.1:32081`
-- OpenProject: `http://127.0.0.1:32083`
+This is the practical companion to
+[../architecture/current-platform-topology.md](../architecture/current-platform-topology.md).
 
-Current credentials:
+## Supported Access Model
 
-- Operator usernames and passwords must not be stored in Git-tracked docs.
-- Retrieve the current operator username from your platform secret manager or
-  local operator credential handoff.
-- If operator access must be reissued, run
-  [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh)
-  with a freshly chosen password, then update the live secret sources outside
-  the repo.
+The supported human-operator path is Windows localhost, refreshed by the
+managed `PlatformCoreHostStack` bootstrap path.
 
-Notes:
+Important clarification:
 
-- Argo CD uses a self-signed certificate by default on the local cluster, so
-  the browser will show a certificate warning until you replace it.
-- Vault is intentionally exposed over local HTTP because the in-cluster chart
-  is running with `tlsDisable: true`; keep it on localhost only unless you add
+- `127.0.0.1:<port>` in this runbook is the Windows operator path
+- a WSL shell should not assume that the same localhost port is reachable from
+  inside WSL
+- when you need a shell-local endpoint from WSL, use the `k3s kubectl
+  port-forward` fallback shown below
+
+## Current Access Matrix
+
+| Surface | Current state | Supported Windows/operator URL | WSL shell fallback | Credential source |
+| --- | --- | --- | --- | --- |
+| Argo CD | Live | `https://127.0.0.1:32443` | `k3s kubectl -n argocd port-forward svc/argocd-server 8443:443` | Operator account provisioned by [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh) |
+| Vault UI and API | Live | `http://127.0.0.1:32200` | `k3s kubectl -n vault port-forward svc/vault-ui 8220:8200` | Same operator username/password model provisioned by [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh) |
+| Grafana prod | Live | `http://127.0.0.1:32080` | `k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80` | Vault path `kv/platform/observability/prod/grafana-admin` |
+| Prometheus prod | Live | `http://127.0.0.1:32090` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
+| Alertmanager prod | Live | `http://127.0.0.1:32093` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
+| OpenProject | Live | `http://127.0.0.1:32083` | `k3s kubectl -n openproject port-forward svc/openproject 8080:8080` | Vault path `kv/products/openproject/prod/admin` |
+| OpenClaw prod | Live | no browser UI; primary user path is Telegram | `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
+| Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
+| Prometheus stage | Not currently live | `http://127.0.0.1:32091` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9091:9090` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
+| Alertmanager stage | Not currently live | `http://127.0.0.1:32094` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9094:9093` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
+| OpenClaw stage | Not currently live | no browser UI; only exists when stage is resumed | resume stage, then use `k3s kubectl -n openclaw-stage port-forward svc/openclaw-gateway 28789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
+
+## What Is Not Directly Exposed
+
+These are intentionally not documented as direct operator UIs:
+
+- `platform-postgresql`
+  - internal-only cluster service
+- External Secrets Operator
+  - controller only, no UI
+- OpenClaw gateway
+  - health and runtime API surface only, not an end-user browser application
+
+## Credential Notes
+
+- Do not store operator usernames, passwords, or tokens in Git-tracked docs.
+- Argo CD and Vault operator access are intentionally provisioned together by
+  [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh).
+- Grafana admin credentials and operator auth-proxy credentials are sourced
+  from Vault-backed External Secrets, not from Git.
+- OpenProject admin credentials come from Vault path
+  `kv/products/openproject/prod/admin`.
+
+## Reissue Operator Access
+
+If Argo CD or Vault operator access must be reissued:
+
+1. obtain a current recovery-capable Vault token
+2. choose a fresh operator username and password
+3. run:
+
+```bash
+export VAULT_TOKEN='<current-vault-token>'
+export OPERATOR_USERNAME='<new-operator-username>'
+export OPERATOR_PASSWORD='<new-operator-password>'
+./scripts/bootstrap_operator_access.sh
+```
+
+This provisions the Vault userpass account and the matching Argo CD operator
+account without storing the credential in Git.
+
+## Quick Inventory Commands
+
+```bash
+k3s kubectl -n argocd get applications
+k3s kubectl get svc -A
+python3 products/openclaw/scripts/set_stage_environment_state.py status
+```
+
+## Product-Specific Access
+
+Use the product-local runbooks for product details:
+
+- OpenClaw: [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)
+- OpenProject: [../../products/openproject/runbooks/access-openproject.md](../../products/openproject/runbooks/access-openproject.md)
+
+## Notes
+
+- Argo CD uses a self-signed certificate by default, so browsers will warn
+  until you replace it.
+- Vault is intentionally exposed over local HTTP because the current in-cluster
+  chart is running with `tlsDisable: true`; keep it on localhost unless you add
   TLS.
-- Argo CD and Vault operator credentials are bootstrapped by
-  [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh),
-  not by a Git-tracked static secret.
-- Prometheus, Alertmanager, and Grafana operator auth must be sourced from
-  Vault-backed cluster secrets, not hard-coded in this runbook.
-- Host-side Ollama access for the gateway is refreshed by the managed Windows
-  bootstrap path. It forwards the WSL-resolved `host.docker.internal:11434`
-  address to Windows `127.0.0.1:11434`, so the gateway can keep using the
-  OpenClaw config's Ollama base URL after restarts.
+- Host-side Ollama access for OpenClaw is refreshed by the managed Windows
+  bootstrap path, not by these UI endpoints.

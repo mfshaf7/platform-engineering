@@ -12,6 +12,16 @@ The goal is to remove ambiguity about:
 - how host-integrated services are owned
 - how security and observability fit into the operating model
 
+## Start With The Real Stack
+
+This overview explains the platform model. For the concrete deployed shape and
+operator entrypoints, read these next:
+
+- [current-platform-topology.md](current-platform-topology.md)
+- [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md)
+- [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)
+- [../../products/openproject/runbooks/access-openproject.md](../../products/openproject/runbooks/access-openproject.md)
+
 ## Control Planes
 
 There are four control planes:
@@ -22,6 +32,32 @@ There are four control planes:
 | Platform control | `platform-engineering` | Approved versions, deployment manifests, standards, policy |
 | Cluster control | Argo CD + Kubernetes | Reconciliation of workloads and shared services |
 | Host control | Ansible + `systemd` + Windows bootstrap | Bridge and recovery lifecycle on the host side |
+
+## Current Live Shape
+
+The current deployed platform is a shared multi-product stack, not an
+OpenClaw-only environment.
+
+As validated on `2026-04-16`, the live cluster currently includes:
+
+- shared control plane:
+  - Argo CD
+  - Vault
+  - External Secrets Operator
+- shared observability:
+  - prod Grafana
+  - prod Prometheus
+  - prod Alertmanager
+  - platform dashboards
+- product workloads:
+  - OpenClaw prod
+  - OpenProject
+- shared product dependency:
+  - PostgreSQL
+
+Stage exists as an environment boundary, but it is suspended by default. That
+means stage namespaces can exist while stage workloads and stage observability
+are intentionally absent until resumed.
 
 ## Runtime Zones
 
@@ -53,6 +89,15 @@ Production consumes immutable artifacts from this zone.
 - product workloads
 
 This zone owns the application runtime.
+
+The current environment shape inside this zone is:
+
+- `platform-root-shared`
+  - shared control plane apps
+- `platform-root-prod`
+  - prod workloads and prod shared services
+- `platform-root-stage`
+  - stage workloads only when deliberately resumed
 
 ### 4. Host-integration zone
 

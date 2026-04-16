@@ -42,6 +42,8 @@ OpenProject yet.
 - service exposure: fixed NodePort on the local `k3s` node
 - Windows localhost reachability depends on the existing
   `PlatformCoreHostStack` bootstrap path refreshing local portproxy state
+- WSL shell-local fallback should use `k3s kubectl -n openproject port-forward`
+  rather than assuming the Windows localhost port is available in-shell
 
 ## Deferred In V1
 

@@ -13,6 +13,7 @@ OpenClaw is governed, packaged, promoted, and operated on this platform.
 - `dependencies.md`
 - `host-integration.md`
 - `visibility-and-operations.md`
+- `runbooks/access-openclaw.md`
 - `scripts/README.md`
 - `runbooks/README.md`
 
@@ -81,3 +82,17 @@ unless it is genuinely shared platform behavior.
 - A successful build is not enough after a base-image change. Re-run the
   compiled Telegram runtime smoke checks and validate real stage Telegram
   polling/reply before considering prod promotion.
+
+## Documentation Sync Rule
+
+When OpenClaw access or exposure changes, update these in the same change:
+
+- `runtime-contract.md`
+- `visibility-and-operations.md`
+- `runbooks/access-openclaw.md`
+
+If the change also affects shared operator entrypoints or stage/prod exposure,
+update:
+
+- `../../docs/architecture/current-platform-topology.md`
+- `../../docs/runbooks/access-platform-uis.md`

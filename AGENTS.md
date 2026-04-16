@@ -27,6 +27,8 @@ Current product-local agent guides:
 - `products/openclaw/AGENTS.md`
 - `products/openproject/AGENTS.md`
 
+Shared path enforcement lives in `scripts/validate_repo_structure.py`.
+
 ## Shared Vs Product-Specific Placement
 
 Keep these shared:
@@ -60,6 +62,8 @@ Product docs, scripts, and runbooks stay in:
   the platform.
 - If a workflow, script, or runbook exists only for one product, move it to
   that product directory instead of marking it as another incumbent exception.
+- Run or update `scripts/validate_repo_structure.py` when the shared-vs-product
+  boundary changes.
 
 ## Operator Surface
 

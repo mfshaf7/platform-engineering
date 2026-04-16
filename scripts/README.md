@@ -10,6 +10,7 @@ These support shared platform operations:
 - `bootstrap_vault.sh`
 - `dispatch_github_workflow_from_k3s_secret.sh`
 - `migrate_k8s_secret_to_vault.py`
+- `validate_repo_structure.py`
 
 ## Product-Specific Scripts
 

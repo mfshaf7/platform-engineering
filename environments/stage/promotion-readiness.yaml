@@ -1,28 +1,23 @@
-status: pending
+status: inactive
 requiredComponents:
 - gateway
 - secrets
 - version
 approvedAt: null
 approvedBy: null
-note: Stage lifecycle changed; active components now gateway,secrets,version. Re-approve
-  stage before promoting to prod.
+note: Stage suspended; explicit resume and approval are required before the next prod
+  promotion.
 candidateRef:
   path: environments/stage/release-candidate.yaml
-  status: candidate
-  sourceBundleRef: 5511329f03fc
-  imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
+  status: pending-build
+  sourceBundleRef: null
+  imageDigest: null
+  requiredChecks: []
 verificationRef:
   path: environments/stage/verification.yaml
   status: pending
   verifiedAt: null
-  candidateSourceBundleRef: 5511329f03fc
+  candidateSourceBundleRef: null
 approvedCandidate:
   sourceBundleRef: null
   image:

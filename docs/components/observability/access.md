@@ -42,3 +42,6 @@ Use:
 
 - [../../runbooks/access-platform-uis.md](../../runbooks/access-platform-uis.md)
 - [../../runbooks/access-grafana.md](../../runbooks/access-grafana.md)
+- [grafana.md](grafana.md)
+- [prometheus.md](prometheus.md)
+- [alertmanager.md](alertmanager.md)

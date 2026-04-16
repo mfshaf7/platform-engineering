@@ -10,6 +10,7 @@ SHARED_SCRIPT_FILES = {
     "dispatch_github_workflow_from_k3s_secret.sh",
     "migrate_k8s_secret_to_vault.py",
     "validate_governance_docs.py",
+    "validate_operational_docs.py",
     "validate_repo_structure.py",
 }
 
@@ -64,7 +65,19 @@ REQUIRED_COMPONENT_FILES = {
 }
 
 REQUIRED_GITHUB_FILES = {
+    "CODEOWNERS",
     "pull_request_template.md",
+}
+
+REQUIRED_STANDARD_FILES = {
+    "README.md",
+    "enterprise-workflow-model.md",
+    "review-and-approval-model.md",
+}
+
+REQUIRED_WORKFLOW_DOC_FILES = {
+    "README.md",
+    "TEMPLATE.md",
 }
 
 
@@ -116,6 +129,17 @@ def check_components_dir(errors: list[str], components_dir: Path) -> None:
     if missing:
         errors.append(f"{components_dir}: missing required component directories: {', '.join(missing)}")
 
+    template_dir = components_dir / "_template"
+    if not template_dir.exists():
+        errors.append(f"{template_dir}: missing shared component template directory")
+    else:
+        actual_template_files = {path.name for path in template_dir.iterdir() if path.is_file()}
+        missing_template_files = sorted(REQUIRED_COMPONENT_FILES - actual_template_files)
+        if missing_template_files:
+            errors.append(
+                f"{template_dir}: missing required component template files: {', '.join(missing_template_files)}"
+            )
+
     for component_name in sorted(REQUIRED_COMPONENT_DIRS & actual_dirs):
         component_dir = components_dir / component_name
         actual_files = {path.name for path in component_dir.iterdir() if path.is_file()}
@@ -156,6 +180,26 @@ def check_github_dir(errors: list[str], repo_root: Path) -> None:
         errors.append(f"{github_dir}: missing required governance files: {', '.join(missing)}")
 
 
+def check_standards_dir(errors: list[str], repo_root: Path) -> None:
+    standards_dir = repo_root / "docs" / "standards"
+    actual_files = {path.name for path in standards_dir.iterdir() if path.is_file()}
+    missing = sorted(REQUIRED_STANDARD_FILES - actual_files)
+    if missing:
+        errors.append(f"{standards_dir}: missing required standards files: {', '.join(missing)}")
+
+
+def check_workflows_dir(errors: list[str], repo_root: Path) -> None:
+    workflows_dir = repo_root / "docs" / "workflows"
+    if not workflows_dir.exists():
+        errors.append(f"{workflows_dir}: missing workflows docs directory")
+        return
+
+    actual_files = {path.name for path in workflows_dir.iterdir() if path.is_file()}
+    missing = sorted(REQUIRED_WORKFLOW_DOC_FILES - actual_files)
+    if missing:
+        errors.append(f"{workflows_dir}: missing required workflow doc files: {', '.join(missing)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate that platform-engineering keeps shared paths product-neutral."
@@ -181,6 +225,8 @@ def main() -> int:
     check_components_dir(errors, components_dir)
     check_governance_dirs(errors, repo_root)
     check_github_dir(errors, repo_root)
+    check_standards_dir(errors, repo_root)
+    check_workflows_dir(errors, repo_root)
 
     for product_dir in sorted(path for path in products_dir.iterdir() if path.is_dir()):
         check_product_directory(errors, product_dir)

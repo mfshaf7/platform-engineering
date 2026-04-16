@@ -8,6 +8,8 @@ and the currently integrated products.
 This is the practical companion to
 [../architecture/current-platform-topology.md](../architecture/current-platform-topology.md).
 
+Last access verification update: `2026-04-16`.
+
 ## Supported Access Model
 
 The supported human-operator path is Windows localhost, refreshed by the

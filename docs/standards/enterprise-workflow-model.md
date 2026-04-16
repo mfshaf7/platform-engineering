@@ -113,6 +113,8 @@ Every meaningful PR should declare:
 Use:
 
 - `.github/pull_request_template.md`
+- `.github/CODEOWNERS`
+- `docs/standards/review-and-approval-model.md`
 
 This is how the repo forces the author to distinguish design evidence from
 rollout evidence.

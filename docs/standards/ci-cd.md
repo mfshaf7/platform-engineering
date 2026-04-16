@@ -8,5 +8,8 @@ The platform CI/CD contract requires:
 - environment pin visibility during promotion
 - drift-check automation on a schedule
 - dedicated security posture validation
+- documented workflow entrypoints under `docs/workflows/`
+- environment-gated manual workflows for stage and prod state changes when
+  GitHub environments are configured
 
 Promotion should update environment pins, not mutate runtime directly.

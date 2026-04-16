@@ -20,6 +20,7 @@ Keep these in `docs/`:
 
 - cluster and Argo architecture
 - shared component architecture, access, and operations
+- shared GitHub workflow catalog and approval surfaces
 - Vault and secret-delivery patterns
 - host provisioning and shared host stack
 - shared standards and governance

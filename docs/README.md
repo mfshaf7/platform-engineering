@@ -12,6 +12,9 @@ It should stay product-neutral.
 - `components/`
   - shared platform components with direct links to architecture, access, and
     operations guidance
+- `workflows/`
+  - operator-facing documentation for GitHub workflow entrypoints and approval
+    surfaces
 - `standards/`
   - shared governance, release, secret, observability, and documentation rules
 - `decisions/`
@@ -30,7 +33,9 @@ governance model, start with:
 - `records/change-records/README.md`
 - `components/README.md`
 - `architecture/current-platform-topology.md`
+- `workflows/README.md`
 - `runbooks/access-platform-uis.md`
+- `standards/README.md`
 
 For meaningful PRs, also use the governance declaration in:
 

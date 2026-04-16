@@ -29,17 +29,20 @@ an Argo-managed internal service.
 - `products/openproject/runtime-contract.md`
 - `products/openproject/dependencies.md`
 - `products/openproject/secrets-and-config.md`
+- `products/openproject/runbooks/access-openproject.md`
+- `products/openproject/runbooks/bootstrap-openproject.md`
+- `products/openproject/runbooks/uninstall-openproject.md`
 - `environments/prod/platform-postgresql-secrets/*`
 - `environments/prod/argocd/platform-postgresql-secrets-app.yaml`
 - `environments/prod/argocd/platform-postgresql-app.yaml`
 - `environments/prod/openproject-secrets/*`
 - `environments/prod/argocd/openproject-secrets-app.yaml`
 - `environments/prod/argocd/openproject-app.yaml`
-- `scripts/openproject_apply.sh`
-- `scripts/openproject_status.sh`
-- `scripts/openproject_access.sh`
-- `scripts/openproject_sync_admin_password.sh`
-- `scripts/openproject_uninstall.sh`
+- `products/openproject/scripts/openproject_apply.sh`
+- `products/openproject/scripts/openproject_status.sh`
+- `products/openproject/scripts/openproject_access.sh`
+- `products/openproject/scripts/openproject_sync_admin_password.sh`
+- `products/openproject/scripts/openproject_uninstall.sh`
 
 ## Bootstrap Sequence
 

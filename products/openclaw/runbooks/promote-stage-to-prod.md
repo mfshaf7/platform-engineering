@@ -38,10 +38,10 @@ environments.
 
 ## Current Operator Inputs
 
-- [environments/stage/versions.yaml](../../environments/stage/versions.yaml)
-- [environments/prod/versions.yaml](../../environments/prod/versions.yaml)
-- [.github/workflows/promote-environment.yaml](../../.github/workflows/promote-environment.yaml)
-- [scripts/gateway_release.py](../../scripts/gateway_release.py)
+- [../../../environments/stage/versions.yaml](../../../environments/stage/versions.yaml)
+- [../../../environments/prod/versions.yaml](../../../environments/prod/versions.yaml)
+- [../../../.github/workflows/promote-environment.yaml](../../../.github/workflows/promote-environment.yaml)
+- [../scripts/gateway_release.py](../scripts/gateway_release.py)
 
 ## Stage Behavior Gate
 
@@ -64,7 +64,8 @@ prove the real operator paths:
 Stage host control now assumes an on-demand bridge instance instead of a shared
 always-on listener.
 
-- resume stage through `scripts/set_stage_environment_state.py`, not by editing
+- resume stage through
+  `products/openclaw/scripts/set_stage_environment_state.py`, not by editing
   the stage Argo kustomization by hand
 - the resume path must start `openclaw-host-bridge-stage.service` and confirm
   its health before the stage gateway is allowed back online

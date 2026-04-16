@@ -23,7 +23,7 @@ This is the default path for:
 
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
-python3 scripts/gateway_release.py pin stage
+python3 products/openclaw/scripts/gateway_release.py pin stage
 ```
 
 This helper resolves full SHAs from the local `openclaw-telegram-enhanced`,
@@ -38,7 +38,7 @@ HEAD while local uncommitted changes are present.
 
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
-python3 scripts/validate_gateway_source_bundle.py \
+python3 products/openclaw/scripts/validate_gateway_source_bundle.py \
   --telegram-repo /home/<platform-user>/projects/openclaw-telegram-enhanced \
   --deployment-repo /home/<platform-user>/projects/openclaw-runtime-distribution
 ```
@@ -59,7 +59,7 @@ gh workflow run "Build Gateway Image" \
 ```bash
 cd /home/<platform-user>/projects/platform-engineering
 PLATFORM_SHA="<platform-engineering-build-commit>"
-python3 scripts/gateway_release.py record prod \
+python3 products/openclaw/scripts/gateway_release.py record prod \
   --digest sha256:<published-digest> \
   --platform-sha "$PLATFORM_SHA"
 ```

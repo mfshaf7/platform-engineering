@@ -31,7 +31,10 @@ OpenProject is currently:
 
 ## Start Here
 
+- [AGENTS.md](AGENTS.md)
 - [runtime-contract.md](runtime-contract.md)
 - [dependencies.md](dependencies.md)
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
+- [scripts/README.md](scripts/README.md)
+- [runbooks/README.md](runbooks/README.md)

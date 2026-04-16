@@ -9,12 +9,12 @@ POSTGRES_APP_NAME="${POSTGRES_APP_NAME:-platform-postgresql}"
 POSTGRES_SECRETS_APP_NAME="${POSTGRES_SECRETS_APP_NAME:-platform-postgresql-secrets}"
 APP_NAME="${APP_NAME:-openproject}"
 SECRETS_APP_NAME="${SECRETS_APP_NAME:-openproject-secrets}"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 POSTGRES_SECRETS_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/platform-postgresql-secrets-app.yaml"
 POSTGRES_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/platform-postgresql-app.yaml"
 SECRETS_APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/openproject-secrets-app.yaml"
 APP_MANIFEST="${REPO_ROOT}/environments/prod/argocd/openproject-app.yaml"
-SYNC_ADMIN_PASSWORD_SCRIPT="${REPO_ROOT}/scripts/openproject_sync_admin_password.sh"
+SYNC_ADMIN_PASSWORD_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_sync_admin_password.sh"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then

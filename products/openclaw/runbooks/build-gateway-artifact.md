@@ -9,9 +9,9 @@ governance.
 
 The platform repo drives the build through:
 
-- [environments/stage/versions.yaml](../../environments/stage/versions.yaml)
-- [environments/prod/versions.yaml](../../environments/prod/versions.yaml)
-- [.github/workflows/build-gateway-image.yaml](../../.github/workflows/build-gateway-image.yaml)
+- [../../../environments/stage/versions.yaml](../../../environments/stage/versions.yaml)
+- [../../../environments/prod/versions.yaml](../../../environments/prod/versions.yaml)
+- [../../../.github/workflows/build-gateway-image.yaml](../../../.github/workflows/build-gateway-image.yaml)
 
 The build uses pinned SHAs from:
 
@@ -23,7 +23,7 @@ The build uses pinned SHAs from:
 
 1. read the target environment version file
 2. set or update the source pins from the actual local repo checkouts with
-   `scripts/gateway_release.py pin <env>`
+   `products/openclaw/scripts/gateway_release.py pin <env>`
    and clear any stale digest from the previous artifact candidate
 3. check out the pinned source repos
 4. stage Telegram and host-control packaged-runtime inputs from the standalone
@@ -42,7 +42,7 @@ The build uses pinned SHAs from:
 - the build path fails fast if the environment contract contains placeholder or
   invalid pinned refs
 - the build workflow now reads the computed source-bundle metadata through
-  `scripts/gateway_release.py metadata` and validates the environment
+  `products/openclaw/scripts/gateway_release.py metadata` and validates the environment
   contract before build
 - the bundled stage/prod image extends the official upstream base image
   `ghcr.io/openclaw/openclaw:latest`
@@ -79,7 +79,7 @@ operator-local memory step.
 
 - `Build Gateway Image` only creates the OCI artifact. It does not complete a prod rollout.
 - After the build succeeds, warm the exact target digest on the prod node before committing the prod contract change.
-- `python3 scripts/gateway_release.py record prod ...` performs that external pre-pull automatically unless you pass `--skip-prepull`.
+- `python3 products/openclaw/scripts/gateway_release.py record prod ...` performs that external pre-pull automatically unless you pass `--skip-prepull`.
 - `gateway_release.py record` refuses to write a digest when the supplied tag does
   not match the current deterministic source-bundle tag.
 - `prod` gateway is a single-node `hostNetwork` workload that binds host port `18789`.

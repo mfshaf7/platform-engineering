@@ -34,6 +34,8 @@ runtime rather than the shared platform:
 - product source repositories and product runbooks
 - product-specific release tooling and runtime lifecycle helpers
 - product-specific visibility, audit, and verification guidance
+- product-specific operator scripts and helper modules under
+  `products/<product>/scripts/`
 
 ## Decision Rule
 
@@ -50,8 +52,7 @@ Use this test before naming or adding a new component:
 - shared control-plane assets live under the platform roots, charts,
   environments, and shared runbooks
 - product-specific integration contracts live under `products/<product>/`
-- top-level docs and scripts should be product-neutral unless explicitly marked
-  as product-specific incumbent paths
+- top-level docs and scripts should be product-neutral
 
 ## Current Product Contract Pattern
 
@@ -64,6 +65,7 @@ Each product directory should capture:
 - secret path and deployment expectations
 - visibility and operational evidence surfaces
 - product-specific runbook entrypoints, if any
+- product-local operator script entrypoints, if any
 
 Use [products/_template/README.md](../../products/_template/README.md) as the
 starting point for a new product.

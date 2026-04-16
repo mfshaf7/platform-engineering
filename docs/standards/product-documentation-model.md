@@ -36,6 +36,9 @@ Keep these in `products/<product>/`:
 - host integration, if any
 - visibility and operations guidance
 - product-specific release or verification workflow
+- product-specific operator scripts and helper modules under
+  `products/<product>/scripts/`
+- product-specific runbooks under `products/<product>/runbooks/`
 
 ## Script Classification
 
@@ -45,19 +48,16 @@ Top-level scripts should be one of:
 2. internal helper module
 3. explicitly product-specific
 
-If a script is product-specific, the docs should say so explicitly.
+If a script is product-specific, it should live under the owning product
+directory instead of the shared `scripts/` tree.
 
 Future direction:
 
 - reusable platform scripts stay at `scripts/`
-- product-specific operator entrypoints should either be clearly prefixed or
-  documented from the matching `products/<product>/` directory
+- product-specific operator entrypoints and helper modules live under
+  `products/<product>/scripts/`
 
 ## Incumbent Product-Specific Material
-
-When the shared platform already contains product-specific material from the
-first integrated product, mark it as incumbent and avoid repeating that pattern
-for future products.
 
 Do not let “current reality” silently become “future standard.”
 
@@ -69,9 +69,12 @@ Each product should have at least:
 - `runtime-contract.md`
 - `dependencies.md`
 - `visibility-and-operations.md`
+- `AGENTS.md` when the product needs product-local operator guidance
 
 Optional depending on the product:
 
 - `host-integration.md`
 - `secrets-and-config.md`
 - product-specific runbooks or workflow docs
+- `scripts/README.md`
+- `runbooks/README.md`

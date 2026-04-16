@@ -40,6 +40,7 @@ Current product-local agent guides:
 - `products/openproject/AGENTS.md`
 
 Shared path enforcement lives in `scripts/validate_repo_structure.py`.
+The declarative structure contract lives in `repo-structure-manifest.yaml`.
 
 Security review inputs and trust-boundary expectations are owned in
 `security-architecture/`. Use that repo's review outputs and standards instead

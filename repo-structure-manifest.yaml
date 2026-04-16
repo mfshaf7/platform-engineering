@@ -1,0 +1,115 @@
+schema_version: 1
+shared_paths:
+  scripts:
+    exact_files:
+      - README.md
+      - bootstrap_operator_access.sh
+      - bootstrap_vault.sh
+      - dispatch_github_workflow_from_k3s_secret.sh
+      - migrate_k8s_secret_to_vault.py
+      - validate_governance_docs.py
+      - validate_operational_docs.py
+      - validate_repo_structure.py
+  docs/runbooks:
+    exact_files:
+      - README.md
+      - access-grafana.md
+      - access-platform-uis.md
+      - bootstrap-k3s.md
+      - bootstrap-transit-vault-temporary-trust.md
+      - bootstrap-transit-vault.md
+      - bootstrap-vault.md
+      - bootstrap-windows-rooted-vault-auto-unseal.md
+      - bootstrap-wsl-distro.md
+      - bootstrap.md
+      - deploy.md
+      - host-runtime-drift-recovery.md
+      - host-stack-rollout.md
+      - incident-hotfix.md
+      - migrate-to-platform-core.md
+      - platform-naming-audit.md
+      - restart-validation.md
+      - rollback.md
+      - vault-auto-unseal.md
+      - vault-backup-restore.md
+      - vault-recovery.md
+      - vault-secret-rotation.md
+    allowed_subdirectories: []
+governance:
+  required_files:
+    .github:
+      - CODEOWNERS
+      - pull_request_template.md
+    docs/standards:
+      - README.md
+      - enterprise-workflow-model.md
+      - review-and-approval-model.md
+    docs/workflows:
+      - README.md
+      - TEMPLATE.md
+    docs/decisions:
+      - README.md
+    docs/decisions/adr:
+      - README.md
+      - TEMPLATE.md
+    docs/records:
+      - README.md
+    docs/records/change-records:
+      - README.md
+      - TEMPLATE.md
+components:
+  root: docs/components
+  required_root_files:
+    - README.md
+  template_directory: _template
+  template_required_files:
+    - README.md
+    - architecture.md
+    - access.md
+    - operations.md
+  required_directories:
+    argo-cd:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+    vault:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+    observability:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+    external-secrets:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+    platform-postgresql:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+products:
+  root: products
+  required_files:
+    - AGENTS.md
+    - README.md
+    - dependencies.md
+    - runtime-contract.md
+    - visibility-and-operations.md
+  optional_subdirectories:
+    scripts:
+      required_files:
+        - README.md
+    runbooks:
+      required_files:
+        - README.md

@@ -2,83 +2,10 @@
 import argparse
 from pathlib import Path
 
+import yaml
 
-SHARED_SCRIPT_FILES = {
-    "README.md",
-    "bootstrap_operator_access.sh",
-    "bootstrap_vault.sh",
-    "dispatch_github_workflow_from_k3s_secret.sh",
-    "migrate_k8s_secret_to_vault.py",
-    "validate_governance_docs.py",
-    "validate_operational_docs.py",
-    "validate_repo_structure.py",
-}
 
-SHARED_RUNBOOK_FILES = {
-    "README.md",
-    "access-grafana.md",
-    "access-platform-uis.md",
-    "bootstrap-k3s.md",
-    "bootstrap-transit-vault-temporary-trust.md",
-    "bootstrap-transit-vault.md",
-    "bootstrap-vault.md",
-    "bootstrap-windows-rooted-vault-auto-unseal.md",
-    "bootstrap-wsl-distro.md",
-    "bootstrap.md",
-    "deploy.md",
-    "host-runtime-drift-recovery.md",
-    "host-stack-rollout.md",
-    "incident-hotfix.md",
-    "migrate-to-platform-core.md",
-    "platform-naming-audit.md",
-    "restart-validation.md",
-    "rollback.md",
-    "vault-auto-unseal.md",
-    "vault-backup-restore.md",
-    "vault-recovery.md",
-    "vault-secret-rotation.md",
-}
-
-ALLOWED_RUNBOOK_SUBDIRS: set[str] = set()
-
-REQUIRED_PRODUCT_FILES = {
-    "AGENTS.md",
-    "README.md",
-    "dependencies.md",
-    "runtime-contract.md",
-    "visibility-and-operations.md",
-}
-
-REQUIRED_COMPONENT_DIRS = {
-    "argo-cd",
-    "vault",
-    "observability",
-    "external-secrets",
-    "platform-postgresql",
-}
-
-REQUIRED_COMPONENT_FILES = {
-    "README.md",
-    "architecture.md",
-    "access.md",
-    "operations.md",
-}
-
-REQUIRED_GITHUB_FILES = {
-    "CODEOWNERS",
-    "pull_request_template.md",
-}
-
-REQUIRED_STANDARD_FILES = {
-    "README.md",
-    "enterprise-workflow-model.md",
-    "review-and-approval-model.md",
-}
-
-REQUIRED_WORKFLOW_DOC_FILES = {
-    "README.md",
-    "TEMPLATE.md",
-}
+MANIFEST_FILE = "repo-structure-manifest.yaml"
 
 
 def check_exact_files(errors: list[str], directory: Path, expected_files: set[str]) -> None:
@@ -91,113 +18,85 @@ def check_exact_files(errors: list[str], directory: Path, expected_files: set[st
         errors.append(f"{directory}: unexpected files in shared path: {', '.join(unexpected)}")
 
 
-def check_runbooks_dir(errors: list[str], directory: Path) -> None:
-    check_exact_files(errors, directory, SHARED_RUNBOOK_FILES)
+def load_manifest(repo_root: Path) -> dict:
+    manifest_path = repo_root / MANIFEST_FILE
+    return yaml.safe_load(manifest_path.read_text())
+
+
+def check_runbooks_dir(errors: list[str], directory: Path, config: dict) -> None:
+    check_exact_files(errors, directory, set(config["exact_files"]))
     actual_dirs = {path.name for path in directory.iterdir() if path.is_dir()}
-    unexpected_dirs = sorted(actual_dirs - ALLOWED_RUNBOOK_SUBDIRS)
+    unexpected_dirs = sorted(actual_dirs - set(config.get("allowed_subdirectories", [])))
     if unexpected_dirs:
         errors.append(
             f"{directory}: unexpected subdirectories in shared runbooks path: {', '.join(unexpected_dirs)}"
         )
 
 
-def check_product_directory(errors: list[str], product_dir: Path) -> None:
+def check_product_directory(errors: list[str], product_dir: Path, config: dict) -> None:
     actual_files = {path.name for path in product_dir.iterdir() if path.is_file()}
-    missing = sorted(REQUIRED_PRODUCT_FILES - actual_files)
+    missing = sorted(set(config["required_files"]) - actual_files)
     if missing:
         errors.append(f"{product_dir}: missing required product files: {', '.join(missing)}")
 
-    scripts_dir = product_dir / "scripts"
-    if scripts_dir.exists() and not (scripts_dir / "README.md").exists():
-        errors.append(f"{scripts_dir}: missing README.md")
+    for subdir_name, subdir_config in config.get("optional_subdirectories", {}).items():
+        subdir = product_dir / subdir_name
+        if not subdir.exists():
+            continue
+        actual_subdir_files = {path.name for path in subdir.iterdir() if path.is_file()}
+        missing_subdir_files = sorted(set(subdir_config["required_files"]) - actual_subdir_files)
+        if missing_subdir_files:
+            errors.append(
+                f"{subdir}: missing required files: {', '.join(missing_subdir_files)}"
+            )
 
-    runbooks_dir = product_dir / "runbooks"
-    if runbooks_dir.exists() and not (runbooks_dir / "README.md").exists():
-        errors.append(f"{runbooks_dir}: missing README.md")
 
-
-def check_components_dir(errors: list[str], components_dir: Path) -> None:
+def check_components_dir(errors: list[str], components_dir: Path, config: dict) -> None:
     if not components_dir.exists():
         errors.append(f"{components_dir}: missing shared components docs directory")
         return
 
-    if not (components_dir / "README.md").exists():
-        errors.append(f"{components_dir}: missing README.md")
+    for required_file in config["required_root_files"]:
+        if not (components_dir / required_file).exists():
+            errors.append(f"{components_dir}: missing {required_file}")
 
     actual_dirs = {path.name for path in components_dir.iterdir() if path.is_dir()}
-    missing = sorted(REQUIRED_COMPONENT_DIRS - actual_dirs)
+    required_component_dirs = set(config["required_directories"])
+    missing = sorted(required_component_dirs - actual_dirs)
     if missing:
         errors.append(f"{components_dir}: missing required component directories: {', '.join(missing)}")
 
-    template_dir = components_dir / "_template"
+    template_dir = components_dir / config["template_directory"]
     if not template_dir.exists():
         errors.append(f"{template_dir}: missing shared component template directory")
     else:
         actual_template_files = {path.name for path in template_dir.iterdir() if path.is_file()}
-        missing_template_files = sorted(REQUIRED_COMPONENT_FILES - actual_template_files)
+        missing_template_files = sorted(set(config["template_required_files"]) - actual_template_files)
         if missing_template_files:
             errors.append(
                 f"{template_dir}: missing required component template files: {', '.join(missing_template_files)}"
             )
 
-    for component_name in sorted(REQUIRED_COMPONENT_DIRS & actual_dirs):
+    for component_name in sorted(required_component_dirs & actual_dirs):
         component_dir = components_dir / component_name
         actual_files = {path.name for path in component_dir.iterdir() if path.is_file()}
-        missing_files = sorted(REQUIRED_COMPONENT_FILES - actual_files)
+        missing_files = sorted(
+            set(config["required_directories"][component_name]["required_files"]) - actual_files
+        )
         if missing_files:
             errors.append(f"{component_dir}: missing required component files: {', '.join(missing_files)}")
 
 
-def check_governance_dirs(errors: list[str], repo_root: Path) -> None:
-    decisions_dir = repo_root / "docs" / "decisions"
-    adr_dir = decisions_dir / "adr"
-    records_dir = repo_root / "docs" / "records"
-    change_records_dir = records_dir / "change-records"
-
-    if not (decisions_dir / "README.md").exists():
-        errors.append(f"{decisions_dir}: missing README.md")
-    if not (adr_dir / "README.md").exists():
-        errors.append(f"{adr_dir}: missing README.md")
-    if not (adr_dir / "TEMPLATE.md").exists():
-        errors.append(f"{adr_dir}: missing TEMPLATE.md")
-
-    if not (records_dir / "README.md").exists():
-        errors.append(f"{records_dir}: missing README.md")
-    if not (change_records_dir / "README.md").exists():
-        errors.append(f"{change_records_dir}: missing README.md")
-    if not (change_records_dir / "TEMPLATE.md").exists():
-        errors.append(f"{change_records_dir}: missing TEMPLATE.md")
-
-
-def check_github_dir(errors: list[str], repo_root: Path) -> None:
-    github_dir = repo_root / ".github"
-    if not github_dir.exists():
-        errors.append(f"{github_dir}: missing .github directory")
-        return
-    actual_files = {path.name for path in github_dir.iterdir() if path.is_file()}
-    missing = sorted(REQUIRED_GITHUB_FILES - actual_files)
-    if missing:
-        errors.append(f"{github_dir}: missing required governance files: {', '.join(missing)}")
-
-
-def check_standards_dir(errors: list[str], repo_root: Path) -> None:
-    standards_dir = repo_root / "docs" / "standards"
-    actual_files = {path.name for path in standards_dir.iterdir() if path.is_file()}
-    missing = sorted(REQUIRED_STANDARD_FILES - actual_files)
-    if missing:
-        errors.append(f"{standards_dir}: missing required standards files: {', '.join(missing)}")
-
-
-def check_workflows_dir(errors: list[str], repo_root: Path) -> None:
-    workflows_dir = repo_root / "docs" / "workflows"
-    if not workflows_dir.exists():
-        errors.append(f"{workflows_dir}: missing workflows docs directory")
-        return
-
-    actual_files = {path.name for path in workflows_dir.iterdir() if path.is_file()}
-    missing = sorted(REQUIRED_WORKFLOW_DOC_FILES - actual_files)
-    if missing:
-        errors.append(f"{workflows_dir}: missing required workflow doc files: {', '.join(missing)}")
+def check_required_files_map(errors: list[str], repo_root: Path, required_files_map: dict) -> None:
+    for rel_dir, required_files in required_files_map.items():
+        target_dir = repo_root / rel_dir
+        if not target_dir.exists():
+            errors.append(f"{target_dir}: missing required directory")
+            continue
+        actual_files = {path.name for path in target_dir.iterdir() if path.is_file()}
+        missing = sorted(set(required_files) - actual_files)
+        if missing:
+            errors.append(f"{target_dir}: missing required files: {', '.join(missing)}")
 
 
 def main() -> int:
@@ -213,31 +112,29 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = args.repo_root.resolve()
+    manifest = load_manifest(repo_root)
     errors: list[str] = []
 
     scripts_dir = repo_root / "scripts"
     runbooks_dir = repo_root / "docs" / "runbooks"
-    components_dir = repo_root / "docs" / "components"
-    products_dir = repo_root / "products"
+    components_dir = repo_root / manifest["components"]["root"]
+    products_dir = repo_root / manifest["products"]["root"]
 
-    check_exact_files(errors, scripts_dir, SHARED_SCRIPT_FILES)
-    check_runbooks_dir(errors, runbooks_dir)
-    check_components_dir(errors, components_dir)
-    check_governance_dirs(errors, repo_root)
-    check_github_dir(errors, repo_root)
-    check_standards_dir(errors, repo_root)
-    check_workflows_dir(errors, repo_root)
+    check_exact_files(errors, scripts_dir, set(manifest["shared_paths"]["scripts"]["exact_files"]))
+    check_runbooks_dir(errors, runbooks_dir, manifest["shared_paths"]["docs/runbooks"])
+    check_components_dir(errors, components_dir, manifest["components"])
+    check_required_files_map(errors, repo_root, manifest["governance"]["required_files"])
 
     for product_dir in sorted(path for path in products_dir.iterdir() if path.is_dir()):
-        check_product_directory(errors, product_dir)
+        check_product_directory(errors, product_dir, manifest["products"])
 
     if errors:
         raise SystemExit("\n".join(errors))
 
     print(
         "platform-engineering structure valid: "
-        f"shared_scripts={len(SHARED_SCRIPT_FILES)} "
-        f"shared_runbooks={len(SHARED_RUNBOOK_FILES)} "
+        f"shared_scripts={len(manifest['shared_paths']['scripts']['exact_files'])} "
+        f"shared_runbooks={len(manifest['shared_paths']['docs/runbooks']['exact_files'])} "
         f"products={len([path for path in products_dir.iterdir() if path.is_dir()])}"
     )
     return 0

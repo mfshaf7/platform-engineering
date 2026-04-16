@@ -2,12 +2,14 @@ schemaVersion: 1
 product: openclaw
 environment: stage
 status: recorded
-verifiedAt: '2026-04-16T23:09:06Z'
+verifiedAt: '2026-04-16T23:21:01Z'
 verifiedBy: mfshaf7
-evidenceRef: k8s://openclaw-stage/pod/openclaw-gateway-84599bdfc6-jnsgk?overlayDigest=sha256:9c99823aeb17c2b7ab66f9a800000dc6707a9d979e32af30c1c532857e0492c0&workflowRun=24538400513
-note: Overlay candidate mounted and runtime started cleanly; bridge-dependent and
-  real Telegram checks remain blocked because the local stage bridge is not reachable
-  from this session.
+evidenceRef: k8s://openclaw-stage/pod/openclaw-gateway-84599bdfc6-jnsgk?overlayDigest=sha256:9c99823aeb17c2b7ab66f9a800000dc6707a9d979e32af30c1c532857e0492c0&workflowRun=24538400513&auditIds=fb5e3555-5b38-4588-a404-5843bdf21b81,ce77422d-a274-4510-913b-fa5fa37b2381,e2dde2ef-ef16-40e8-a520-d748422def8a,4678bb83-ff6b-414f-9213-61fe6b65a345,511dd5be-08d3-4e3e-a280-e841caf38336,af02e9a8-7955-4290-9ff1-9cf64295d9ff,ff0fb03f-afe6-4a40-8d92-8a4bffc83545
+note: Overlay candidate mounted and runtime started cleanly. The repo-owned stage
+  bridge wrapper is healthy again, typed privileged posture checks succeeded, and
+  fresh staged file plus screenshot artifacts are visible inside the stage pod. Real
+  Telegram round-trip evidence is still required before primary-user-path, artifact-delivery,
+  or screenshot-delivery can pass.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
@@ -25,7 +27,7 @@ checks:
 - id: primary-user-path
   status: blocked
 - id: privileged-path-posture
-  status: blocked
+  status: passed
 - id: runtime-start
   status: passed
 - id: screenshot-delivery

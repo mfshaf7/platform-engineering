@@ -15,6 +15,9 @@
 
 - Keep `stage` suspended by default in source control.
 - Resume only the components you are actively testing. Normal gateway rehearsal should use `gateway,version`, which activates `gateway + secrets + version`.
+- Resume stage through `scripts/set_stage_environment_state.py`, which now owns
+  the on-demand stage bridge lifecycle as well as the stage Argo kustomization.
+- The stage bridge should not be left running while stage is suspended.
 - Any stage lifecycle change resets promotion readiness. Treat every resume, suspend, or stage contract edit as a new approval boundary.
 - Prod promotion must fail closed unless `python3 scripts/gateway_release.py readiness validate` passes against the current stage candidate.
 - Use `Confirm Stage Promotion Readiness` only after stage testing is complete and the current candidate is explicitly approved for prod.

@@ -58,3 +58,16 @@ prove the real operator paths:
 - if stage and prod intentionally share Telegram groups or topics, the startup
   backlog policy must be explicit so the promoted bot does not replay buffered
   traffic when it comes online
+
+## Stage Bridge Lifecycle
+
+Stage host control now assumes an on-demand bridge instance instead of a shared
+always-on listener.
+
+- resume stage through `scripts/set_stage_environment_state.py`, not by editing
+  the stage Argo kustomization by hand
+- the resume path must start `openclaw-host-bridge-stage.service` and confirm
+  its health before the stage gateway is allowed back online
+- the suspend path should stop `openclaw-host-bridge-stage.service` after the
+  stage gateway is removed
+- prod steady state should keep only the prod bridge listener online

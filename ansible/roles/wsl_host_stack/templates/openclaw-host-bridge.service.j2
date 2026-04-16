@@ -7,10 +7,10 @@ Wants=network-online.target
 Type=simple
 User={{ openclaw_bridge_user }}
 WorkingDirectory={{ openclaw_host_bridge_root }}
-EnvironmentFile=/etc/openclaw/host-bridge/openclaw-host-bridge.env
+EnvironmentFile={{ bridge_env_file_path }}
 ExecStart={{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-bridge-supervisor.sh
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy={{ openclaw_stack_target_name }}
+WantedBy={{ bridge_wanted_by }}

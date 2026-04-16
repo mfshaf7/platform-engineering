@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 import argparse
+import json
+import os
 from pathlib import Path
+import subprocess
+import time
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from stage_readiness import reset_stage_promotion_readiness
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
+DEFAULT_STAGE_BRIDGE_SERVICE_NAME = "openclaw-host-bridge-stage.service"
+DEFAULT_STAGE_BRIDGE_HEALTH_URL = "http://127.0.0.1:48731/healthz"
+DEFAULT_STAGE_GATEWAY_BRIDGE_URL = "http://172.27.88.8:48731"
 
 COMPONENT_RESOURCE_MAP = {
     "gateway": "openclaw-gateway-app.yaml",
@@ -25,6 +34,112 @@ for component, dependencies in COMPONENT_DEPENDENCIES.items():
         REVERSE_COMPONENT_DEPENDENCIES.setdefault(dependency, set()).add(component)
 
 RESOURCE_COMPONENT_MAP = {resource: component for component, resource in COMPONENT_RESOURCE_MAP.items()}
+
+
+def stage_bridge_service_name() -> str:
+    return os.environ.get("OPENCLAW_STAGE_BRIDGE_SERVICE_NAME", DEFAULT_STAGE_BRIDGE_SERVICE_NAME)
+
+
+def stage_bridge_health_url() -> str:
+    return os.environ.get("OPENCLAW_STAGE_BRIDGE_HEALTH_URL", DEFAULT_STAGE_BRIDGE_HEALTH_URL)
+
+
+def stage_gateway_bridge_url() -> str:
+    return os.environ.get("OPENCLAW_STAGE_GATEWAY_BRIDGE_URL", DEFAULT_STAGE_GATEWAY_BRIDGE_URL)
+
+
+def stage_bridge_policy_path(repo_root: Path) -> Path:
+    override = os.environ.get("OPENCLAW_STAGE_BRIDGE_POLICY_PATH")
+    if override:
+        return Path(override).expanduser()
+    return repo_root.parent / "openclaw-host-bridge" / "config" / "policy.stage.local.json"
+
+
+def stage_openclaw_config_path() -> Path:
+    override = os.environ.get("OPENCLAW_STAGE_OPENCLAW_CONFIG_PATH")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".openclaw-stage" / "openclaw.stage.k3s.json"
+
+
+def run_systemctl(*args: str, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+    command = ["systemctl", *args]
+    if os.geteuid() != 0:
+        command = ["sudo", *command]
+    return subprocess.run(
+        command,
+        check=True,
+        text=True,
+        capture_output=capture_output,
+    )
+
+
+def validate_stage_bridge_inputs(repo_root: Path) -> None:
+    policy_path = stage_bridge_policy_path(repo_root)
+    config_path = stage_openclaw_config_path()
+    if not policy_path.exists():
+        raise SystemExit(
+            f"missing stage bridge policy file: {policy_path}. "
+            "Create the local stage bridge policy before resuming the stage gateway."
+        )
+    if not config_path.exists():
+        raise SystemExit(
+            f"missing stage OpenClaw config: {config_path}. "
+            "Create the local stage config before resuming the stage gateway."
+        )
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    bridge_url = (
+        ((config.get("plugins") or {}).get("entries") or {}).get("host-control") or {}
+    ).get("config", {}).get("bridgeUrl")
+    expected = stage_gateway_bridge_url()
+    if bridge_url != expected:
+        raise SystemExit(
+            f"stage host-control bridgeUrl mismatch in {config_path}: "
+            f"expected {expected!r}, got {bridge_url!r}"
+        )
+
+
+def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    health_url = stage_bridge_health_url()
+    expected_service = stage_bridge_service_name()
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            result = run_systemctl("is-active", expected_service, capture_output=True)
+            if result.stdout.strip() != "active":
+                last_error = f"{expected_service} is {result.stdout.strip() or 'inactive'}"
+                time.sleep(1)
+                continue
+        except subprocess.CalledProcessError as exc:
+            last_error = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+            time.sleep(1)
+            continue
+
+        try:
+            with urlopen(health_url, timeout=2) as response:
+                payload = json.load(response)
+            if payload.get("ok") is True:
+                return
+            last_error = f"{health_url} returned ok={payload.get('ok')!r}"
+        except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_error = str(exc)
+        time.sleep(1)
+
+    raise SystemExit(
+        f"stage bridge failed to become healthy at {health_url} within {timeout_seconds}s: {last_error}"
+    )
+
+
+def ensure_stage_bridge_running(repo_root: Path) -> None:
+    validate_stage_bridge_inputs(repo_root)
+    run_systemctl("start", stage_bridge_service_name())
+    wait_for_stage_bridge_ready()
+
+
+def ensure_stage_bridge_stopped() -> None:
+    run_systemctl("stop", stage_bridge_service_name())
 
 
 def discover_stage_resources(stage_argocd_root: Path) -> list[str]:
@@ -167,30 +282,48 @@ def main() -> int:
     if not desired_resources:
         desired_resources = [SUSPEND_SENTINEL]
 
-    if current_resources == desired_resources:
+    current_gateway_active = "gateway" in current_components
+    desired_gateway_active = "gateway" in desired_components
+
+    if args.state == "resume" and desired_gateway_active:
+        ensure_stage_bridge_running(args.repo_root)
+
+    changed = current_resources != desired_resources
+    if changed:
+        write_kustomization(kustomization_path, desired_resources)
+
+        active = ",".join(sorted(desired_components)) or "none"
+        if desired_resources == [SUSPEND_SENTINEL]:
+            reset_stage_promotion_readiness(
+                args.repo_root,
+                status="inactive",
+                note="Stage suspended; explicit resume and approval are required before the next prod promotion.",
+            )
+        else:
+            reset_stage_promotion_readiness(
+                args.repo_root,
+                status="pending",
+                note=f"Stage lifecycle changed; active components now {active}. Re-approve stage before promoting to prod.",
+            )
+
+    if args.state == "suspend" and not desired_gateway_active:
+        ensure_stage_bridge_stopped()
+
+    if not changed:
         scope = ",".join(sorted(affected_components)) or "none"
-        print(f"Stage components already {args.state}d for {scope}")
+        bridge_note = ""
+        if args.state == "resume" and desired_gateway_active:
+            bridge_note = f" stage_bridge={stage_bridge_service_name()}:active"
+        elif args.state == "suspend" and not desired_gateway_active:
+            bridge_note = f" stage_bridge={stage_bridge_service_name()}:stopped"
+        print(f"Stage components already {args.state}d for {scope}{bridge_note}")
         return 0
 
-    write_kustomization(kustomization_path, desired_resources)
-
     active = ",".join(sorted(desired_components)) or "none"
-    if desired_resources == [SUSPEND_SENTINEL]:
-        reset_stage_promotion_readiness(
-            args.repo_root,
-            status="inactive",
-            note="Stage suspended; explicit resume and approval are required before the next prod promotion.",
-        )
-    else:
-        reset_stage_promotion_readiness(
-            args.repo_root,
-            status="pending",
-            note=f"Stage lifecycle changed; active components now {active}. Re-approve stage before promoting to prod.",
-        )
-
     print(
         f"Stage state={args.state} target={','.join(sorted(requested_components))} "
-        f"active={active} resources={len(desired_resources)}"
+        f"active={active} resources={len(desired_resources)} "
+        f"stage_bridge={'active' if desired_gateway_active else 'stopped'}"
     )
     return 0
 

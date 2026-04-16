@@ -4,6 +4,11 @@
 
 Accepted
 
+## Supersession Note
+
+ADR-006 partially supersedes this ADR for the old
+`openclaw-isolated-deployment` reference-architecture role.
+
 ## Context
 
 Recent production fixes exposed repeated ambiguity about where changes belong:
@@ -23,10 +28,12 @@ Define source-of-truth boundaries as follows:
   - owns Telegram/plugin behavior and Telegram-side tests
 - `openclaw-runtime-distribution`
   - owns the current governed bundled runtime composition and tracked workspace templates required inside the deployed image
-- `openclaw-isolated-deployment`
-  - owns the isolated deployment reference architecture, guidance, and model-scoped reference copies
 - `platform-engineering`
-  - owns environment pins, source-bundle validation, build workflow policy, digest recording, and Argo promotion
+  - owns environment pins, source-bundle validation, build workflow policy,
+    digest recording, Argo promotion, and platform-side OpenClaw product
+    architecture
+- `security-architecture`
+  - owns OpenClaw trust-boundary rationale and security architecture overlays
 - host/runtime environment
   - owns Windows, WSL, k3s, Ollama, firewall, and portproxy state
 

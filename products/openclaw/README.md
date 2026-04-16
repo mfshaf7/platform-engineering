@@ -13,6 +13,7 @@ Instead, it explains how OpenClaw uses the shared platform.
 ## What This Directory Covers
 
 - OpenClaw runtime contract on the platform
+- OpenClaw platform-side architecture and owner model
 - product dependencies
 - host integration shape
 - product visibility and operating checks
@@ -36,6 +37,7 @@ this product directory so the shared platform layer stays product-neutral.
 ## Start Here
 
 - [AGENTS.md](AGENTS.md)
+- [architecture-and-owner-model.md](architecture-and-owner-model.md)
 - [runtime-contract.md](runtime-contract.md)
 - [dependencies.md](dependencies.md)
 - [host-integration.md](host-integration.md)

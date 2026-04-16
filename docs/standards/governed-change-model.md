@@ -32,8 +32,8 @@ Emergency runtime edits are containment only. They must be:
 | --- | --- | --- |
 | Product or integration source | `openclaw-telegram-enhanced`, `openclaw-host-bridge`, active plugin owner | Telegram behavior, host enforcement, plugin packaging |
 | Runtime composition | `openclaw-runtime-distribution` | bundled runtime assembly, packaging inputs, distribution validation |
+| Platform product architecture | `platform-engineering/products/<product>` | product integration contract, platform-side architecture, operator workflow |
 | Platform approval and rollout | `platform-engineering` | pins, digests, promotion, Argo reconciliation, host provisioning |
-| Reference architecture | `openclaw-isolated-deployment` | model explanation, deployment rationale, reference copies |
 | Security governance | `security-architecture` | standards, review criteria, risk framing, ADRs |
 | Live host environment | WSL/Windows host owner path, captured by `platform-engineering` runbooks | systemd services, Windows tasks, firewall, port forwarding |
 

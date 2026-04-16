@@ -9,6 +9,7 @@ OpenClaw is governed, packaged, promoted, and operated on this platform.
 ## Read First
 
 - `README.md`
+- `architecture-and-owner-model.md`
 - `runtime-contract.md`
 - `dependencies.md`
 - `host-integration.md`
@@ -21,6 +22,7 @@ OpenClaw is governed, packaged, promoted, and operated on this platform.
 
 Keep OpenClaw-specific platform material here:
 
+- architecture and owner-model docs
 - release runbooks
 - product-scoped operator scripts
 - product visibility and operating checks

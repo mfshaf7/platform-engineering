@@ -49,7 +49,6 @@ Legacy repo migration into `Platform-Core` is also complete:
 
 - `/home/<platform-user>/projects/openclaw-host-bridge` is present
 - `/home/<platform-user>/projects/openclaw-runtime-distribution` is present
-- `/home/<platform-user>/projects/openclaw-isolated-deployment` is present
 - `/home/<platform-user>/projects/openclaw-telegram-enhanced` is present
 - `/home/<platform-user>/projects/platform-engineering` is present as a clean clone of
   the pushed authoritative repo state
@@ -60,8 +59,9 @@ Current repo intent after migration:
 
 - `openclaw-runtime-distribution` is the active governed stage/prod build and
   composition repo
-- `openclaw-isolated-deployment` remains the reference architecture and
-  isolated-model documentation repo
+- `platform-engineering/products/openclaw` is the platform-side OpenClaw
+  architecture and operating-model owner
+- `security-architecture` carries the current OpenClaw security architecture
 
 The next intended migration step is:
 

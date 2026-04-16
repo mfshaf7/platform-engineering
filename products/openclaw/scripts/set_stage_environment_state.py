@@ -246,6 +246,14 @@ def main() -> int:
         type=Path,
         help="Repository root",
     )
+    parser.add_argument(
+        "--skip-bridge-control",
+        action="store_true",
+        help=(
+            "Only change Git-managed stage lifecycle state. "
+            "Skip local stage bridge service start/stop, for example in GitHub Actions."
+        ),
+    )
     args = parser.parse_args()
 
     stage_argocd_root = args.repo_root / "environments" / "stage" / "argocd"
@@ -285,7 +293,7 @@ def main() -> int:
     current_gateway_active = "gateway" in current_components
     desired_gateway_active = "gateway" in desired_components
 
-    if args.state == "resume" and desired_gateway_active:
+    if args.state == "resume" and desired_gateway_active and not args.skip_bridge_control:
         ensure_stage_bridge_running(args.repo_root)
 
     changed = current_resources != desired_resources
@@ -316,13 +324,15 @@ def main() -> int:
                 note=f"Stage lifecycle changed; active components now {active}. Re-approve stage before promoting to prod.",
             )
 
-    if args.state == "suspend" and not desired_gateway_active:
+    if args.state == "suspend" and not desired_gateway_active and not args.skip_bridge_control:
         ensure_stage_bridge_stopped()
 
     if not changed:
         scope = ",".join(sorted(affected_components)) or "none"
         bridge_note = ""
-        if args.state == "resume" and desired_gateway_active:
+        if args.skip_bridge_control and desired_gateway_active:
+            bridge_note = " stage_bridge=skipped"
+        elif args.state == "resume" and desired_gateway_active:
             bridge_note = f" stage_bridge={stage_bridge_service_name()}:active"
         elif args.state == "suspend" and not desired_gateway_active:
             bridge_note = f" stage_bridge={stage_bridge_service_name()}:stopped"
@@ -333,7 +343,7 @@ def main() -> int:
     print(
         f"Stage state={args.state} target={','.join(sorted(requested_components))} "
         f"active={active} resources={len(desired_resources)} "
-        f"stage_bridge={'active' if desired_gateway_active else 'stopped'}"
+        f"stage_bridge={'skipped' if args.skip_bridge_control and desired_gateway_active else ('active' if desired_gateway_active else 'stopped')}"
     )
     return 0
 

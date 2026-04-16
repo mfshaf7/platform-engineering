@@ -35,6 +35,11 @@ work.
 - compare URL in the workflow summary
 - updated stage kustomization, verification, and promotion-readiness files
 
+The GitHub workflow changes only the Git-managed stage lifecycle intent. It
+does not start or stop the local stage bridge service on the operator host.
+Host bridge orchestration remains part of the local operator-side rehearsal
+path when `gateway` is being resumed or suspended directly from WSL.
+
 ## Operator Evidence
 
 Capture:

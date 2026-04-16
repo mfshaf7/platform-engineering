@@ -143,4 +143,4 @@ Those old seams created drift and competed with the real owner repos.
 - [host-integration.md](host-integration.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/README.md](runbooks/README.md)
-- [../../../security-architecture/docs/architecture/products/openclaw/README.md](../../../security-architecture/docs/architecture/products/openclaw/README.md)
+- [OpenClaw security architecture](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/products/openclaw/README.md)

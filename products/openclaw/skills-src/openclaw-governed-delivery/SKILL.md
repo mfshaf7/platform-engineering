@@ -28,10 +28,12 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - normal lane:
      - `python3 products/openclaw/scripts/gateway_release.py pin stage`
      - governed GitHub build
+       - prefer `scripts/dispatch_github_workflow_from_k3s_secret.sh` over raw `gh workflow run` when dispatching from the operator shell
      - `python3 products/openclaw/scripts/gateway_release.py record stage --digest ...`
    - bounded stage-only Telegram lane for small Telegram fixes:
      - `python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage`
      - `Build Telegram Overlay Image` workflow
+       - prefer `scripts/dispatch_github_workflow_from_k3s_secret.sh build-telegram-overlay-image.yaml --ref main`
      - `python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage --digest ...`
    - deliberate stage resume through `set_stage_environment_state.py`
    - real stage behavior checks

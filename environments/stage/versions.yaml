@@ -23,10 +23,10 @@ sourceRepos:
     commit: e5b78abbfe1501c90710aa0e3084a1bd86d17060
   runtimeDistribution:
     repository: github.com/mfshaf7/openclaw-runtime-distribution
-    commit: ac3308f4279ae3b39ca83aaca6dafd7c0df6540e
+    commit: f86a780c5ac8aa20fb64fa65037ff6b3b6f54ffe
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: 6b77514b536e2243a7bc32804a8ae556aae2e343
+    commit: c127e73c2f4c460d03d0ebb8890ed52378649d07
 experiments:
   telegramOverlay:
     status: pending-build

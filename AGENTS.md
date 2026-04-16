@@ -43,5 +43,9 @@
 - Treat Telegram customization as a packaged bundled-runtime seam, not a loose same-id plugin override.
 - The current supported runtime contract lives under `/app/dist/extensions/telegram`.
 - Do not add undocumented Telegram config keys just to restore older behavior. For example, `channels.telegram.botTokenEnv` is rejected by the newer bundled runtime.
+- Shared stage/prod Telegram groups or topics are allowed only when they are
+  intentional and risk-reviewed. In that model, startup backlog behavior must be
+  explicit so a newly online bot does not replay buffered traffic meant for the
+  other environment.
 - Before upgrading the OpenClaw base image, read the official OpenClaw release notes for channel/plugin loading, packaging, or Telegram changes.
 - A successful build is not enough after a base-image change. Re-run the compiled Telegram runtime smoke checks and validate real stage Telegram polling/reply before considering prod promotion.

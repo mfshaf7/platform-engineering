@@ -27,6 +27,8 @@ extraEnv:
   value: xterm-256color
 - name: TZ
   value: UTC
+- name: OPENCLAW_TELEGRAM_DROP_PENDING_UPDATES_ON_STARTUP
+  value: '1'
 - name: CLAUDE_WEB_SESSION_KEY
   value: ''
 - name: CLAUDE_WEB_COOKIE

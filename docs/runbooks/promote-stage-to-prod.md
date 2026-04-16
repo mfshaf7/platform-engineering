@@ -55,3 +55,6 @@ prove the real operator paths:
 - deterministic host-control topic routing
 - any admin/high-risk host-control path only when it is deliberately enabled in
   the stage contract
+- if stage and prod intentionally share Telegram groups or topics, the startup
+  backlog policy must be explicit so the promoted bot does not replay buffered
+  traffic when it comes online

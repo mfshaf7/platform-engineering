@@ -1,60 +1,131 @@
 # platform-engineering
 
-GitOps, host provisioning, and release orchestration for the Platform-Core stack.
+`platform-engineering` is the release authority for the Platform-Core stack.
 
-## Documents
+It governs:
 
-1. [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
-2. [docs/runbooks/rebuild-and-promote-gateway.md](docs/runbooks/rebuild-and-promote-gateway.md)
-3. [docs/runbooks/migrate-to-platform-core.md](docs/runbooks/migrate-to-platform-core.md)
-4. [docs/runbooks/restart-validation.md](docs/runbooks/restart-validation.md)
-5. [docs/runbooks/vault-recovery.md](docs/runbooks/vault-recovery.md)
-6. [docs/runbooks/vault-auto-unseal.md](docs/runbooks/vault-auto-unseal.md)
-7. [docs/runbooks/bootstrap-transit-vault.md](docs/runbooks/bootstrap-transit-vault.md)
-8. [docs/runbooks/access-grafana.md](docs/runbooks/access-grafana.md)
-9. [docs/runbooks/change-records/README.md](docs/runbooks/change-records/README.md)
+- environment contracts
+- approved source SHAs
+- image digests
+- Argo-managed deployment state
+- host provisioning for the WSL and Windows platform stack
+- operator runbooks and platform standards
 
-Historical records live under [docs/archive/README.md](docs/archive/README.md).
+It does not own Telegram implementation details, bridge runtime code, or the
+reference architecture for isolated deployment. It consumes those outputs and
+approves what each environment runs.
 
-## Gateway rollout note
+## What This Repository Owns
 
-- `prod` gateway is a single-node host-port workload. Safe cutover depends on warming the exact target digest before the prod contract change is pushed, then letting Argo reconcile the `Recreate` rollout.
-- `Build Gateway Image` produces the artifact only. `python3 scripts/gateway_release.py record prod ...` performs the required external pre-pull before it writes the prod digest.
-- `stage` rehearsals now use the same external pre-pull path by default, so `python3 scripts/gateway_release.py record stage ...` warms the exact target digest before the stage contract change is written.
+- `environments/`
+  - current approved state for `stage` and `prod`
+- `scripts/gateway_release.py`
+  - governed gateway release entrypoint
+- `.github/workflows/`
+  - build and promotion workflows
+- `ansible/`
+  - host provisioning and WSL stack deployment
+- `charts/`
+  - platform and gateway Helm packaging
+- `docs/`
+  - platform standards, architecture, and operator runbooks
 
-## Stage promotion policy
+## What This Repository Does Not Own
 
-- `stage` is suspended by default.
-- Bring `stage` up only when you are actively testing a candidate change.
-- Normal gateway rehearsal should resume `gateway,version`, which activates `gateway + secrets + version`.
-- Prod promotion is blocked until the current stage candidate is explicitly approved through `Confirm Stage Promotion Readiness` and still matches `environments/stage/versions.yaml`.
-- Successful prod promotion should normally suspend `stage` again.
+- Telegram channel behavior in `openclaw-telegram-enhanced/`
+- host policy enforcement in `openclaw-host-bridge/`
+- active runtime assembly inputs in `openclaw-runtime-distribution/`
+- security standards and review authority in `security-architecture/`
 
-## Common operator entrypoints
+## Core Workflows
+
+### 1. Governed Gateway Release
+
+1. Pin source repos from local canonical checkouts.
+2. Validate the source bundle.
+3. Build the gateway image through GitHub Actions.
+4. Record the digest into `environments/<env>/versions.yaml`.
+5. Let Argo reconcile the environment.
+6. Verify live behavior, not just `/healthz`.
+
+### 2. Stage Rehearsal And Promotion
+
+1. Resume only the stage components being tested.
+2. For gateway rehearsal, stage now starts its on-demand stage bridge as part of
+   the stage lifecycle workflow.
+3. Validate real Telegram and host-control behavior.
+4. Approve stage readiness against the exact pinned candidate.
+5. Promote the approved digest and SHAs into `prod`.
+6. Suspend stage again when rehearsal is complete.
+
+### 3. Host Stack Provisioning
+
+1. Provision the WSL host stack with Ansible.
+2. Keep the prod bridge always on.
+3. Keep the stage bridge disabled by default and start it only during stage
+   test windows.
+4. Verify bridge and recovery health from the live host after provisioning.
+
+### 4. Incident Repair
+
+1. Classify whether the issue is source, composition, platform, or live host
+   drift.
+2. Contain the incident if needed.
+3. Backport the fix to the owner repo.
+4. Record the resulting approved state here.
+5. Capture evidence in a runbook or change record when the incident materially
+   changed the operating model.
+
+## Audit And Visibility Surfaces
+
+This repo is the main evidence surface for release and deployment truth.
+
+- Source approval:
+  - `environments/<env>/versions.yaml`
+- Platform workflows:
+  - GitHub Actions runs under `.github/workflows/`
+- Deployment truth:
+  - Argo application revision and rollout state
+- Release evidence:
+  - commit history for pin and digest changes
+  - change records under `docs/runbooks/change-records/`
+- Host provisioning evidence:
+  - `ansible/` templates and playbooks
+  - live WSL host verification commands in runbooks
+- Observability references:
+  - `observability/`
+
+## Start Here
+
+- Architecture:
+  - [docs/architecture/overview.md](docs/architecture/overview.md)
+  - [docs/architecture/control-planes.md](docs/architecture/control-planes.md)
+- Standards:
+  - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
+  - [docs/standards/source-repo-contracts.md](docs/standards/source-repo-contracts.md)
+  - [docs/standards/service-contracts.md](docs/standards/service-contracts.md)
+  - [docs/standards/version-attestation.md](docs/standards/version-attestation.md)
+- Runbooks:
+  - [docs/runbooks/build-gateway-artifact.md](docs/runbooks/build-gateway-artifact.md)
+  - [docs/runbooks/rebuild-and-promote-gateway.md](docs/runbooks/rebuild-and-promote-gateway.md)
+  - [docs/runbooks/promote-stage-to-prod.md](docs/runbooks/promote-stage-to-prod.md)
+  - [docs/runbooks/host-stack-rollout.md](docs/runbooks/host-stack-rollout.md)
+  - [docs/runbooks/host-runtime-drift-recovery.md](docs/runbooks/host-runtime-drift-recovery.md)
+
+## Common Operator Entrypoints
 
 - `make help`
-- `make gateway-tag ENVIRONMENT=stage`
 - `make gateway-pin ENVIRONMENT=stage`
 - `make gateway-validate ENVIRONMENT=stage`
 - `make gateway-record ENVIRONMENT=stage DIGEST=sha256:...`
 - `make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod`
 - `make gateway-readiness ACTION=validate`
 - `make provision-wsl-host`
-- `make provision-k3s-node`
-- `make capture-cutover-evidence`
-- `make render-cutover-command-inventory`
-- `make render-cutover-record`
-- `make render-runtime-container-verification`
-- `make render-runtime-reachability`
-- `make render-windows-cutover-inventory`
-- `make capture-windows-task-evidence`
 - `make verify-platform-host`
-- `make render-windows-bootstrap`
 - `make validate`
-- `make show-prod-versions`
 
-Use `ANSIBLE_EXTRA_VARS` when the fresh distro name or local paths differ from
-the defaults, for example `platform_windows_wsl_distro=Platform-Core`.
+Use `ANSIBLE_EXTRA_VARS` when the local WSL distro or path layout differs from
+the defaults.
 
 ## Repository Layout
 
@@ -65,7 +136,7 @@ platform-engineering/
 |-- charts/
 |-- docs/
 |-- environments/
-|-- scripts/README.md
+|-- observability/
 |-- scripts/
 `-- Makefile
 ```

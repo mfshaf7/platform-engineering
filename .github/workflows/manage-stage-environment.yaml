@@ -46,7 +46,11 @@ jobs:
         run: python -m pip install pyyaml
 
       - name: Update stage environment state
-        run: python products/openclaw/scripts/set_stage_environment_state.py "${{ inputs.action }}" --components "${{ inputs.components }}"
+        run: >
+          python products/openclaw/scripts/set_stage_environment_state.py
+          "${{ inputs.action }}"
+          --components "${{ inputs.components }}"
+          --skip-bridge-control
 
       - name: Capture stage readiness status
         id: readiness

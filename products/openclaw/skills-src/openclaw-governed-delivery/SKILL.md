@@ -30,6 +30,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - `python3 products/openclaw/scripts/gateway_release.py record stage --digest ...`
    - deliberate stage resume through `set_stage_environment_state.py`
    - real stage behavior checks
+   - `python3 products/openclaw/scripts/gateway_release.py verification record ...`
    - readiness approval when stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
    - prod verification and stage suspension when appropriate
@@ -38,6 +39,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - approved digest
    - approving platform revision
    - deployed Argo revision
+   - recorded stage verification evidence
    - live behavior checks
 
 ## Guardrails

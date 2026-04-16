@@ -33,6 +33,17 @@ This updates:
 build workflow ran on. This keeps artifact provenance accurate even when the
 promotion commit is recorded later.
 
+For `stage`, use the same command with `stage` instead of `prod`. Recording the
+stage digest also updates the candidate-first release-state objects:
+
+- `environments/stage/release-candidate.yaml`
+- `environments/stage/verification.yaml`
+- `environments/stage/promotion-readiness.yaml`
+
+The stage record step materializes the current release candidate, then resets
+verification and approval so rehearsal evidence and readiness approval always
+match the exact candidate being promoted later.
+
 ## Required Follow-up
 
 `gateway_release.py record` now validates the environment contract

@@ -1,0 +1,24 @@
+schemaVersion: 1
+product: openclaw
+environment: stage
+status: pending-build
+recordedAt: null
+recordedPlatformEngineeringCommit: null
+note: No recorded stage candidate yet. Build and record a governed stage artifact before approval.
+candidate:
+  sourceBundleRef: null
+  image:
+    repository: null
+    tag: null
+    digest: null
+  build:
+    baseImage: null
+    dockerfile: null
+    platforms: []
+  sourceRepos:
+    telegramEnhanced: null
+    hostBridge: null
+    runtimeDistribution: null
+    platformEngineering: null
+  requiredChecks: []
+  capabilities: []

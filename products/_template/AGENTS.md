@@ -52,6 +52,13 @@ If the product does not yet have a full end-to-end workflow:
 - treat any required live mutation as a platform or host change with evidence
   and follow-up
 
+If the product is fully governed and uses a rehearsal environment, prefer
+explicit release-state objects over implicit controller state:
+
+- release candidate
+- verification evidence
+- approval decision
+
 ## New Product Discussion Gate
 
 If this directory is being created for a brand-new product, discuss the target

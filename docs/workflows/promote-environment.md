@@ -46,6 +46,7 @@ Capture:
 - workflow run URL
 - promoted image digest
 - promoted source SHAs
+- approved stage verification reference
 - promotion branch or merged PR URL
 
 ## Related Docs

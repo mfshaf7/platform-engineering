@@ -33,6 +33,10 @@ The platform-managed deployment must provide:
 - Vault-backed runtime secret delivery
 - configured bridge and host-recovery dependencies
 - stage suspended by default unless a deliberate rehearsal is in progress
+- release-state evidence under:
+  - `environments/stage/release-candidate.yaml`
+  - `environments/stage/verification.yaml`
+  - `environments/stage/promotion-readiness.yaml`
 
 ## Health And Readiness
 

@@ -75,6 +75,7 @@ jobs:
           if [ "${{ inputs.suspend_stage_environment }}" = "true" ]; then
             python products/openclaw/scripts/set_stage_environment_state.py suspend --components all
           else
+            python products/openclaw/scripts/gateway_release.py verification reset --status pending --note "Prod promotion completed; re-run stage verification before the next approval."
             python products/openclaw/scripts/gateway_release.py readiness reset --status pending --note "Prod promotion completed; re-approve stage before the next promotion."
           fi
 
@@ -98,7 +99,7 @@ jobs:
 
       - name: Show promotion diff
         run: |
-          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
+          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
 
       - name: Capture promoted image metadata
         id: promoted
@@ -126,7 +127,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$PROMOTION_BRANCH"
-          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/promotion-readiness.yaml
+          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Promote prod to approved stage gateway digest"
           git push --force-with-lease origin "$PROMOTION_BRANCH"
           echo "promotion_branch=$PROMOTION_BRANCH" >> "$GITHUB_OUTPUT"

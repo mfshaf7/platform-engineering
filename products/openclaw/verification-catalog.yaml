@@ -1,0 +1,45 @@
+schemaVersion: 1
+checks:
+  runtime-start:
+    category: baseline
+    description: Gateway starts cleanly and the runtime reaches healthy ready state.
+    capabilityTags:
+      - runtime
+    defaultRequiredForPromotion: true
+    acceptedReadinessStatuses:
+      - passed
+  primary-user-path:
+    category: user-path
+    description: The primary user-facing interaction path responds correctly for the candidate.
+    capabilityTags:
+      - telegram-channel
+    defaultRequiredForPromotion: true
+    acceptedReadinessStatuses:
+      - passed
+  artifact-delivery:
+    category: delivery-path
+    description: Artifact or file delivery works end to end for the candidate.
+    capabilityTags:
+      - artifact-delivery
+    defaultRequiredForPromotion: true
+    acceptedReadinessStatuses:
+      - passed
+  screenshot-delivery:
+    category: delivery-path
+    description: Screenshot or equivalent visual capture delivery works end to end when the capability exists.
+    capabilityTags:
+      - screenshot-delivery
+    defaultRequiredForPromotion: true
+    acceptedReadinessStatuses:
+      - passed
+      - not_applicable
+  privileged-path-posture:
+    category: privileged-control
+    description: Privileged or high-risk paths are either explicitly verified or explicitly not applicable by policy.
+    capabilityTags:
+      - host-control
+      - privileged-control
+    defaultRequiredForPromotion: true
+    acceptedReadinessStatuses:
+      - passed
+      - not_applicable

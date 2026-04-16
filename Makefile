@@ -30,6 +30,7 @@ help:
 	@printf "  openclaw-gateway-pin Pin OpenClaw source SHAs for an environment from local repo checkouts\n"
 	@printf "  openclaw-gateway-validate Validate an OpenClaw environment contract\n"
 	@printf "  openclaw-gateway-record Record a built OpenClaw image digest into an environment contract\n"
+	@printf "  openclaw-gateway-verification Record or validate OpenClaw stage verification evidence\n"
 	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
 	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
 	@printf "  openclaw-stage-state Resume, suspend, or inspect the OpenClaw stage environment\n"
@@ -133,6 +134,11 @@ openclaw-gateway-record:
 	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
 	@test -n "$(DIGEST)" || { echo "DIGEST is required, for example: make openclaw-gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
 	python3 products/openclaw/scripts/gateway_release.py record $(ENVIRONMENT) --digest $(DIGEST) $(if $(TAG),--tag $(TAG),) $(if $(PLATFORM_SHA),--platform-sha $(PLATFORM_SHA),)
+
+.PHONY: openclaw-gateway-verification
+openclaw-gateway-verification:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make openclaw-gateway-verification ACTION=validate"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py verification $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(VERIFIED_BY),--verified-by $(VERIFIED_BY),) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(CHECK_RESULTS),--check-results "$(CHECK_RESULTS)",)
 
 .PHONY: openclaw-gateway-promote
 openclaw-gateway-promote:

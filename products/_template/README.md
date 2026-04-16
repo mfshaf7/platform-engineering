@@ -51,3 +51,10 @@ Product-local work still uses shared governance artifacts when required:
   state changed
 - PR declaration in `../../.github/pull_request_template.md` for meaningful
   changes
+
+For a fully governed product with a rehearsal lane, prefer explicit release
+state objects over helper-script memory alone:
+
+- `release-candidate.yaml`
+- `verification.yaml`
+- `promotion-readiness.yaml`

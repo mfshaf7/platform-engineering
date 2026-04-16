@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
@@ -9,8 +11,11 @@ from gateway_release_ops import pin_gateway_source_repos, promote_environment, r
 from stage_readiness import (
     approve_stage_promotion_readiness,
     print_status,
+    record_stage_verification,
     reset_stage_promotion_readiness,
+    reset_stage_verification,
     validate_stage_promotion_readiness,
+    validate_stage_verification,
 )
 
 
@@ -28,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Unified operator entrypoint for governed gateway release work: "
             "pin source repos, inspect build metadata, record image digests, "
-            "validate contracts, manage stage readiness, and promote environments."
+            "record stage verification evidence, manage stage readiness, and promote environments."
         )
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -134,6 +139,25 @@ def parse_args() -> argparse.Namespace:
         default="90m",
         help="How long to wait for the external pre-pull daemonset rollout.",
     )
+    record_parser.add_argument(
+        "--required-check",
+        action="append",
+        default=[],
+        dest="required_checks",
+        help="repeatable required verification check id for stage candidates; defaults to the catalog baseline",
+    )
+    record_parser.add_argument(
+        "--capability",
+        action="append",
+        default=[],
+        dest="capabilities",
+        help="repeatable capability tag for stage candidates; defaults to the tags implied by the required checks",
+    )
+    record_parser.add_argument(
+        "--note",
+        default="",
+        help="human note stored with the recorded stage candidate when recording stage",
+    )
 
     promote_parser = subparsers.add_parser(
         "promote",
@@ -142,6 +166,38 @@ def parse_args() -> argparse.Namespace:
     promote_parser.add_argument("source_environment")
     promote_parser.add_argument("target_environment")
     add_repo_root_arg(promote_parser)
+
+    verification_parser = subparsers.add_parser(
+        "verification",
+        help="Manage or validate structured stage verification evidence.",
+    )
+    verification_parser.add_argument("action", choices=("status", "reset", "record", "validate"))
+    add_repo_root_arg(verification_parser)
+    verification_parser.add_argument("--status", choices=("pending",), help="reset target state")
+    verification_parser.add_argument("--note", default="", help="human note for verification changes")
+    verification_parser.add_argument(
+        "--verified-by",
+        default="",
+        help="operator or reviewer who performed the verification",
+    )
+    verification_parser.add_argument(
+        "--evidence-ref",
+        default="",
+        help="link, runbook ref, or log reference for the verification evidence",
+    )
+    verification_parser.add_argument(
+        "--check-result",
+        action="append",
+        default=[],
+        dest="check_results",
+        help="repeatable check result in the form check-id=status",
+    )
+    verification_parser.add_argument(
+        "--check-results",
+        dest="check_results_blob",
+        default="",
+        help="comma or newline separated check-id=status entries",
+    )
 
     readiness_parser = subparsers.add_parser(
         "readiness",
@@ -224,10 +280,50 @@ def main() -> int:
             skip_prepull=args.skip_prepull,
             kubectl=args.kubectl,
             timeout=args.timeout,
+            required_checks=args.required_checks,
+            capabilities=args.capabilities,
+            note=args.note,
         )
 
     if args.command == "promote":
         return promote_environment(args.source_environment, args.target_environment, repo_root=args.repo_root)
+
+    if args.command == "verification":
+        if args.action == "status":
+            print_status(args.repo_root)
+            return 0
+        if args.action == "reset":
+            if not args.status:
+                raise SystemExit("--status is required for verification reset")
+            data = reset_stage_verification(args.repo_root, status=args.status, note=args.note)
+            print(f"stage verification reset to {data['status']}")
+            return 0
+        if args.action == "record":
+            if not args.verified_by:
+                raise SystemExit("--verified-by is required for verification record")
+            if not args.evidence_ref:
+                raise SystemExit("--evidence-ref is required for verification record")
+            raw_results = list(args.check_results)
+            if args.check_results_blob:
+                raw_results.append(args.check_results_blob)
+            data = record_stage_verification(
+                args.repo_root,
+                verified_by=args.verified_by,
+                evidence_ref=args.evidence_ref,
+                note=args.note,
+                raw_results=raw_results,
+            )
+            print(
+                "stage verification recorded for "
+                f"{data['candidateRef']['sourceBundleRef']} with {len(data['checks'])} checks"
+            )
+            return 0
+        data = validate_stage_verification(args.repo_root)
+        print(
+            "stage verification valid for "
+            f"{data['candidateRef']['sourceBundleRef']} with {len(data['checks'])} checks"
+        )
+        return 0
 
     if args.action == "status":
         print_status(args.repo_root)

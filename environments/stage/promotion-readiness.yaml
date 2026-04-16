@@ -7,13 +7,47 @@ approvedAt: null
 approvedBy: null
 note: Stage suspended; explicit resume and approval are required before the next prod
   promotion.
+candidateRef:
+  path: environments/stage/release-candidate.yaml
+  status: pending-build
+  sourceBundleRef: null
+  imageDigest: null
+  requiredChecks: []
+verificationRef:
+  path: environments/stage/verification.yaml
+  status: pending
+  verifiedAt: null
+  candidateSourceBundleRef: null
 approvedCandidate:
+  sourceBundleRef: null
   image:
     repository: null
     tag: null
     digest: null
+  build:
+    baseImage: null
+    dockerfile: null
+    platforms: []
   sourceRepos:
     telegramEnhanced: null
     hostBridge: null
     runtimeDistribution: null
     platformEngineering: null
+  requiredChecks: []
+  capabilities: []
+approvedVerification:
+  schemaVersion: 1
+  product: openclaw
+  environment: stage
+  status: pending
+  verifiedAt: null
+  verifiedBy: null
+  evidenceRef: null
+  note: No recorded stage verification yet. Rehearse the current candidate on stage before approval.
+  candidateRef:
+    path: environments/stage/release-candidate.yaml
+    status: null
+    sourceBundleRef: null
+    imageDigest: null
+    requiredChecks: []
+  checks: []

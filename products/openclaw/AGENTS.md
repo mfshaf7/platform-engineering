@@ -62,6 +62,10 @@ unless it is genuinely shared platform behavior.
   on-demand stage bridge lifecycle as well as the stage Argo kustomization.
 - The stage bridge should not be left running while stage is suspended.
 - Any stage lifecycle change resets promotion readiness.
+- Candidate recording, verification, and approval are separate governed stages.
+- `record stage` materializes `environments/stage/release-candidate.yaml`.
+- Stage rehearsal must be written into `environments/stage/verification.yaml`
+  before readiness approval is allowed.
 - Prod promotion must fail closed unless
   `python3 products/openclaw/scripts/gateway_release.py readiness validate`
   passes against the current stage candidate.

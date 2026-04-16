@@ -192,11 +192,29 @@ For a fully governed production-impacting change, the expected evidence set is:
 
 - owning source or platform commit
 - validation result
+- release candidate bound to the source bundle and build output
+- structured stage or pre-prod verification evidence
+- approval decision bound to the exact verified candidate
 - ADR when design changed
 - change record when live governed state changed
 - approved image digest or host-state evidence
 - Argo or host reconciliation evidence
 - one real functional verification result
+
+## Candidate-First Governed Delivery Pattern
+
+For a fully governed product with a rehearsal environment, prefer an explicit
+candidate-first release model:
+
+- desired source pins in the environment contract
+- recorded `release-candidate.yaml` for the built artifact
+- recorded `verification.yaml` for rehearsal evidence
+- recorded `promotion-readiness.yaml` for the approval decision
+- promotion that consumes the approved candidate instead of rebuilding a second
+  artifact for prod
+
+This pattern keeps build identity, verification evidence, approval, and
+promotion reviewable in Git instead of burying them in controller-side memory.
 
 ## Anti-Patterns
 

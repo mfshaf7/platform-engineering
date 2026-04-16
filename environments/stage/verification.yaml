@@ -5,7 +5,8 @@ status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: No recorded stage verification yet. Rehearse the current candidate on stage before approval.
+note: Stage source pins changed; re-run stage rehearsal checks after recording the
+  new candidate.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: pending-build

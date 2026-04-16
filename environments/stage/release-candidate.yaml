@@ -4,7 +4,8 @@ environment: stage
 status: pending-build
 recordedAt: null
 recordedPlatformEngineeringCommit: null
-note: No recorded stage candidate yet. Build and record a governed stage artifact before approval.
+note: Stage source pins changed; build and record a new stage candidate before verification
+  or approval.
 candidate:
   sourceBundleRef: null
   image:

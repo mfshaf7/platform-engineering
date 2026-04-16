@@ -7,3 +7,4 @@ versions:
   telegramOverlayStatus: inactive
   telegramOverlaySourceSha: disabled
   telegramOverlayImage: disabled
+  telegramOverlayQualifiedBaseImage: disabled

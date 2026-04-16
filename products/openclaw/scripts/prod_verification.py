@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gateway_contract import compute_source_bundle_ref
-from gateway_environment import load_yaml, write_yaml
+from gateway_environment import load_yaml, telegram_overlay_runtime_active, telegram_overlay_state, write_yaml
 
 
 PROD_VERIFICATION_RELATIVE_PATH = Path("environments/prod/verification.yaml")
@@ -90,6 +90,17 @@ def empty_candidate_snapshot() -> dict:
             "runtimeDistribution": None,
             "platformEngineering": None,
         },
+        "telegramOverlay": {
+            "status": "inactive",
+            "runtimeActive": False,
+            "sourceCommit": None,
+            "qualifiedBaseImage": None,
+            "image": {
+                "repository": None,
+                "tag": None,
+                "digest": None,
+            },
+        },
         "requiredChecks": [],
         "capabilities": [],
     }
@@ -103,6 +114,7 @@ def snapshot_prod_candidate(repo_root: Path, *, required_checks: list[str] | Non
     versions = load_yaml(prod_versions_path(repo_root))
     source = versions["sourceRepos"]
     image = versions["gateway"]["image"]
+    overlay = telegram_overlay_state(versions)
     return {
         "sourceBundleRef": compute_source_bundle_ref(versions),
         "image": {
@@ -120,6 +132,17 @@ def snapshot_prod_candidate(repo_root: Path, *, required_checks: list[str] | Non
             "hostBridge": source["hostBridge"]["commit"],
             "runtimeDistribution": source["runtimeDistribution"]["commit"],
             "platformEngineering": source["platformEngineering"]["commit"],
+        },
+        "telegramOverlay": {
+            "status": overlay["status"],
+            "runtimeActive": telegram_overlay_runtime_active("prod", overlay),
+            "sourceCommit": overlay["source"].get("commit"),
+            "qualifiedBaseImage": overlay.get("qualifiedBaseImage"),
+            "image": {
+                "repository": overlay["image"].get("repository"),
+                "tag": overlay["image"].get("tag"),
+                "digest": overlay["image"].get("digest"),
+            },
         },
         "requiredChecks": effective_required_checks,
         "capabilities": capability_tags_for_checks(catalog, effective_required_checks),

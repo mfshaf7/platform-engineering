@@ -31,6 +31,15 @@ candidate:
     hostBridge: e5b78abbfe1501c90710aa0e3084a1bd86d17060
     runtimeDistribution: ac3308f4279ae3b39ca83aaca6dafd7c0df6540e
     platformEngineering: 79c1565bdec8594fafde2824cd59c0fff191abae
+  telegramOverlay:
+    status: inactive
+    runtimeActive: false
+    sourceCommit: null
+    qualifiedBaseImage: null
+    image:
+      repository: null
+      tag: null
+      digest: null
   requiredChecks:
   - operator-surface-smoke
   - primary-user-path-smoke

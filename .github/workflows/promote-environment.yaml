@@ -119,6 +119,8 @@ jobs:
               data = yaml.safe_load(fh)
           image = data["gateway"]["image"]
           source = data["sourceRepos"]
+          overlay = (data.get("experiments") or {}).get("telegramOverlay") or {}
+          overlay_image = overlay.get("image") or {}
           with open("${{ github.env }}", "a", encoding="utf-8") as fh:
               fh.write(f"PROMOTED_IMAGE={image['repository']}@{image['digest']}\n")
               fh.write(f"PROMOTED_TAG={image['tag']}\n")
@@ -126,6 +128,13 @@ jobs:
               fh.write(f"PROMOTED_HOST_BRIDGE_SHA={source['hostBridge']['commit']}\n")
               fh.write(f"PROMOTED_RUNTIME_DISTRIBUTION_SHA={source['runtimeDistribution']['commit']}\n")
               fh.write(f"PROMOTED_PLATFORM_SHA={source['platformEngineering']['commit']}\n")
+              fh.write(f"PROMOTED_TELEGRAM_OVERLAY_STATUS={overlay.get('status', 'inactive')}\n")
+              fh.write(f"PROMOTED_TELEGRAM_OVERLAY_SOURCE_SHA={(overlay.get('source') or {}).get('commit', '') or 'disabled'}\n")
+              overlay_image_ref = "disabled"
+              if overlay.get("status") == "candidate" and overlay_image.get("repository") and overlay_image.get("digest"):
+                  overlay_image_ref = f"{overlay_image['repository']}@{overlay_image['digest']}"
+              fh.write(f"PROMOTED_TELEGRAM_OVERLAY_IMAGE={overlay_image_ref}\n")
+              fh.write(f"PROMOTED_TELEGRAM_OVERLAY_QUALIFIED_BASE_IMAGE={overlay.get('qualifiedBaseImage', '') or 'disabled'}\n")
           PY
 
       - name: Create and push promotion branch
@@ -153,6 +162,10 @@ jobs:
             echo "- Host bridge SHA: \`${PROMOTED_HOST_BRIDGE_SHA}\`"
             echo "- Runtime distribution SHA: \`${PROMOTED_RUNTIME_DISTRIBUTION_SHA}\`"
             echo "- Platform SHA: \`${PROMOTED_PLATFORM_SHA}\`"
+            echo "- Telegram overlay status: \`${PROMOTED_TELEGRAM_OVERLAY_STATUS}\`"
+            echo "- Telegram overlay source SHA: \`${PROMOTED_TELEGRAM_OVERLAY_SOURCE_SHA}\`"
+            echo "- Telegram overlay image: \`${PROMOTED_TELEGRAM_OVERLAY_IMAGE}\`"
+            echo "- Telegram overlay qualified base image: \`${PROMOTED_TELEGRAM_OVERLAY_QUALIFIED_BASE_IMAGE}\`"
             echo "- Promotion note: \`${{ inputs.promotion_note }}\`"
             echo "- Suspend stage environment: \`${{ inputs.suspend_stage_environment }}\`"
             echo "- Stage readiness after promotion: \`${{ steps.readiness.outputs.status_line }}\`"

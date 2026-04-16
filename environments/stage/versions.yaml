@@ -30,6 +30,7 @@ sourceRepos:
 experiments:
   telegramOverlay:
     status: inactive
+    qualifiedBaseImage: ''
     publish:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
       tagPrefix: telegram-overlay

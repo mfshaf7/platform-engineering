@@ -162,6 +162,7 @@ def empty_candidate_snapshot() -> dict:
             "status": "inactive",
             "runtimeActive": False,
             "sourceCommit": None,
+            "qualifiedBaseImage": None,
             "image": {
                 "repository": None,
                 "tag": None,
@@ -200,6 +201,7 @@ def snapshot_stage_candidate(repo_root: Path) -> dict:
             "status": overlay["status"],
             "runtimeActive": telegram_overlay_runtime_active("stage", overlay),
             "sourceCommit": overlay["source"].get("commit"),
+            "qualifiedBaseImage": overlay.get("qualifiedBaseImage"),
             "image": {
                 "repository": overlay["image"].get("repository"),
                 "tag": overlay["image"].get("tag"),
@@ -440,10 +442,15 @@ def require_stage_candidate(repo_root: Path) -> dict:
 
 
 def require_promotable_stage_contract(repo_root: Path) -> None:
-    overlay = telegram_overlay_state(load_yaml(versions_path(repo_root)))
-    if overlay["status"] != "inactive":
+    versions = load_yaml(versions_path(repo_root))
+    overlay = telegram_overlay_state(versions)
+    if overlay["status"] == "pending-build":
         raise SystemExit(
-            "stage Telegram overlay experiment is active; disable it before approving or validating promotion readiness"
+            "stage Telegram overlay lane is pinned but not recorded; build and record the overlay artifact before approving or validating promotion readiness"
+        )
+    if overlay["status"] == "candidate" and overlay.get("qualifiedBaseImage") != versions["gateway"]["build"]["baseImage"]:
+        raise SystemExit(
+            "stage Telegram overlay lane is qualified for a different OpenClaw base image; re-pin or disable the overlay lane before approving or validating promotion readiness"
         )
 
 

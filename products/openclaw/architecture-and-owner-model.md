@@ -116,17 +116,19 @@ concerns.
 | `platform-engineering/products/openclaw` | platform-side product contract, architecture, runbooks, and release workflow |
 | `security-architecture` | trust-boundary judgment, product security overlay, and cross-cutting security domains |
 
-## Stage Telegram Overlay Experiment
+## Telegram Overlay Artifact Lane
 
-The platform now also supports a bounded stage-only Telegram delivery
-experiment:
+The platform now also supports a separate Telegram delivery artifact lane for
+small Telegram-only fixes on a platform-qualified base:
 
 - Telegram source still lives in `openclaw-telegram-enhanced`
 - runtime seam ownership still lives in `openclaw-runtime-distribution`
-- `platform-engineering` pins a separate immutable Telegram overlay artifact for
-  stage only
+- `platform-engineering` pins a separate immutable Telegram overlay artifact
 - the experiment mounts back onto `/app/extensions/telegram`
-- prod promotion is blocked while the experiment is active
+- stage must qualify the exact overlay digest on the current base image before
+  the lane can promote
+- prod may reuse that exact approved overlay digest only when the prod base
+  image matches the same qualified base line
 
 This is intended to reduce the cost of small Telegram-only fixes without
 turning mutable runtime patching into the normal model.

@@ -2,7 +2,7 @@
 
 ## Status
 
-- Accepted
+- Superseded by ADR-009
 
 ## Context
 
@@ -62,5 +62,4 @@ Negative:
 ## Follow-up
 
 - prove the experiment on stage with real Telegram behavior
-- decide later whether this pattern should remain a stage-only diagnostic lane,
-  or mature into a wider governed delivery path
+- completed in ADR-009, which graduates the pattern into a governed prod lane

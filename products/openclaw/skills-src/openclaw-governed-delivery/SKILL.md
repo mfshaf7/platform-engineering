@@ -30,7 +30,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
      - governed GitHub build
        - prefer `scripts/dispatch_github_workflow_from_k3s_secret.sh` over raw `gh workflow run` when dispatching from the operator shell
      - `python3 products/openclaw/scripts/gateway_release.py record stage --digest ...`
-   - bounded stage-only Telegram lane for small Telegram fixes:
+   - Telegram overlay artifact lane for small Telegram fixes on a qualified base:
      - `python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage`
      - `Build Telegram Overlay Image` workflow
        - prefer `scripts/dispatch_github_workflow_from_k3s_secret.sh build-telegram-overlay-image.yaml --ref main`
@@ -38,9 +38,9 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - deliberate stage resume through `set_stage_environment_state.py`
    - real stage behavior checks
    - `python3 products/openclaw/scripts/gateway_release.py verification record ...`
-   - if the Telegram overlay experiment is active:
-     - keep the work stage-only
-     - disable the experiment before any normal `stage -> prod` readiness approval or promotion
+   - if the Telegram overlay lane is active:
+     - ensure the lane stays bound to the current qualified base image
+     - allow `stage -> prod` only by reusing the exact approved overlay digest on the same base line
    - readiness approval when the standard stage contract is promotable and stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
    - `python3 products/openclaw/scripts/gateway_release.py prod-verification record ...`
@@ -61,7 +61,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
 - Do not patch the running pod as the final answer.
 - Do not rebuild a separate prod-branded image for the same approved source
   bundle.
-- Do not promote stage while the Telegram overlay experiment is active.
+- Do not promote a Telegram overlay lane that is still `pending-build` or tied to a different base image than the current stage contract.
 - Keep stage suspended by default outside deliberate rehearsal windows.
 - Real behavior checks matter more than `/healthz` alone.
 

@@ -37,6 +37,7 @@ approvedCandidate:
     status: inactive
     runtimeActive: false
     sourceCommit: null
+    qualifiedBaseImage: null
     image:
       repository: null
       tag: null

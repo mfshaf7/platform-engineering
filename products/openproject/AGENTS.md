@@ -38,11 +38,23 @@ unless it is genuinely shared platform behavior.
 
 - OpenProject is a supporting product or service on the platform, not the
   platform itself.
+- OpenProject is currently a `platform-integrated` product, not a
+  `fully governed` source-to-stage-to-prod workflow like OpenClaw.
+- Treat the current highest real endpoint as:
+  - platform-managed runtime and operator flow on the local cluster
+  - not a distinct OpenClaw-style stage rehearsal and prod-promotion model
 - Operator access expectations, admin-password synchronization, and product
   lifecycle commands are OpenProject-specific and belong under this directory.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,
   not silently folded into OpenProject-only docs when the control is broader
   than the product.
+
+If an OpenProject task arrives:
+
+- route it to the owning OpenProject product docs and scripts here
+- complete it through the current platform-managed path
+- do not claim a separate stage or prod promotion workflow unless that path is
+  deliberately created later
 
 ## Governance Rule
 

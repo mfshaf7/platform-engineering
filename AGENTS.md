@@ -41,6 +41,40 @@ Current product-local agent guides:
 
 Shared path enforcement lives in `scripts/validate_repo_structure.py`.
 
+## Workflow Maturity Rule
+
+Do not assume every product has the same delivery maturity as OpenClaw.
+
+OpenClaw currently has the deepest end-to-end governed path. Other products may
+only be platform-integrated or source-plus-ops integrated.
+
+When a product-specific task lands here:
+
+- read that product's `AGENTS.md` and `README.md`
+- identify the highest real governed endpoint for that product
+- stop there unless you are explicitly building the missing workflow
+
+If a product does not yet have source-to-stage-to-prod flow, do not pretend it
+does. Complete the work at the highest real owner layer and document the
+missing rollout layer honestly.
+
+## Architecture Discussion Gate
+
+When a request would introduce a new product, shared component, ingress or
+gateway layer, or another architecture-shaping platform capability, do not jump
+straight into implementation.
+
+Discuss with the user first:
+
+- what problem the new capability is solving
+- which control plane should own it
+- whether it should be shared platform or product-specific
+- what trust-boundary and operator-surface changes it creates
+- what workflow maturity it should have on day one
+
+Only start implementation after the target shape is explicit enough to route
+cleanly.
+
 ## Shared Vs Product-Specific Placement
 
 Keep these shared:

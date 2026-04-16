@@ -52,7 +52,7 @@ jobs:
         run: |
           {
             echo "status_line<<__READINESS__"
-            python scripts/stage_promotion_readiness.py status
+            python scripts/gateway_release.py readiness status
             echo "__READINESS__"
           } >> "$GITHUB_OUTPUT"
 

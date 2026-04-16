@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/mfshaf7/openclaw-gateway
-  tag: prod-95436119931b
+  tag: gateway-a2dd5b58b622
   digest: sha256:3e64268b0e996b41ae580006c320cadcf59759c45b8b63d7a4030b20a4d6debb
 command:
 - node
@@ -24,7 +24,7 @@ extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.k3s.json
 - name: TERM
-  value: xterm-256colo
+  value: xterm-256color
 - name: TZ
   value: UTC
 - name: CLAUDE_WEB_SESSION_KEY
@@ -84,4 +84,4 @@ extraVolumes:
 serviceMonitor:
   enabled: true
   interval: 30s
-replicaCount: 0
+replicaCount: 1

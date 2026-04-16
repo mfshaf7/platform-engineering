@@ -59,27 +59,27 @@ jobs:
           test "${{ inputs.target_environment }}" = "prod"
 
       - name: Validate source environment contract
-        run: python scripts/validate_environment_contract.py "${{ inputs.source_environment }}"
+        run: python scripts/gateway_release.py validate "${{ inputs.source_environment }}"
 
       - name: Validate stage promotion readiness
-        run: python scripts/stage_promotion_readiness.py validate
+        run: python scripts/gateway_release.py readiness validate
 
       - name: Show source environment contract
         run: cat environments/${{ inputs.source_environment }}/versions.yaml
 
       - name: Apply digest-based promotion
-        run: python scripts/promote_environment.py "${{ inputs.source_environment }}" "${{ inputs.target_environment }}"
+        run: python scripts/gateway_release.py promote "${{ inputs.source_environment }}" "${{ inputs.target_environment }}"
 
       - name: Update stage lifecycle after promotion
         run: |
           if [ "${{ inputs.suspend_stage_environment }}" = "true" ]; then
             python scripts/set_stage_environment_state.py suspend --components all
           else
-            python scripts/stage_promotion_readiness.py reset --status pending --note "Prod promotion completed; re-approve stage before the next promotion."
+            python scripts/gateway_release.py readiness reset --status pending --note "Prod promotion completed; re-approve stage before the next promotion."
           fi
 
       - name: Validate target environment contract
-        run: python scripts/validate_environment_contract.py "${{ inputs.target_environment }}"
+        run: python scripts/gateway_release.py validate "${{ inputs.target_environment }}"
 
       - name: Render promoted prod gateway chart
         run: helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-prod.yaml
@@ -92,7 +92,7 @@ jobs:
         run: |
           {
             echo "status_line<<__READINESS__"
-            python scripts/stage_promotion_readiness.py status
+            python scripts/gateway_release.py readiness status
             echo "__READINESS__"
           } >> "$GITHUB_OUTPUT"
 

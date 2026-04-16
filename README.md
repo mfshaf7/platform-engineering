@@ -19,8 +19,8 @@ Historical records live under [docs/archive/README.md](docs/archive/README.md).
 ## Gateway rollout note
 
 - `prod` gateway is a single-node host-port workload. Safe cutover depends on warming the exact target digest before the prod contract change is pushed, then letting Argo reconcile the `Recreate` rollout.
-- `Build Gateway Image` produces the artifact only. `python3 scripts/record_gateway_image.py prod ...` performs the required external pre-pull before it writes the prod digest.
-- `stage` rehearsals now use the same external pre-pull path by default, so `python3 scripts/record_gateway_image.py stage ...` warms the exact target digest before the stage contract change is written.
+- `Build Gateway Image` produces the artifact only. `python3 scripts/gateway_release.py record prod ...` performs the required external pre-pull before it writes the prod digest.
+- `stage` rehearsals now use the same external pre-pull path by default, so `python3 scripts/gateway_release.py record stage ...` warms the exact target digest before the stage contract change is written.
 
 ## Stage promotion policy
 
@@ -33,6 +33,12 @@ Historical records live under [docs/archive/README.md](docs/archive/README.md).
 ## Common operator entrypoints
 
 - `make help`
+- `make gateway-tag ENVIRONMENT=stage`
+- `make gateway-pin ENVIRONMENT=stage`
+- `make gateway-validate ENVIRONMENT=stage`
+- `make gateway-record ENVIRONMENT=stage DIGEST=sha256:...`
+- `make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod`
+- `make gateway-readiness ACTION=validate`
 - `make provision-wsl-host`
 - `make provision-k3s-node`
 - `make capture-cutover-evidence`
@@ -59,6 +65,7 @@ platform-engineering/
 |-- charts/
 |-- docs/
 |-- environments/
+|-- scripts/README.md
 |-- scripts/
 `-- Makefile
 ```

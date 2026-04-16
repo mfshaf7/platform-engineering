@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 READINESS_RELATIVE_PATH = Path("environments/stage/promotion-readiness.yaml")
@@ -177,50 +177,3 @@ def print_status(repo_root: Path) -> None:
     print(
         f"status={status} active={components} required={required} approved_by={approved_by} approved_at={approved_at} note={note}"
     )
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("status", "reset", "approve", "validate"))
-    parser.add_argument("--status", choices=("inactive", "pending"), help="reset target state")
-    parser.add_argument("--note", default="", help="human note for readiness changes")
-    parser.add_argument("--approved-by", default="", help="GitHub actor or operator name")
-    parser.add_argument(
-        "--repo-root",
-        default=Path(__file__).resolve().parents[1],
-        type=Path,
-        help="Repository root",
-    )
-    args = parser.parse_args()
-
-    if args.command == "status":
-        print_status(args.repo_root)
-        return 0
-
-    if args.command == "reset":
-        if not args.status:
-            raise SystemExit("--status is required for reset")
-        data = reset_stage_promotion_readiness(args.repo_root, args.status, args.note)
-        print(f"stage readiness reset to {data['status']}")
-        return 0
-
-    if args.command == "approve":
-        if not args.approved_by:
-            raise SystemExit("--approved-by is required for approve")
-        data = approve_stage_promotion_readiness(args.repo_root, args.approved_by, args.note)
-        print(
-            "stage readiness approved for "
-            f"{data['approvedCandidate']['image']['repository']}@{data['approvedCandidate']['image']['digest']}"
-        )
-        return 0
-
-    data = validate_stage_promotion_readiness(args.repo_root)
-    print(
-        "stage readiness valid for "
-        f"{data['approvedCandidate']['image']['repository']}@{data['approvedCandidate']['image']['digest']}"
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

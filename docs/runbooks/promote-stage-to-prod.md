@@ -8,7 +8,7 @@ environments.
 ## Expected Flow
 
 1. update and validate `stage`
-2. build and publish the stage gateway artifact from pinned SHAs
+2. build and publish the gateway artifact for the approved stage source bundle
 3. allow Argo CD to reconcile `stage`
 4. verify stage workload, observability, and host integration expectations
 5. run `.github/workflows/promote-environment.yaml`
@@ -22,6 +22,9 @@ environments.
 - promotion to `prod` is allowed only from `stage` to `prod`.
 - the promotion workflow copies the approved digest and source SHAs into the
   `prod` contract and opens a PR instead of mutating `main` directly.
+- the promoted artifact is source-bundle based, not stage-branded; prod should
+  reuse the approved stage digest instead of rebuilding a separate prod-only
+  image for the same pinned source bundle.
 - the workflow should be bound to a protected GitHub environment named `prod`
   so required reviewers gate the job before the PR is created.
 
@@ -38,8 +41,7 @@ environments.
 - [environments/stage/versions.yaml](../../environments/stage/versions.yaml)
 - [environments/prod/versions.yaml](../../environments/prod/versions.yaml)
 - [.github/workflows/promote-environment.yaml](../../.github/workflows/promote-environment.yaml)
-- [scripts/promote_environment.py](../../scripts/promote_environment.py)
-- [scripts/validate_environment_contract.py](../../scripts/validate_environment_contract.py)
+- [scripts/gateway_release.py](../../scripts/gateway_release.py)
 
 ## Stage Behavior Gate
 

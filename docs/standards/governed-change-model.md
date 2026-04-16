@@ -37,19 +37,33 @@ Does not own:
 - image composition
 - environment pinning or promotion
 
-### `openclaw-isolated-deployment`
+### `openclaw-runtime-distribution`
 
 Owns:
 
-- bundled runtime composition
-- deployment-specific runtime content
-- tracked workspace templates that must exist inside the bundled image
-- image assembly inputs
+- current governed bundled runtime composition
+- deployment-specific runtime content for the current stage/prod build path
+- tracked workspace templates that must exist inside the current governed image
+- active stage/prod image assembly inputs
+- active stage/prod `host-control-openclaw-plugin/` package copy
 
 Does not own:
 
 - environment-specific digest promotion
 - Argo deployment state
+
+### `openclaw-isolated-deployment`
+
+Owns:
+
+- reference architecture docs
+- isolated deployment guidance
+- model-scoped reference copies used to explain that deployment design
+
+Does not own:
+
+- the current governed stage/prod artifact composition path unless the pinned
+  environment contract explicitly points there
 
 ### `platform-engineering`
 

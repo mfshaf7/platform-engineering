@@ -40,6 +40,7 @@ this product directory so the shared platform layer stays product-neutral.
 - [dependencies.md](dependencies.md)
 - [host-integration.md](host-integration.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
+- [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
 - [scripts/README.md](scripts/README.md)
 - [runbooks/README.md](runbooks/README.md)
 

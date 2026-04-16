@@ -19,3 +19,15 @@ platform runbooks tree.
 Target location:
 
 - `products/<product>/runbooks/`
+
+## Start Here For Operator Access
+
+The shared platform entrypoint docs are:
+
+- [access-platform-uis.md](access-platform-uis.md)
+- [access-grafana.md](access-grafana.md)
+
+Then use the product-local access runbooks:
+
+- `products/openclaw/runbooks/access-openclaw.md`
+- `products/openproject/runbooks/access-openproject.md`

@@ -58,6 +58,8 @@ That split is implemented under:
 
 - [docs/README.md](docs/README.md)
 - [docs/architecture/overview.md](docs/architecture/overview.md)
+- [docs/architecture/current-platform-topology.md](docs/architecture/current-platform-topology.md)
+- [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
 - [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
 - [docs/standards/product-documentation-model.md](docs/standards/product-documentation-model.md)
@@ -67,6 +69,24 @@ That split is implemented under:
 - [products/README.md](products/README.md)
 - [products/openclaw/README.md](products/openclaw/README.md)
 - [products/openproject/README.md](products/openproject/README.md)
+- [products/openclaw/runbooks/access-openclaw.md](products/openclaw/runbooks/access-openclaw.md)
+- [products/openproject/runbooks/access-openproject.md](products/openproject/runbooks/access-openproject.md)
+
+## If You Need To Know What Exists Right Now
+
+Start here in this order:
+
+1. [docs/architecture/current-platform-topology.md](docs/architecture/current-platform-topology.md)
+2. [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
+3. the relevant product access runbook under `products/<product>/runbooks/`
+
+Those documents are meant to answer:
+
+- what is deployed
+- where it lives
+- what is directly reachable
+- how to log in
+- what is intentionally internal-only or suspended
 
 ## Operator Entrypoints
 

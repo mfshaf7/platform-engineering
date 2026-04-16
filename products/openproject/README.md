@@ -36,5 +36,6 @@ OpenProject is currently:
 - [dependencies.md](dependencies.md)
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
+- [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [scripts/README.md](scripts/README.md)
 - [runbooks/README.md](runbooks/README.md)

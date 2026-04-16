@@ -13,6 +13,7 @@ declared, operated, and verified on this platform.
 - `dependencies.md`
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
+- `runbooks/access-openproject.md`
 - `scripts/README.md`
 - `runbooks/README.md`
 
@@ -41,3 +42,16 @@ unless it is genuinely shared platform behavior.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,
   not silently folded into OpenProject-only docs when the control is broader
   than the product.
+
+## Documentation Sync Rule
+
+When OpenProject access, exposure, or admin credential flow changes, update:
+
+- `runtime-contract.md`
+- `visibility-and-operations.md`
+- `runbooks/access-openproject.md`
+
+If the change affects shared platform entrypoints, also update:
+
+- `../../docs/architecture/current-platform-topology.md`
+- `../../docs/runbooks/access-platform-uis.md`

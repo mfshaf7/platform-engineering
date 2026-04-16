@@ -11,6 +11,8 @@ Start with:
 
 - `README.md`
 - `docs/architecture/overview.md`
+- `docs/architecture/current-platform-topology.md`
+- `docs/runbooks/access-platform-uis.md`
 - `docs/standards/product-boundaries.md`
 - `docs/standards/product-documentation-model.md`
 
@@ -84,3 +86,21 @@ When you add or change a product-specific operator flow, update:
 
 Do not expand this repo-root `AGENTS.md` with product-local incident lore when
 that guidance belongs in a product directory.
+
+## Documentation Sync Rule
+
+When any of these change, update the shared docs in the same change:
+
+- Argo application inventory
+- namespace roles
+- NodePort or Windows localhost access paths
+- which platform surfaces are directly reachable
+- whether a stage surface is live or intentionally suspended
+
+The minimum shared docs to keep aligned are:
+
+- `docs/architecture/current-platform-topology.md`
+- `docs/runbooks/access-platform-uis.md`
+
+If the change is product-specific, also update the owning product docs and
+runbooks under `products/<product>/`.

@@ -33,6 +33,8 @@ Optional depending on the product:
 
 - `host-integration.md`
 - `secrets-and-config.md`
+- `runbooks/access-<product>.md` when the product exposes a direct operator or
+  user-facing access surface
 - product-specific workflow or runbook docs
 - `scripts/README.md`
 - `runbooks/README.md`

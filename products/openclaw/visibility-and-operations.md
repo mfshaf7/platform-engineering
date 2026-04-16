@@ -5,6 +5,8 @@
 - product namespace: `openclaw` for prod, `openclaw-stage` for stage
 - product runtime: gateway deployment reconciled by Argo
 - current active build/composition owner: `openclaw-runtime-distribution`
+- primary user-facing surface: Telegram
+- current browser UI posture: none for OpenClaw itself
 
 ## Health And Readiness
 
@@ -16,6 +18,18 @@ Operators should check:
 - in-pod `/readyz` when readiness matters
 
 Health alone is not enough for OpenClaw.
+
+## Direct Access Model
+
+- prod is active in namespace `openclaw`
+- stage is suspended by default and does not have a live gateway unless
+  deliberately resumed
+- the product does not currently expose a browser application or dashboard of
+  its own
+- direct operator inspection should use the product access runbook:
+  [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
+- shared dashboards and control-plane UIs are documented in:
+  [../../docs/runbooks/access-platform-uis.md](../../docs/runbooks/access-platform-uis.md)
 
 ## Product-Specific Functional Checks
 

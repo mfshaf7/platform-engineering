@@ -17,6 +17,8 @@ Add these when relevant:
 
 - `host-integration.md`
 - `secrets-and-config.md`
+- `runbooks/access-<product>.md` when the product has a direct operator or
+  user-facing access path
 - product-specific workflow or runbook docs
 - `scripts/README.md`
 - `runbooks/README.md`
@@ -29,5 +31,6 @@ The product README should answer:
 - what this repo owns for the product
 - what upstream repo or chart remains canonical
 - where to find runtime, dependency, and visibility docs
+- where to find direct access and login guidance, if the product exposes any
 - which operator flow is shared platform vs product-specific
 - where product-local scripts and runbooks live

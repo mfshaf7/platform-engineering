@@ -3,14 +3,13 @@ set -euo pipefail
 
 OPENPROJECT_NODEPORT="${OPENPROJECT_NODEPORT:-32083}"
 WINDOWS_URL="http://127.0.0.1:${OPENPROJECT_NODEPORT}"
-WSL_IP="$(hostname -I | awk '{print $1}')"
-WSL_URL="http://${WSL_IP}:${OPENPROJECT_NODEPORT}"
 
 echo "Preferred Windows/operator URL:"
 echo "  ${WINDOWS_URL}"
 echo
-echo "Fallback direct WSL node URL:"
-echo "  ${WSL_URL}"
+echo "WSL shell-local fallback:"
+echo "  k3s kubectl -n openproject port-forward svc/openproject 8080:8080"
+echo "  then open http://127.0.0.1:8080/login"
 echo
 
 if command -v powershell.exe >/dev/null 2>&1; then

@@ -1,14 +1,12 @@
-status: approved
+status: inactive
 requiredComponents:
 - gateway
 - secrets
 - version
-approvedAt: '2026-04-16T21:19:15Z'
-approvedBy: mfshaf7
-note: Stage candidate 1fb1b11b4142 was rehearsed successfully on April 16, 2026 UTC
-  with recorded evidence for runtime start, /platform acceptance, normal Telegram
-  reply, file delivery, screenshot delivery, and privileged-path posture. Approving
-  this exact candidate for governed prod promotion.
+approvedAt: null
+approvedBy: null
+note: Stage suspended; explicit resume and approval are required before the next prod
+  promotion.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
@@ -22,70 +20,40 @@ candidateRef:
   - screenshot-delivery
 verificationRef:
   path: environments/stage/verification.yaml
-  status: recorded
-  verifiedAt: '2026-04-16T21:16:51Z'
+  status: pending
+  verifiedAt: null
   candidateSourceBundleRef: 1fb1b11b4142
 approvedCandidate:
-  sourceBundleRef: 1fb1b11b4142
+  sourceBundleRef: null
   image:
-    repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: gateway-1fb1b11b4142
-    digest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
+    repository: null
+    tag: null
+    digest: null
   build:
-    baseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-    dockerfile: deployment/Dockerfile.plugin-install.example
-    platforms:
-    - linux/amd64
+    baseImage: null
+    dockerfile: null
+    platforms: []
   sourceRepos:
-    telegramEnhanced: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
-    hostBridge: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-    runtimeDistribution: ac3308f4279ae3b39ca83aaca6dafd7c0df6540e
-    platformEngineering: 79c1565bdec8594fafde2824cd59c0fff191abae
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
-  capabilities:
-  - artifact-delivery
-  - host-control
-  - privileged-control
-  - runtime
-  - screenshot-delivery
-  - telegram-channel
+    telegramEnhanced: null
+    hostBridge: null
+    runtimeDistribution: null
+    platformEngineering: null
+  requiredChecks: []
+  capabilities: []
 approvedVerification:
   schemaVersion: 1
   product: openclaw
   environment: stage
-  status: recorded
-  verifiedAt: '2026-04-16T21:16:51Z'
-  verifiedBy: mfshaf7
-  evidenceRef: telegram://openclaw-stage/-1002519919856?messages=876,879,881,883,885,887;session://openclaw-stage/agents/main/8e719d4f-f5b7-4cae-bfed-4aac4e4c7d0c-topic-1.jsonl?message=895;bridge-audit://openclaw-stage/2026-04-16.jsonl?ids=5b05bf28-64f1-4e19-9616-bf289b38fd78,f40813a2-6b79-4a12-baa6-71d62b71ffba,cec823b0-f8d9-4bc1-91a5-6e4bba5fba55,8bd5c6bf-39c8-4b68-9854-4cbb4be6c01b,4c380935-66bc-4847-b3cf-2b6a4b78ea37,d6370b77-d261-4fe0-b466-c0ac89cadf7c,65abe292-3997-4879-9e4e-6a3af54cc2d4;manual://mfshaf7/stage-telegram-topic-35?checks=primary-user-path,artifact-delivery,screenshot-delivery
-  note: Manual stage /platform acceptance remains passed. Normal Telegram reply is
-    now confirmed by the stage session record, and the rerun host-control file plus
-    screenshot deliveries are confirmed by successful audited bridge operations after
-    repairing stage media-path drift. Operator manual Telegram receipt completed the
-    remaining delivery checks for the current stage candidate.
+  status: pending
+  verifiedAt: null
+  verifiedBy: null
+  evidenceRef: null
+  note: No recorded stage verification yet. Rehearse the current candidate on stage
+    before approval.
   candidateRef:
     path: environments/stage/release-candidate.yaml
-    status: candidate
-    sourceBundleRef: 1fb1b11b4142
-    imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
-    requiredChecks:
-    - artifact-delivery
-    - primary-user-path
-    - privileged-path-posture
-    - runtime-start
-    - screenshot-delivery
-  checks:
-  - id: artifact-delivery
-    status: passed
-  - id: primary-user-path
-    status: passed
-  - id: privileged-path-posture
-    status: passed
-  - id: runtime-start
-    status: passed
-  - id: screenshot-delivery
-    status: passed
+    status: null
+    sourceBundleRef: null
+    imageDigest: null
+    requiredChecks: []
+  checks: []

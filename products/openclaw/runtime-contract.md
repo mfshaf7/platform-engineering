@@ -37,6 +37,7 @@ The platform-managed deployment must provide:
   - `environments/stage/release-candidate.yaml`
   - `environments/stage/verification.yaml`
   - `environments/stage/promotion-readiness.yaml`
+  - `environments/prod/verification.yaml` for post-promotion prod smoke or UAT
 
 ## Health And Readiness
 
@@ -50,6 +51,10 @@ Minimum platform-level readiness for OpenClaw is:
 - at least one real functional verification through Telegram or product flow
 
 Health alone is not enough for OpenClaw promotion.
+
+Promotion approval is still stage-gated, but a user-facing prod rollout is not
+operationally complete until post-promotion prod smoke is recorded against the
+current prod contract.
 
 ## Access Model
 

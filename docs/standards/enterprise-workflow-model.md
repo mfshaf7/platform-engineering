@@ -195,6 +195,8 @@ For a fully governed production-impacting change, the expected evidence set is:
 - release candidate bound to the source bundle and build output
 - structured stage or pre-prod verification evidence
 - approval decision bound to the exact verified candidate
+- recorded post-promotion prod smoke or UAT when the product has a real live
+  prod surface that should be exercised
 - ADR when design changed
 - change record when live governed state changed
 - approved image digest or host-state evidence
@@ -210,6 +212,8 @@ candidate-first release model:
 - recorded `release-candidate.yaml` for the built artifact
 - recorded `verification.yaml` for rehearsal evidence
 - recorded `promotion-readiness.yaml` for the approval decision
+- recorded `prod/verification.yaml` for post-promotion smoke or UAT when the
+  product exposes a real prod user or operator surface
 - promotion that consumes the approved candidate instead of rebuilding a second
   artifact for prod
 
@@ -224,4 +228,6 @@ These are governance failures:
 - using an ADR as rollout evidence
 - merging a design change without an ADR
 - shipping a production-impacting fix without a change record
+- treating reconciliation-only checks as complete prod acceptance for a
+  user-facing product
 - documenting implementation but not decision or evidence

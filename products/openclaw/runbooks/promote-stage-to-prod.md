@@ -18,7 +18,10 @@ environments.
 7. run `.github/workflows/promote-environment.yaml`
 8. approve the protected `prod` promotion job and review the generated PR
 9. merge the production promotion change
-10. verify `prod` after reconciliation
+10. rehearse `prod` against the promoted candidate and record
+    `environments/prod/verification.yaml`
+11. treat the rollout as complete only after the prod smoke or UAT evidence is
+    recorded
 
 ## Current Promotion Contract
 
@@ -30,6 +33,8 @@ environments.
   `environments/stage/release-candidate.yaml` and
   `environments/stage/verification.yaml`; changing either invalidates
   readiness until the next approval is recorded.
+- the promotion workflow must reset `environments/prod/verification.yaml` to a
+  pending state bound to the newly promoted prod contract.
 - the promoted artifact is source-bundle based, not stage-branded; prod should
   reuse the approved stage digest instead of rebuilding a separate prod-only
   image for the same pinned source bundle.
@@ -78,6 +83,28 @@ The current default promotion checks are recorded through
 
 These are policy-driven checks, not a permanently fixed schema. Candidate
 requirements may evolve as OpenClaw gains new capabilities.
+
+## Post-Promotion Prod Smoke Or UAT
+
+Prod promotion does not redo the full stage rehearsal pack by default. Instead,
+it records a narrow smoke or UAT evidence set in
+`environments/prod/verification.yaml` against the exact promoted prod contract.
+
+The current baseline checks come from
+`products/openclaw/prod-verification-catalog.yaml`:
+
+- `reconciliation-state`
+- `primary-user-path-smoke`
+- `operator-surface-smoke`
+
+This is the expected evidence pattern for a user-facing Telegram product:
+
+- one proof that Argo and the live deployment really reconciled the approved
+  digest
+- one real inbound prod interaction
+- one read-only prod operator interaction such as `/platform`
+
+See [verify-prod-after-promotion.md](verify-prod-after-promotion.md).
 
 ## Stage Bridge Lifecycle
 

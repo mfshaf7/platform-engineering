@@ -33,7 +33,7 @@ Health alone is not enough for OpenClaw.
 
 ## Product-Specific Functional Checks
 
-Minimum meaningful checks for promoted changes:
+Minimum stage rehearsal checks for promoted changes:
 
 - Telegram provider starts
 - normal Telegram reply works
@@ -42,6 +42,12 @@ Minimum meaningful checks for promoted changes:
 - deterministic host-control routing still works
 - admin/high-risk host-control path is either explicitly disabled or explicitly
   verified
+
+Minimum post-promotion prod smoke or UAT checks:
+
+- reconciliation state matches the promoted digest
+- one real inbound prod Telegram interaction succeeds
+- one read-only prod operator interaction succeeds, for example `/platform`
 
 ## Host Integration Evidence
 
@@ -58,6 +64,7 @@ Relevant evidence surfaces:
 - `environments/stage/release-candidate.yaml`
 - `environments/stage/verification.yaml`
 - `environments/stage/promotion-readiness.yaml`
+- `environments/prod/verification.yaml`
 
 ## Release Evidence
 
@@ -67,4 +74,5 @@ For governed release and promotion, operators should be able to identify:
 - approved image digest
 - platform revision that recorded the digest
 - Argo revision that deployed it
-- one real functional verification result
+- recorded prod smoke or UAT evidence for the promoted contract when prod was
+  affected

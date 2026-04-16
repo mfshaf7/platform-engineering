@@ -53,6 +53,9 @@ The build uses pinned SHAs from:
 - for `stage`, the resulting digest is recorded into
   `environments/stage/release-candidate.yaml` before verification and approval
   are allowed
+- for `prod`, any contract change must leave
+  `environments/prod/verification.yaml` pending until post-promotion smoke or
+  UAT is recorded
 
 ## Output Contract
 
@@ -71,6 +74,9 @@ The workflow publishes:
 Promotion should prefer the immutable digest form:
 
 - `<governed-gateway-image>@sha256:...`
+
+Promotion completion should then record post-promotion prod smoke or UAT
+against that exact digest and source bundle.
 
 ## Why This Matters
 

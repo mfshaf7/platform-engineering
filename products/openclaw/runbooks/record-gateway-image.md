@@ -26,6 +26,7 @@ python3 products/openclaw/scripts/gateway_release.py record prod \
 This updates:
 
 - `environments/prod/versions.yaml`
+- `environments/prod/verification.yaml`
 - `environments/prod/values/openclaw-gateway.yaml`
 - `environments/prod/values/platform-version.yaml`
 
@@ -43,6 +44,10 @@ stage digest also updates the candidate-first release-state objects:
 The stage record step materializes the current release candidate, then resets
 verification and approval so rehearsal evidence and readiness approval always
 match the exact candidate being promoted later.
+
+For `prod`, the record step now resets `environments/prod/verification.yaml` to
+`pending` for the current prod contract. That prevents an older prod smoke or
+UAT record from silently carrying over to a newly recorded digest.
 
 ## Required Follow-up
 

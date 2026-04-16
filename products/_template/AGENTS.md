@@ -59,6 +59,12 @@ explicit release-state objects over implicit controller state:
 - verification evidence
 - approval decision
 
+If the product has a live prod surface that should be exercised after cutover,
+also prefer an explicit post-promotion prod smoke or UAT object rather than
+leaving prod acceptance in chat memory or ad hoc notes:
+
+- prod verification evidence
+
 ## New Product Discussion Gate
 
 If this directory is being created for a brand-new product, discuss the target

@@ -12,3 +12,4 @@ are not shared platform procedures.
 - [record-gateway-image.md](record-gateway-image.md)
 - [rebuild-and-promote-gateway.md](rebuild-and-promote-gateway.md)
 - [promote-stage-to-prod.md](promote-stage-to-prod.md)
+- [verify-prod-after-promotion.md](verify-prod-after-promotion.md)

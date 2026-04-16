@@ -8,9 +8,15 @@ from pathlib import Path
 from gateway_contract import build_metadata, compute_publish_tag, load_versions, write_github_output
 from gateway_environment import validate_environment_contract
 from gateway_release_ops import pin_gateway_source_repos, promote_environment, record_gateway_image
+from prod_verification import (
+    print_status as print_prod_verification_status,
+    record_prod_verification,
+    reset_prod_verification,
+    validate_prod_verification,
+)
 from stage_readiness import (
     approve_stage_promotion_readiness,
-    print_status,
+    print_status as print_stage_status,
     record_stage_verification,
     reset_stage_promotion_readiness,
     reset_stage_verification,
@@ -33,7 +39,8 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Unified operator entrypoint for governed gateway release work: "
             "pin source repos, inspect build metadata, record image digests, "
-            "record stage verification evidence, manage stage readiness, and promote environments."
+            "record stage and prod verification evidence, manage stage readiness, "
+            "and promote environments."
         )
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -209,6 +216,38 @@ def parse_args() -> argparse.Namespace:
     readiness_parser.add_argument("--note", default="", help="human note for readiness changes")
     readiness_parser.add_argument("--approved-by", default="", help="GitHub actor or operator name")
 
+    prod_verification_parser = subparsers.add_parser(
+        "prod-verification",
+        help="Manage or validate structured post-promotion prod smoke/UAT evidence.",
+    )
+    prod_verification_parser.add_argument("action", choices=("status", "reset", "record", "validate"))
+    add_repo_root_arg(prod_verification_parser)
+    prod_verification_parser.add_argument("--status", choices=("pending",), help="reset target state")
+    prod_verification_parser.add_argument("--note", default="", help="human note for verification changes")
+    prod_verification_parser.add_argument(
+        "--verified-by",
+        default="",
+        help="operator or reviewer who performed the prod smoke verification",
+    )
+    prod_verification_parser.add_argument(
+        "--evidence-ref",
+        default="",
+        help="link, runbook ref, or log reference for the prod smoke evidence",
+    )
+    prod_verification_parser.add_argument(
+        "--check-result",
+        action="append",
+        default=[],
+        dest="check_results",
+        help="repeatable check result in the form check-id=status",
+    )
+    prod_verification_parser.add_argument(
+        "--check-results",
+        dest="check_results_blob",
+        default="",
+        help="comma or newline separated check-id=status entries",
+    )
+
     return parser.parse_args()
 
 
@@ -290,7 +329,7 @@ def main() -> int:
 
     if args.command == "verification":
         if args.action == "status":
-            print_status(args.repo_root)
+            print_stage_status(args.repo_root)
             return 0
         if args.action == "reset":
             if not args.status:
@@ -325,8 +364,45 @@ def main() -> int:
         )
         return 0
 
+    if args.command == "prod-verification":
+        if args.action == "status":
+            print_prod_verification_status(args.repo_root)
+            return 0
+        if args.action == "reset":
+            if not args.status:
+                raise SystemExit("--status is required for prod-verification reset")
+            data = reset_prod_verification(args.repo_root, status=args.status, note=args.note)
+            print(f"prod verification reset to {data['status']}")
+            return 0
+        if args.action == "record":
+            if not args.verified_by:
+                raise SystemExit("--verified-by is required for prod-verification record")
+            if not args.evidence_ref:
+                raise SystemExit("--evidence-ref is required for prod-verification record")
+            raw_results = list(args.check_results)
+            if args.check_results_blob:
+                raw_results.append(args.check_results_blob)
+            data = record_prod_verification(
+                args.repo_root,
+                verified_by=args.verified_by,
+                evidence_ref=args.evidence_ref,
+                note=args.note,
+                raw_results=raw_results,
+            )
+            print(
+                "prod verification recorded for "
+                f"{data['candidateRef']['sourceBundleRef']} with {len(data['checks'])} checks"
+            )
+            return 0
+        data = validate_prod_verification(args.repo_root)
+        print(
+            "prod verification valid for "
+            f"{data['candidateRef']['sourceBundleRef']} with {len(data['checks'])} checks"
+        )
+        return 0
+
     if args.action == "status":
-        print_status(args.repo_root)
+        print_stage_status(args.repo_root)
         return 0
     if args.action == "reset":
         if not args.status:

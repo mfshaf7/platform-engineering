@@ -33,13 +33,15 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - `python3 products/openclaw/scripts/gateway_release.py verification record ...`
    - readiness approval when stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
-   - prod verification and stage suspension when appropriate
+   - `python3 products/openclaw/scripts/gateway_release.py prod-verification record ...`
+   - stage suspension when appropriate
 5. Record the evidence needed to explain:
    - source SHAs
    - approved digest
    - approving platform revision
    - deployed Argo revision
    - recorded stage verification evidence
+   - recorded prod smoke or UAT evidence when prod changed
    - live behavior checks
 
 ## Guardrails

@@ -10,6 +10,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-004-transit-vault-temporary-windows-trust-root.md](ADR-004-transit-vault-temporary-windows-trust-root.md)
 - [ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md](ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md)
 - [ADR-006-retire-openclaw-isolated-deployment.md](ADR-006-retire-openclaw-isolated-deployment.md)
+- [ADR-007-post-promotion-prod-smoke-evidence.md](ADR-007-post-promotion-prod-smoke-evidence.md)
 
 ## Rules
 

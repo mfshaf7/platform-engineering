@@ -34,6 +34,13 @@ OpenClaw is currently the deepest-integrated product in this platform.
 Its platform-specific scripts, runbooks, and operator guidance now live under
 this product directory so the shared platform layer stays product-neutral.
 
+OpenClaw is also the reference fully governed product path today:
+
+- stage candidate and rehearsal evidence are explicit Git-managed release
+  objects
+- prod promotion reuses the approved stage digest instead of rebuilding
+- post-promotion prod smoke or UAT is recorded separately from stage approval
+
 ## Start Here
 
 - [AGENTS.md](AGENTS.md)

@@ -66,6 +66,10 @@ unless it is genuinely shared platform behavior.
 - `record stage` materializes `environments/stage/release-candidate.yaml`.
 - Stage rehearsal must be written into `environments/stage/verification.yaml`
   before readiness approval is allowed.
+- `promote stage prod` must reset `environments/prod/verification.yaml` to a
+  pending state tied to the new prod contract.
+- A prod rollout is not operationally complete until post-promotion prod smoke
+  or UAT is recorded in `environments/prod/verification.yaml`.
 - `products/openclaw/platform-operator-catalog.yaml` is the platform-owned
   source of truth for the read-only Telegram `/platform` operator surface.
 - Prod promotion must fail closed unless

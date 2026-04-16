@@ -67,6 +67,12 @@ Telegram-only fixes:
 4. stage rehearsal against the recorded overlay artifact
 5. disable the experiment before any normal `stage -> prod` promotion
 
+The pin step must update both:
+
+- the Telegram source commit for the overlay payload
+- the `openclaw-runtime-distribution` source commit that supplies the overlay
+  packager and Dockerfile used by the workflow
+
 ## Stage Release-State Objects
 
 - `environments/stage/release-candidate.yaml`

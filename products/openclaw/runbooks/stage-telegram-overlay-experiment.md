@@ -33,6 +33,10 @@ python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage \
   --telegram-repo /home/mfshaf7/projects/openclaw-telegram-enhanced
 ```
 
+This also pins the current `openclaw-runtime-distribution` commit so the
+workflow builds the overlay artifact from the runtime-distribution revision that
+contains the matching packager and Dockerfile.
+
 2. Dispatch `Build Telegram Overlay Image`.
 
 3. Record the built digest:

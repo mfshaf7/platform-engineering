@@ -92,7 +92,9 @@ def pin_overlay_source(
     workspace_root: Path,
     telegram_repo: Path | None = None,
     platform_repo: Path | None = None,
+    runtime_distribution_repo: Path | None = None,
     telegram_ref: str = "HEAD",
+    runtime_distribution_ref: str = "HEAD",
     platform_ref: str = "HEAD",
     allow_dirty: bool = False,
     skip_origin_check: bool = False,
@@ -106,11 +108,16 @@ def pin_overlay_source(
 
     telegram_checkout = (telegram_repo or (workspace_root / "openclaw-telegram-enhanced")).resolve()
     platform_checkout = (platform_repo or repo_root).resolve()
+    runtime_distribution_checkout = (
+        runtime_distribution_repo or (workspace_root / "openclaw-runtime-distribution")
+    ).resolve()
 
     if not telegram_checkout.exists():
         raise SystemExit(f"missing Telegram repo checkout at {telegram_checkout}")
     if not platform_checkout.exists():
         raise SystemExit(f"missing platform repo checkout at {platform_checkout}")
+    if not runtime_distribution_checkout.exists():
+        raise SystemExit(f"missing runtime-distribution repo checkout at {runtime_distribution_checkout}")
 
     ensure_repo_identity(
         telegram_checkout,
@@ -124,10 +131,26 @@ def pin_overlay_source(
         "platform repo",
         skip_origin_check=skip_origin_check,
     )
+    ensure_repo_identity(
+        runtime_distribution_checkout,
+        versions["sourceRepos"]["runtimeDistribution"]["repository"],
+        "runtime-distribution repo",
+        skip_origin_check=skip_origin_check,
+    )
     ensure_clean_repo(telegram_checkout, "telegram repo", allow_dirty=allow_dirty)
     ensure_clean_repo(platform_checkout, "platform repo", allow_dirty=allow_dirty)
+    ensure_clean_repo(
+        runtime_distribution_checkout,
+        "runtime-distribution repo",
+        allow_dirty=allow_dirty,
+    )
 
     telegram_commit = resolve_commit(telegram_checkout, telegram_ref, "telegram repo")
+    runtime_distribution_commit = resolve_commit(
+        runtime_distribution_checkout,
+        runtime_distribution_ref,
+        "runtime-distribution repo",
+    )
     platform_commit = resolve_commit(platform_checkout, platform_ref, "platform repo")
 
     overlay["status"] = "pending-build"
@@ -136,6 +159,7 @@ def pin_overlay_source(
     overlay["image"]["tag"] = compute_overlay_tag(overlay)
     overlay["image"]["digest"] = ""
     versions.setdefault("experiments", {})["telegramOverlay"] = overlay
+    versions["sourceRepos"]["runtimeDistribution"]["commit"] = runtime_distribution_commit
     versions["sourceRepos"]["platformEngineering"]["commit"] = platform_commit
 
     write_yaml(versions_path(repo_root, environment), versions)
@@ -162,7 +186,9 @@ def pin_overlay_source(
     )
 
     print(
-        f"Pinned stage Telegram overlay experiment to {telegram_commit} with expected tag {overlay['image']['tag']}"
+        "Pinned stage Telegram overlay experiment to "
+        f"{telegram_commit} with runtime-distribution {runtime_distribution_commit} "
+        f"and expected tag {overlay['image']['tag']}"
     )
     return 0
 
@@ -309,7 +335,17 @@ def parse_args() -> argparse.Namespace:
     )
     pin_parser.add_argument("--telegram-repo", type=Path, help="Path to openclaw-telegram-enhanced")
     pin_parser.add_argument("--platform-repo", type=Path, help="Path to platform-engineering")
+    pin_parser.add_argument(
+        "--runtime-distribution-repo",
+        type=Path,
+        help="Path to openclaw-runtime-distribution",
+    )
     pin_parser.add_argument("--telegram-ref", default="HEAD", help="Git ref to pin for Telegram")
+    pin_parser.add_argument(
+        "--runtime-distribution-ref",
+        default="HEAD",
+        help="Git ref to pin for openclaw-runtime-distribution",
+    )
     pin_parser.add_argument("--platform-ref", default="HEAD", help="Git ref to pin for platform-engineering")
     pin_parser.add_argument("--allow-dirty", action="store_true", help="Allow pinning from a dirty checkout")
     pin_parser.add_argument(
@@ -361,7 +397,9 @@ def main() -> int:
             workspace_root=args.workspace_root,
             telegram_repo=args.telegram_repo,
             platform_repo=args.platform_repo,
+            runtime_distribution_repo=args.runtime_distribution_repo,
             telegram_ref=args.telegram_ref,
+            runtime_distribution_ref=args.runtime_distribution_ref,
             platform_ref=args.platform_ref,
             allow_dirty=args.allow_dirty,
             skip_origin_check=args.skip_origin_check,

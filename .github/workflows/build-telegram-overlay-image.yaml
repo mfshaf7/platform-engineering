@@ -1,0 +1,163 @@
+name: Build Telegram Overlay Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-telegram-overlay-image-stage
+  cancel-in-progress: false
+
+jobs:
+  build-telegram-overlay-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out platform repo
+        uses: actions/checkout@v4
+        with:
+          path: platform-engineering
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+
+      - name: Read stage Telegram overlay metadata
+        id: overlay_meta
+        working-directory: platform-engineering
+        run: |
+          python products/openclaw/scripts/telegram_overlay_experiment.py metadata stage --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate stage contract
+        working-directory: platform-engineering
+        run: python products/openclaw/scripts/telegram_overlay_experiment.py validate stage
+
+      - name: Validate overlay experiment state
+        run: |
+          test "${{ steps.overlay_meta.outputs.overlay_status }}" != "inactive"
+          test "${{ steps.overlay_meta.outputs.telegram_ref }}" != ""
+          test "${{ steps.overlay_meta.outputs.publish_repository }}" != ""
+          test "${{ steps.overlay_meta.outputs.publish_tag }}" != ""
+          test "${{ steps.overlay_meta.outputs.dockerfile }}" = "deployment/Dockerfile.telegram-overlay"
+
+      - name: Verify pinned refs exist upstream
+        env:
+          CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          check_ref() {
+            local repo="$1"
+            local ref="$2"
+            local url="https://api.github.com/repos/${repo}/commits/${ref}"
+            if ! curl --fail --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${CROSS_REPO_READ_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$url" >/dev/null; then
+              echo "Pinned ref not found upstream: repo=${repo} ref=${ref}" >&2
+              exit 1
+            fi
+          }
+
+          check_ref "mfshaf7/openclaw-telegram-enhanced" "${{ steps.overlay_meta.outputs.telegram_ref }}"
+          check_ref "mfshaf7/openclaw-runtime-distribution" "${{ steps.overlay_meta.outputs.runtime_distribution_ref }}"
+
+      - name: Check out Telegram source
+        uses: actions/checkout@v4
+        with:
+          repository: mfshaf7/openclaw-telegram-enhanced
+          ref: ${{ steps.overlay_meta.outputs.telegram_ref }}
+          path: openclaw-telegram-enhanced
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+
+      - name: Check out runtime-distribution source
+        uses: actions/checkout@v4
+        with:
+          repository: mfshaf7/openclaw-runtime-distribution
+          ref: ${{ steps.overlay_meta.outputs.runtime_distribution_ref }}
+          path: openclaw-runtime-distribution
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+
+      - name: Prepare Telegram overlay artifact inputs
+        working-directory: openclaw-runtime-distribution
+        run: ./deployment/package-telegram-overlay.sh "$PWD"
+        env:
+          OPENCLAW_TELEGRAM_REPO: ${{ github.workspace }}/openclaw-telegram-enhanced
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Telegram overlay image
+        id: build_push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./openclaw-runtime-distribution
+          file: ./openclaw-runtime-distribution/${{ steps.overlay_meta.outputs.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.overlay_meta.outputs.publish_repository }}:${{ steps.overlay_meta.outputs.publish_tag }}
+          labels: |
+            org.opencontainers.image.title=OpenClaw Telegram Overlay
+            org.opencontainers.image.description=Stage-only Telegram overlay artifact for the OpenClaw packaged runtime seam
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.overlay_meta.outputs.publish_tag }}
+            openclaw.telegram-ref=${{ steps.overlay_meta.outputs.telegram_ref }}
+            openclaw.runtime-distribution-ref=${{ steps.overlay_meta.outputs.runtime_distribution_ref }}
+            openclaw.platform-engineering-ref=${{ steps.overlay_meta.outputs.platform_ref }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Smoke test Telegram overlay artifact
+        env:
+          IMAGE_REF: ${{ steps.overlay_meta.outputs.publish_repository }}@${{ steps.build_push.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          docker run --rm "${IMAGE_REF}" sh -lc '
+            test -f /telegram-overlay/telegram/openclaw.plugin.json
+            test -f /telegram-overlay/telegram/runtime-api.ts
+            test -f /telegram-overlay/telegram/setup-entry.ts
+            test ! -d /telegram-overlay/telegram/test
+            test ! -d /telegram-overlay/telegram/__tests__
+            ! find /telegram-overlay/telegram -name "*.d.ts" -print -quit | grep -q .
+          '
+
+      - name: Publish build summary
+        run: |
+          {
+            echo "## Telegram Overlay Image Build"
+            echo
+            echo '- Environment: `stage`'
+            echo '- Image: `${{ steps.overlay_meta.outputs.publish_repository }}:${{ steps.overlay_meta.outputs.publish_tag }}`'
+            echo '- Digest: `${{ steps.build_push.outputs.digest }}`'
+            echo '- Telegram SHA: `${{ steps.overlay_meta.outputs.telegram_ref }}`'
+            echo '- Runtime distribution SHA: `${{ steps.overlay_meta.outputs.runtime_distribution_ref }}`'
+            echo '- Platform SHA: `${{ steps.overlay_meta.outputs.platform_ref }}`'
+            echo
+            echo 'Record this immutable image reference into the stage experiment contract before rehearsal:'
+            echo
+            echo '```bash'
+            echo 'python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage \\'
+            echo '  --digest ${{ steps.build_push.outputs.digest }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

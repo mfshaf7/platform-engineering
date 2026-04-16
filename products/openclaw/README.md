@@ -41,6 +41,10 @@ OpenClaw is also the reference fully governed product path today:
 - prod promotion reuses the approved stage digest instead of rebuilding
 - post-promotion prod smoke or UAT is recorded separately from stage approval
 
+For small Telegram-only fixes, stage can also run a bounded Telegram overlay
+artifact experiment without rebuilding the full gateway image. That lane is
+stage-only and must be disabled before normal prod promotion.
+
 ## Start Here
 
 - [AGENTS.md](AGENTS.md)

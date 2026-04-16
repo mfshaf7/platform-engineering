@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gateway_contract import build_gateway_image_ref, compute_publish_tag
 from gateway_environment import (
+    telegram_overlay_state,
     is_placeholder,
     load_yaml,
     sync_environment,
@@ -319,6 +320,7 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
 
     source_versions = load_yaml(source_root / "versions.yaml")
     target_versions = load_yaml(target_root / "versions.yaml")
+    source_overlay = telegram_overlay_state(source_versions)
     source_gateway_image = source_versions["gateway"]["image"]
     source_repos = source_versions["sourceRepos"]
     source_contract_errors = validate_environment_contract(
@@ -334,6 +336,10 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
         )
 
     if source_environment == "stage" and target_environment == "prod":
+        if source_overlay["status"] != "inactive":
+            raise SystemExit(
+                "stage telegram overlay experiment is active; disable it before promoting stage to prod"
+            )
         validate_stage_promotion_readiness(repo_root)
 
     require_real_value("source gateway image repository", source_gateway_image["repository"])

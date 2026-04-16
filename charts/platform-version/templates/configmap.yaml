@@ -5,6 +5,9 @@ metadata:
 data:
   gatewayImage: {{ .Values.versions.gatewayImage | quote }}
   telegramSha: {{ .Values.versions.telegramSha | quote }}
+  telegramOverlayStatus: {{ .Values.versions.telegramOverlayStatus | quote }}
+  telegramOverlaySourceSha: {{ .Values.versions.telegramOverlaySourceSha | quote }}
+  telegramOverlayImage: {{ .Values.versions.telegramOverlayImage | quote }}
   hostBridgeSha: {{ .Values.versions.hostBridgeSha | quote }}
   runtimeDistributionSha: {{ .Values.versions.runtimeDistributionSha | quote }}
   platformSha: {{ .Values.versions.platformSha | quote }}

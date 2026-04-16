@@ -157,3 +157,8 @@ serviceMonitor:
   enabled: true
   interval: 30s
 replicaCount: 1
+podAnnotations:
+  openclaw.io/telegram-overlay-status: inactive
+  openclaw.io/telegram-overlay-source-sha: disabled
+  openclaw.io/telegram-overlay-image: disabled
+extraInitContainers: []

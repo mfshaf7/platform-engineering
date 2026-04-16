@@ -34,6 +34,11 @@ help:
 	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
 	@printf "  openclaw-gateway-prod-verification Record or validate post-promotion OpenClaw prod smoke evidence\n"
 	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
+	@printf "  openclaw-telegram-overlay-status Show the stage Telegram overlay experiment state\n"
+	@printf "  openclaw-telegram-overlay-pin Pin a stage Telegram overlay source commit from local repos\n"
+	@printf "  openclaw-telegram-overlay-validate Validate the stage Telegram overlay experiment contract\n"
+	@printf "  openclaw-telegram-overlay-record Record a built stage Telegram overlay image digest\n"
+	@printf "  openclaw-telegram-overlay-disable Disable the stage Telegram overlay experiment\n"
 	@printf "  openclaw-stage-state Resume, suspend, or inspect the OpenClaw stage environment\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
@@ -156,6 +161,27 @@ openclaw-gateway-prod-verification:
 openclaw-gateway-readiness:
 	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make openclaw-gateway-readiness ACTION=validate"; exit 1; }
 	python3 products/openclaw/scripts/gateway_release.py readiness $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(APPROVED_BY),--approved-by $(APPROVED_BY),)
+
+.PHONY: openclaw-telegram-overlay-status
+openclaw-telegram-overlay-status:
+	python3 products/openclaw/scripts/telegram_overlay_experiment.py status stage
+
+.PHONY: openclaw-telegram-overlay-pin
+openclaw-telegram-overlay-pin:
+	python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage $(if $(TELEGRAM_REPO),--telegram-repo $(TELEGRAM_REPO),) $(if $(TELEGRAM_REF),--telegram-ref $(TELEGRAM_REF),)
+
+.PHONY: openclaw-telegram-overlay-validate
+openclaw-telegram-overlay-validate:
+	python3 products/openclaw/scripts/telegram_overlay_experiment.py validate stage
+
+.PHONY: openclaw-telegram-overlay-record
+openclaw-telegram-overlay-record:
+	@test -n "$(DIGEST)" || { echo "DIGEST is required, for example: make openclaw-telegram-overlay-record DIGEST=sha256:..."; exit 1; }
+	python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage --digest $(DIGEST) $(if $(TAG),--tag $(TAG),) $(if $(PLATFORM_SHA),--platform-sha $(PLATFORM_SHA),)
+
+.PHONY: openclaw-telegram-overlay-disable
+openclaw-telegram-overlay-disable:
+	python3 products/openclaw/scripts/telegram_overlay_experiment.py disable stage $(if $(NOTE),--note "$(NOTE)",)
 
 .PHONY: openclaw-stage-state
 openclaw-stage-state:

@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from gateway_contract import compute_source_bundle_ref
+from gateway_environment import telegram_overlay_runtime_active, telegram_overlay_state
 
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
@@ -157,6 +158,16 @@ def empty_candidate_snapshot() -> dict:
             "runtimeDistribution": None,
             "platformEngineering": None,
         },
+        "telegramOverlay": {
+            "status": "inactive",
+            "runtimeActive": False,
+            "sourceCommit": None,
+            "image": {
+                "repository": None,
+                "tag": None,
+                "digest": None,
+            },
+        },
         "requiredChecks": [],
         "capabilities": [],
     }
@@ -166,6 +177,7 @@ def snapshot_stage_candidate(repo_root: Path) -> dict:
     versions = load_yaml(versions_path(repo_root))
     source = versions["sourceRepos"]
     image = versions["gateway"]["image"]
+    overlay = telegram_overlay_state(versions)
     return {
         "sourceBundleRef": compute_source_bundle_ref(versions),
         "image": {
@@ -183,6 +195,16 @@ def snapshot_stage_candidate(repo_root: Path) -> dict:
             "hostBridge": source["hostBridge"]["commit"],
             "runtimeDistribution": source["runtimeDistribution"]["commit"],
             "platformEngineering": source["platformEngineering"]["commit"],
+        },
+        "telegramOverlay": {
+            "status": overlay["status"],
+            "runtimeActive": telegram_overlay_runtime_active("stage", overlay),
+            "sourceCommit": overlay["source"].get("commit"),
+            "image": {
+                "repository": overlay["image"].get("repository"),
+                "tag": overlay["image"].get("tag"),
+                "digest": overlay["image"].get("digest"),
+            },
         },
         "requiredChecks": [],
         "capabilities": [],
@@ -417,6 +439,14 @@ def require_stage_candidate(repo_root: Path) -> dict:
     return data
 
 
+def require_promotable_stage_contract(repo_root: Path) -> None:
+    overlay = telegram_overlay_state(load_yaml(versions_path(repo_root)))
+    if overlay["status"] != "inactive":
+        raise SystemExit(
+            "stage Telegram overlay experiment is active; disable it before approving or validating promotion readiness"
+        )
+
+
 def record_stage_verification(
     repo_root: Path,
     *,
@@ -480,6 +510,7 @@ def validate_stage_verification(repo_root: Path) -> dict:
 
 
 def approve_stage_promotion_readiness(repo_root: Path, approved_by: str, note: str) -> dict:
+    require_promotable_stage_contract(repo_root)
     existing = load_yaml(readiness_path(repo_root)) if readiness_path(repo_root).exists() else {}
     expected_components = set(required_components(existing))
     components = current_stage_components(repo_root)
@@ -507,6 +538,7 @@ def approve_stage_promotion_readiness(repo_root: Path, approved_by: str, note: s
 
 
 def validate_stage_promotion_readiness(repo_root: Path) -> dict:
+    require_promotable_stage_contract(repo_root)
     data = load_yaml(readiness_path(repo_root))
     status = data.get("status")
     if status != "approved":

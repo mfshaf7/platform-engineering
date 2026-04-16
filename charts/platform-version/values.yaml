@@ -1,6 +1,9 @@
 versions:
   gatewayImage: replace-me
   telegramSha: replace-me
+  telegramOverlayStatus: inactive
+  telegramOverlaySourceSha: disabled
+  telegramOverlayImage: disabled
   hostBridgeSha: replace-me
   runtimeDistributionSha: replace-me
   platformSha: replace-me

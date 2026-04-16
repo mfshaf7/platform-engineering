@@ -18,6 +18,8 @@ without renaming or cloning the platform layer:
 - CI/CD promotion contracts
 - shared version metadata publication
 - policy, security, and operator standards
+- shared documentation indexes and platform-level runbooks
+- shared operator commands that are not tied to one product runtime
 
 ## Product-Owned
 
@@ -30,6 +32,8 @@ runtime rather than the shared platform:
 - product runtime secrets and Vault paths
 - product-specific health, metrics, and host-integration behavior
 - product source repositories and product runbooks
+- product-specific release tooling and runtime lifecycle helpers
+- product-specific visibility, audit, and verification guidance
 
 ## Decision Rule
 
@@ -43,9 +47,11 @@ Use this test before naming or adding a new component:
 ## Repository Pattern
 
 - shared standards live under [docs/standards](../standards)
-- shared control-plane assets live under the platform roots, charts, and
-  environments
+- shared control-plane assets live under the platform roots, charts,
+  environments, and shared runbooks
 - product-specific integration contracts live under `products/<product>/`
+- top-level docs and scripts should be product-neutral unless explicitly marked
+  as product-specific incumbent paths
 
 ## Current Product Contract Pattern
 
@@ -56,6 +62,8 @@ Each product directory should capture:
 - dependencies
 - host integration, if any
 - secret path and deployment expectations
+- visibility and operational evidence surfaces
+- product-specific runbook entrypoints, if any
 
 Use [products/_template/README.md](../../products/_template/README.md) as the
 starting point for a new product.

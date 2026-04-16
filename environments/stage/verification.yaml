@@ -5,16 +5,12 @@ status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: Stage suspended; re-run stage rehearsal checks after the next deliberate resume.
+note: Stage Telegram overlay experiment pins changed; re-run stage rehearsal after
+  recording the overlay artifact.
 candidateRef:
   path: environments/stage/release-candidate.yaml
-  status: candidate
-  sourceBundleRef: 1fb1b11b4142
-  imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
+  status: pending-build
+  sourceBundleRef: null
+  imageDigest: null
+  requiredChecks: []
 checks: []

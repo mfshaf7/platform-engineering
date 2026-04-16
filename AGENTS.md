@@ -45,6 +45,14 @@ Security review inputs and trust-boundary expectations are owned in
 `security-architecture/`. Use that repo's review outputs and standards instead
 of restating security governance locally.
 
+Concrete security references for this repo:
+
+- `security-architecture/docs/architecture/platform/trust-boundaries.md`
+- `security-architecture/docs/architecture/domains/gitops-and-machine-trust.md`
+- `security-architecture/docs/architecture/domains/secrets-and-recovery.md`
+- `security-architecture/docs/reviews/security-review-checklist.md`
+- `security-architecture/docs/reviews/platform/README.md`
+
 ## Workflow Maturity Rule
 
 Do not assume every product has the same delivery maturity as OpenClaw.

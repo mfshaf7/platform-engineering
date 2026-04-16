@@ -113,3 +113,6 @@ products:
     runbooks:
       required_files:
         - README.md
+    skills-src:
+      required_files:
+        - README.md

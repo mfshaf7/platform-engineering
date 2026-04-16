@@ -5,6 +5,9 @@ modules for the platform integration.
 
 These scripts are product-scoped. They are not shared platform tooling.
 
+The reusable operator workflow for this path is published separately under
+`../skills-src/`.
+
 ## Operator Entrypoints
 
 - `gateway_release.py`

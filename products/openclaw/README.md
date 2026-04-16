@@ -44,6 +44,7 @@ this product directory so the shared platform layer stays product-neutral.
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
 - [scripts/README.md](scripts/README.md)
+- [skills-src/README.md](skills-src/README.md)
 - [runbooks/README.md](runbooks/README.md)
 
 For shared platform context, also see:

@@ -101,6 +101,11 @@ Use the product-local runbooks for product details:
 - OpenClaw: [../../products/openclaw/runbooks/access-openclaw.md](../../products/openclaw/runbooks/access-openclaw.md)
 - OpenProject: [../../products/openproject/runbooks/access-openproject.md](../../products/openproject/runbooks/access-openproject.md)
 
+OpenClaw also exposes a read-only Telegram operator surface for this shared
+inventory through `/platform`. That command is driven by
+`products/openclaw/platform-operator-catalog.yaml` and should stay aligned with
+this runbook.
+
 ## Notes
 
 - Argo CD uses a self-signed certificate by default, so browsers will warn

@@ -45,6 +45,14 @@ k3s kubectl -n argocd get application openclaw-gateway
 Treat the port-forwarded endpoint as an operator/debug surface, not an end-user
 application.
 
+Read-only Telegram operator inventory:
+
+- use `/platform` inside the intended Telegram operator topic
+- use `/platform endpoints`, `/platform health`, `/platform govern`, or
+  `/platform <component>`
+- this surface is catalog-driven from
+  `products/openclaw/platform-operator-catalog.yaml`
+
 ## Operator Access To Stage
 
 Resume stage only when you need a rehearsal or validation window:

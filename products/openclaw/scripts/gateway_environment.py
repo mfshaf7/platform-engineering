@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 from pathlib import Path
 
 import yaml
@@ -39,6 +40,21 @@ def dump_yaml(data) -> str:
 
 def write_yaml(path: Path, data):
     path.write_text(dump_yaml(data), encoding="utf-8")
+
+
+def _set_extra_env(gateway_values: dict, name: str, value: str) -> None:
+    entries = gateway_values.setdefault("extraEnv", [])
+    if not isinstance(entries, list):
+        raise ValueError("gateway extraEnv must be a list")
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("name") == name:
+            entry["value"] = value
+            return
+    entries.append({"name": name, "value": value})
+
+
+def load_platform_operator_catalog(repo_root: Path) -> dict:
+    return load_yaml(repo_root / "products" / "openclaw" / "platform-operator-catalog.yaml")
 
 
 def is_placeholder(value: str | None) -> bool:
@@ -83,6 +99,7 @@ def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path
     versions = load_yaml(versions_path)
     gateway_values = load_yaml(gateway_values_path)
     platform_values = load_yaml(platform_values_path)
+    platform_operator_catalog = load_platform_operator_catalog(repo_root)
 
     source_repos = versions["sourceRepos"]
     gateway_image = versions["gateway"]["image"]
@@ -94,6 +111,11 @@ def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path
     gateway_values["env"]["OPENCLAW_TELEGRAM_SHA"] = source_repos["telegramEnhanced"]["commit"]
     gateway_values["env"]["OPENCLAW_HOST_BRIDGE_SHA"] = source_repos["hostBridge"]["commit"]
     gateway_values["env"]["OPENCLAW_PLATFORM_SHA"] = source_repos["platformEngineering"]["commit"]
+    _set_extra_env(
+        gateway_values,
+        "OPENCLAW_PLATFORM_OPERATOR_CATALOG_JSON",
+        json.dumps(platform_operator_catalog, separators=(",", ":")),
+    )
 
     platform_values["versions"]["gatewayImage"] = build_gateway_image_ref(
         gateway_image["repository"],
@@ -170,11 +192,13 @@ def validate_environment_contract(
     versions = load_yaml(env_root / "versions.yaml")
     gateway_values = load_yaml(env_root / "values" / "openclaw-gateway.yaml")
     platform_values = load_yaml(env_root / "values" / "platform-version.yaml")
+    platform_operator_catalog = load_platform_operator_catalog(repo_root)
 
     gateway_image = versions["gateway"]["image"]
     source_repos = versions["sourceRepos"]
     gateway_env = gateway_values["env"]
     platform_versions = platform_values["versions"]
+    extra_env = _extra_env_map(gateway_values)
 
     expected_gateway_image = build_gateway_image_ref(
         gateway_image["repository"],
@@ -239,6 +263,12 @@ def validate_environment_contract(
         "platform SHA in gateway values",
         gateway_env["OPENCLAW_PLATFORM_SHA"],
         source_repos["platformEngineering"]["commit"],
+    )
+    expect_equal(
+        errors,
+        "platform operator catalog in gateway extraEnv",
+        extra_env.get("OPENCLAW_PLATFORM_OPERATOR_CATALOG_JSON"),
+        json.dumps(platform_operator_catalog, separators=(",", ":")),
     )
     expect_equal(
         errors,

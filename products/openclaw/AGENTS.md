@@ -66,6 +66,8 @@ unless it is genuinely shared platform behavior.
 - `record stage` materializes `environments/stage/release-candidate.yaml`.
 - Stage rehearsal must be written into `environments/stage/verification.yaml`
   before readiness approval is allowed.
+- `products/openclaw/platform-operator-catalog.yaml` is the platform-owned
+  source of truth for the read-only Telegram `/platform` operator surface.
 - Prod promotion must fail closed unless
   `python3 products/openclaw/scripts/gateway_release.py readiness validate`
   passes against the current stage candidate.

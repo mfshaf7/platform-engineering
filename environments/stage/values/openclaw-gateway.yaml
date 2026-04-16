@@ -37,6 +37,76 @@ extraEnv:
   value: ''
 - name: OPENCLAW_ALLOW_INSECURE_PRIVATE_WS
   value: ''
+- name: OPENCLAW_PLATFORM_OPERATOR_CATALOG_JSON
+  value: '{"schemaVersion":1,"catalogId":"openclaw-platform-operator","title":"Platform
+    operator catalog","lastReviewed":"2026-04-17","surfaces":[{"id":"argo-cd","label":"Argo
+    CD","category":"control-plane","currentState":"live","operatorUrl":"https://127.0.0.1:32443","wslFallback":"k3s
+    kubectl -n argocd port-forward svc/argocd-server 8443:443","credentialSource":"Operator
+    account provisioned by bootstrap_operator_access.sh","healthChecks":["Argo application
+    sync and health for the relevant app","k3s kubectl -n argocd get applications"],"troubleshootingNotes":["Self-signed
+    certificate by default","Primary source for GitOps reconciliation status"]},{"id":"vault","label":"Vault
+    UI and API","category":"control-plane","currentState":"live","operatorUrl":"http://127.0.0.1:32200","wslFallback":"k3s
+    kubectl -n vault port-forward svc/vault-ui 8220:8200","credentialSource":"Operator
+    username and password provisioned by bootstrap_operator_access.sh","healthChecks":["Vault
+    UI/API reachable on localhost","Vault workload healthy in namespace vault"],"troubleshootingNotes":["Localhost-only
+    HTTP because the current chart uses tlsDisable=true"]},{"id":"grafana-prod","label":"Grafana
+    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32080","wslFallback":"k3s
+    kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80","credentialSource":"Vault
+    path kv/platform/observability/prod/grafana-admin","healthChecks":["Grafana login
+    page reachable","Observability namespace workloads healthy"]},{"id":"prometheus-prod","label":"Prometheus
+    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32090","wslFallback":"k3s
+    kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090","credentialSource":"Vault
+    path kv/platform/observability/prod/operator-ui-auth","healthChecks":["Query UI
+    reachable through operator auth proxy","Prometheus target health and scrape status"]},{"id":"alertmanager-prod","label":"Alertmanager
+    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32093","wslFallback":"k3s
+    kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093","credentialSource":"Vault
+    path kv/platform/observability/prod/operator-ui-auth","healthChecks":["Alertmanager
+    UI reachable through operator auth proxy","Notification pipeline and silences
+    visible"]},{"id":"openproject","label":"OpenProject","category":"product","currentState":"live","operatorUrl":"http://127.0.0.1:32083","wslFallback":"k3s
+    kubectl -n openproject port-forward svc/openproject 8080:8080","credentialSource":"Vault
+    path kv/products/openproject/prod/admin","healthChecks":["OpenProject UI reachable","OpenProject
+    workload healthy in namespace openproject"]},{"id":"openclaw-prod","label":"OpenClaw
+    prod","category":"product","currentState":"live","operatorUrl":"no browser UI;
+    primary user path is Telegram","wslFallback":"k3s kubectl -n openclaw port-forward
+    svc/openclaw-gateway 18789:18789","credentialSource":"No shared browser login;
+    use Telegram and product-specific runtime surface","healthChecks":["In-pod /healthz","In-pod
+    /readyz","Real Telegram reply, file send, screenshot, and host-control checks"],"troubleshootingNotes":["Gateway
+    health alone is not sufficient proof of prod behavior"]},{"id":"grafana-stage","label":"Grafana
+    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32081
+    only when stage observability is resumed","wslFallback":"resume stage, then k3s
+    kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana
+    3001:80","credentialSource":"Vault path kv/platform/observability/stage/grafana-admin","healthChecks":["Stage
+    observability resumed explicitly","Observability-stage workloads healthy"]},{"id":"prometheus-stage","label":"Prometheus
+    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32091
+    only when stage observability is resumed","wslFallback":"resume stage, then k3s
+    kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy
+    9091:9090","credentialSource":"Vault path kv/platform/observability/stage/operator-ui-auth","healthChecks":["Stage
+    observability resumed explicitly","Prometheus target health and scrape status"]},{"id":"alertmanager-stage","label":"Alertmanager
+    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32094
+    only when stage observability is resumed","wslFallback":"resume stage, then k3s
+    kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy
+    9094:9093","credentialSource":"Vault path kv/platform/observability/stage/operator-ui-auth","healthChecks":["Stage
+    observability resumed explicitly","Alertmanager notifications and silences visible"]},{"id":"openclaw-stage","label":"OpenClaw
+    stage","category":"product","currentState":"suspended by default","operatorUrl":"no
+    browser UI; exists only when stage is resumed","wslFallback":"resume stage, then
+    k3s kubectl -n openclaw-stage port-forward svc/openclaw-gateway 28789:18789","credentialSource":"No
+    shared browser login; use Telegram and product-specific runtime surface","healthChecks":["Stage
+    lifecycle resumed deliberately","In-pod /healthz and /readyz","Real stage rehearsal
+    against the recorded candidate"],"troubleshootingNotes":["Stage bridge is on-demand
+    and should not stay running while suspended"]},{"id":"external-secrets","label":"External
+    Secrets Operator","category":"internal-control","currentState":"internal-only","operatorUrl":"none","wslFallback":"k3s
+    kubectl -n external-secrets get pods","credentialSource":"none","healthChecks":["External
+    Secrets controller pods healthy","Secret sync status healthy in relevant namespaces"]},{"id":"platform-postgresql","label":"Platform
+    PostgreSQL","category":"internal-data","currentState":"internal-only","operatorUrl":"none","wslFallback":"k3s
+    kubectl -n platform-postgresql get pods","credentialSource":"internal-only database
+    service","healthChecks":["Stateful workload healthy","Service remains internal-only"]}],"governance":[{"id":"operator-scope","label":"Operator
+    scope","detail":"The Telegram /platform surface is read-only and should not expose
+    secrets or mutating controls."},{"id":"stage-default","label":"Stage default state","detail":"Stage
+    is suspended by default and must be resumed deliberately for rehearsal or troubleshooting."},{"id":"promotion-gate","label":"Promotion
+    gate","detail":"Prod promotion requires an approved stage release candidate plus
+    recorded verification evidence."},{"id":"release-evidence","label":"Release evidence","detail":"Operators
+    should be able to identify source SHAs, approved digest, platform revision, Argo
+    revision, and one real functional verification result."}]}'
 resources:
   requests:
     cpu: 500m

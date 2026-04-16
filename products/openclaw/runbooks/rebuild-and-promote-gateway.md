@@ -129,7 +129,17 @@ gh workflow run "Promote Environment" \
 
 12. Review and merge the generated prod promotion PR.
 
-13. Verify prod after Argo reconciles the merged contract.
+13. Record post-promotion prod smoke or UAT after Argo reconciles the merged contract:
+
+```bash
+python3 products/openclaw/scripts/gateway_release.py prod-verification record \
+  --verified-by "<operator>" \
+  --evidence-ref "<ticket-or-runbook-ref>" \
+  --check-results "reconciliation-state=passed,primary-user-path-smoke=passed,operator-surface-smoke=passed"
+```
+
+Use [verify-prod-after-promotion.md](verify-prod-after-promotion.md) for the
+baseline prod smoke pack.
 
 Functional verification for Telegram and host control is required after base
 image changes or host-control contract changes. At minimum verify on stage:
@@ -157,8 +167,9 @@ Capture at minimum:
 - readiness approval evidence
 - published digest
 - merged prod promotion PR or revision
+- recorded prod verification evidence
 - deployed prod pod image
-- one prod functional verification result
+- one real prod functional verification result
 
 ## Failure handling
 

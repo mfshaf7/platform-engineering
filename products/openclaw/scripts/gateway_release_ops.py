@@ -13,6 +13,7 @@ from gateway_environment import (
     write_yaml,
 )
 from prepull_gateway_image import prepull_image
+from prod_verification import reset_prod_verification
 from stage_readiness import (
     current_stage_components,
     record_stage_release_candidate,
@@ -196,6 +197,12 @@ def pin_gateway_source_repos(
             status=readiness_status,
             note="Stage source pins changed; build, verify, and re-approve the next stage candidate before promoting to prod.",
         )
+    elif environment == "prod":
+        reset_prod_verification(
+            repo_root,
+            status="pending",
+            note="Prod source pins changed; record the next prod candidate and post-promotion prod smoke before treating prod as complete.",
+        )
 
     print(f"Pinned {environment} source repos in {versions_path.relative_to(repo_root)}")
     return 0
@@ -289,6 +296,13 @@ def record_gateway_image(
             f"Recorded stage candidate {candidate['candidate']['sourceBundleRef']} with required checks "
             + ", ".join(candidate["candidate"]["requiredChecks"])
         )
+    elif environment == "prod":
+        reset_prod_verification(
+            repo_root,
+            status="pending",
+            note="Prod contract changed; record post-promotion prod smoke/UAT before treating the rollout as complete.",
+        )
+        print("Reset prod verification to pending for the current prod contract")
 
     print(f"Recorded {image_ref} for {environment} with platformSha={platform_sha}")
     return 0
@@ -348,6 +362,12 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
         raise SystemExit(
             f"{target_environment} environment contract is invalid after promotion:\n- "
             + "\n- ".join(target_contract_errors)
+        )
+    if target_environment == "prod":
+        reset_prod_verification(
+            repo_root,
+            status="pending",
+            note="Prod contract changed via promotion; record post-promotion prod smoke/UAT before treating this rollout as complete.",
         )
 
     print(

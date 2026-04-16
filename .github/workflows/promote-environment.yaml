@@ -82,6 +82,15 @@ jobs:
       - name: Validate target environment contract
         run: python products/openclaw/scripts/gateway_release.py validate "${{ inputs.target_environment }}"
 
+      - name: Capture prod verification status
+        id: prod_verification
+        run: |
+          {
+            echo "status_line<<__PROD_VERIFICATION__"
+            python products/openclaw/scripts/gateway_release.py prod-verification status
+            echo "__PROD_VERIFICATION__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Render promoted prod gateway chart
         run: helm template openclaw-gateway charts/openclaw-gateway -f environments/prod/values/openclaw-gateway.yaml >/tmp/openclaw-gateway-prod.yaml
 
@@ -99,7 +108,7 @@ jobs:
 
       - name: Show promotion diff
         run: |
-          git diff -- environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
+          git diff -- environments/prod/versions.yaml environments/prod/verification.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
 
       - name: Capture promoted image metadata
         id: promoted
@@ -127,7 +136,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$PROMOTION_BRANCH"
-          git add environments/prod/versions.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
+          git add environments/prod/versions.yaml environments/prod/verification.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml environments/stage/argocd/kustomization.yaml environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Promote prod to approved stage gateway digest"
           git push --force-with-lease origin "$PROMOTION_BRANCH"
           echo "promotion_branch=$PROMOTION_BRANCH" >> "$GITHUB_OUTPUT"
@@ -147,10 +156,13 @@ jobs:
             echo "- Promotion note: \`${{ inputs.promotion_note }}\`"
             echo "- Suspend stage environment: \`${{ inputs.suspend_stage_environment }}\`"
             echo "- Stage readiness after promotion: \`${{ steps.readiness.outputs.status_line }}\`"
+            echo "- Prod smoke status after promotion: \`${{ steps.prod_verification.outputs.status_line }}\`"
             echo "- Promotion branch: \`${{ steps.promotion_branch.outputs.promotion_branch }}\`"
             echo "- Compare URL: \`https://github.com/${{ github.repository }}/compare/main...${{ steps.promotion_branch.outputs.promotion_branch }}?expand=1\`"
             echo
-            echo "Prod promotion is allowed only from an approved stage candidate. Any stage lifecycle change resets readiness and requires a fresh approval before the next promotion."
+            echo "Prod promotion is allowed only from an approved stage candidate. The rollout is not operationally complete until post-promotion prod smoke/UAT is recorded in \`environments/prod/verification.yaml\`."
+            echo
+            echo "Any stage lifecycle change resets readiness and requires a fresh approval before the next promotion."
             echo
             echo "Open the compare URL to create or review the production promotion pull request."
           } >> "$GITHUB_STEP_SUMMARY"

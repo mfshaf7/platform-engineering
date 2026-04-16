@@ -1,0 +1,29 @@
+schemaVersion: 1
+checks:
+  reconciliation-state:
+    category: deployment-state
+    description: Argo reconciliation, deployed image digest, and runtime startup evidence all match the promoted prod candidate.
+    capabilityTags:
+      - runtime
+      - deployment-state
+    defaultRequiredAfterPromotion: true
+    acceptedCompletionStatuses:
+      - passed
+  primary-user-path-smoke:
+    category: user-path
+    description: One real inbound prod Telegram interaction succeeds against the promoted candidate.
+    capabilityTags:
+      - telegram-channel
+      - user-path
+    defaultRequiredAfterPromotion: true
+    acceptedCompletionStatuses:
+      - passed
+  operator-surface-smoke:
+    category: operator-surface
+    description: One read-only prod operator interaction succeeds against the promoted candidate, for example /platform.
+    capabilityTags:
+      - operator-surface
+      - platform-operator-catalog
+    defaultRequiredAfterPromotion: true
+    acceptedCompletionStatuses:
+      - passed

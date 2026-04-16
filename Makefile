@@ -32,6 +32,7 @@ help:
 	@printf "  openclaw-gateway-record Record a built OpenClaw image digest into an environment contract\n"
 	@printf "  openclaw-gateway-verification Record or validate OpenClaw stage verification evidence\n"
 	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
+	@printf "  openclaw-gateway-prod-verification Record or validate post-promotion OpenClaw prod smoke evidence\n"
 	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
 	@printf "  openclaw-stage-state Resume, suspend, or inspect the OpenClaw stage environment\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
@@ -145,6 +146,11 @@ openclaw-gateway-promote:
 	@test -n "$(SOURCE_ENVIRONMENT)" || { echo "SOURCE_ENVIRONMENT is required, for example: make openclaw-gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
 	@test -n "$(TARGET_ENVIRONMENT)" || { echo "TARGET_ENVIRONMENT is required, for example: make openclaw-gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
 	python3 products/openclaw/scripts/gateway_release.py promote $(SOURCE_ENVIRONMENT) $(TARGET_ENVIRONMENT)
+
+.PHONY: openclaw-gateway-prod-verification
+openclaw-gateway-prod-verification:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make openclaw-gateway-prod-verification ACTION=validate"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py prod-verification $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(VERIFIED_BY),--verified-by $(VERIFIED_BY),) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(CHECK_RESULTS),--check-results "$(CHECK_RESULTS)",)
 
 .PHONY: openclaw-gateway-readiness
 openclaw-gateway-readiness:

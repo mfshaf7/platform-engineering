@@ -13,7 +13,7 @@ The target distro must end up with:
 - `systemd` enabled through `/etc/wsl.conf`
 - the canonical `openclaw-host-bridge` checkout present at `/home/<platform-user>/projects/openclaw-host-bridge`
 - the platform repo available to run Ansible playbooks
-- local policy and OpenClaw config files created outside Git
+- local prod and stage policy/OpenClaw config files created outside Git
 - `k3s` installed through the platform Ansible role
 
 ## Bootstrap Sequence
@@ -28,10 +28,17 @@ The target distro must end up with:
    - Node at the path configured by `openclaw_host_bridge_node_bin_dir`
    - local `policy.local.json`
    - local `openclaw.json`
+   - local `policy.stage.local.json`
+   - local `openclaw.stage.k3s.json`
+   - set `channels.telegram.commands.native: true` in the stage OpenClaw config
+     when stage Telegram-native operator commands such as `/platform` are part
+     of the rehearsal surface
 5. Confirm these paths exist before provisioning:
    - `{{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-stack-tmux.sh`
    - `{{ openclaw_host_bridge_config_path }}`
    - `{{ openclaw_openclaw_config_path }}`
+   - `{{ openclaw_stage_host_bridge_config_path }}`
+   - `{{ openclaw_stage_openclaw_config_path }}`
    - `{{ openclaw_host_bridge_node_bin_dir }}/node`
 6. Run [ansible/playbooks/provision-wsl-host.yml](../../ansible/playbooks/provision-wsl-host.yml).
 7. Restart the distro so WSL reloads `/etc/wsl.conf` with `systemd=true`.
@@ -92,7 +99,7 @@ Verify all of:
 - `systemctl is-active openclaw-host-recovery.service` reports `active`
 - `kubectl get nodes` succeeds
 - the host-bridge checkout contains the supervisor scripts
-- the configured Node binary and both local config files exist
+- the configured Node binary and all prod/stage local config files exist
 
 ## Notes
 

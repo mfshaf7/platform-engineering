@@ -8,8 +8,11 @@ host stack.
 ## Expected Inputs
 
 - canonical `openclaw-host-bridge` checkout present on the WSL host
-- local policy file created at the configured host-bridge policy path
-- OpenClaw config present at the configured OpenClaw config path
+- local prod policy and OpenClaw config present at the configured paths
+- local stage policy and OpenClaw config present at the configured stage paths
+- when stage Telegram-native operator commands are part of the rehearsal
+  surface, the stage OpenClaw config must explicitly set
+  `channels.telegram.commands.native: true`
 - Node runtime available at the configured Node bin directory
 - WSL distro restarted after enabling `systemd` in `/etc/wsl.conf`
 

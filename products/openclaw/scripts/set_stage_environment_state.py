@@ -89,6 +89,16 @@ def validate_stage_bridge_inputs(repo_root: Path) -> None:
         )
 
     config = json.loads(config_path.read_text(encoding="utf-8"))
+    telegram_native = (
+        (((config.get("channels") or {}).get("telegram") or {}).get("commands") or {}).get("native")
+    )
+    if telegram_native is not True:
+        raise SystemExit(
+            f"stage Telegram native commands must be explicitly enabled in {config_path}: "
+            "set channels.telegram.commands.native to true before resuming the stage gateway. "
+            f"Current value: {telegram_native!r}"
+        )
+
     bridge_url = (
         ((config.get("plugins") or {}).get("entries") or {}).get("host-control") or {}
     ).get("config", {}).get("bridgeUrl")

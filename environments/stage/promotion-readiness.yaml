@@ -5,8 +5,8 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage Telegram overlay experiment is active; promotion remains blocked until
-  the experiment is disabled and the standard stage candidate is re-approved.
+note: Stage lifecycle changed; active components now gateway,secrets,version. Re-approve
+  stage before promoting to prod.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate

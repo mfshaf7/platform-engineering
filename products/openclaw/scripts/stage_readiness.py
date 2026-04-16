@@ -84,7 +84,7 @@ def snapshot_stage_candidate(repo_root: Path) -> dict:
         "sourceRepos": {
             "telegramEnhanced": source["telegramEnhanced"]["commit"],
             "hostBridge": source["hostBridge"]["commit"],
-            "isolatedDeployment": source["isolatedDeployment"]["commit"],
+            "runtimeDistribution": source["runtimeDistribution"]["commit"],
             "platformEngineering": source["platformEngineering"]["commit"],
         },
     }
@@ -106,7 +106,7 @@ def default_readiness(status: str = "inactive", note: str = "") -> dict:
             "sourceRepos": {
                 "telegramEnhanced": None,
                 "hostBridge": None,
-                "isolatedDeployment": None,
+                "runtimeDistribution": None,
                 "platformEngineering": None,
             },
         },

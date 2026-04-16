@@ -63,11 +63,15 @@ def parse_args() -> argparse.Namespace:
     )
     pin_parser.add_argument("--telegram-repo", type=Path, help="Path to openclaw-telegram-enhanced")
     pin_parser.add_argument("--host-bridge-repo", type=Path, help="Path to openclaw-host-bridge")
-    pin_parser.add_argument("--deployment-repo", type=Path, help="Path to openclaw-runtime-distribution")
+    pin_parser.add_argument("--runtime-distribution-repo", type=Path, help="Path to openclaw-runtime-distribution")
     pin_parser.add_argument("--platform-repo", type=Path, help="Path to platform-engineering")
     pin_parser.add_argument("--telegram-ref", default="HEAD", help="Git ref to pin for Telegram")
     pin_parser.add_argument("--host-bridge-ref", default="HEAD", help="Git ref to pin for host bridge")
-    pin_parser.add_argument("--deployment-ref", default="HEAD", help="Git ref to pin for the deployment repo")
+    pin_parser.add_argument(
+        "--runtime-distribution-ref",
+        default="HEAD",
+        help="Git ref to pin for the runtime distribution repo",
+    )
     pin_parser.add_argument("--platform-ref", default="HEAD", help="Git ref to pin for platform-engineering")
     pin_parser.add_argument(
         "--allow-dirty",
@@ -179,11 +183,11 @@ def main() -> int:
             workspace_root=args.workspace_root,
             telegram_repo=args.telegram_repo,
             host_bridge_repo=args.host_bridge_repo,
-            deployment_repo=args.deployment_repo,
+            runtime_distribution_repo=args.runtime_distribution_repo,
             platform_repo=args.platform_repo,
             telegram_ref=args.telegram_ref,
             host_bridge_ref=args.host_bridge_ref,
-            deployment_ref=args.deployment_ref,
+            runtime_distribution_ref=args.runtime_distribution_ref,
             platform_ref=args.platform_ref,
             allow_dirty=args.allow_dirty,
             skip_origin_check=args.skip_origin_check,
@@ -205,7 +209,7 @@ def main() -> int:
             f"{args.environment} contract valid: {image_ref} "
             f"(telegram={source['telegramEnhanced']['commit']}, "
             f"hostBridge={source['hostBridge']['commit']}, "
-            f"deploymentRepo={source['isolatedDeployment']['commit']}, "
+            f"runtimeDistribution={source['runtimeDistribution']['commit']}, "
             f"platform={source['platformEngineering']['commit']})"
         )
         return 0

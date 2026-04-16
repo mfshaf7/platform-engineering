@@ -28,7 +28,7 @@ def source_bundle_components(versions: dict) -> list[str]:
     return [
         versions["sourceRepos"]["telegramEnhanced"]["commit"],
         versions["sourceRepos"]["hostBridge"]["commit"],
-        versions["sourceRepos"]["isolatedDeployment"]["commit"],
+        versions["sourceRepos"]["runtimeDistribution"]["commit"],
         versions["gateway"]["build"]["baseImage"],
         versions["gateway"]["build"]["dockerfile"],
     ]
@@ -47,7 +47,7 @@ def build_metadata(versions: dict) -> dict[str, str]:
     return {
         "telegram_ref": versions["sourceRepos"]["telegramEnhanced"]["commit"],
         "host_bridge_ref": versions["sourceRepos"]["hostBridge"]["commit"],
-        "deployment_ref": versions["sourceRepos"]["isolatedDeployment"]["commit"],
+        "runtime_distribution_ref": versions["sourceRepos"]["runtimeDistribution"]["commit"],
         "publish_repository": versions["gateway"]["publish"]["repository"],
         "publish_tag_prefix": versions["gateway"]["publish"]["tagPrefix"],
         "publish_platforms": ",".join(versions["gateway"]["publish"]["platforms"]),

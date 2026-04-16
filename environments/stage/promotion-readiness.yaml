@@ -5,8 +5,8 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage suspended; explicit resume and approval are required before the next prod
-  promotion.
+note: Stage source pins changed; build, verify, and re-approve the next stage candidate
+  before promoting to prod.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: pending-build
@@ -43,7 +43,8 @@ approvedVerification:
   verifiedAt: null
   verifiedBy: null
   evidenceRef: null
-  note: No recorded stage verification yet. Rehearse the current candidate on stage before approval.
+  note: No recorded stage verification yet. Rehearse the current candidate on stage
+    before approval.
   candidateRef:
     path: environments/stage/release-candidate.yaml
     status: null

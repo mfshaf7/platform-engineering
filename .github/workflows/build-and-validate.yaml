@@ -27,6 +27,9 @@ jobs:
       - name: Install YAML dependency
         run: python -m pip install pyyaml
 
+      - name: Validate platform repo structure
+        run: python scripts/validate_repo_structure.py
+
       - name: Lint gateway chart
         run: helm lint charts/openclaw-gateway
 
@@ -46,10 +49,10 @@ jobs:
         run: helm template platform-version-stage charts/platform-version -f environments/stage/values/platform-version.yaml >/tmp/platform-version-stage.yaml
 
       - name: Validate stage environment contract
-        run: python scripts/gateway_release.py validate stage
+        run: python products/openclaw/scripts/gateway_release.py validate stage
 
       - name: Validate prod environment contract
-        run: python scripts/gateway_release.py validate prod
+        run: python products/openclaw/scripts/gateway_release.py validate prod
 
       - name: Validate Terraform formatting
         run: terraform -chdir=terraform/environments/prod fmt -check

@@ -23,6 +23,7 @@ is the place where product-specific integration material should accumulate.
 
 At minimum, each product should have:
 
+- `AGENTS.md`
 - `README.md`
 - `runtime-contract.md`
 - `dependencies.md`
@@ -33,6 +34,8 @@ Optional depending on the product:
 - `host-integration.md`
 - `secrets-and-config.md`
 - product-specific workflow or runbook docs
+- `scripts/README.md`
+- `runbooks/README.md`
 
 ## Current Products
 

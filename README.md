@@ -96,6 +96,10 @@ the product-local script indexes:
 - [products/openclaw/scripts/README.md](products/openclaw/scripts/README.md)
 - [products/openproject/scripts/README.md](products/openproject/scripts/README.md)
 
+`make validate` now includes the shared structure guard
+`scripts/validate_repo_structure.py` so product-specific files cannot drift back
+into shared `docs/runbooks/` or `scripts/` unnoticed.
+
 ## Repository Layout
 
 ```text

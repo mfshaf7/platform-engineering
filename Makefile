@@ -25,13 +25,14 @@ help:
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
-	@printf "  prepull-gateway-image Warm the current gateway image digest onto every node before rollout\n"
-	@printf "  gateway-tag Print the deterministic gateway release tag for an environment\n"
-	@printf "  gateway-pin Pin source SHAs for an environment from local repo checkouts\n"
-	@printf "  gateway-validate Validate an environment contract\n"
-	@printf "  gateway-record Record a built image digest into an environment contract\n"
-	@printf "  gateway-promote Promote one validated environment candidate into another\n"
-	@printf "  gateway-readiness Manage stage promotion readiness\n"
+	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
+	@printf "  openclaw-gateway-tag Print the deterministic OpenClaw gateway release tag for an environment\n"
+	@printf "  openclaw-gateway-pin Pin OpenClaw source SHAs for an environment from local repo checkouts\n"
+	@printf "  openclaw-gateway-validate Validate an OpenClaw environment contract\n"
+	@printf "  openclaw-gateway-record Record a built OpenClaw image digest into an environment contract\n"
+	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
+	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
+	@printf "  openclaw-stage-state Resume, suspend, or inspect the OpenClaw stage environment\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
 	@printf "  show-prod-versions Show current prod version pins\n"
@@ -82,23 +83,23 @@ capture-windows-task-evidence:
 
 .PHONY: openproject-apply
 openproject-apply:
-	./scripts/openproject_apply.sh
+	./products/openproject/scripts/openproject_apply.sh
 
 .PHONY: openproject-status
 openproject-status:
-	./scripts/openproject_status.sh
+	./products/openproject/scripts/openproject_status.sh
 
 .PHONY: openproject-access
 openproject-access:
-	./scripts/openproject_access.sh
+	./products/openproject/scripts/openproject_access.sh
 
 .PHONY: openproject-sync-admin-password
 openproject-sync-admin-password:
-	./scripts/openproject_sync_admin_password.sh
+	./products/openproject/scripts/openproject_sync_admin_password.sh
 
 .PHONY: openproject-uninstall
 openproject-uninstall:
-	./scripts/openproject_uninstall.sh
+	./products/openproject/scripts/openproject_uninstall.sh
 
 .PHONY: verify-platform-host
 verify-platform-host:
@@ -107,45 +108,47 @@ verify-platform-host:
 .PHONY: verify-restart-survival
 verify-restart-survival: verify-platform-host
 
-.PHONY: prepull-gateway-image
-prepull-gateway-image:
-	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make prepull-gateway-image ENVIRONMENT=stage"; exit 1; }
-	python3 scripts/prepull_gateway_image.py $(ENVIRONMENT)
+.PHONY: openclaw-gateway-prepull-image
+openclaw-gateway-prepull-image:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-prepull-image ENVIRONMENT=stage"; exit 1; }
+	python3 products/openclaw/scripts/prepull_gateway_image.py $(ENVIRONMENT)
 
-.PHONY: gateway-tag
-gateway-tag:
-	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-tag ENVIRONMENT=stage"; exit 1; }
-	python3 scripts/gateway_release.py tag $(ENVIRONMENT)
+.PHONY: openclaw-gateway-tag
+openclaw-gateway-tag:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-tag ENVIRONMENT=stage"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py tag $(ENVIRONMENT)
 
-.PHONY: gateway-pin
-gateway-pin:
-	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-pin ENVIRONMENT=stage"; exit 1; }
-	python3 scripts/gateway_release.py pin $(ENVIRONMENT)
+.PHONY: openclaw-gateway-pin
+openclaw-gateway-pin:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-pin ENVIRONMENT=stage"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py pin $(ENVIRONMENT)
 
-.PHONY: gateway-validate
-gateway-validate:
-	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-validate ENVIRONMENT=stage"; exit 1; }
-	python3 scripts/gateway_release.py validate $(ENVIRONMENT) $(if $(REQUIRE_DETERMINISTIC_TAG),--require-deterministic-tag,)
+.PHONY: openclaw-gateway-validate
+openclaw-gateway-validate:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-validate ENVIRONMENT=stage"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py validate $(ENVIRONMENT) $(if $(REQUIRE_DETERMINISTIC_TAG),--require-deterministic-tag,)
 
-.PHONY: gateway-record
-gateway-record:
-	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
-	@test -n "$(DIGEST)" || { echo "DIGEST is required, for example: make gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
-	python3 scripts/gateway_release.py record $(ENVIRONMENT) --digest $(DIGEST) $(if $(TAG),--tag $(TAG),) $(if $(PLATFORM_SHA),--platform-sha $(PLATFORM_SHA),)
+.PHONY: openclaw-gateway-record
+openclaw-gateway-record:
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make openclaw-gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
+	@test -n "$(DIGEST)" || { echo "DIGEST is required, for example: make openclaw-gateway-record ENVIRONMENT=stage DIGEST=sha256:..."; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py record $(ENVIRONMENT) --digest $(DIGEST) $(if $(TAG),--tag $(TAG),) $(if $(PLATFORM_SHA),--platform-sha $(PLATFORM_SHA),)
 
-.PHONY: gateway-promote
-gateway-promote:
-	@test -n "$(SOURCE_ENVIRONMENT)" || { echo "SOURCE_ENVIRONMENT is required, for example: make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
-	@test -n "$(TARGET_ENVIRONMENT)" || { echo "TARGET_ENVIRONMENT is required, for example: make gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
-	python3 scripts/gateway_release.py promote $(SOURCE_ENVIRONMENT) $(TARGET_ENVIRONMENT)
+.PHONY: openclaw-gateway-promote
+openclaw-gateway-promote:
+	@test -n "$(SOURCE_ENVIRONMENT)" || { echo "SOURCE_ENVIRONMENT is required, for example: make openclaw-gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
+	@test -n "$(TARGET_ENVIRONMENT)" || { echo "TARGET_ENVIRONMENT is required, for example: make openclaw-gateway-promote SOURCE_ENVIRONMENT=stage TARGET_ENVIRONMENT=prod"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py promote $(SOURCE_ENVIRONMENT) $(TARGET_ENVIRONMENT)
 
-.PHONY: gateway-readiness
-gateway-readiness:
-	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make gateway-readiness ACTION=validate"; exit 1; }
-	python3 scripts/gateway_release.py readiness $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(APPROVED_BY),--approved-by $(APPROVED_BY),)
+.PHONY: openclaw-gateway-readiness
+openclaw-gateway-readiness:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make openclaw-gateway-readiness ACTION=validate"; exit 1; }
+	python3 products/openclaw/scripts/gateway_release.py readiness $(ACTION) $(if $(STATUS),--status $(STATUS),) $(if $(NOTE),--note "$(NOTE)",) $(if $(APPROVED_BY),--approved-by $(APPROVED_BY),)
 
-.PHONY: pin-gateway-source-repos
-pin-gateway-source-repos: gateway-pin
+.PHONY: openclaw-stage-state
+openclaw-stage-state:
+	@test -n "$(STATE)" || { echo "STATE is required, for example: make openclaw-stage-state STATE=resume COMPONENTS=gateway,version"; exit 1; }
+	python3 products/openclaw/scripts/set_stage_environment_state.py $(STATE) $(if $(COMPONENTS),--components $(COMPONENTS),)
 
 .PHONY: render-windows-bootstrap
 render-windows-bootstrap:

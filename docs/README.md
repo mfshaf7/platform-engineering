@@ -2,8 +2,7 @@
 
 This `docs/` tree is for shared platform material.
 
-It should stay product-neutral unless a file is explicitly marked as legacy
-product-specific material that has not yet been migrated into `products/`.
+It should stay product-neutral.
 
 ## Shared Platform Docs
 
@@ -24,13 +23,8 @@ Product-specific runtime and operating docs belong under:
 
 Use `products/_template/` when onboarding a new product.
 
-## Current Migration Reality
-
-This repo still contains some incumbent OpenClaw-focused runbooks at the shared
-docs layer because OpenClaw was the first deeply integrated product.
-
-Going forward:
+## Product Rule
 
 - shared platform procedures stay in `docs/`
-- product-specific runtime contracts, visibility docs, and future product
-  runbooks should live under `products/<product>/`
+- product-specific runtime contracts, scripts, runbooks, and visibility docs
+  live under `products/<product>/`

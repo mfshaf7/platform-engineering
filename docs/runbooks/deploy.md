@@ -17,11 +17,10 @@ should be documented from that product directory.
 
 Examples:
 
-- OpenClaw currently still has incumbent release runbooks under the shared
-  runbooks tree:
-  - [promote-stage-to-prod.md](promote-stage-to-prod.md)
-  - [rebuild-and-promote-gateway.md](rebuild-and-promote-gateway.md)
-- Future product-specific flows should prefer `products/<product>/` docs.
+- OpenClaw release and promotion flows now live under
+  [products/openclaw/runbooks/](../../products/openclaw/runbooks/README.md)
+- OpenProject access and lifecycle runbooks now live under
+  [products/openproject/runbooks/](../../products/openproject/runbooks/README.md)
 
 For fresh host migration and cutover, use:
 

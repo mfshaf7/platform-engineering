@@ -12,7 +12,7 @@ SECRETS_APP_NAME="${SECRETS_APP_NAME:-openproject-secrets}"
 PURGE_DATA="${PURGE_DATA:-false}"
 FORCE="${FORCE:-false}"
 REMOVE_POSTGRES="${REMOVE_POSTGRES:-false}"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PROD_KUSTOMIZATION="${REPO_ROOT}/environments/prod/argocd/kustomization.yaml"
 
 need_cmd() {

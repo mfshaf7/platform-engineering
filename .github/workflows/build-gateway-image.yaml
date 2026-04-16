@@ -45,13 +45,13 @@ jobs:
         id: env_meta
         working-directory: platform-engineering
         run: |
-          python scripts/gateway_release.py metadata "$TARGET_ENV" --github-output "$GITHUB_OUTPUT"
+          python products/openclaw/scripts/gateway_release.py metadata "$TARGET_ENV" --github-output "$GITHUB_OUTPUT"
         env:
           TARGET_ENV: ${{ inputs.environment }}
 
       - name: Validate environment contract
         working-directory: platform-engineering
-        run: python scripts/gateway_release.py validate "${{ inputs.environment }}" --require-deterministic-tag
+        run: python products/openclaw/scripts/gateway_release.py validate "${{ inputs.environment }}" --require-deterministic-tag
 
       - name: Validate pinned refs and build contract
         run: |
@@ -119,7 +119,7 @@ jobs:
       - name: Validate gateway source bundle compatibility
         working-directory: platform-engineering
         run: |
-          python scripts/validate_gateway_source_bundle.py \
+          python products/openclaw/scripts/validate_gateway_source_bundle.py \
             --telegram-repo "${{ github.workspace }}/openclaw-telegram-enhanced" \
             --deployment-repo "${{ github.workspace }}/openclaw-runtime-distribution"
 

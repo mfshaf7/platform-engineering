@@ -79,14 +79,22 @@ product-neutral.
   - `make verify-platform-host`
   - `make validate`
 - OpenClaw-specific release commands:
-  - `make gateway-pin`
-  - `make gateway-validate`
-  - `make gateway-record`
-  - `make gateway-promote`
-  - `make gateway-readiness`
+  - `make openclaw-gateway-pin`
+  - `make openclaw-gateway-validate`
+  - `make openclaw-gateway-record`
+  - `make openclaw-gateway-promote`
+  - `make openclaw-gateway-readiness`
+- OpenProject-specific commands:
+  - `make openproject-apply`
+  - `make openproject-status`
+  - `make openproject-access`
+  - `make openproject-uninstall`
 
-See [scripts/README.md](scripts/README.md) for the current classification and
-which scripts are shared vs OpenClaw-specific.
+See [scripts/README.md](scripts/README.md) for shared platform scripts, then use
+the product-local script indexes:
+
+- [products/openclaw/scripts/README.md](products/openclaw/scripts/README.md)
+- [products/openproject/scripts/README.md](products/openproject/scripts/README.md)
 
 ## Repository Layout
 

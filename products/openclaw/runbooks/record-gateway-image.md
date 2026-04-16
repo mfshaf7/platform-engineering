@@ -18,7 +18,7 @@ Example for `prod`:
 ```bash
 PLATFORM_SHA="<platform-engineering-build-commit>"
 
-python scripts/gateway_release.py record prod \
+python3 products/openclaw/scripts/gateway_release.py record prod \
   --digest sha256:replace-with-build-output \
   --platform-sha "$PLATFORM_SHA"
 ```

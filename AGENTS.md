@@ -1,54 +1,82 @@
 # Platform Engineering Agent Notes
 
-## Gateway Rollout Guardrails
+This repository is the shared platform and release-governance repo for multiple
+products.
 
-- Treat `Build Gateway Image` as artifact creation only. A successful build does not mean prod is safe to swap yet.
-- `prod` gateway is single-node and binds host port `18789`. Normal rolling updates can deadlock on port allocation.
-- Do not manually delete or restart the old prod gateway pod as a first resort.
-- Prod cutover must use the external pre-pull sequence: warm the exact target digest on the node first, then commit the prod contract change, then let Argo reconcile.
-- `python3 scripts/gateway_release.py record prod ...` now performs that external pre-pull before it writes the prod digest by default.
-- `stage` gateway rehearsals must use the same external pre-pull guardrail. `python3 scripts/gateway_release.py record stage ...` now warms the exact target digest before it writes the stage contract by default.
-- If investigating a slow prod rollout, check the node image pull and deployment image first. Do not add a chart hook or Argo-managed pre-pull resource back onto the sync path.
-- If you need a fresh gateway image, trigger `Build Gateway Image`, wait for the digest, run `gateway_release.py record` for prod, then commit and push the resulting contract change.
+Do not let the platform root drift back into a product-specific dumping ground.
 
-## Stage Promotion Guardrails
+## Routing Rule
 
-- Keep `stage` suspended by default in source control.
-- Resume only the components you are actively testing. Normal gateway rehearsal should use `gateway,version`, which activates `gateway + secrets + version`.
-- Resume stage through `scripts/set_stage_environment_state.py`, which now owns
-  the on-demand stage bridge lifecycle as well as the stage Argo kustomization.
-- The stage bridge should not be left running while stage is suspended.
-- Any stage lifecycle change resets promotion readiness. Treat every resume, suspend, or stage contract edit as a new approval boundary.
-- Prod promotion must fail closed unless `python3 scripts/gateway_release.py readiness validate` passes against the current stage candidate.
-- Use `Confirm Stage Promotion Readiness` only after stage testing is complete and the current candidate is explicitly approved for prod.
-- After a successful prod promotion, suspend stage again unless there is an explicit follow-up test in progress.
+Start with:
 
-## Workflow Dispatch Guardrails
+- `README.md`
+- `docs/architecture/overview.md`
+- `docs/standards/product-boundaries.md`
+- `docs/standards/product-documentation-model.md`
 
-- Trigger GitHub Actions only from the real WSL repo state, not a stale workspace copy.
-- Extract GitHub dispatch tokens entirely inside WSL from the k3s secret path (`argocd/platform-engineering-repo`, data key `password`).
-- Do not mix PowerShell interpolation with WSL secret reads or `gh workflow run`; that path repeatedly corrupts token reads and workflow inputs.
-- Use `scripts/dispatch_github_workflow_from_k3s_secret.sh` for secret-backed workflow dispatch instead of ad hoc one-liners.
-- Never copy, retype, or reuse a GitHub token from prior terminal output. Always decode it fresh inside WSL.
-- Before dispatching a workflow on a branch, verify the remote ref exists on GitHub.
-- Prefer the exact workflow file name or workflow ID when dispatching; do not rely only on the display name.
-- Do not bundle branch creation, push, and dispatch into one opaque shell chain when a ref check would surface the real problem earlier.
+Then route by scope:
 
-## Workspace Source Of Truth
+- shared platform concern
+  - stay in the repo root, `docs/`, `scripts/`, `ansible/`, `argocd/`,
+    `charts/`, `environments/`, `observability/`, `terraform/`
+- product-specific integration concern
+  - go to `products/<product>/` and read that product's `AGENTS.md`
 
-- Treat the WSL repos under `/home/mfshaf7/projects/...` as the primary working copies and source of truth.
-- Do not assume the Windows workspace mirror is current.
-- Use the Windows side only for temporary helper files or tasks that are explicitly Windows-local.
-- Before making repo conclusions, checks, or workflow changes, inspect the WSL copy first.
+Current product-local agent guides:
 
-## Telegram Runtime Guardrails
+- `products/openclaw/AGENTS.md`
+- `products/openproject/AGENTS.md`
 
-- Treat Telegram customization as a packaged bundled-runtime seam, not a loose same-id plugin override.
-- The current supported runtime contract lives under `/app/dist/extensions/telegram`.
-- Do not add undocumented Telegram config keys just to restore older behavior. For example, `channels.telegram.botTokenEnv` is rejected by the newer bundled runtime.
-- Shared stage/prod Telegram groups or topics are allowed only when they are
-  intentional and risk-reviewed. In that model, startup backlog behavior must be
-  explicit so a newly online bot does not replay buffered traffic meant for the
-  other environment.
-- Before upgrading the OpenClaw base image, read the official OpenClaw release notes for channel/plugin loading, packaging, or Telegram changes.
-- A successful build is not enough after a base-image change. Re-run the compiled Telegram runtime smoke checks and validate real stage Telegram polling/reply before considering prod promotion.
+## Shared Vs Product-Specific Placement
+
+Keep these shared:
+
+- platform bootstrap and provisioning
+- Argo root apps and shared controller patterns
+- Vault, secret-delivery, and shared observability patterns
+- product-neutral standards and platform-wide runbooks
+- shared platform scripts only
+
+Keep these product-specific:
+
+- product runtime and release runbooks
+- product visibility and operations guidance
+- product-specific scripts and helper modules
+- product-specific lifecycle helpers
+
+Shared docs stay in `docs/`.
+
+Product docs, scripts, and runbooks stay in:
+
+- `products/<product>/`
+- `products/<product>/scripts/`
+- `products/<product>/runbooks/`
+
+## Non-Negotiable Rules
+
+- Do not add new product-specific scripts at the repo-root `scripts/`.
+- Do not add new product-specific runbooks under `docs/runbooks/`.
+- Do not make the shared repo README or shared docs read like one product owns
+  the platform.
+- If a workflow, script, or runbook exists only for one product, move it to
+  that product directory instead of marking it as another incumbent exception.
+
+## Operator Surface
+
+Top-level `make` targets may still expose product-specific commands, but their
+names must be product-qualified.
+
+Examples:
+
+- `make openclaw-gateway-pin`
+- `make openclaw-gateway-promote`
+- `make openproject-apply`
+
+When you add or change a product-specific operator flow, update:
+
+- the owning product `AGENTS.md`
+- the owning product `README.md`
+- the owning product `scripts/README.md` or `runbooks/README.md`
+
+Do not expand this repo-root `AGENTS.md` with product-local incident lore when
+that guidance belongs in a product directory.

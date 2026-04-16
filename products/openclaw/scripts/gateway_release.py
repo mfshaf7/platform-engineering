@@ -17,7 +17,7 @@ from stage_readiness import (
 def add_repo_root_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--repo-root",
-        default=Path(__file__).resolve().parents[1],
+        default=Path(__file__).resolve().parents[3],
         type=Path,
         help="platform-engineering repository root",
     )
@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     add_repo_root_arg(pin_parser)
     pin_parser.add_argument(
         "--workspace-root",
-        default=Path(__file__).resolve().parents[2],
+        default=Path(__file__).resolve().parents[4],
         type=Path,
         help="Workspace root containing the sibling repos",
     )

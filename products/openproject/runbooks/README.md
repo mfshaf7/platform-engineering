@@ -9,4 +9,5 @@ They are not shared platform procedures.
 
 - [access-openproject.md](access-openproject.md)
 - [bootstrap-openproject.md](bootstrap-openproject.md)
+- [openproject-backup-restore.md](openproject-backup-restore.md)
 - [uninstall-openproject.md](uninstall-openproject.md)

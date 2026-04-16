@@ -27,7 +27,7 @@ still needs a temporary trust model that:
 - avoids storing raw workload unseal material in startup scripts
 - allows the transit trust root to recover automatically after Windows restart
 
-## Superseded decision
+## Decision
 
 The temporary trust chain will be:
 

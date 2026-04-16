@@ -47,3 +47,7 @@ Minimum meaningful checks:
 - admin password sync completed
 - PostgreSQL dependency reachable
 - application pod stable after reconciliation
+
+Backup and restore procedure lives in:
+
+- [runbooks/openproject-backup-restore.md](runbooks/openproject-backup-restore.md)

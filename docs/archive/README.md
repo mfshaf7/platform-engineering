@@ -7,7 +7,9 @@ These files are not active operator guidance.
 
 Use the active documentation set instead:
 
+- `docs/components/`
 - `docs/standards/`
 - `docs/runbooks/`
 - `docs/architecture/`
-- `docs/runbooks/change-records/`
+- `docs/decisions/`
+- `docs/records/change-records/`

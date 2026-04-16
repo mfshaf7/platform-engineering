@@ -157,6 +157,7 @@ render-windows-bootstrap:
 .PHONY: validate
 validate:
 	python3 scripts/validate_repo_structure.py
+	python3 scripts/validate_governance_docs.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

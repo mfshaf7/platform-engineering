@@ -9,6 +9,7 @@ SHARED_SCRIPT_FILES = {
     "bootstrap_vault.sh",
     "dispatch_github_workflow_from_k3s_secret.sh",
     "migrate_k8s_secret_to_vault.py",
+    "validate_governance_docs.py",
     "validate_repo_structure.py",
 }
 
@@ -28,7 +29,6 @@ SHARED_RUNBOOK_FILES = {
     "host-stack-rollout.md",
     "incident-hotfix.md",
     "migrate-to-platform-core.md",
-    "openproject-backup-restore.md",
     "platform-naming-audit.md",
     "restart-validation.md",
     "rollback.md",
@@ -38,7 +38,7 @@ SHARED_RUNBOOK_FILES = {
     "vault-secret-rotation.md",
 }
 
-ALLOWED_RUNBOOK_SUBDIRS = {"change-records"}
+ALLOWED_RUNBOOK_SUBDIRS: set[str] = set()
 
 REQUIRED_PRODUCT_FILES = {
     "AGENTS.md",
@@ -46,6 +46,25 @@ REQUIRED_PRODUCT_FILES = {
     "dependencies.md",
     "runtime-contract.md",
     "visibility-and-operations.md",
+}
+
+REQUIRED_COMPONENT_DIRS = {
+    "argo-cd",
+    "vault",
+    "observability",
+    "external-secrets",
+    "platform-postgresql",
+}
+
+REQUIRED_COMPONENT_FILES = {
+    "README.md",
+    "architecture.md",
+    "access.md",
+    "operations.md",
+}
+
+REQUIRED_GITHUB_FILES = {
+    "pull_request_template.md",
 }
 
 
@@ -84,6 +103,59 @@ def check_product_directory(errors: list[str], product_dir: Path) -> None:
         errors.append(f"{runbooks_dir}: missing README.md")
 
 
+def check_components_dir(errors: list[str], components_dir: Path) -> None:
+    if not components_dir.exists():
+        errors.append(f"{components_dir}: missing shared components docs directory")
+        return
+
+    if not (components_dir / "README.md").exists():
+        errors.append(f"{components_dir}: missing README.md")
+
+    actual_dirs = {path.name for path in components_dir.iterdir() if path.is_dir()}
+    missing = sorted(REQUIRED_COMPONENT_DIRS - actual_dirs)
+    if missing:
+        errors.append(f"{components_dir}: missing required component directories: {', '.join(missing)}")
+
+    for component_name in sorted(REQUIRED_COMPONENT_DIRS & actual_dirs):
+        component_dir = components_dir / component_name
+        actual_files = {path.name for path in component_dir.iterdir() if path.is_file()}
+        missing_files = sorted(REQUIRED_COMPONENT_FILES - actual_files)
+        if missing_files:
+            errors.append(f"{component_dir}: missing required component files: {', '.join(missing_files)}")
+
+
+def check_governance_dirs(errors: list[str], repo_root: Path) -> None:
+    decisions_dir = repo_root / "docs" / "decisions"
+    adr_dir = decisions_dir / "adr"
+    records_dir = repo_root / "docs" / "records"
+    change_records_dir = records_dir / "change-records"
+
+    if not (decisions_dir / "README.md").exists():
+        errors.append(f"{decisions_dir}: missing README.md")
+    if not (adr_dir / "README.md").exists():
+        errors.append(f"{adr_dir}: missing README.md")
+    if not (adr_dir / "TEMPLATE.md").exists():
+        errors.append(f"{adr_dir}: missing TEMPLATE.md")
+
+    if not (records_dir / "README.md").exists():
+        errors.append(f"{records_dir}: missing README.md")
+    if not (change_records_dir / "README.md").exists():
+        errors.append(f"{change_records_dir}: missing README.md")
+    if not (change_records_dir / "TEMPLATE.md").exists():
+        errors.append(f"{change_records_dir}: missing TEMPLATE.md")
+
+
+def check_github_dir(errors: list[str], repo_root: Path) -> None:
+    github_dir = repo_root / ".github"
+    if not github_dir.exists():
+        errors.append(f"{github_dir}: missing .github directory")
+        return
+    actual_files = {path.name for path in github_dir.iterdir() if path.is_file()}
+    missing = sorted(REQUIRED_GITHUB_FILES - actual_files)
+    if missing:
+        errors.append(f"{github_dir}: missing required governance files: {', '.join(missing)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate that platform-engineering keeps shared paths product-neutral."
@@ -101,10 +173,14 @@ def main() -> int:
 
     scripts_dir = repo_root / "scripts"
     runbooks_dir = repo_root / "docs" / "runbooks"
+    components_dir = repo_root / "docs" / "components"
     products_dir = repo_root / "products"
 
     check_exact_files(errors, scripts_dir, SHARED_SCRIPT_FILES)
     check_runbooks_dir(errors, runbooks_dir)
+    check_components_dir(errors, components_dir)
+    check_governance_dirs(errors, repo_root)
+    check_github_dir(errors, repo_root)
 
     for product_dir in sorted(path for path in products_dir.iterdir() if path.is_dir()):
         check_product_directory(errors, product_dir)

@@ -57,9 +57,13 @@ That split is implemented under:
 ### Shared platform
 
 - [docs/README.md](docs/README.md)
+- [docs/components/README.md](docs/components/README.md)
+- [docs/decisions/adr/README.md](docs/decisions/adr/README.md)
+- [docs/records/change-records/README.md](docs/records/change-records/README.md)
 - [docs/architecture/overview.md](docs/architecture/overview.md)
 - [docs/architecture/current-platform-topology.md](docs/architecture/current-platform-topology.md)
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
+- [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
 - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
 - [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)
 - [docs/standards/product-documentation-model.md](docs/standards/product-documentation-model.md)
@@ -87,6 +91,21 @@ Those documents are meant to answer:
 - what is directly reachable
 - how to log in
 - what is intentionally internal-only or suspended
+
+For enterprise workflow governance, also use:
+
+- [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
+- [.github/pull_request_template.md](.github/pull_request_template.md)
+
+## Shared Component Map
+
+For shared component architecture and operations, use:
+
+- [docs/components/argo-cd/README.md](docs/components/argo-cd/README.md)
+- [docs/components/vault/README.md](docs/components/vault/README.md)
+- [docs/components/observability/README.md](docs/components/observability/README.md)
+- [docs/components/external-secrets/README.md](docs/components/external-secrets/README.md)
+- [docs/components/platform-postgresql/README.md](docs/components/platform-postgresql/README.md)
 
 ## Operator Entrypoints
 
@@ -118,7 +137,8 @@ the product-local script indexes:
 
 `make validate` now includes the shared structure guard
 `scripts/validate_repo_structure.py` so product-specific files cannot drift back
-into shared `docs/runbooks/` or `scripts/` unnoticed.
+into shared `docs/runbooks/` or `scripts/` unnoticed. It also validates the
+governance documentation and review surface.
 
 ## Repository Layout
 

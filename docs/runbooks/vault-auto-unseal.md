@@ -49,12 +49,12 @@ Preferred order:
 For this local platform, the current temporary implementation target is option
 `4`, using Windows as the workstation trust root with TPM-backed protection for
 the Vault bootstrap secret. See
-[ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md](../architecture/ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md)
+[ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md](../decisions/adr/ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md)
 and [bootstrap-windows-rooted-vault-auto-unseal.md](bootstrap-windows-rooted-vault-auto-unseal.md).
 
 The separate transit Vault path remains the preferred low-cost architecture
 when the transit trust root can run on a genuinely separate boundary. See
-[ADR-003-vault-transit-auto-unseal.md](../architecture/ADR-003-vault-transit-auto-unseal.md)
+[ADR-003-vault-transit-auto-unseal.md](../decisions/adr/ADR-003-vault-transit-auto-unseal.md)
 and [bootstrap-transit-vault.md](bootstrap-transit-vault.md).
 
 Do not treat a second WSL distro on the same workstation as a sufficient

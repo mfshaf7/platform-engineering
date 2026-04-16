@@ -49,6 +49,7 @@ Use this test before naming or adding a new component:
 ## Repository Pattern
 
 - shared standards live under [docs/standards](../standards)
+- shared component docs live under `docs/components/<component>/`
 - shared control-plane assets live under the platform roots, charts,
   environments, and shared runbooks
 - product-specific integration contracts live under `products/<product>/`

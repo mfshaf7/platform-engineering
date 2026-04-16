@@ -7,9 +7,17 @@ It should stay product-neutral.
 ## Shared Platform Docs
 
 - `architecture/`
-  - control planes, trust boundaries, platform-wide ADRs
+  - control planes, trust boundaries, current topology, and platform-wide
+    architecture views
+- `components/`
+  - shared platform components with direct links to architecture, access, and
+    operations guidance
 - `standards/`
   - shared governance, release, secret, observability, and documentation rules
+- `decisions/`
+  - ADRs and design rationale for shared platform changes
+- `records/`
+  - change records and governed rollout evidence
 - `runbooks/`
   - shared platform operations and platform-level procedures
 
@@ -18,8 +26,15 @@ It should stay product-neutral.
 If you need to understand the current live platform rather than just the
 governance model, start with:
 
+- `decisions/adr/README.md`
+- `records/change-records/README.md`
+- `components/README.md`
 - `architecture/current-platform-topology.md`
 - `runbooks/access-platform-uis.md`
+
+For meaningful PRs, also use the governance declaration in:
+
+- `../.github/pull_request_template.md`
 
 ## Product-Specific Docs
 

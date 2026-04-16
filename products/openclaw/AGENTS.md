@@ -96,3 +96,18 @@ update:
 
 - `../../docs/architecture/current-platform-topology.md`
 - `../../docs/runbooks/access-platform-uis.md`
+
+## Governance Rule
+
+When an OpenClaw platform change also changes shared platform design, use:
+
+- `../../docs/decisions/adr/`
+
+When an OpenClaw platform change materially changes governed stage, prod, or
+host-owned live state, use:
+
+- `../../docs/records/change-records/`
+
+For meaningful PRs, fill the shared governance declaration in:
+
+- `../../.github/pull_request_template.md`

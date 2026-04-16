@@ -96,6 +96,14 @@ The minimum acceptable documentation surface is:
 - repo README that explains ownership and workflow
 - operator-facing runbook or architecture doc for the changed behavior
 - platform or security standards update when the control model changed
+- ADR when the shared design or control model changed
+- change record when live governed behavior changed
+
+Use these explicitly:
+
+- [enterprise-workflow-model.md](enterprise-workflow-model.md)
+- [../decisions/adr/README.md](../decisions/adr/README.md)
+- [../records/change-records/README.md](../records/change-records/README.md)
 
 ## Required Evidence
 
@@ -146,6 +154,8 @@ This model is enforced through:
 - immutable digest recording
 - Argo-managed reconciliation
 - host provisioning playbooks
+- ADR and change-record governance
+- PR governance declaration in `.github/pull_request_template.md`
 - live verification and change records
 
 ## Practical Decision Rule

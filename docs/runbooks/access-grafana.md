@@ -7,6 +7,9 @@ This runbook defines the Grafana-specific access and credential model.
 Use [access-platform-uis.md](access-platform-uis.md) for the full current
 platform access matrix.
 
+Use [../components/observability/README.md](../components/observability/README.md)
+for the observability component architecture and operations entrypoint.
+
 ## Endpoints
 
 - prod Grafana: `http://127.0.0.1:32080`

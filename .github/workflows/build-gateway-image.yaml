@@ -57,7 +57,7 @@ jobs:
         run: |
           test "${{ steps.env_meta.outputs.telegram_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.host_bridge_ref }}" != "replace-me"
-          test "${{ steps.env_meta.outputs.deployment_ref }}" != "replace-me"
+          test "${{ steps.env_meta.outputs.runtime_distribution_ref }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_repository }}" != "replace-me"
           test "${{ steps.env_meta.outputs.publish_tag_prefix }}" != "replace-me"
           test "${{ steps.env_meta.outputs.dockerfile }}" = "deployment/Dockerfile.plugin-install.example"
@@ -84,7 +84,7 @@ jobs:
 
           check_ref "mfshaf7/openclaw-telegram-enhanced" "${{ steps.env_meta.outputs.telegram_ref }}"
           check_ref "mfshaf7/openclaw-host-bridge" "${{ steps.env_meta.outputs.host_bridge_ref }}"
-          check_ref "mfshaf7/openclaw-runtime-distribution" "${{ steps.env_meta.outputs.deployment_ref }}"
+          check_ref "mfshaf7/openclaw-runtime-distribution" "${{ steps.env_meta.outputs.runtime_distribution_ref }}"
 
       - name: Check out Telegram source
         uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mfshaf7/openclaw-runtime-distribution
-          ref: ${{ steps.env_meta.outputs.deployment_ref }}
+          ref: ${{ steps.env_meta.outputs.runtime_distribution_ref }}
           path: openclaw-runtime-distribution
           token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
 
@@ -153,7 +153,7 @@ jobs:
             openclaw.source-bundle-ref=${{ steps.env_meta.outputs.source_bundle_ref }}
             openclaw.telegram-ref=${{ steps.env_meta.outputs.telegram_ref }}
             openclaw.host-bridge-ref=${{ steps.env_meta.outputs.host_bridge_ref }}
-            openclaw.runtime-distribution-ref=${{ steps.env_meta.outputs.deployment_ref }}
+            openclaw.runtime-distribution-ref=${{ steps.env_meta.outputs.runtime_distribution_ref }}
             openclaw.platform-engineering-ref=${{ github.sha }}
           provenance: mode=max
           sbom: true
@@ -292,7 +292,7 @@ jobs:
             echo '- Digest: `${{ steps.build_push.outputs.digest }}`'
             echo '- Telegram SHA: `${{ steps.env_meta.outputs.telegram_ref }}`'
             echo '- Host bridge SHA: `${{ steps.env_meta.outputs.host_bridge_ref }}`'
-            echo '- Runtime distribution SHA: `${{ steps.env_meta.outputs.deployment_ref }}`'
+            echo '- Runtime distribution SHA: `${{ steps.env_meta.outputs.runtime_distribution_ref }}`'
             echo '- Platform SHA: `${{ github.sha }}`'
             echo
             echo 'Bundled Telegram + host-control packaged-runtime seam:'

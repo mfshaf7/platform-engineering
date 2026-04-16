@@ -7,6 +7,9 @@ OpenClaw is the most mature product currently integrated here, but it is only
 one product. This repository should be understandable and reusable even when
 more products are added later.
 
+Security standards, trust-boundary review, and durable security evidence are
+owned in `security-architecture/`, not duplicated here.
+
 ## What This Repository Owns
 
 This repository owns shared platform concerns:

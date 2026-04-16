@@ -41,6 +41,10 @@ Current product-local agent guides:
 
 Shared path enforcement lives in `scripts/validate_repo_structure.py`.
 
+Security review inputs and trust-boundary expectations are owned in
+`security-architecture/`. Use that repo's review outputs and standards instead
+of restating security governance locally.
+
 ## Workflow Maturity Rule
 
 Do not assume every product has the same delivery maturity as OpenClaw.

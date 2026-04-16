@@ -157,6 +157,10 @@ the product-local script indexes:
 into shared `docs/runbooks/` or `scripts/` unnoticed. It also validates the
 governance documentation, workflow docs, and review surface.
 
+The shared-vs-product structure contract for this repo lives in
+[repo-structure-manifest.yaml](repo-structure-manifest.yaml), not only inside
+the validator code.
+
 ## Repository Layout
 
 ```text

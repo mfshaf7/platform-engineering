@@ -13,6 +13,8 @@ These support shared platform operations:
 - `validate_governance_docs.py`
 - `validate_operational_docs.py`
 - `validate_repo_structure.py`
+  - enforces the shared-vs-product repo boundary from
+    `../repo-structure-manifest.yaml`
 
 `validate_governance_docs.py` checks ADR and change-record structure, and the
 shared PR governance template that routes future changes into the right

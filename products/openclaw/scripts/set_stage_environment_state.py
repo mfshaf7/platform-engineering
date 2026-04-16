@@ -5,14 +5,16 @@ import os
 from pathlib import Path
 import subprocess
 import time
+from urllib.error import HTTPError
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from stage_readiness import reset_stage_promotion_readiness, reset_stage_verification
 
 SUSPEND_SENTINEL = "suspend-sentinel-configmap.yaml"
 DEFAULT_STAGE_BRIDGE_SERVICE_NAME = "openclaw-host-bridge-stage.service"
 DEFAULT_STAGE_BRIDGE_HEALTH_URL = "http://127.0.0.1:48731/healthz"
+DEFAULT_STAGE_BRIDGE_REQUEST_URL = "http://127.0.0.1:48731/v1/bridge"
 DEFAULT_STAGE_GATEWAY_BRIDGE_URL = "http://172.27.88.8:48731"
 
 COMPONENT_RESOURCE_MAP = {
@@ -42,6 +44,10 @@ def stage_bridge_service_name() -> str:
 
 def stage_bridge_health_url() -> str:
     return os.environ.get("OPENCLAW_STAGE_BRIDGE_HEALTH_URL", DEFAULT_STAGE_BRIDGE_HEALTH_URL)
+
+
+def stage_bridge_request_url() -> str:
+    return os.environ.get("OPENCLAW_STAGE_BRIDGE_REQUEST_URL", DEFAULT_STAGE_BRIDGE_REQUEST_URL)
 
 
 def stage_gateway_bridge_url() -> str:
@@ -110,6 +116,64 @@ def validate_stage_bridge_inputs(repo_root: Path) -> None:
         )
 
 
+def load_stage_gateway_token() -> str:
+    config_path = stage_openclaw_config_path()
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    token = (
+        ((config.get("gateway") or {}).get("auth") or {}).get("token")
+    )
+    if not isinstance(token, str) or not token.strip():
+        raise SystemExit(
+            f"missing stage gateway auth token in {config_path}; expected gateway.auth.token for bridge request validation"
+        )
+    return token.strip()
+
+
+def probe_stage_bridge_request_path(timeout_seconds: int = 5) -> None:
+    payload = json.dumps(
+        {
+            "request_id": "stage-bridge-readiness-probe",
+            "operation": "config.allowed_roots.list",
+            "arguments": {},
+            "actor": {
+                "channel": "operator",
+                "session_key": "stage-lifecycle-validator",
+                "sender_id": "mfshaf7",
+            },
+        }
+    ).encode("utf-8")
+    request = Request(
+        stage_bridge_request_url(),
+        data=payload,
+        method="POST",
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {load_stage_gateway_token()}",
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            body = json.load(response)
+    except HTTPError as exc:
+        try:
+            error_body = exc.read().decode("utf-8")
+        except OSError:
+            error_body = ""
+        raise SystemExit(
+            f"stage bridge authenticated request probe failed at {stage_bridge_request_url()}: "
+            f"HTTP {exc.code} {error_body}".strip()
+        ) from exc
+    except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise SystemExit(
+            f"stage bridge authenticated request probe failed at {stage_bridge_request_url()}: {exc}"
+        ) from exc
+
+    if body.get("ok") is not True:
+        raise SystemExit(
+            f"stage bridge authenticated request probe returned ok={body.get('ok')!r}: {body}"
+        )
+
+
 def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
     deadline = time.monotonic() + timeout_seconds
     health_url = stage_bridge_health_url()
@@ -131,6 +195,7 @@ def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
             with urlopen(health_url, timeout=2) as response:
                 payload = json.load(response)
             if payload.get("ok") is True:
+                probe_stage_bridge_request_path()
                 return
             last_error = f"{health_url} returned ok={payload.get('ok')!r}"
         except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:

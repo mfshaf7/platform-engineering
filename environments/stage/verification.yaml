@@ -5,7 +5,8 @@ status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: Stage suspended; re-run stage rehearsal checks after the next deliberate resume.
+note: Stage Telegram overlay lane pins changed; re-run stage rehearsal after recording
+  the overlay artifact.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: pending-build

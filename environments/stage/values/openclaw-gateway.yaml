@@ -107,6 +107,8 @@ extraEnv:
     recorded verification evidence."},{"id":"release-evidence","label":"Release evidence","detail":"Operators
     should be able to identify source SHAs, approved digest, platform revision, Argo
     revision, and one real functional verification result."}]}'
+- name: OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA
+  value: 8935fe4f29f1b33ee65144238e01e64c66468505
 resources:
   requests:
     cpu: 500m
@@ -145,14 +147,31 @@ extraVolumeMounts:
 - name: openclaw-home
   mountPath: /home/node/.openclaw/update-check.json
   subPath: update-check.json
+- name: telegram-overlay-runtime
+  mountPath: /app/extensions/telegram
+  subPath: telegram
+  readOnly: true
 extraVolumes:
 - name: openclaw-home
   hostPath:
     path: /home/mfshaf7/.openclaw-stage
     type: Directory
+- name: telegram-overlay-runtime
+  emptyDir: {}
 podAnnotations:
-  openclaw.io/telegram-overlay-status: pending-build
+  openclaw.io/telegram-overlay-status: candidate
   openclaw.io/telegram-overlay-source-sha: 8935fe4f29f1b33ee65144238e01e64c66468505
-  openclaw.io/telegram-overlay-image: disabled
+  openclaw.io/telegram-overlay-image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:8830b2bbffd475e91ba82eb86ac21ff60380bced3dd52794b37e8ada982cd692
   openclaw.io/telegram-overlay-qualified-base-image: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-extraInitContainers: []
+extraInitContainers:
+- name: telegram-overlay-runtime
+  image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:8830b2bbffd475e91ba82eb86ac21ff60380bced3dd52794b37e8ada982cd692
+  imagePullPolicy: IfNotPresent
+  command:
+  - sh
+  - -lc
+  - rm -rf /work/telegram && mkdir -p /work/telegram && cp -a /telegram-overlay/telegram/.
+    /work/telegram/
+  volumeMounts:
+  - name: telegram-overlay-runtime
+    mountPath: /work

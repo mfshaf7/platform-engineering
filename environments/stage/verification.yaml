@@ -1,12 +1,16 @@
 schemaVersion: 1
 product: openclaw
 environment: stage
-status: pending
-verifiedAt: null
-verifiedBy: null
-evidenceRef: null
-note: Stage Telegram overlay lane recorded; rehearse the current candidate before
-  any further decision.
+status: recorded
+verifiedAt: '2026-04-17T09:08:31Z'
+verifiedBy: mfshaf7
+evidenceRef: telegram://openclaw-stage/-1002519919856?topic=1&messages=965,968,970
+note: 'Stored model override regression fix verified on stage overlay digest sha256:dc8f87f98cfb5548a91b2b22e81b4369fd0f5b28fceefa4547c362f063ca04b6.
+  Fresh stage evidence: primary user path session 80b2399b-fa02-43ba-986c-e9cd22585a9a
+  message 965 reply, host-control file audit f22c05d2-83fb-41f6-99f1-616757a08d11,
+  screenshot audit 325ec4a3-0fcf-43d6-adbf-ef6c2c4418f7, privileged add/remove audits
+  06b3c437-9dab-4759-8d72-4d21b1f2cbe7 and 43230084-a417-461d-9e8b-2cf84e9a7714, and
+  no stored-model-override trim error in fresh stage logs.'
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
@@ -18,4 +22,14 @@ candidateRef:
   - privileged-path-posture
   - runtime-start
   - screenshot-delivery
-checks: []
+checks:
+- id: artifact-delivery
+  status: passed
+- id: primary-user-path
+  status: passed
+- id: privileged-path-posture
+  status: passed
+- id: runtime-start
+  status: passed
+- id: screenshot-delivery
+  status: passed

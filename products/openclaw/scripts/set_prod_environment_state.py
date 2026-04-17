@@ -8,7 +8,10 @@ from gateway_environment import dump_yaml, write_yaml
 from prod_lifecycle import (
     load_prod_lifecycle,
     now_utc,
+    prod_state_requires_incident_ref,
     prod_lifecycle_path,
+    prod_verification_inactive_note,
+    prod_verification_status_for_state,
     prod_verification_path,
     sync_prod_lifecycle,
 )
@@ -19,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "state",
-        choices=("live", "suspended", "status"),
+        choices=("live", "traffic-stopped", "suspended", "quarantined", "status"),
         help="Desired OpenClaw prod lifecycle state",
     )
     parser.add_argument(
@@ -56,11 +59,23 @@ def main() -> int:
         raise SystemExit("--changed-by is required for prod lifecycle changes")
     if not args.reason.strip():
         raise SystemExit("--reason is required for prod lifecycle changes")
+    if prod_state_requires_incident_ref(args.state) and not args.incident_ref.strip():
+        raise SystemExit(f"--incident-ref is required when prod lifecycle state is {args.state!r}")
 
     note = args.note.strip()
     if not note:
         if args.state == "suspended":
             note = "Prod OpenClaw suspended through the governed emergency lifecycle control."
+        elif args.state == "traffic-stopped":
+            note = (
+                "Prod OpenClaw gateway traffic is intentionally stopped through the "
+                "governed lifecycle control while support surfaces remain available."
+            )
+        elif args.state == "quarantined":
+            note = (
+                "Prod OpenClaw quarantined through the governed incident lifecycle control; "
+                "resume requires explicit incident follow-up and fresh prod verification."
+            )
         else:
             note = "Prod OpenClaw returned to the live governed lifecycle state."
 
@@ -96,11 +111,11 @@ def main() -> int:
 
     verification = None
     if previous_state != args.state:
-        verification_status = "pending" if args.state == "live" else "inactive"
+        verification_status = prod_verification_status_for_state(args.state)
         verification_note = (
-            "Prod lifecycle returned to live; reconcile the current prod contract and record prod smoke/UAT before treating prod as complete."
+            "Prod lifecycle returned to live; reconcile the current prod contract and record fresh prod smoke/UAT before treating prod as complete."
             if args.state == "live"
-            else "Prod OpenClaw is suspended; prod smoke/UAT is inactive until the governed lifecycle returns to live."
+            else prod_verification_inactive_note(args.state)
         )
         verification_path = prod_verification_path(repo_root)
         previous_verification = verification_path.read_text(encoding="utf-8") if verification_path.exists() else ""

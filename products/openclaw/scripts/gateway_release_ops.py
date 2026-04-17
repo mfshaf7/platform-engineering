@@ -14,7 +14,12 @@ from gateway_environment import (
     write_yaml,
 )
 from prepull_gateway_image import prepull_image
-from prod_lifecycle import current_prod_state
+from prod_lifecycle import (
+    current_prod_state,
+    prod_promotion_allowed_for_state,
+    prod_verification_inactive_note,
+    prod_verification_status_for_state,
+)
 from prod_verification import reset_prod_verification
 from stage_readiness import (
     current_stage_components,
@@ -200,13 +205,14 @@ def pin_gateway_source_repos(
             note="Stage source pins changed; build, verify, and re-approve the next stage candidate before promoting to prod.",
         )
     elif environment == "prod":
+        prod_state = current_prod_state(repo_root)
         reset_prod_verification(
             repo_root,
-            status="pending" if current_prod_state(repo_root) == "live" else "inactive",
+            status=prod_verification_status_for_state(prod_state),
             note=(
                 "Prod source pins changed; record the next prod candidate and post-promotion prod smoke before treating prod as complete."
-                if current_prod_state(repo_root) == "live"
-                else "Prod source pins changed while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating prod as complete."
+                if prod_state == "live"
+                else "Prod source pins changed while prod OpenClaw is not live; return the lifecycle to live and record smoke/UAT before treating prod as complete."
             ),
         )
 
@@ -303,14 +309,15 @@ def record_gateway_image(
             + ", ".join(candidate["candidate"]["requiredChecks"])
         )
     elif environment == "prod":
-        prod_verification_status = "pending" if current_prod_state(repo_root) == "live" else "inactive"
+        prod_state = current_prod_state(repo_root)
+        prod_verification_status = prod_verification_status_for_state(prod_state)
         reset_prod_verification(
             repo_root,
             status=prod_verification_status,
             note=(
                 "Prod contract changed; record post-promotion prod smoke/UAT before treating the rollout as complete."
-                if current_prod_state(repo_root) == "live"
-                else "Prod contract changed while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating the rollout as complete."
+                if prod_state == "live"
+                else prod_verification_inactive_note(prod_state)
             ),
         )
         print(f"Reset prod verification to {prod_verification_status} for the current prod contract")
@@ -347,6 +354,11 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
 
     if source_environment == "stage" and target_environment == "prod":
         validate_stage_promotion_readiness(repo_root)
+        prod_state = current_prod_state(repo_root)
+        if not prod_promotion_allowed_for_state(prod_state):
+            raise SystemExit(
+                f"prod OpenClaw is {prod_state}; promotion into prod is blocked until the lifecycle leaves quarantine"
+            )
 
     require_real_value("source gateway image repository", source_gateway_image["repository"])
     require_real_value("source gateway image tag", source_gateway_image["tag"])
@@ -417,13 +429,14 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
             + "\n- ".join(target_contract_errors)
         )
     if target_environment == "prod":
+        prod_state = current_prod_state(repo_root)
         reset_prod_verification(
             repo_root,
-            status="pending" if current_prod_state(repo_root) == "live" else "inactive",
+            status=prod_verification_status_for_state(prod_state),
             note=(
                 "Prod contract changed via promotion; record post-promotion prod smoke/UAT before treating this rollout as complete."
-                if current_prod_state(repo_root) == "live"
-                else "Prod contract changed via promotion while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating this rollout as complete."
+                if prod_state == "live"
+                else prod_verification_inactive_note(prod_state)
             ),
         )
 

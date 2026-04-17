@@ -40,8 +40,14 @@ OpenClaw is also the reference fully governed product path today:
   objects
 - prod promotion reuses the approved stage digest instead of rebuilding
 - post-promotion prod smoke or UAT is recorded separately from stage approval
-- prod runtime now has a bounded governed lifecycle state so OpenClaw can be
-  deliberately suspended without tearing down unrelated prod services
+- prod runtime now follows the shared governed lifecycle vocabulary:
+  - `live`
+  - `traffic-stopped`
+  - `suspended`
+  - `quarantined`
+  so OpenClaw can be kept quiet, suspended, or incident-quarantined without
+  tearing down unrelated prod services or hiding lifecycle behavior inside the
+  Telegram channel layer
 
 For small Telegram-only fixes, OpenClaw can also use a separate immutable
 Telegram overlay artifact without rebuilding the full gateway image. That lane

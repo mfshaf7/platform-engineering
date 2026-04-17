@@ -71,7 +71,7 @@ surfaces:
   - id: openclaw-prod
     label: OpenClaw prod
     category: product
-    currentState: live by default; may be deliberately suspended through the governed prod lifecycle
+    currentState: live by default; may be deliberately traffic-stopped, suspended, or quarantined through the governed prod lifecycle
     operatorUrl: no browser UI; primary user path is Telegram
     wslFallback: k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789
     credentialSource: No shared browser login; use Telegram and product-specific runtime surface

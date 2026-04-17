@@ -9,7 +9,9 @@ on:
         type: choice
         options:
           - live
+          - traffic-stopped
           - suspended
+          - quarantined
       reason:
         required: true
         type: string
@@ -68,12 +70,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Show prod lifecycle diff
-        run: git diff -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml
+        run: git diff -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
 
       - name: Detect whether a commit is needed
         id: diff
         run: |
-          if git diff --quiet -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml; then
+          if git diff --quiet -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -88,7 +90,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$LIFECYCLE_BRANCH"
-          git add environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml
+          git add environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml environments/prod/values/openclaw-gateway.yaml environments/prod/values/platform-version.yaml
           git commit -m "Set prod OpenClaw lifecycle to ${{ inputs.state }}"
           git push --force-with-lease origin "$LIFECYCLE_BRANCH"
           echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"

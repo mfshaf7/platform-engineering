@@ -42,7 +42,7 @@ The reusable operator workflow for this path is published separately under
 - `make openclaw-telegram-overlay-validate`
 - `make openclaw-telegram-overlay-record DIGEST=sha256:...`
 - `make openclaw-telegram-overlay-disable`
-- `make openclaw-prod-state STATE=<live|suspended|status>`
+- `make openclaw-prod-state STATE=<live|traffic-stopped|suspended|quarantined|status>`
 - `make openclaw-stage-state STATE=<resume|suspend|status> COMPONENTS=gateway,version`
 
 ## Release Gold Path
@@ -105,10 +105,18 @@ OpenClaw prod now has a governed runtime lifecycle separate from stage:
   - manual gated workflow that creates the lifecycle branch under the `prod`
     environment gate
 
-The initial bounded states are:
+The supported states are:
 
 - `live`
+- `traffic-stopped`
 - `suspended`
+- `quarantined`
 
 This control only affects the OpenClaw prod runtime slice. It must not prune
 OpenProject or unrelated shared prod services.
+
+For OpenClaw, `traffic-stopped` is a deployment-level quiet state:
+
+- `openclaw-gateway-app.yaml` is removed from the prod root
+- `platform-secrets-app.yaml` and `platform-version-app.yaml` remain
+- no Telegram-specific runtime gate is required in the channel repo

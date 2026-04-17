@@ -34,8 +34,12 @@ The platform-managed deployment must provide:
 - version and build evidence
 - Vault-backed runtime secret delivery
 - configured bridge and host-recovery dependencies
-- a bounded governed prod lifecycle with explicit `live` and `suspended`
-  states for the OpenClaw prod runtime slice
+- a governed prod lifecycle profile using the shared runtime-lifecycle
+  vocabulary:
+  - `live`
+  - `traffic-stopped`
+  - `suspended`
+  - `quarantined`
 - stage suspended by default unless a deliberate rehearsal is in progress
 - release-state evidence under:
   - `environments/stage/release-candidate.yaml`
@@ -72,8 +76,12 @@ operationally complete until post-promotion prod smoke is recorded against the
 current prod contract.
 
 Prod lifecycle is separate from promotion. Promotion may update the prod
-contract while prod is suspended, but the governed prod lifecycle still decides
-whether the OpenClaw prod runtime is active.
+contract while prod is `traffic-stopped` or `suspended`, but the governed prod
+lifecycle still decides whether the OpenClaw prod gateway is present and
+whether user traffic is allowed. `traffic-stopped` is enforced at the
+deployment boundary by removing the prod gateway application while leaving
+selected support surfaces available. When prod is `quarantined`, promotion is
+blocked until the lifecycle leaves quarantine.
 
 ## Access Model
 

@@ -13,3 +13,7 @@ data:
   incidentRef: ''
   note: Prod OpenClaw intentionally suspended while stage remains the active stabilization
     and delivery environment.
+  runtimeActive: 'false'
+  trafficActive: 'false'
+  promotionAllowed: 'true'
+  prodVerificationStatus: inactive

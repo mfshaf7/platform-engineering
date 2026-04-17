@@ -7,7 +7,8 @@ This runbook defines how operators access OpenClaw directly on this platform.
 ## Current Access Reality
 
 - prod OpenClaw is active by default in namespace `openclaw`, but may be
-  deliberately suspended through the governed prod lifecycle contract
+  deliberately moved into `traffic-stopped`, `suspended`, or `quarantined`
+  through the governed prod lifecycle contract
 - stage OpenClaw is suspended by default and only exists during deliberate test
   windows
 - OpenClaw does not currently expose a shared browser UI
@@ -95,7 +96,9 @@ stopped or returned to service:
 
 ```bash
 python3 products/openclaw/scripts/set_prod_environment_state.py status
+python3 products/openclaw/scripts/set_prod_environment_state.py traffic-stopped --changed-by <operator> --reason <reason>
 python3 products/openclaw/scripts/set_prod_environment_state.py suspended --changed-by <operator> --reason <reason>
+python3 products/openclaw/scripts/set_prod_environment_state.py quarantined --changed-by <operator> --reason <reason> --incident-ref <incident>
 python3 products/openclaw/scripts/set_prod_environment_state.py live --changed-by <operator> --reason <reason>
 ```
 

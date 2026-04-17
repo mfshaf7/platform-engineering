@@ -123,6 +123,33 @@ Each product directory under `products/<product>/` should state explicitly:
 That product-local statement is authoritative for delivery maturity unless a
 shared platform standard overrides it.
 
+## Governed Runtime Lifecycle Expectation
+
+If a product or shared component exposes a governed runtime surface, it should
+also state whether it supports a governed lifecycle profile.
+
+Use the shared vocabulary from
+[`governed-runtime-lifecycle-model.md`](governed-runtime-lifecycle-model.md):
+
+- `live`
+- `traffic-stopped`
+- `suspended`
+- `quarantined`
+
+Do not assume every product or component supports every state.
+
+Each governed product or component should declare:
+
+- which lifecycle states it supports
+- what each state does to user traffic
+- what each state does to runtime presence
+- whether promotion is allowed in that state
+- whether verification becomes inactive in that state
+- what is required to return to `live`
+
+This keeps the lifecycle vocabulary reusable across products without pretending
+they all share the same runtime shape.
+
 ## ADR Vs Change Record Matrix
 
 | Situation | ADR required | Change record required |

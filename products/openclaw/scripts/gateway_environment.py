@@ -34,6 +34,9 @@ TELEGRAM_OVERLAY_INIT_CONTAINER_NAME = "telegram-overlay-runtime"
 TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH = "/app/extensions/telegram"
 TELEGRAM_OVERLAY_VOLUME_ROOT = "/work"
 TELEGRAM_OVERLAY_SUBPATH = "telegram"
+PROD_RUNTIME_ACTIVE_STATES = {"live"}
+PROD_TRAFFIC_ACTIVE_STATES = {"live"}
+PROD_PROMOTION_ALLOWED_STATES = {"live", "traffic-stopped", "suspended"}
 
 
 def load_yaml(path: Path):
@@ -47,6 +50,26 @@ def dump_yaml(data) -> str:
 
 def write_yaml(path: Path, data):
     path.write_text(dump_yaml(data), encoding="utf-8")
+
+
+def load_prod_lifecycle_state(repo_root: Path) -> str:
+    path = repo_root / "environments" / "prod" / "openclaw-lifecycle.yaml"
+    if not path.exists():
+        return "live"
+    data = load_yaml(path) or {}
+    return str(data.get("state") or "live")
+
+
+def prod_runtime_active_for_state(state: str) -> bool:
+    return state in PROD_RUNTIME_ACTIVE_STATES
+
+
+def prod_traffic_active_for_state(state: str) -> bool:
+    return state in PROD_TRAFFIC_ACTIVE_STATES
+
+
+def prod_promotion_allowed_for_state(state: str) -> bool:
+    return state in PROD_PROMOTION_ALLOWED_STATES
 
 
 def _set_extra_env(gateway_values: dict, name: str, value: str) -> None:
@@ -320,6 +343,24 @@ def sync_environment(environment: str, repo_root: Path) -> tuple[bool, list[Path
     platform_values["versions"]["runtimeDistributionSha"] = source_repos["runtimeDistribution"]["commit"]
     platform_values["versions"]["platformSha"] = source_repos["platformEngineering"]["commit"]
     sync_telegram_overlay(environment, versions, gateway_values, platform_values)
+    _remove_extra_env(gateway_values, "OPENCLAW_RUNTIME_LIFECYCLE_STATE")
+    if environment == "prod":
+        prod_state = load_prod_lifecycle_state(repo_root)
+        platform_values["versions"]["openclawProdLifecycleState"] = prod_state
+        platform_values["versions"]["openclawProdRuntimeActive"] = (
+            "true" if prod_runtime_active_for_state(prod_state) else "false"
+        )
+        platform_values["versions"]["openclawProdTrafficActive"] = (
+            "true" if prod_traffic_active_for_state(prod_state) else "false"
+        )
+        platform_values["versions"]["openclawProdPromotionAllowed"] = (
+            "true" if prod_promotion_allowed_for_state(prod_state) else "false"
+        )
+    else:
+        platform_values["versions"].pop("openclawProdLifecycleState", None)
+        platform_values["versions"].pop("openclawProdRuntimeActive", None)
+        platform_values["versions"].pop("openclawProdTrafficActive", None)
+        platform_values["versions"].pop("openclawProdPromotionAllowed", None)
 
     changed = []
     for path, data in (
@@ -399,6 +440,7 @@ def validate_environment_contract(
     init_containers = _init_container_map(gateway_values)
     volume_mounts = _volume_mount_map(gateway_values)
     volumes = _volume_map(gateway_values)
+    prod_state = load_prod_lifecycle_state(repo_root) if environment == "prod" else None
 
     expected_gateway_image = build_gateway_image_ref(
         gateway_image["repository"],
@@ -494,6 +536,31 @@ def validate_environment_contract(
         platform_versions["platformSha"],
         source_repos["platformEngineering"]["commit"],
     )
+    if environment == "prod":
+        expect_equal(
+            errors,
+            "prod lifecycle state in platform version values",
+            platform_versions.get("openclawProdLifecycleState"),
+            prod_state,
+        )
+        expect_equal(
+            errors,
+            "prod runtime active in platform version values",
+            platform_versions.get("openclawProdRuntimeActive"),
+            "true" if prod_runtime_active_for_state(prod_state or "live") else "false",
+        )
+        expect_equal(
+            errors,
+            "prod traffic active in platform version values",
+            platform_versions.get("openclawProdTrafficActive"),
+            "true" if prod_traffic_active_for_state(prod_state or "live") else "false",
+        )
+        expect_equal(
+            errors,
+            "prod promotion allowed in platform version values",
+            platform_versions.get("openclawProdPromotionAllowed"),
+            "true" if prod_promotion_allowed_for_state(prod_state or "live") else "false",
+        )
     if overlay["status"] not in TELEGRAM_OVERLAY_STATUSES:
         errors.append(
             f"telegram overlay status must be one of {sorted(TELEGRAM_OVERLAY_STATUSES)!r}, got {overlay['status']!r}"

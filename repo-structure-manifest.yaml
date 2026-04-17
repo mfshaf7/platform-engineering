@@ -43,6 +43,7 @@ governance:
     docs/standards:
       - README.md
       - enterprise-workflow-model.md
+      - governed-runtime-lifecycle-model.md
       - review-and-approval-model.md
     docs/workflows:
       - README.md

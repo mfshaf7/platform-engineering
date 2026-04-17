@@ -71,14 +71,23 @@ unless it is genuinely shared platform behavior.
   lifecycle.
 - A prod rollout is not operationally complete until post-promotion prod smoke
   or UAT is recorded in `environments/prod/verification.yaml`.
-- Prod OpenClaw now has a bounded governed lifecycle under
+- Prod OpenClaw now has a governed lifecycle profile under
   `environments/prod/openclaw-lifecycle.yaml`.
 - Change prod lifecycle only through
   `products/openclaw/scripts/set_prod_environment_state.py` or the matching
   GitHub workflow.
-- The bounded initial prod states are `live` and `suspended`.
+- The supported prod states are:
+  - `live`
+  - `traffic-stopped`
+  - `suspended`
+  - `quarantined`
 - Suspending prod must only remove the OpenClaw prod slice. It must not prune
   OpenProject or unrelated shared prod services.
+- `traffic-stopped` must cut product traffic at the deployment boundary, not by
+  hiding product-specific traffic logic inside the Telegram repo.
+- `traffic-stopped` may keep support surfaces such as version or secrets apps
+  available if the lifecycle profile says so.
+- `quarantined` must require an incident reference and block prod promotion.
 - Returning prod to `live` requires fresh prod smoke/UAT before treating prod
   as operationally complete.
 - `products/openclaw/platform-operator-catalog.yaml` is the platform-owned

@@ -44,8 +44,9 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
    - readiness approval when the standard stage contract is promotable and stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
    - if prod OpenClaw must be kept quiet or deliberately stopped:
-     - use `python3 products/openclaw/scripts/set_prod_environment_state.py live|suspended ...`
-     - treat the prod lifecycle as separate from promotion; contract updates may happen while prod stays suspended
+     - use `python3 products/openclaw/scripts/set_prod_environment_state.py live|traffic-stopped|suspended|quarantined ...`
+     - for OpenClaw, `traffic-stopped` means deployment-level gateway removal with support surfaces retained, not Telegram-specific traffic gating
+     - treat the prod lifecycle as separate from promotion; contract updates may happen while prod is traffic-stopped or suspended
    - `python3 products/openclaw/scripts/gateway_release.py prod-verification record ...`
    - stage suspension when appropriate
 5. Record the evidence needed to explain:
@@ -66,6 +67,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
   bundle.
 - Do not promote a Telegram overlay lane that is still `pending-build` or tied to a different base image than the current stage contract.
 - Do not suspend unrelated prod services when the goal is only to stop OpenClaw prod.
+- Do not promote into prod while the OpenClaw lifecycle is `quarantined`.
 - If live containment requires `k3s kubectl delete`, use explicit `kind/name`
   targets only and avoid mixed shorthand forms.
 - Keep stage suspended by default outside deliberate rehearsal windows.

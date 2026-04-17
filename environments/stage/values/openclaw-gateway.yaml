@@ -67,18 +67,19 @@ extraEnv:
     path kv/products/openproject/prod/admin","healthChecks":["OpenProject UI reachable","OpenProject
     workload healthy in namespace openproject"]},{"id":"openclaw-prod","label":"OpenClaw
     prod","category":"product","currentState":"live by default; may be deliberately
-    suspended through the governed prod lifecycle","operatorUrl":"no browser UI; primary
-    user path is Telegram","wslFallback":"k3s kubectl -n openclaw port-forward svc/openclaw-gateway
-    18789:18789","credentialSource":"No shared browser login; use Telegram and product-specific
-    runtime surface","healthChecks":["In-pod /healthz","In-pod /readyz","Real Telegram
-    reply, file send, screenshot, and host-control checks"],"troubleshootingNotes":["Gateway
-    health alone is not sufficient proof of prod behavior","Check environments/prod/openclaw-lifecycle.yaml
-    before assuming prod OpenClaw should be live"]},{"id":"grafana-stage","label":"Grafana
-    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32081
-    only when stage observability is resumed","wslFallback":"resume stage, then k3s
-    kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana
-    3001:80","credentialSource":"Vault path kv/platform/observability/stage/grafana-admin","healthChecks":["Stage
-    observability resumed explicitly","Observability-stage workloads healthy"]},{"id":"prometheus-stage","label":"Prometheus
+    traffic-stopped, suspended, or quarantined through the governed prod lifecycle","operatorUrl":"no
+    browser UI; primary user path is Telegram","wslFallback":"k3s kubectl -n openclaw
+    port-forward svc/openclaw-gateway 18789:18789","credentialSource":"No shared browser
+    login; use Telegram and product-specific runtime surface","healthChecks":["In-pod
+    /healthz","In-pod /readyz","Real Telegram reply, file send, screenshot, and host-control
+    checks"],"troubleshootingNotes":["Gateway health alone is not sufficient proof
+    of prod behavior","Check environments/prod/openclaw-lifecycle.yaml before assuming
+    prod OpenClaw should be live"]},{"id":"grafana-stage","label":"Grafana stage","category":"observability","currentState":"not
+    currently live","operatorUrl":"http://127.0.0.1:32081 only when stage observability
+    is resumed","wslFallback":"resume stage, then k3s kubectl -n observability-stage
+    port-forward svc/openclaw-observability-sta-grafana 3001:80","credentialSource":"Vault
+    path kv/platform/observability/stage/grafana-admin","healthChecks":["Stage observability
+    resumed explicitly","Observability-stage workloads healthy"]},{"id":"prometheus-stage","label":"Prometheus
     stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32091
     only when stage observability is resumed","wslFallback":"resume stage, then k3s
     kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy

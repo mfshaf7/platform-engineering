@@ -13,7 +13,7 @@ PROD_LIFECYCLE_CONFIGMAP_RELATIVE_PATH = Path(
     "environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml"
 )
 PROD_VERIFICATION_RELATIVE_PATH = Path("environments/prod/verification.yaml")
-VALID_PROD_LIFECYCLE_STATES = {"live", "suspended"}
+VALID_PROD_LIFECYCLE_STATES = {"live", "traffic-stopped", "suspended", "quarantined"}
 LIFECYCLE_CONFIGMAP_RESOURCE = "openclaw-prod-lifecycle-configmap.yaml"
 REQUIRED_APPLICATION_FINALIZER = "resources-finalizer.argocd.argoproj.io"
 PROD_MANAGED_RESOURCES = (
@@ -38,6 +38,17 @@ PROD_LIVE_RESOURCES = (
     "platform-version-app.yaml",
     "observability-app.yaml",
 )
+PROD_TRAFFIC_STOPPED_RESOURCES = (
+    "platform-dashboards-app.yaml",
+    LIFECYCLE_CONFIGMAP_RESOURCE,
+    "platform-postgresql-secrets-app.yaml",
+    "platform-postgresql-app.yaml",
+    "openproject-secrets-app.yaml",
+    "openproject-app.yaml",
+    "platform-secrets-app.yaml",
+    "platform-version-app.yaml",
+    "observability-app.yaml",
+)
 PROD_SUSPENDED_RESOURCES = (
     "platform-dashboards-app.yaml",
     LIFECYCLE_CONFIGMAP_RESOURCE,
@@ -47,6 +58,40 @@ PROD_SUSPENDED_RESOURCES = (
     "openproject-app.yaml",
     "observability-app.yaml",
 )
+PROD_LIFECYCLE_POLICIES = {
+    "live": {
+        "runtime_active": True,
+        "traffic_active": True,
+        "promotion_allowed": True,
+        "verification_status": "pending",
+        "resources": PROD_LIVE_RESOURCES,
+        "incident_ref_required": False,
+    },
+    "traffic-stopped": {
+        "runtime_active": False,
+        "traffic_active": False,
+        "promotion_allowed": True,
+        "verification_status": "inactive",
+        "resources": PROD_TRAFFIC_STOPPED_RESOURCES,
+        "incident_ref_required": False,
+    },
+    "suspended": {
+        "runtime_active": False,
+        "traffic_active": False,
+        "promotion_allowed": True,
+        "verification_status": "inactive",
+        "resources": PROD_SUSPENDED_RESOURCES,
+        "incident_ref_required": False,
+    },
+    "quarantined": {
+        "runtime_active": False,
+        "traffic_active": False,
+        "promotion_allowed": False,
+        "verification_status": "inactive",
+        "resources": PROD_SUSPENDED_RESOURCES,
+        "incident_ref_required": True,
+    },
+}
 
 
 def now_utc() -> str:
@@ -83,7 +128,7 @@ def default_prod_lifecycle() -> dict:
         "changedBy": "platform-engineering",
         "reason": "default-live-state",
         "incidentRef": None,
-        "note": "Prod OpenClaw is live unless it is deliberately suspended through the governed prod lifecycle control.",
+        "note": "Prod OpenClaw is live unless it is deliberately shifted into traffic-stopped, suspended, or quarantined through the governed prod lifecycle control.",
         "managedResources": list(PROD_MANAGED_RESOURCES),
     }
 
@@ -103,14 +148,58 @@ def current_prod_state(repo_root: Path) -> str:
 
 
 def prod_runtime_active(repo_root: Path) -> bool:
-    return current_prod_state(repo_root) == "live"
+    return prod_runtime_active_for_state(current_prod_state(repo_root))
+
+
+def prod_runtime_active_for_state(state: str) -> bool:
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return bool(policy["runtime_active"])
+
+
+def prod_traffic_active_for_state(state: str) -> bool:
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return bool(policy["traffic_active"])
+
+
+def prod_promotion_allowed_for_state(state: str) -> bool:
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return bool(policy["promotion_allowed"])
+
+
+def prod_verification_status_for_state(state: str) -> str:
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return str(policy["verification_status"])
+
+
+def prod_state_requires_incident_ref(state: str) -> bool:
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return bool(policy["incident_ref_required"])
 
 
 def expected_prod_resources(state: str) -> list[str]:
-    return list(PROD_LIVE_RESOURCES if state == "live" else PROD_SUSPENDED_RESOURCES)
+    policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
+    return list(policy["resources"])
+
+
+def prod_verification_inactive_note(state: str) -> str:
+    if state == "traffic-stopped":
+        return (
+            "Prod OpenClaw gateway traffic is intentionally stopped at the deployment boundary; "
+            "prod smoke/UAT remains inactive until the governed lifecycle returns to live."
+        )
+    if state == "quarantined":
+        return (
+            "Prod OpenClaw is quarantined; prod smoke/UAT remains inactive until incident "
+            "review returns the governed lifecycle to live."
+        )
+    return (
+        "Prod OpenClaw is suspended; prod smoke/UAT remains inactive until the governed "
+        "lifecycle returns to live."
+    )
 
 
 def lifecycle_configmap_payload(lifecycle: dict) -> dict:
+    state = str(lifecycle.get("state") or "live")
     return {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -121,12 +210,16 @@ def lifecycle_configmap_payload(lifecycle: dict) -> dict:
         "data": {
             "product": "openclaw",
             "environment": "prod",
-            "state": str(lifecycle.get("state") or ""),
+            "state": state,
             "changedAt": str(lifecycle.get("changedAt") or ""),
             "changedBy": str(lifecycle.get("changedBy") or ""),
             "reason": str(lifecycle.get("reason") or ""),
             "incidentRef": str(lifecycle.get("incidentRef") or ""),
             "note": str(lifecycle.get("note") or ""),
+            "runtimeActive": str(prod_runtime_active_for_state(state)).lower(),
+            "trafficActive": str(prod_traffic_active_for_state(state)).lower(),
+            "promotionAllowed": str(prod_promotion_allowed_for_state(state)).lower(),
+            "prodVerificationStatus": prod_verification_status_for_state(state),
         },
     }
 
@@ -202,6 +295,8 @@ def validate_prod_lifecycle(repo_root: Path) -> tuple[dict, list[str]]:
             + ", ".join(sorted(VALID_PROD_LIFECYCLE_STATES))
             + f", got {state!r}"
         )
+    elif prod_state_requires_incident_ref(state) and not str(lifecycle.get("incidentRef") or "").strip():
+        errors.append(f"prod lifecycle state {state!r} requires a non-empty incidentRef")
 
     managed_resources = list(lifecycle.get("managedResources") or [])
     if managed_resources != list(PROD_MANAGED_RESOURCES):
@@ -233,9 +328,10 @@ def validate_prod_lifecycle(repo_root: Path) -> tuple[dict, list[str]]:
 
     verification = load_yaml(prod_verification_path(repo_root)) or {}
     verification_status = verification.get("status")
-    if state == "suspended" and verification_status != "inactive":
-        errors.append("prod verification must be inactive while prod OpenClaw is suspended")
-    if state == "live" and verification_status == "inactive":
+    expected_verification_status = prod_verification_status_for_state(state or "live")
+    if expected_verification_status == "inactive" and verification_status != "inactive":
+        errors.append(f"prod verification must be inactive while prod OpenClaw is {state}")
+    if expected_verification_status == "pending" and verification_status == "inactive":
         errors.append("prod verification must not remain inactive while prod OpenClaw is live")
 
     return lifecycle, errors

@@ -39,6 +39,8 @@ Examples:
 - where product-local scripts and runbooks live
 - how product-local access docs stay aligned with shared platform access docs
 - product-specific guardrails that future agents must preserve
+- whether the product supports a governed runtime lifecycle profile, and which
+  states are actually implemented
 
 ## Workflow Maturity Guardrail
 
@@ -64,6 +66,11 @@ also prefer an explicit post-promotion prod smoke or UAT object rather than
 leaving prod acceptance in chat memory or ad hoc notes:
 
 - prod verification evidence
+
+If the product supports a governed runtime lifecycle, publish the product-local
+profile using the shared vocabulary in
+`../../docs/standards/governed-runtime-lifecycle-model.md` instead of inventing
+new state names ad hoc.
 
 ## New Product Discussion Gate
 

@@ -41,6 +41,8 @@ The product README should answer:
 - where to find direct access and login guidance, if the product exposes any
 - which operator flow is shared platform vs product-specific
 - where product-local scripts and runbooks live
+- whether the product supports a governed runtime lifecycle profile, and which
+  states are real
 
 ## Governance Expectation
 
@@ -63,3 +65,14 @@ When the product also exposes a real prod user or operator surface, add a
 post-promotion prod smoke or UAT object too:
 
 - `prod/verification.yaml`
+
+If the product has a governed runtime lifecycle, document the profile using the
+shared lifecycle vocabulary from
+`../../docs/standards/governed-runtime-lifecycle-model.md`:
+
+- supported states
+- traffic behavior
+- runtime behavior
+- promotion behavior
+- verification behavior
+- resume requirements

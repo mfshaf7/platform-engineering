@@ -21,8 +21,12 @@ Health alone is not enough for OpenClaw.
 
 ## Direct Access Model
 
-- prod is active by default in namespace `openclaw`, but may be deliberately
-  suspended through the governed prod lifecycle contract
+- prod is `live` by default in namespace `openclaw`, but may be deliberately
+  shifted into:
+  - `traffic-stopped`
+  - `suspended`
+  - `quarantined`
+  through the governed prod lifecycle contract
 - stage is suspended by default and does not have a live gateway unless
   deliberately resumed
 - the product does not currently expose a browser application or dashboard of
@@ -51,7 +55,13 @@ Minimum post-promotion prod smoke or UAT checks:
 - one read-only prod operator interaction succeeds, for example `/platform`
 
 If prod OpenClaw is deliberately suspended, prod smoke/UAT remains inactive
-until the lifecycle returns to `live`.
+until the lifecycle returns to `live`. The same rule applies when prod is
+`traffic-stopped` or `quarantined`.
+
+For OpenClaw specifically, `traffic-stopped` is a deployment-level quiet mode:
+the prod gateway application is removed while selected support surfaces remain.
+It is not implemented as Telegram-specific send or polling suppression inside
+the channel plugin.
 
 ## Host Integration Evidence
 

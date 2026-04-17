@@ -107,9 +107,13 @@ This is the expected evidence pattern for a user-facing Telegram product:
 
 See [verify-prod-after-promotion.md](verify-prod-after-promotion.md).
 
-If prod OpenClaw is deliberately suspended, promotion may still update the prod
-contract while leaving the runtime offline. In that case prod verification
-stays inactive until the governed prod lifecycle returns to `live`.
+If prod OpenClaw is deliberately `traffic-stopped` or `suspended`, promotion
+may still update the prod contract while leaving traffic blocked or the runtime
+offline. In those states prod verification stays inactive until the governed
+prod lifecycle returns to `live`.
+
+If prod OpenClaw is `quarantined`, promotion is blocked until the lifecycle
+leaves quarantine.
 
 ## Stage Bridge Lifecycle
 

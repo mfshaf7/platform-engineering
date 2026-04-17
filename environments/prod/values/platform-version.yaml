@@ -8,3 +8,7 @@ versions:
   telegramOverlaySourceSha: disabled
   telegramOverlayImage: disabled
   telegramOverlayQualifiedBaseImage: disabled
+  openclawProdLifecycleState: suspended
+  openclawProdRuntimeActive: 'false'
+  openclawProdTrafficActive: 'false'
+  openclawProdPromotionAllowed: 'true'

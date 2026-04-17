@@ -2,7 +2,11 @@
 
 ## Status
 
-- Accepted
+- Superseded
+
+## Superseded By
+
+- [ADR-011-governed-runtime-lifecycle-standard.md](ADR-011-governed-runtime-lifecycle-standard.md)
 
 ## Context
 

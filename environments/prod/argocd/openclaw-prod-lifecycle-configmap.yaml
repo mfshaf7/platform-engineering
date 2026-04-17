@@ -6,14 +6,14 @@ metadata:
 data:
   product: openclaw
   environment: prod
-  state: traffic-stopped
-  changedAt: '2026-04-17T12:29:27Z'
+  state: quarantined
+  changedAt: '2026-04-17T12:32:41Z'
   changedBy: mfshaf7
   reason: lifecycle-drill
-  incidentRef: ''
-  note: 'Governed lifecycle drill: cut OpenClaw prod traffic at the deployment boundary
-    while retaining support surfaces.'
+  incidentRef: drill/openclaw-prod-lifecycle-2026-04-17
+  note: 'Governed lifecycle drill: quarantine prod OpenClaw and block promotion while
+    the product remains contained.'
   runtimeActive: 'false'
   trafficActive: 'false'
-  promotionAllowed: 'true'
+  promotionAllowed: 'false'
   prodVerificationStatus: inactive

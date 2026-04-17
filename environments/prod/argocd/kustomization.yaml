@@ -7,6 +7,4 @@ resources:
   - platform-postgresql-app.yaml
   - openproject-secrets-app.yaml
   - openproject-app.yaml
-  - platform-secrets-app.yaml
-  - platform-version-app.yaml
   - observability-app.yaml

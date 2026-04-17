@@ -16,7 +16,7 @@ Concrete security review references for this repo:
 - [`security-architecture/docs/architecture/domains/gitops-and-machine-trust.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/gitops-and-machine-trust.md)
 - [`security-architecture/docs/architecture/domains/secrets-and-recovery.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/secrets-and-recovery.md)
 - [`security-architecture/docs/reviews/security-review-checklist.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md)
-- [`security-architecture/docs/reviews/platform/README.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/README.md)
+- [`security-architecture/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md)
 
 ## What This Repository Owns
 

@@ -66,6 +66,8 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
   bundle.
 - Do not promote a Telegram overlay lane that is still `pending-build` or tied to a different base image than the current stage contract.
 - Do not suspend unrelated prod services when the goal is only to stop OpenClaw prod.
+- If live containment requires `k3s kubectl delete`, use explicit `kind/name`
+  targets only and avoid mixed shorthand forms.
 - Keep stage suspended by default outside deliberate rehearsal windows.
 - Real behavior checks matter more than `/healthz` alone.
 

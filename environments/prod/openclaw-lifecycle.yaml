@@ -1,13 +1,13 @@
 schemaVersion: 1
 product: openclaw
 environment: prod
-state: live
-changedAt: '2026-04-17T12:25:00Z'
+state: traffic-stopped
+changedAt: '2026-04-17T12:29:27Z'
 changedBy: mfshaf7
 reason: lifecycle-drill
 incidentRef: null
-note: 'Governed lifecycle drill: return prod OpenClaw to live before traffic-stop
-  and quarantine validation.'
+note: 'Governed lifecycle drill: cut OpenClaw prod traffic at the deployment boundary
+  while retaining support surfaces.'
 managedResources:
 - openclaw-gateway-app.yaml
 - platform-secrets-app.yaml

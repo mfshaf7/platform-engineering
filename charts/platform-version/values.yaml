@@ -4,6 +4,7 @@ versions:
   telegramOverlayStatus: inactive
   telegramOverlaySourceSha: disabled
   telegramOverlayImage: disabled
+  telegramOverlayQualifiedBaseImage: disabled
   hostBridgeSha: replace-me
   runtimeDistributionSha: replace-me
   platformSha: replace-me

@@ -161,4 +161,5 @@ podAnnotations:
   openclaw.io/telegram-overlay-status: inactive
   openclaw.io/telegram-overlay-source-sha: disabled
   openclaw.io/telegram-overlay-image: disabled
+  openclaw.io/telegram-overlay-qualified-base-image: disabled
 extraInitContainers: []

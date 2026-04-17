@@ -53,7 +53,7 @@ def load_versions(repo_root: Path, environment: str) -> dict:
 
 def ensure_stage_environment(environment: str) -> None:
     if environment != "stage":
-        raise SystemExit("telegram overlay experiment is currently supported only for stage")
+        raise SystemExit("telegram overlay pin, metadata, and record flows are currently supported only for stage qualification")
 
 
 def compute_overlay_tag(overlay: dict) -> str:
@@ -71,6 +71,7 @@ def overlay_metadata(versions: dict) -> dict[str, str]:
         "telegram_ref": (overlay.get("source") or {}).get("commit") or "",
         "runtime_distribution_ref": versions["sourceRepos"]["runtimeDistribution"]["commit"],
         "platform_ref": versions["sourceRepos"]["platformEngineering"]["commit"],
+        "qualified_base_image": overlay.get("qualifiedBaseImage") or "",
         "publish_repository": (overlay.get("publish") or {}).get("repository") or "",
         "publish_tag_prefix": (overlay.get("publish") or {}).get("tagPrefix") or "",
         "publish_tag": compute_overlay_tag(overlay),
@@ -154,6 +155,7 @@ def pin_overlay_source(
     platform_commit = resolve_commit(platform_checkout, platform_ref, "platform repo")
 
     overlay["status"] = "pending-build"
+    overlay["qualifiedBaseImage"] = versions["gateway"]["build"]["baseImage"]
     overlay["source"]["commit"] = telegram_commit
     overlay["image"]["repository"] = overlay["publish"]["repository"]
     overlay["image"]["tag"] = compute_overlay_tag(overlay)
@@ -171,22 +173,22 @@ def pin_overlay_source(
     reset_stage_release_candidate(
         repo_root,
         status="pending-build",
-        note="Stage Telegram overlay experiment pins changed; build and record a new overlay artifact before rehearsal.",
+        note="Stage Telegram overlay lane pins changed; build and record a new overlay artifact before rehearsal.",
     )
     reset_stage_verification(
         repo_root,
         status="pending",
-        note="Stage Telegram overlay experiment pins changed; re-run stage rehearsal after recording the overlay artifact.",
+        note="Stage Telegram overlay lane pins changed; re-run stage rehearsal after recording the overlay artifact.",
     )
     readiness_status = "pending" if current_stage_components(repo_root) else "inactive"
     reset_stage_promotion_readiness(
         repo_root,
         status=readiness_status,
-        note="Stage Telegram overlay experiment pins changed; promotion remains blocked until the experiment is disabled and stage is re-approved.",
+        note="Stage Telegram overlay lane pins changed; promotion remains blocked until the current overlay lane is approved or reset.",
     )
 
     print(
-        "Pinned stage Telegram overlay experiment to "
+        "Pinned stage Telegram overlay lane to "
         f"{telegram_commit} with runtime-distribution {runtime_distribution_commit} "
         f"and expected tag {overlay['image']['tag']}"
     )
@@ -210,10 +212,11 @@ def record_overlay_image(
     versions = load_versions(repo_root, environment)
     overlay = telegram_overlay_state(versions)
     if overlay["status"] not in {"pending-build", "candidate"}:
-        raise SystemExit("stage Telegram overlay experiment must be pinned before recording an image digest")
+        raise SystemExit("stage Telegram overlay lane must be pinned before recording an image digest")
 
     source_commit = overlay["source"].get("commit") or ""
     require_real_value("telegram overlay source commit", source_commit)
+    require_real_value("telegram overlay qualified base image", overlay.get("qualifiedBaseImage"))
 
     expected_tag = compute_overlay_tag(overlay)
     effective_tag = tag or expected_tag
@@ -239,21 +242,21 @@ def record_overlay_image(
     if errors:
         raise SystemExit("\n".join(errors))
 
-    candidate_note = note or "Stage Telegram overlay experiment recorded from the pinned Telegram source commit."
+    candidate_note = note or "Stage Telegram overlay lane recorded from the pinned Telegram source commit."
     candidate = record_stage_release_candidate(repo_root, note=candidate_note)
     reset_stage_verification(
         repo_root,
         status="pending",
-        note="Stage Telegram overlay experiment recorded; rehearse the current candidate before any further decision.",
+        note="Stage Telegram overlay lane recorded; rehearse the current candidate before any further decision.",
     )
     reset_stage_promotion_readiness(
         repo_root,
         status="pending",
-        note="Stage Telegram overlay experiment is active; promotion remains blocked until the experiment is disabled and the standard stage candidate is re-approved.",
+        note="Stage Telegram overlay lane is active; promotion remains gated by the current approved stage candidate and must carry the same qualified base image into prod.",
     )
 
     print(
-        f"Recorded stage Telegram overlay experiment for {candidate['candidate']['sourceBundleRef']} at {overlay['image']['repository']}@{digest}"
+        f"Recorded stage Telegram overlay lane for {candidate['candidate']['sourceBundleRef']} at {overlay['image']['repository']}@{digest}"
     )
     return 0
 
@@ -264,6 +267,7 @@ def disable_overlay_experiment(environment: str, *, repo_root: Path, note: str) 
     versions = load_versions(repo_root, environment)
     overlay = telegram_overlay_state(versions)
     overlay["status"] = "inactive"
+    overlay["qualifiedBaseImage"] = ""
     overlay["source"]["commit"] = ""
     overlay["image"]["tag"] = ""
     overlay["image"]["digest"] = ""
@@ -278,20 +282,20 @@ def disable_overlay_experiment(environment: str, *, repo_root: Path, note: str) 
     reset_stage_release_candidate(
         repo_root,
         status="pending-build",
-        note=note or "Stage Telegram overlay experiment disabled; rebuild or re-record the standard stage candidate before promotion.",
+        note=note or "Telegram overlay lane disabled; rebuild or re-record the standard stage candidate before promotion.",
     )
     reset_stage_verification(
         repo_root,
         status="pending",
-        note="Stage Telegram overlay experiment disabled; re-run the standard stage rehearsal before approval.",
+        note="Telegram overlay lane disabled; re-run the standard stage rehearsal before approval.",
     )
     readiness_status = "pending" if current_stage_components(repo_root) else "inactive"
     reset_stage_promotion_readiness(
         repo_root,
         status=readiness_status,
-        note="Stage Telegram overlay experiment disabled; record and re-approve the standard stage candidate before promotion.",
+        note="Telegram overlay lane disabled; record and re-approve the standard stage candidate before promotion.",
     )
-    print("Disabled the stage Telegram overlay experiment")
+    print("Disabled the Telegram overlay lane")
     return 0
 
 
@@ -301,21 +305,21 @@ def validate_overlay_experiment(environment: str, *, repo_root: Path) -> int:
         raise SystemExit("\n".join(errors))
     overlay = telegram_overlay_state(versions)
     if overlay["status"] not in TELEGRAM_OVERLAY_STATUSES:
-        raise SystemExit(f"invalid telegram overlay experiment status: {overlay['status']!r}")
+        raise SystemExit(f"invalid telegram overlay lane status: {overlay['status']!r}")
     print(
-        f"{environment} telegram overlay experiment valid: status={overlay['status']} source={overlay['source'].get('commit') or 'disabled'}"
+        f"{environment} telegram overlay lane valid: status={overlay['status']} source={overlay['source'].get('commit') or 'disabled'}"
     )
     return 0
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Manage the stage-only OpenClaw Telegram overlay experiment without rebuilding the full gateway image."
+        description="Manage the OpenClaw Telegram overlay artifact lane from stage qualification through governed promotion."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    status_parser = subparsers.add_parser("status", help="Print the current Telegram overlay experiment state.")
-    status_parser.add_argument("environment", help="Environment name, currently stage only")
+    status_parser = subparsers.add_parser("status", help="Print the current Telegram overlay lane state.")
+    status_parser.add_argument("environment", help="Environment name, for example stage or prod")
     add_repo_root_arg(status_parser)
 
     metadata_parser = subparsers.add_parser("metadata", help="Emit build metadata for the overlay image workflow.")
@@ -362,12 +366,12 @@ def parse_args() -> argparse.Namespace:
     record_parser.add_argument("--platform-sha", help="Platform-engineering commit that recorded the artifact")
     record_parser.add_argument("--note", default="", help="human note stored with the recorded stage candidate")
 
-    disable_parser = subparsers.add_parser("disable", help="Disable the stage Telegram overlay experiment.")
+    disable_parser = subparsers.add_parser("disable", help="Disable the Telegram overlay lane in stage.")
     disable_parser.add_argument("environment", help="Environment name, currently stage only")
     add_repo_root_arg(disable_parser)
     disable_parser.add_argument("--note", default="", help="human note recorded when disabling the experiment")
 
-    validate_parser = subparsers.add_parser("validate", help="Validate the environment contract including the overlay experiment.")
+    validate_parser = subparsers.add_parser("validate", help="Validate the environment contract including the overlay lane.")
     validate_parser.add_argument("environment", help="Environment name")
     add_repo_root_arg(validate_parser)
 

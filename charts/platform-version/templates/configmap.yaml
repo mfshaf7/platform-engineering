@@ -8,6 +8,7 @@ data:
   telegramOverlayStatus: {{ .Values.versions.telegramOverlayStatus | quote }}
   telegramOverlaySourceSha: {{ .Values.versions.telegramOverlaySourceSha | quote }}
   telegramOverlayImage: {{ .Values.versions.telegramOverlayImage | quote }}
+  telegramOverlayQualifiedBaseImage: {{ .Values.versions.telegramOverlayQualifiedBaseImage | quote }}
   hostBridgeSha: {{ .Values.versions.hostBridgeSha | quote }}
   runtimeDistributionSha: {{ .Values.versions.runtimeDistributionSha | quote }}
   platformSha: {{ .Values.versions.platformSha | quote }}

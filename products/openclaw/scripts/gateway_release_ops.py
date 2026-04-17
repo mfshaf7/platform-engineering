@@ -336,10 +336,6 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
         )
 
     if source_environment == "stage" and target_environment == "prod":
-        if source_overlay["status"] != "inactive":
-            raise SystemExit(
-                "stage telegram overlay experiment is active; disable it before promoting stage to prod"
-            )
         validate_stage_promotion_readiness(repo_root)
 
     require_real_value("source gateway image repository", source_gateway_image["repository"])
@@ -349,12 +345,53 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
     require_real_value("source host bridge SHA", source_repos["hostBridge"]["commit"])
     require_real_value("source runtime distribution SHA", source_repos["runtimeDistribution"]["commit"])
     require_real_value("source platform SHA", source_repos["platformEngineering"]["commit"])
+    if source_overlay["status"] == "pending-build":
+        raise SystemExit(
+            "stage Telegram overlay lane is pinned but not recorded; build and record the overlay artifact before promoting stage to prod"
+        )
+    if source_overlay["status"] == "candidate":
+        require_real_value(
+            "source telegram overlay qualified base image",
+            source_overlay["qualifiedBaseImage"],
+        )
+        require_real_value(
+            "source telegram overlay source commit",
+            source_overlay["source"]["commit"],
+        )
+        require_real_value(
+            "source telegram overlay image repository",
+            source_overlay["image"]["repository"],
+        )
+        require_real_value(
+            "source telegram overlay image tag",
+            source_overlay["image"]["tag"],
+        )
+        require_real_value(
+            "source telegram overlay image digest",
+            source_overlay["image"]["digest"],
+        )
+        if source_overlay["qualifiedBaseImage"] != source_versions["gateway"]["build"]["baseImage"]:
+            raise SystemExit(
+                "stage telegram overlay lane is qualified for a different OpenClaw base image than the current stage contract"
+            )
+        if target_versions["gateway"]["build"]["baseImage"] != source_overlay["qualifiedBaseImage"]:
+            raise SystemExit(
+                "prod base image does not match the stage-qualified Telegram overlay base image; qualify the same base line before promoting the overlay lane"
+            )
 
+    target_versions["gateway"]["build"] = dict(source_versions["gateway"]["build"])
     target_versions["gateway"]["image"] = dict(source_gateway_image)
     target_versions["sourceRepos"]["telegramEnhanced"]["commit"] = source_repos["telegramEnhanced"]["commit"]
     target_versions["sourceRepos"]["hostBridge"]["commit"] = source_repos["hostBridge"]["commit"]
     target_versions["sourceRepos"]["runtimeDistribution"]["commit"] = source_repos["runtimeDistribution"]["commit"]
     target_versions["sourceRepos"]["platformEngineering"]["commit"] = source_repos["platformEngineering"]["commit"]
+    target_versions.setdefault("experiments", {})["telegramOverlay"] = {
+        "status": source_overlay["status"],
+        "qualifiedBaseImage": source_overlay["qualifiedBaseImage"],
+        "publish": dict(source_overlay["publish"]),
+        "source": dict(source_overlay["source"]),
+        "image": dict(source_overlay["image"]),
+    }
 
     write_yaml(target_root / "versions.yaml", target_versions)
 

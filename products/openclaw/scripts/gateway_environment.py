@@ -30,7 +30,7 @@ ENVIRONMENT_PROFILES = {
 
 TELEGRAM_OVERLAY_STATUSES = {"inactive", "pending-build", "candidate"}
 TELEGRAM_OVERLAY_VOLUME_NAME = "telegram-overlay-runtime"
-TELEGRAM_OVERLAY_INIT_CONTAINER_NAME = "telegram-overlay-stage"
+TELEGRAM_OVERLAY_INIT_CONTAINER_NAME = "telegram-overlay-runtime"
 TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH = "/app/extensions/telegram"
 TELEGRAM_OVERLAY_VOLUME_ROOT = "/work"
 TELEGRAM_OVERLAY_SUBPATH = "telegram"
@@ -160,6 +160,7 @@ def telegram_overlay_state(versions: dict) -> dict:
     overlay = experiments.get("telegramOverlay") or {}
     return {
         "status": overlay.get("status") or "inactive",
+        "qualifiedBaseImage": overlay.get("qualifiedBaseImage") or "",
         "publish": dict(overlay.get("publish") or {}),
         "source": dict(overlay.get("source") or {}),
         "image": dict(overlay.get("image") or {}),
@@ -178,10 +179,10 @@ def telegram_overlay_image_ref(overlay: dict) -> str:
 
 def telegram_overlay_runtime_active(environment: str, overlay: dict) -> bool:
     return (
-        environment == "stage"
-        and overlay.get("status") == "candidate"
+        overlay.get("status") == "candidate"
         and not is_placeholder((overlay.get("image") or {}).get("digest"))
         and not is_placeholder((overlay.get("source") or {}).get("commit"))
+        and not is_placeholder(overlay.get("qualifiedBaseImage"))
     )
 
 
@@ -191,6 +192,7 @@ def sync_telegram_overlay(environment: str, versions: dict, gateway_values: dict
     overlay_status = overlay["status"]
     overlay_source = overlay["source"].get("commit") or ""
     overlay_image_ref = telegram_overlay_image_ref(overlay)
+    overlay_base_image = overlay.get("qualifiedBaseImage") or ""
 
     _set_pod_annotation(gateway_values, "openclaw.io/telegram-overlay-status", overlay_status)
     _set_pod_annotation(
@@ -203,10 +205,16 @@ def sync_telegram_overlay(environment: str, versions: dict, gateway_values: dict
         "openclaw.io/telegram-overlay-image",
         overlay_image_ref if active else "disabled",
     )
+    _set_pod_annotation(
+        gateway_values,
+        "openclaw.io/telegram-overlay-qualified-base-image",
+        overlay_base_image or "disabled",
+    )
 
     platform_values["versions"]["telegramOverlayStatus"] = overlay_status
     platform_values["versions"]["telegramOverlaySourceSha"] = overlay_source or "disabled"
     platform_values["versions"]["telegramOverlayImage"] = overlay_image_ref if active else "disabled"
+    platform_values["versions"]["telegramOverlayQualifiedBaseImage"] = overlay_base_image or "disabled"
 
     if active:
         _set_extra_env(gateway_values, "OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA", overlay_source)
@@ -490,8 +498,27 @@ def validate_environment_contract(
         errors.append(
             f"telegram overlay status must be one of {sorted(TELEGRAM_OVERLAY_STATUSES)!r}, got {overlay['status']!r}"
         )
-    if environment != "stage" and overlay["status"] != "inactive":
-        errors.append("telegram overlay experiment must stay inactive outside stage")
+    overlay_base_image = overlay.get("qualifiedBaseImage") or ""
+    if overlay["status"] in {"pending-build", "candidate"}:
+        if is_placeholder(overlay_source):
+            errors.append("telegram overlay source commit must be pinned while the overlay lane is active")
+        if is_placeholder(overlay_base_image):
+            errors.append("telegram overlay qualified base image must be pinned while the overlay lane is active")
+        else:
+            expect_equal(
+                errors,
+                "telegram overlay qualified base image",
+                overlay_base_image,
+                versions["gateway"]["build"]["baseImage"],
+            )
+    if overlay["status"] == "candidate":
+        overlay_image = overlay.get("image") or {}
+        if is_placeholder(overlay_image.get("repository")):
+            errors.append("telegram overlay image repository must be pinned while the overlay lane is candidate")
+        if is_placeholder(overlay_image.get("tag")):
+            errors.append("telegram overlay image tag must be pinned while the overlay lane is candidate")
+        if is_placeholder(overlay_image.get("digest")):
+            errors.append("telegram overlay image digest must be pinned while the overlay lane is candidate")
     expect_equal(
         errors,
         "telegram overlay status in platform version values",
@@ -509,6 +536,12 @@ def validate_environment_contract(
         "telegram overlay image in platform version values",
         platform_versions.get("telegramOverlayImage"),
         overlay_image_ref if overlay_active else "disabled",
+    )
+    expect_equal(
+        errors,
+        "telegram overlay qualified base image in platform version values",
+        platform_versions.get("telegramOverlayQualifiedBaseImage"),
+        overlay_base_image or "disabled",
     )
     pod_annotations = gateway_values.get("podAnnotations") or {}
     expect_equal(
@@ -529,6 +562,12 @@ def validate_environment_contract(
         pod_annotations.get("openclaw.io/telegram-overlay-image"),
         overlay_image_ref if overlay_active else "disabled",
     )
+    expect_equal(
+        errors,
+        "telegram overlay qualified base image pod annotation",
+        pod_annotations.get("openclaw.io/telegram-overlay-qualified-base-image"),
+        overlay_base_image or "disabled",
+    )
     overlay_init = init_containers.get(TELEGRAM_OVERLAY_INIT_CONTAINER_NAME)
     overlay_mount = volume_mounts.get(TELEGRAM_OVERLAY_GATEWAY_MOUNT_PATH)
     overlay_volume = volumes.get(TELEGRAM_OVERLAY_VOLUME_NAME)
@@ -540,24 +579,24 @@ def validate_environment_contract(
             overlay_source,
         )
         if overlay_init is None:
-            errors.append("telegram overlay init container missing while experiment is active")
+            errors.append("telegram overlay init container missing while the overlay lane is active")
         else:
             expect_equal(errors, "telegram overlay init image", overlay_init.get("image"), overlay_image_ref)
         if overlay_mount is None:
-            errors.append("telegram overlay volume mount missing while experiment is active")
+            errors.append("telegram overlay volume mount missing while the overlay lane is active")
         else:
             expect_equal(errors, "telegram overlay subPath", overlay_mount.get("subPath"), TELEGRAM_OVERLAY_SUBPATH)
         if overlay_volume is None or "emptyDir" not in overlay_volume:
-            errors.append("telegram overlay volume missing emptyDir while experiment is active")
+            errors.append("telegram overlay volume missing emptyDir while the overlay lane is active")
     else:
         if extra_env.get("OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA") is not None:
-            errors.append("telegram overlay source env should be absent while experiment is inactive")
+            errors.append("telegram overlay source env should be absent while the overlay lane is inactive")
         if overlay_init is not None:
-            errors.append("telegram overlay init container should be absent while experiment is inactive")
+            errors.append("telegram overlay init container should be absent while the overlay lane is inactive")
         if overlay_mount is not None:
-            errors.append("telegram overlay mount should be absent while experiment is inactive")
+            errors.append("telegram overlay mount should be absent while the overlay lane is inactive")
         if overlay_volume is not None:
-            errors.append("telegram overlay volume should be absent while experiment is inactive")
+            errors.append("telegram overlay volume should be absent while the overlay lane is inactive")
     validate_environment_profile(errors, environment, gateway_values)
 
     return versions, errors

@@ -43,10 +43,11 @@ jobs:
         working-directory: platform-engineering
         run: python products/openclaw/scripts/telegram_overlay_experiment.py validate stage
 
-      - name: Validate overlay experiment state
+      - name: Validate overlay lane state
         run: |
           test "${{ steps.overlay_meta.outputs.overlay_status }}" != "inactive"
           test "${{ steps.overlay_meta.outputs.telegram_ref }}" != ""
+          test "${{ steps.overlay_meta.outputs.qualified_base_image }}" != ""
           test "${{ steps.overlay_meta.outputs.publish_repository }}" != ""
           test "${{ steps.overlay_meta.outputs.publish_tag }}" != ""
           test "${{ steps.overlay_meta.outputs.dockerfile }}" = "deployment/Dockerfile.telegram-overlay"
@@ -121,13 +122,14 @@ jobs:
           tags: ${{ steps.overlay_meta.outputs.publish_repository }}:${{ steps.overlay_meta.outputs.publish_tag }}
           labels: |
             org.opencontainers.image.title=OpenClaw Telegram Overlay
-            org.opencontainers.image.description=Stage-only Telegram overlay artifact for the OpenClaw packaged runtime seam
+            org.opencontainers.image.description=Telegram overlay artifact for the OpenClaw packaged runtime seam
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.overlay_meta.outputs.publish_tag }}
             openclaw.telegram-ref=${{ steps.overlay_meta.outputs.telegram_ref }}
             openclaw.runtime-distribution-ref=${{ steps.overlay_meta.outputs.runtime_distribution_ref }}
             openclaw.platform-engineering-ref=${{ steps.overlay_meta.outputs.platform_ref }}
+            openclaw.qualified-base-image=${{ steps.overlay_meta.outputs.qualified_base_image }}
           provenance: mode=max
           sbom: true
 
@@ -157,8 +159,9 @@ jobs:
             echo '- Telegram SHA: `${{ steps.overlay_meta.outputs.telegram_ref }}`'
             echo '- Runtime distribution SHA: `${{ steps.overlay_meta.outputs.runtime_distribution_ref }}`'
             echo '- Platform SHA: `${{ steps.overlay_meta.outputs.platform_ref }}`'
+            echo '- Qualified base image: `${{ steps.overlay_meta.outputs.qualified_base_image }}`'
             echo
-            echo 'Record this immutable image reference into the stage experiment contract before rehearsal:'
+            echo 'Record this immutable image reference into the stage contract before rehearsal or governed promotion:'
             echo
             echo '```bash'
             echo 'python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage \\'

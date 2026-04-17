@@ -1,27 +1,28 @@
-# Stage Telegram Overlay Experiment
+# Telegram Overlay Artifact Lane
 
 ## Purpose
 
-This runbook describes the bounded stage-only Telegram overlay experiment for
-small Telegram-only fixes.
+This runbook describes the bounded Telegram overlay artifact lane for small
+Telegram-only fixes on a platform-qualified OpenClaw base.
 
 Use it when:
 
 - the change is isolated to `openclaw-telegram-enhanced`
 - rebuilding the full gateway image would slow stage rehearsal unnecessarily
-- you want stage evidence for a Telegram-only delivery artifact before deciding
-  whether the pattern should graduate further
+- you want to qualify and optionally promote a Telegram-only delivery artifact
+  without rebuilding the gateway image
 
-Do not use it for prod promotion.
+Do not use it to qualify a new OpenClaw base image. New base lines still go
+through the full gateway path first.
 
 ## Guardrails
 
-- stage only
 - immutable overlay artifact digest only
 - no same-id global user-home Telegram override
-- no promotion to prod while the experiment is active
-- disable the experiment and return to the normal gateway path before any
-  standard `stage -> prod` promotion
+- prod promotion is allowed only when the same overlay digest is approved on
+  stage and tied to the same qualified base image carried into prod
+- disable the lane and return to the normal gateway path when the next change
+  is not a Telegram-only fix
 
 ## Gold Path
 
@@ -50,7 +51,19 @@ python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage \
 
 5. Capture stage verification evidence against the current candidate.
 
-6. Disable the experiment before any normal prod promotion:
+6. If the current stage candidate is approved and the same base image is headed
+   to prod, promote the approved stage candidate:
+
+```bash
+python3 products/openclaw/scripts/gateway_release.py promote stage prod
+python3 products/openclaw/scripts/gateway_release.py prod-verification record \
+  --verified-by "<operator>" \
+  --evidence-ref "<ticket-or-telegram-ref>" \
+  --check-results "reconciliation-state=passed,primary-user-path-smoke=passed,operator-surface-smoke=passed"
+```
+
+7. If the next change should return to the standard gateway lane, disable the
+   overlay lane:
 
 ```bash
 python3 products/openclaw/scripts/telegram_overlay_experiment.py disable stage
@@ -69,7 +82,8 @@ At minimum:
 
 The stage contract should be able to answer:
 
-- which Telegram source commit was pinned for the experiment
+- which Telegram source commit was pinned for the lane
 - which overlay image digest was mounted
-- which stage candidate and verification record covered the experiment
-- when the experiment was disabled again
+- which qualified OpenClaw base image the overlay was approved against
+- which stage candidate and verification record covered the lane
+- whether the same approved overlay digest was promoted to prod

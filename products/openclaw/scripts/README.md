@@ -56,22 +56,26 @@ For a fixed pinned source bundle, the recorded gateway digest is expected to be
 reusable across `stage` and `prod`. Promotion should reuse the approved digest
 instead of rebuilding a second environment-branded image for the same bundle.
 
-## Stage Telegram Overlay Experiment
+## Telegram Overlay Artifact Lane
 
-The stage-only Telegram overlay experiment is a bounded operator lane for small
-Telegram-only fixes:
+The Telegram overlay artifact lane is a bounded operator path for small
+Telegram-only fixes on a platform-qualified OpenClaw base:
 
 1. `openclaw-telegram-overlay-pin`
 2. `Build Telegram Overlay Image` workflow
 3. `openclaw-telegram-overlay-record`
 4. stage rehearsal against the recorded overlay artifact
-5. disable the experiment before any normal `stage -> prod` promotion
+5. readiness approval for the current stage candidate when the qualified base
+   matches
+6. optional `stage -> prod` promotion of the same approved overlay artifact
+7. `openclaw-gateway-prod-verification ACTION=record`
 
 The pin step must update both:
 
 - the Telegram source commit for the overlay payload
 - the `openclaw-runtime-distribution` source commit that supplies the overlay
   packager and Dockerfile used by the workflow
+- the qualified OpenClaw base image already pinned in the stage contract
 
 ## Stage Release-State Objects
 

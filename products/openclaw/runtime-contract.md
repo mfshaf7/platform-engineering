@@ -39,12 +39,16 @@ The platform-managed deployment must provide:
   - `environments/stage/promotion-readiness.yaml`
   - `environments/prod/verification.yaml` for post-promotion prod smoke or UAT
 
-Stage may also run a bounded Telegram overlay experiment:
+OpenClaw may also use a separate Telegram overlay artifact lane for small
+Telegram-only fixes on a platform-qualified base line:
 
 - separate immutable Telegram overlay artifact
 - init-container copy into `/app/extensions/telegram`
-- explicit stage-only contract state in `environments/stage/versions.yaml`
-- never promotable to prod while the experiment is active
+- explicit contract state in `environments/stage/versions.yaml` and
+  `environments/prod/versions.yaml`
+- stage qualification of the exact overlay digest before any prod use
+- prod promotion only when the overlay is bound to the same qualified base
+  image as the approved stage candidate
 
 ## Health And Readiness
 

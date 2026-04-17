@@ -4,8 +4,8 @@ environment: stage
 status: pending-build
 recordedAt: null
 recordedPlatformEngineeringCommit: null
-note: Stage Telegram overlay experiment completed successfully; return stage to the
-  standard gateway candidate flow before any future promotion.
+note: Telegram overlay lane completed successfully; return stage to the standard
+  gateway candidate flow before any future promotion.
 candidate:
   sourceBundleRef: null
   image:
@@ -25,6 +25,7 @@ candidate:
     status: inactive
     runtimeActive: false
     sourceCommit: null
+    qualifiedBaseImage: null
     image:
       repository: null
       tag: null

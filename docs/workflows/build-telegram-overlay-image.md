@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Builds and pushes the stage-only OpenClaw Telegram overlay experiment image.
+Builds and pushes the OpenClaw Telegram overlay image for the current qualified
+stage lane.
 
 ## Trigger
 
@@ -12,7 +13,7 @@ Builds and pushes the stage-only OpenClaw Telegram overlay experiment image.
 
 - none
 
-The workflow always reads the current `stage` Telegram overlay experiment
+The workflow always reads the current `stage` Telegram overlay
 contract from `products/openclaw/scripts/telegram_overlay_experiment.py
 metadata`.
 
@@ -20,8 +21,8 @@ metadata`.
 
 - `contents: read`
 - `packages: write`
-- no separate GitHub environment gate; the workflow only builds the stage-only
-  artifact and does not promote it
+- no separate GitHub environment gate; the workflow only builds the overlay
+  artifact and does not promote it directly
 
 ## Outputs And Side Effects
 
@@ -29,13 +30,13 @@ metadata`.
   the publishable packlist
 - builds and pushes `ghcr.io/mfshaf7/openclaw-telegram-overlay:<tag>`
 - emits the immutable digest that must be recorded back into the stage
-  experiment contract before rehearsal
+  contract before rehearsal or governed promotion
 
 ## Guardrails
 
-- stage-only
-- fails if the experiment is inactive
+- fails if the overlay lane is inactive
 - verifies the pinned Telegram and runtime-distribution refs exist upstream
+- verifies the lane carries a qualified OpenClaw base image
 - smoke-checks that the overlay image contains the packaged Telegram runtime
   files and excludes test/declaration-only payloads
 
@@ -44,6 +45,7 @@ metadata`.
 - workflow run URL
 - pushed overlay image digest
 - pinned Telegram SHA
+- qualified OpenClaw base image
 - subsequent `telegram_overlay_experiment.py record stage --digest ...`
   evidence once the digest is written into the stage contract
 

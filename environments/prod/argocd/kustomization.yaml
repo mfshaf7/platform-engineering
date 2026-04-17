@@ -3,8 +3,11 @@ kind: Kustomization
 resources:
   - platform-dashboards-app.yaml
   - openclaw-prod-lifecycle-configmap.yaml
+  - openclaw-gateway-app.yaml
   - platform-postgresql-secrets-app.yaml
   - platform-postgresql-app.yaml
   - openproject-secrets-app.yaml
   - openproject-app.yaml
+  - platform-secrets-app.yaml
+  - platform-version-app.yaml
   - observability-app.yaml

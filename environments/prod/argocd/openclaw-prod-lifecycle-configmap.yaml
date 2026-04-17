@@ -6,14 +6,14 @@ metadata:
 data:
   product: openclaw
   environment: prod
-  state: suspended
-  changedAt: '2026-04-17T09:41:19Z'
+  state: live
+  changedAt: '2026-04-17T12:25:00Z'
   changedBy: mfshaf7
-  reason: stage-stabilization-window
+  reason: lifecycle-drill
   incidentRef: ''
-  note: Prod OpenClaw intentionally suspended while stage remains the active stabilization
-    and delivery environment.
-  runtimeActive: 'false'
-  trafficActive: 'false'
+  note: 'Governed lifecycle drill: return prod OpenClaw to live before traffic-stop
+    and quarantine validation.'
+  runtimeActive: 'true'
+  trafficActive: 'true'
   promotionAllowed: 'true'
-  prodVerificationStatus: inactive
+  prodVerificationStatus: pending

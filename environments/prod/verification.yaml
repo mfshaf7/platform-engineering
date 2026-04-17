@@ -1,12 +1,12 @@
 schemaVersion: 1
 product: openclaw
 environment: prod
-status: inactive
+status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: Prod OpenClaw is suspended; prod smoke/UAT is inactive until the governed lifecycle
-  returns to live.
+note: Prod lifecycle returned to live; reconcile the current prod contract and record
+  fresh prod smoke/UAT before treating prod as complete.
 candidateRef:
   path: environments/prod/versions.yaml
   sourceBundleRef: 1fb1b11b4142

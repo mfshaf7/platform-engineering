@@ -18,7 +18,9 @@ These support shared platform operations:
 
 `validate_governance_docs.py` checks ADR and change-record structure, and the
 shared PR governance template that routes future changes into the right
-decision and evidence path.
+decision and evidence path. It also validates optional `security_evidence`
+front matter on change records when a record is being used as structured
+security remediation evidence.
 
 `validate_operational_docs.py` checks workflow-doc coverage and freshness stamps
 for current topology and access docs.

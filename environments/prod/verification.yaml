@@ -5,8 +5,8 @@ status: inactive
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: Prod OpenClaw is quarantined; prod smoke/UAT remains inactive until incident
-  review returns the governed lifecycle to live.
+note: Prod OpenClaw is suspended; prod smoke/UAT remains inactive until the governed
+  lifecycle returns to live.
 candidateRef:
   path: environments/prod/versions.yaml
   sourceBundleRef: 1fb1b11b4142

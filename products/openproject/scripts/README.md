@@ -11,6 +11,7 @@ These scripts are product-scoped. They are not shared platform tooling.
 - `openproject_status.sh`
 - `openproject_access.sh`
 - `openproject_sync_admin_password.sh`
+- `openproject_configure_idea_backlog.sh`
 - `openproject_uninstall.sh`
 
 ## Supported OpenProject Make Targets
@@ -19,4 +20,5 @@ These scripts are product-scoped. They are not shared platform tooling.
 - `make openproject-status`
 - `make openproject-access`
 - `make openproject-sync-admin-password`
+- `make openproject-configure-idea-backlog`
 - `make openproject-uninstall`

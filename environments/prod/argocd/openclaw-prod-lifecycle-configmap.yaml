@@ -6,10 +6,10 @@ metadata:
 data:
   product: openclaw
   environment: prod
-  state: live
-  changedAt: '2026-04-17T09:29:05Z'
-  changedBy: platform-engineering
-  reason: default-live-state
+  state: suspended
+  changedAt: '2026-04-17T09:41:19Z'
+  changedBy: mfshaf7
+  reason: stage-stabilization-window
   incidentRef: ''
-  note: Prod OpenClaw is live unless it is deliberately suspended through the governed
-    prod lifecycle control.
+  note: Prod OpenClaw intentionally suspended while stage remains the active stabilization
+    and delivery environment.

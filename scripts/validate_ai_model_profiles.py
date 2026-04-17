@@ -25,7 +25,10 @@ def resolve_cross_repo_path(workspace_root: Path, ref: dict, *, label: str, erro
     if not isinstance(rel_path, str) or not rel_path:
         errors.append(f"{label}: missing path")
         return
-    target = workspace_root / repo / rel_path
+    repo_root = workspace_root / repo
+    if not repo_root.exists():
+        return
+    target = repo_root / rel_path
     if not target.exists():
         errors.append(f"{label}: missing referenced artifact {repo}/{rel_path}")
 

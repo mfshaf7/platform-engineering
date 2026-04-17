@@ -15,8 +15,10 @@ Concrete security review references for this repo:
 - [`security-architecture/docs/architecture/platform/trust-boundaries.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/platform/trust-boundaries.md)
 - [`security-architecture/docs/architecture/domains/gitops-and-machine-trust.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/gitops-and-machine-trust.md)
 - [`security-architecture/docs/architecture/domains/secrets-and-recovery.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/secrets-and-recovery.md)
+- [`security-architecture/docs/standards/ai-security-and-governance.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)
 - [`security-architecture/docs/reviews/security-review-checklist.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md)
 - [`security-architecture/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md)
+- [`security-architecture/docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md)
 
 ## What This Repository Owns
 
@@ -77,6 +79,7 @@ That split is implemented under:
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
+- [docs/standards/governed-ai-access-model.md](docs/standards/governed-ai-access-model.md)
 - [docs/standards/review-and-approval-model.md](docs/standards/review-and-approval-model.md)
 - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
 - [docs/standards/product-boundaries.md](docs/standards/product-boundaries.md)

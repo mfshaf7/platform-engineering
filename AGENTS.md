@@ -51,8 +51,10 @@ Concrete security references for this repo:
 - `security-architecture/docs/architecture/platform/trust-boundaries.md`
 - `security-architecture/docs/architecture/domains/gitops-and-machine-trust.md`
 - `security-architecture/docs/architecture/domains/secrets-and-recovery.md`
+- `security-architecture/docs/standards/ai-security-and-governance.md`
 - `security-architecture/docs/reviews/security-review-checklist.md`
 - `security-architecture/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md`
+- `security-architecture/docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md`
 
 ## Workflow Maturity Rule
 

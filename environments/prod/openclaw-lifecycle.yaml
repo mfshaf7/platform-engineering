@@ -1,0 +1,14 @@
+schemaVersion: 1
+product: openclaw
+environment: prod
+state: live
+changedAt: '2026-04-17T09:29:05Z'
+changedBy: platform-engineering
+reason: default-live-state
+incidentRef: null
+note: Prod OpenClaw is live unless it is deliberately suspended through the governed
+  prod lifecycle control.
+managedResources:
+- openclaw-gateway-app.yaml
+- platform-secrets-app.yaml
+- platform-version-app.yaml

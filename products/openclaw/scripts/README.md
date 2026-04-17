@@ -12,6 +12,7 @@ The reusable operator workflow for this path is published separately under
 
 - `gateway_release.py`
 - `prepull_gateway_image.py`
+- `set_prod_environment_state.py`
 - `set_stage_environment_state.py`
 - `telegram_overlay_experiment.py`
 - `validate_gateway_source_bundle.py`
@@ -21,6 +22,7 @@ The reusable operator workflow for this path is published separately under
 - `gateway_contract.py`
 - `gateway_environment.py`
 - `gateway_release_ops.py`
+- `prod_lifecycle.py`
 - `prod_verification.py`
 - `stage_readiness.py`
 
@@ -40,6 +42,7 @@ The reusable operator workflow for this path is published separately under
 - `make openclaw-telegram-overlay-validate`
 - `make openclaw-telegram-overlay-record DIGEST=sha256:...`
 - `make openclaw-telegram-overlay-disable`
+- `make openclaw-prod-state STATE=<live|suspended|status>`
 - `make openclaw-stage-state STATE=<resume|suspend|status> COMPONENTS=gateway,version`
 
 ## Release Gold Path
@@ -88,3 +91,24 @@ The pin step must update both:
 - `environments/prod/verification.yaml`
   - structured post-promotion prod smoke or UAT evidence for the current prod
     contract
+
+## Prod Lifecycle Control
+
+OpenClaw prod now has a governed runtime lifecycle separate from stage:
+
+- `environments/prod/openclaw-lifecycle.yaml`
+  - Git-managed desired prod OpenClaw lifecycle state
+- `products/openclaw/scripts/set_prod_environment_state.py`
+  - product-scoped controller that applies the lifecycle contract to the prod
+    Argo root
+- `.github/workflows/manage-prod-environment.yaml`
+  - manual gated workflow that creates the lifecycle branch under the `prod`
+    environment gate
+
+The initial bounded states are:
+
+- `live`
+- `suspended`
+
+This control only affects the OpenClaw prod runtime slice. It must not prune
+OpenProject or unrelated shared prod services.

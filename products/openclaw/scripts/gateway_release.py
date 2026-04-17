@@ -8,6 +8,7 @@ from pathlib import Path
 from gateway_contract import build_metadata, compute_publish_tag, load_versions, write_github_output
 from gateway_environment import validate_environment_contract
 from gateway_release_ops import pin_gateway_source_repos, promote_environment, record_gateway_image
+from prod_lifecycle import current_prod_state, validate_prod_lifecycle
 from prod_verification import (
     print_status as print_prod_verification_status,
     record_prod_verification,
@@ -222,7 +223,7 @@ def parse_args() -> argparse.Namespace:
     )
     prod_verification_parser.add_argument("action", choices=("status", "reset", "record", "validate"))
     add_repo_root_arg(prod_verification_parser)
-    prod_verification_parser.add_argument("--status", choices=("pending",), help="reset target state")
+    prod_verification_parser.add_argument("--status", choices=("inactive", "pending"), help="reset target state")
     prod_verification_parser.add_argument("--note", default="", help="human note for verification changes")
     prod_verification_parser.add_argument(
         "--verified-by",
@@ -295,6 +296,9 @@ def main() -> int:
             args.repo_root,
             require_deterministic_tag=args.require_deterministic_tag,
         )
+        if args.environment == "prod":
+            _, lifecycle_errors = validate_prod_lifecycle(args.repo_root)
+            errors.extend(lifecycle_errors)
         if errors:
             raise SystemExit("\n".join(errors))
         image = versions["gateway"]["image"]
@@ -305,7 +309,9 @@ def main() -> int:
             f"(telegram={source['telegramEnhanced']['commit']}, "
             f"hostBridge={source['hostBridge']['commit']}, "
             f"runtimeDistribution={source['runtimeDistribution']['commit']}, "
-            f"platform={source['platformEngineering']['commit']})"
+            f"platform={source['platformEngineering']['commit']}"
+            + (f", prodLifecycle={current_prod_state(args.repo_root)}" if args.environment == "prod" else "")
+            + ")"
         )
         return 0
 

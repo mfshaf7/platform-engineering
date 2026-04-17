@@ -11,6 +11,9 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md](ADR-005-windows-rooted-tpm-backed-vault-auto-unseal.md)
 - [ADR-006-retire-openclaw-isolated-deployment.md](ADR-006-retire-openclaw-isolated-deployment.md)
 - [ADR-007-post-promotion-prod-smoke-evidence.md](ADR-007-post-promotion-prod-smoke-evidence.md)
+- [ADR-008-stage-telegram-overlay-experiment.md](ADR-008-stage-telegram-overlay-experiment.md)
+- [ADR-009-governed-telegram-overlay-artifact-lane.md](ADR-009-governed-telegram-overlay-artifact-lane.md)
+- [ADR-010-governed-openclaw-prod-lifecycle.md](ADR-010-governed-openclaw-prod-lifecycle.md)
 
 ## Rules
 

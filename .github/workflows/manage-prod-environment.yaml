@@ -1,0 +1,114 @@
+name: Manage Prod Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      state:
+        required: true
+        default: suspended
+        type: choice
+        options:
+          - live
+          - suspended
+      reason:
+        required: true
+        type: string
+        default: incident-containment
+      incident_ref:
+        required: false
+        type: string
+        default: ""
+      operation_note:
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: manage-prod-environment
+  cancel-in-progress: false
+
+jobs:
+  update-prod-environment:
+    environment: prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tool dependencies
+        run: python -m pip install pyyaml
+
+      - name: Update prod environment state
+        run: >
+          python products/openclaw/scripts/set_prod_environment_state.py
+          "${{ inputs.state }}"
+          --changed-by "${{ github.actor }}"
+          --reason "${{ inputs.reason }}"
+          --incident-ref "${{ inputs.incident_ref }}"
+          --note "${{ inputs.operation_note }}"
+
+      - name: Capture prod verification status
+        id: verification
+        run: |
+          {
+            echo "status_line<<__VERIFICATION__"
+            python products/openclaw/scripts/gateway_release.py prod-verification status
+            echo "__VERIFICATION__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Show prod lifecycle diff
+        run: git diff -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml
+
+      - name: Detect whether a commit is needed
+        id: diff
+        run: |
+          if git diff --quiet -- environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push prod lifecycle branch
+        if: steps.diff.outputs.changed == 'true'
+        id: lifecycle_branch
+        env:
+          LIFECYCLE_BRANCH: prod/openclaw-${{ inputs.state }}-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$LIFECYCLE_BRANCH"
+          git add environments/prod/openclaw-lifecycle.yaml environments/prod/argocd/kustomization.yaml environments/prod/argocd/openclaw-prod-lifecycle-configmap.yaml environments/prod/verification.yaml
+          git commit -m "Set prod OpenClaw lifecycle to ${{ inputs.state }}"
+          git push --force-with-lease origin "$LIFECYCLE_BRANCH"
+          echo "lifecycle_branch=$LIFECYCLE_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish lifecycle summary
+        run: |
+          {
+            echo "## Prod Environment"
+            echo
+            echo '- Requested state: `${{ inputs.state }}`'
+            echo '- Reason: `${{ inputs.reason }}`'
+            echo '- Incident ref: `${{ inputs.incident_ref }}`'
+            echo '- Note: `${{ inputs.operation_note }}`'
+            echo '- Prod verification: `${{ steps.verification.outputs.status_line }}`'
+            if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
+              echo '- Lifecycle branch: `${{ steps.lifecycle_branch.outputs.lifecycle_branch }}`'
+              echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.lifecycle_branch.outputs.lifecycle_branch }}?expand=1`'
+              echo
+              echo 'Merging this branch changes the desired prod OpenClaw lifecycle and resets prod verification accordingly.'
+            else
+              echo '- No git changes were required because prod OpenClaw was already in the requested state.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

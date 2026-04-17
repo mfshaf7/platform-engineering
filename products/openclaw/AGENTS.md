@@ -67,9 +67,20 @@ unless it is genuinely shared platform behavior.
 - Stage rehearsal must be written into `environments/stage/verification.yaml`
   before readiness approval is allowed.
 - `promote stage prod` must reset `environments/prod/verification.yaml` to a
-  pending state tied to the new prod contract.
+  pending or inactive state tied to the new prod contract and current prod
+  lifecycle.
 - A prod rollout is not operationally complete until post-promotion prod smoke
   or UAT is recorded in `environments/prod/verification.yaml`.
+- Prod OpenClaw now has a bounded governed lifecycle under
+  `environments/prod/openclaw-lifecycle.yaml`.
+- Change prod lifecycle only through
+  `products/openclaw/scripts/set_prod_environment_state.py` or the matching
+  GitHub workflow.
+- The bounded initial prod states are `live` and `suspended`.
+- Suspending prod must only remove the OpenClaw prod slice. It must not prune
+  OpenProject or unrelated shared prod services.
+- Returning prod to `live` requires fresh prod smoke/UAT before treating prod
+  as operationally complete.
 - `products/openclaw/platform-operator-catalog.yaml` is the platform-owned
   source of truth for the read-only Telegram `/platform` operator surface.
 - the Telegram overlay artifact lane is allowed only as an explicit contract
@@ -109,6 +120,7 @@ When OpenClaw access or exposure changes, update these in the same change:
 - `runtime-contract.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openclaw.md`
+- `runbooks/manage-prod-lifecycle.md`
 
 If the change also affects shared operator entrypoints or stage/prod exposure,
 update:

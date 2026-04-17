@@ -29,7 +29,7 @@ The platform uses an app-of-apps model rooted in three Argo applications:
 | Root application | Git path | Role | Current live outcome |
 | --- | --- | --- | --- |
 | `platform-root-shared` | `environments/shared/argocd` | Shared control-plane services and shared secret-delivery assets | Deploys shared services such as Vault and External Secrets |
-| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Deploys OpenClaw prod, OpenProject, PostgreSQL, prod observability, dashboards, and prod secrets/version assets |
+| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Deploys OpenClaw prod, OpenProject, PostgreSQL, prod observability, dashboards, and prod secrets/version assets; OpenClaw prod can now be deliberately suspended through a product-scoped lifecycle contract |
 | `platform-root-stage` | `environments/stage/argocd` | Stage-only workloads | Currently suspended; only a suspend sentinel is applied and no stage child apps are live |
 
 ## Current Live Argo Applications
@@ -88,7 +88,7 @@ These are the current direct operator-facing surfaces:
 | Prometheus (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | Alertmanager (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | OpenProject | `openproject` | `openproject` | NodePort plus Windows localhost proxy | Live |
-| OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Live, but not a browser UI |
+| OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Live by default, but subject to the governed OpenClaw prod lifecycle |
 
 For exact URLs, credentials, and shell-local fallback commands, use
 [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md).
@@ -141,3 +141,4 @@ Whenever any of these change, update this document in the same change:
 - a NodePort or Windows localhost access path changes
 - a product becomes directly reachable or stops being directly reachable
 - stage or prod exposure posture changes
+- a product gains a governed suspend or quarantine posture

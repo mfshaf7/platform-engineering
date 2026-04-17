@@ -39,6 +39,7 @@ help:
 	@printf "  openclaw-telegram-overlay-validate Validate the Telegram overlay lane contract\n"
 	@printf "  openclaw-telegram-overlay-record Record a built stage Telegram overlay image digest\n"
 	@printf "  openclaw-telegram-overlay-disable Disable the Telegram overlay lane in stage\n"
+	@printf "  openclaw-prod-state Set or inspect the OpenClaw prod lifecycle state\n"
 	@printf "  openclaw-stage-state Resume, suspend, or inspect the OpenClaw stage environment\n"
 	@printf "  render-windows-bootstrap Render the Windows WSL bootstrap script\n"
 	@printf "  validate           Run repo validation checks\n"
@@ -182,6 +183,11 @@ openclaw-telegram-overlay-record:
 .PHONY: openclaw-telegram-overlay-disable
 openclaw-telegram-overlay-disable:
 	python3 products/openclaw/scripts/telegram_overlay_experiment.py disable stage $(if $(NOTE),--note "$(NOTE)",)
+
+.PHONY: openclaw-prod-state
+openclaw-prod-state:
+	@test -n "$(STATE)" || { echo "STATE is required, for example: make openclaw-prod-state STATE=suspended CHANGED_BY=mfshaf7 REASON=incident-containment"; exit 1; }
+	python3 products/openclaw/scripts/set_prod_environment_state.py $(STATE) $(if $(CHANGED_BY),--changed-by $(CHANGED_BY),) $(if $(REASON),--reason "$(REASON)",) $(if $(INCIDENT_REF),--incident-ref "$(INCIDENT_REF)",) $(if $(NOTE),--note "$(NOTE)",)
 
 .PHONY: openclaw-stage-state
 openclaw-stage-state:

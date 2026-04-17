@@ -71,7 +71,7 @@ surfaces:
   - id: openclaw-prod
     label: OpenClaw prod
     category: product
-    currentState: live
+    currentState: live by default; may be deliberately suspended through the governed prod lifecycle
     operatorUrl: no browser UI; primary user path is Telegram
     wslFallback: k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789
     credentialSource: No shared browser login; use Telegram and product-specific runtime surface
@@ -81,6 +81,7 @@ surfaces:
       - Real Telegram reply, file send, screenshot, and host-control checks
     troubleshootingNotes:
       - Gateway health alone is not sufficient proof of prod behavior
+      - Check environments/prod/openclaw-lifecycle.yaml before assuming prod OpenClaw should be live
   - id: grafana-stage
     label: Grafana stage
     category: observability

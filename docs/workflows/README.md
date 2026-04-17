@@ -18,6 +18,7 @@ Use it when the question is:
 | `build-telegram-overlay-image.yaml` | [build-telegram-overlay-image.md](build-telegram-overlay-image.md) | manual | builds and pushes the OpenClaw Telegram overlay artifact for the current qualified stage lane |
 | `confirm-stage-promotion-readiness.yaml` | [confirm-stage-promotion-readiness.md](confirm-stage-promotion-readiness.md) | manual | records stage verification evidence and approval for the current candidate |
 | `drift-check.yaml` | [drift-check.md](drift-check.md) | schedule, manual | checks for missing platform overlays and app manifests |
+| `manage-prod-environment.yaml` | [manage-prod-environment.md](manage-prod-environment.md) | manual | sets the bounded OpenClaw prod lifecycle state |
 | `manage-stage-environment.yaml` | [manage-stage-environment.md](manage-stage-environment.md) | manual | resumes or suspends stage desired state |
 | `promote-environment.yaml` | [promote-environment.md](promote-environment.md) | manual | creates a prod promotion branch from an approved stage candidate |
 | `security-posture.yaml` | [security-posture.md](security-posture.md) | pull_request, manual | validates minimum repo security posture docs and controls |

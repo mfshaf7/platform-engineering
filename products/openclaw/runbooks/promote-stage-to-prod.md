@@ -34,7 +34,8 @@ environments.
   `environments/stage/verification.yaml`; changing either invalidates
   readiness until the next approval is recorded.
 - the promotion workflow must reset `environments/prod/verification.yaml` to a
-  pending state bound to the newly promoted prod contract.
+  pending or inactive state bound to the newly promoted prod contract and
+  current prod lifecycle.
 - the promoted artifact is source-bundle based, not stage-branded; prod should
   reuse the approved stage digest instead of rebuilding a separate prod-only
   image for the same pinned source bundle.
@@ -105,6 +106,10 @@ This is the expected evidence pattern for a user-facing Telegram product:
 - one read-only prod operator interaction such as `/platform`
 
 See [verify-prod-after-promotion.md](verify-prod-after-promotion.md).
+
+If prod OpenClaw is deliberately suspended, promotion may still update the prod
+contract while leaving the runtime offline. In that case prod verification
+stays inactive until the governed prod lifecycle returns to `live`.
 
 ## Stage Bridge Lifecycle
 

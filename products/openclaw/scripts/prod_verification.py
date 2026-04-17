@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gateway_contract import compute_source_bundle_ref
 from gateway_environment import load_yaml, telegram_overlay_runtime_active, telegram_overlay_state, write_yaml
+from prod_lifecycle import current_prod_state
 
 
 PROD_VERIFICATION_RELATIVE_PATH = Path("environments/prod/verification.yaml")
@@ -185,7 +186,13 @@ def default_prod_verification(
 def load_prod_verification(repo_root: Path) -> dict:
     path = prod_verification_path(repo_root)
     if not path.exists():
-        return default_prod_verification(candidate=snapshot_prod_candidate(repo_root))
+        status = "inactive" if current_prod_state(repo_root) != "live" else "pending"
+        note = (
+            "Prod OpenClaw is suspended; prod smoke verification remains inactive until the governed lifecycle returns to live."
+            if status == "inactive"
+            else DEFAULT_PROD_VERIFICATION_NOTE
+        )
+        return default_prod_verification(candidate=snapshot_prod_candidate(repo_root), status=status, note=note)
     return load_yaml(path)
 
 
@@ -276,6 +283,10 @@ def record_prod_verification(
     note: str,
     raw_results: list[str],
 ) -> dict:
+    if current_prod_state(repo_root) != "live":
+        raise SystemExit(
+            "prod OpenClaw is suspended; return the governed prod lifecycle to live before recording prod smoke/UAT evidence"
+        )
     catalog = load_prod_verification_catalog(repo_root)
     candidate = require_prod_candidate(repo_root)
     checks = normalize_check_results(repo_root, catalog, raw_results)
@@ -290,6 +301,10 @@ def record_prod_verification(
 
 
 def validate_prod_verification(repo_root: Path) -> dict:
+    if current_prod_state(repo_root) != "live":
+        raise SystemExit(
+            "prod OpenClaw is suspended; prod verification is inactive until the governed prod lifecycle returns to live"
+        )
     verification = load_prod_verification(repo_root)
     candidate = require_prod_candidate(repo_root)
     if verification.get("status") != "recorded":
@@ -333,6 +348,7 @@ def print_status(repo_root: Path) -> None:
     results = verification_results_map(verification)
     checks_summary = ",".join(f"{check_id}:{status}" for check_id, status in sorted(results.items())) or "none"
     print(
+        f"lifecycle_state={current_prod_state(repo_root)} "
         f"status={verification.get('status') or 'unset'} "
         f"candidate_bundle={candidate.get('sourceBundleRef') or 'none'} "
         f"candidate_digest={(candidate.get('image') or {}).get('digest') or 'none'} "

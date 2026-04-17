@@ -14,6 +14,7 @@ from gateway_environment import (
     write_yaml,
 )
 from prepull_gateway_image import prepull_image
+from prod_lifecycle import current_prod_state
 from prod_verification import reset_prod_verification
 from stage_readiness import (
     current_stage_components,
@@ -201,8 +202,12 @@ def pin_gateway_source_repos(
     elif environment == "prod":
         reset_prod_verification(
             repo_root,
-            status="pending",
-            note="Prod source pins changed; record the next prod candidate and post-promotion prod smoke before treating prod as complete.",
+            status="pending" if current_prod_state(repo_root) == "live" else "inactive",
+            note=(
+                "Prod source pins changed; record the next prod candidate and post-promotion prod smoke before treating prod as complete."
+                if current_prod_state(repo_root) == "live"
+                else "Prod source pins changed while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating prod as complete."
+            ),
         )
 
     print(f"Pinned {environment} source repos in {versions_path.relative_to(repo_root)}")
@@ -298,12 +303,17 @@ def record_gateway_image(
             + ", ".join(candidate["candidate"]["requiredChecks"])
         )
     elif environment == "prod":
+        prod_verification_status = "pending" if current_prod_state(repo_root) == "live" else "inactive"
         reset_prod_verification(
             repo_root,
-            status="pending",
-            note="Prod contract changed; record post-promotion prod smoke/UAT before treating the rollout as complete.",
+            status=prod_verification_status,
+            note=(
+                "Prod contract changed; record post-promotion prod smoke/UAT before treating the rollout as complete."
+                if current_prod_state(repo_root) == "live"
+                else "Prod contract changed while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating the rollout as complete."
+            ),
         )
-        print("Reset prod verification to pending for the current prod contract")
+        print(f"Reset prod verification to {prod_verification_status} for the current prod contract")
 
     print(f"Recorded {image_ref} for {environment} with platformSha={platform_sha}")
     return 0
@@ -409,8 +419,12 @@ def promote_environment(source_environment: str, target_environment: str, *, rep
     if target_environment == "prod":
         reset_prod_verification(
             repo_root,
-            status="pending",
-            note="Prod contract changed via promotion; record post-promotion prod smoke/UAT before treating this rollout as complete.",
+            status="pending" if current_prod_state(repo_root) == "live" else "inactive",
+            note=(
+                "Prod contract changed via promotion; record post-promotion prod smoke/UAT before treating this rollout as complete."
+                if current_prod_state(repo_root) == "live"
+                else "Prod contract changed via promotion while prod OpenClaw is suspended; resume prod and record smoke/UAT before treating this rollout as complete."
+            ),
         )
 
     print(

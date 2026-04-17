@@ -33,7 +33,7 @@ Important clarification:
 | Prometheus prod | Live | `http://127.0.0.1:32090` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | Alertmanager prod | Live | `http://127.0.0.1:32093` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | OpenProject | Live | `http://127.0.0.1:32083` | `k3s kubectl -n openproject port-forward svc/openproject 8080:8080` | Vault path `kv/products/openproject/prod/admin` |
-| OpenClaw prod | Live | no browser UI; primary user path is Telegram | `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
+| OpenClaw prod | Live by default; may be deliberately suspended | no browser UI; primary user path is Telegram | `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
 | Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
 | Prometheus stage | Not currently live | `http://127.0.0.1:32091` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9091:9090` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
 | Alertmanager stage | Not currently live | `http://127.0.0.1:32094` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9094:9093` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
@@ -83,6 +83,7 @@ account without storing the credential in Git.
 ```bash
 k3s kubectl -n argocd get applications
 k3s kubectl get svc -A
+python3 products/openclaw/scripts/set_prod_environment_state.py status
 python3 products/openclaw/scripts/set_stage_environment_state.py status
 ```
 

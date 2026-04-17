@@ -40,6 +40,8 @@ OpenClaw is also the reference fully governed product path today:
   objects
 - prod promotion reuses the approved stage digest instead of rebuilding
 - post-promotion prod smoke or UAT is recorded separately from stage approval
+- prod runtime now has a bounded governed lifecycle state so OpenClaw can be
+  deliberately suspended without tearing down unrelated prod services
 
 For small Telegram-only fixes, OpenClaw can also use a separate immutable
 Telegram overlay artifact without rebuilding the full gateway image. That lane
@@ -56,6 +58,7 @@ candidate on the same qualified base image.
 - [host-integration.md](host-integration.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
+- [runbooks/manage-prod-lifecycle.md](runbooks/manage-prod-lifecycle.md)
 - [scripts/README.md](scripts/README.md)
 - [skills-src/README.md](skills-src/README.md)
 - [runbooks/README.md](runbooks/README.md)

@@ -1,12 +1,12 @@
 schemaVersion: 1
 product: openclaw
 environment: prod
-status: pending
+status: inactive
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
-note: Prod lifecycle returned to live; reconcile the current prod contract and record
-  fresh prod smoke/UAT before treating prod as complete.
+note: Prod OpenClaw gateway traffic is intentionally stopped at the deployment boundary;
+  prod smoke/UAT remains inactive until the governed lifecycle returns to live.
 candidateRef:
   path: environments/prod/versions.yaml
   sourceBundleRef: 1fb1b11b4142

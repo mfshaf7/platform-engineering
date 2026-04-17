@@ -1,23 +1,28 @@
-status: inactive
+status: pending
 requiredComponents:
 - gateway
 - secrets
 - version
 approvedAt: null
 approvedBy: null
-note: Stage Telegram overlay lane pins changed; promotion remains blocked until the
-  current overlay lane is approved or reset.
+note: Stage Telegram overlay lane is active; promotion remains gated by the current
+  approved stage candidate and must carry the same qualified base image into prod.
 candidateRef:
   path: environments/stage/release-candidate.yaml
-  status: pending-build
-  sourceBundleRef: null
-  imageDigest: null
-  requiredChecks: []
+  status: candidate
+  sourceBundleRef: 272f455878c7
+  imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
+  requiredChecks:
+  - artifact-delivery
+  - primary-user-path
+  - privileged-path-posture
+  - runtime-start
+  - screenshot-delivery
 verificationRef:
   path: environments/stage/verification.yaml
   status: pending
   verifiedAt: null
-  candidateSourceBundleRef: null
+  candidateSourceBundleRef: 272f455878c7
 approvedCandidate:
   sourceBundleRef: null
   image:

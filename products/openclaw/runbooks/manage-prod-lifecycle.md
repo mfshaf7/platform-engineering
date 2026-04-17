@@ -16,6 +16,10 @@ This control affects only the OpenClaw prod runtime slice:
 - `platform-secrets-app.yaml`
 - `platform-version-app.yaml`
 
+Those managed prod Application manifests must carry
+`resources-finalizer.argocd.argoproj.io` so deleting them from the prod root
+also prunes the live OpenClaw runtime resources.
+
 It must not prune unrelated prod applications such as OpenProject or shared
 observability.
 
@@ -63,6 +67,8 @@ repository to create the lifecycle branch under the `prod` environment gate.
 When prod state is `suspended`:
 
 - the OpenClaw prod Argo applications are removed from the prod root
+- the removed OpenClaw prod Argo applications must prune their runtime
+  resources instead of leaving orphaned deployments, services, or secrets
 - a lifecycle configmap remains in `argocd` as explicit state evidence
 - `environments/prod/verification.yaml` is reset to `inactive`
 - future prod smoke/UAT remains inactive until prod is returned to `live`

@@ -15,11 +15,17 @@ PROD_LIFECYCLE_CONFIGMAP_RELATIVE_PATH = Path(
 PROD_VERIFICATION_RELATIVE_PATH = Path("environments/prod/verification.yaml")
 VALID_PROD_LIFECYCLE_STATES = {"live", "suspended"}
 LIFECYCLE_CONFIGMAP_RESOURCE = "openclaw-prod-lifecycle-configmap.yaml"
+REQUIRED_APPLICATION_FINALIZER = "resources-finalizer.argocd.argoproj.io"
 PROD_MANAGED_RESOURCES = (
     "openclaw-gateway-app.yaml",
     "platform-secrets-app.yaml",
     "platform-version-app.yaml",
 )
+PROD_MANAGED_APPLICATIONS = {
+    "openclaw-gateway-app.yaml": "openclaw-gateway",
+    "platform-secrets-app.yaml": "platform-secrets-prod",
+    "platform-version-app.yaml": "platform-version",
+}
 PROD_LIVE_RESOURCES = (
     "platform-dashboards-app.yaml",
     LIFECYCLE_CONFIGMAP_RESOURCE,
@@ -61,6 +67,10 @@ def prod_lifecycle_configmap_path(repo_root: Path) -> Path:
 
 def prod_verification_path(repo_root: Path) -> Path:
     return repo_root / PROD_VERIFICATION_RELATIVE_PATH
+
+
+def prod_application_manifest_path(repo_root: Path, resource_name: str) -> Path:
+    return repo_root / "environments" / "prod" / "argocd" / resource_name
 
 
 def default_prod_lifecycle() -> dict:
@@ -137,6 +147,13 @@ def load_resources(path: Path) -> list[str]:
     return resources
 
 
+def load_application_finalizers(path: Path) -> list[str]:
+    document = load_yaml(path) or {}
+    metadata = document.get("metadata") or {}
+    finalizers = metadata.get("finalizers") or []
+    return [str(finalizer) for finalizer in finalizers]
+
+
 def write_kustomization(path: Path, resources: list[str]) -> None:
     lines = [
         "apiVersion: kustomize.config.k8s.io/v1beta1",
@@ -192,6 +209,14 @@ def validate_prod_lifecycle(repo_root: Path) -> tuple[dict, list[str]]:
             "prod lifecycle managedResources must match the governed OpenClaw prod slice: "
             + ", ".join(PROD_MANAGED_RESOURCES)
         )
+
+    for resource_name, application_name in PROD_MANAGED_APPLICATIONS.items():
+        finalizers = load_application_finalizers(prod_application_manifest_path(repo_root, resource_name))
+        if REQUIRED_APPLICATION_FINALIZER not in finalizers:
+            errors.append(
+                f"prod managed Application {application_name!r} must include "
+                f"{REQUIRED_APPLICATION_FINALIZER!r} so lifecycle suspension prunes live resources"
+            )
 
     expected_resources = expected_prod_resources(state or "live")
     current_resources = load_resources(prod_kustomization_path(repo_root))

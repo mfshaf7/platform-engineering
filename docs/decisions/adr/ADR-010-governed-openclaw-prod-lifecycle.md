@@ -45,6 +45,10 @@ slice:
 - `platform-secrets-app.yaml`
 - `platform-version-app.yaml`
 
+Those managed prod Application manifests must carry
+`resources-finalizer.argocd.argoproj.io` so deleting them from the prod root
+also prunes the live OpenClaw runtime resources.
+
 Suspending OpenClaw prod must not prune unrelated prod applications such as
 OpenProject, shared observability, or shared data-plane services.
 

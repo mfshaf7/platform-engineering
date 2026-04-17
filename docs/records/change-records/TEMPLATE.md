@@ -1,3 +1,15 @@
+---
+security_evidence:
+  review_areas:
+    - runtime
+  findings:
+    - F-000
+  risks:
+    - R-000
+  workstreams:
+    - WS-000
+---
+
 # Change Record Template
 
 ## Summary

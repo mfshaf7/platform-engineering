@@ -43,6 +43,9 @@ Use:
 - If a live-only emergency repair happened first, record both:
   - the emergency action
   - the governed follow-up that made it durable
+- If the record is being used as security remediation evidence, add the
+  optional `security_evidence` YAML front matter so `security-architecture`
+  can consume it without a sidecar file.
 
 ## Required sections
 
@@ -56,3 +59,25 @@ Every record should include:
 6. Artifact and deployment evidence
 7. Live verification
 8. Follow-up actions
+
+## Optional Structured Metadata
+
+When a change record should also act as structured security remediation
+evidence, add YAML front matter before the heading:
+
+```yaml
+---
+security_evidence:
+  review_areas:
+    - runtime
+  findings:
+    - F-006
+  risks:
+    - R-006
+  workstreams:
+    - WS-006
+---
+```
+
+This metadata is optional for ordinary rollout evidence and expected only when
+another repo links the change record as machine-readable remediation evidence.

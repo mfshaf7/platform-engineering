@@ -33,6 +33,14 @@ Inspect the current state:
 python3 products/openclaw/scripts/set_prod_environment_state.py status
 ```
 
+That status output now summarizes the operator-relevant posture directly:
+
+- whether `openclaw-gateway` is still present
+- whether support surfaces remain live
+- whether promotion is allowed
+- whether prod verification is `pending` or `inactive`
+- which managed prod applications are retained vs removed
+
 Stop overall OpenClaw prod traffic while retaining support surfaces:
 
 ```bash
@@ -84,6 +92,79 @@ Use `.github/workflows/manage-prod-environment.yaml` when you want the
 repository to create the lifecycle branch under the `prod` environment gate.
 
 ## Operational Effects
+
+Quick operator summary for the OpenClaw reference profile:
+
+| State | Gateway | Support surfaces | Promotion | Prod verification | Incident ref |
+| --- | --- | --- | --- | --- | --- |
+| `live` | active | retained | allowed | `pending` | optional |
+| `traffic-stopped` | removed | retained | allowed | `inactive` | optional |
+| `suspended` | removed | removed | allowed | `inactive` | optional |
+| `quarantined` | removed | removed | blocked | `inactive` | required |
+
+For this product profile, support surfaces means:
+
+- `platform-secrets-prod`
+- `platform-version`
+
+## Operator Selection Guide
+
+Use `traffic-stopped` when:
+
+- prod user traffic must go quiet
+- you still want platform version and secrets evidence surfaces available
+- you may still need to promote a fixed contract while prod stays quiet
+- there is no incident posture requiring stricter governance
+
+Use `suspended` when:
+
+- you want the full OpenClaw prod slice down
+- stage is the active stabilization environment for a while
+- you do not need retained OpenClaw support surfaces in prod
+- promotion may still proceed while prod stays offline
+
+Use `quarantined` when:
+
+- you suspect compromise, unsafe behavior, or a trust-boundary problem
+- incident tracking must be explicit
+- promotion must be blocked until containment and follow-up are complete
+
+Return to `live` only when:
+
+- the target prod contract is the one you intend to serve
+- the reason for `traffic-stopped`, `suspended`, or `quarantined` is cleared
+- you are ready to perform fresh prod smoke/UAT on the restored runtime
+
+## Operator Follow-Through
+
+After every lifecycle change:
+
+1. Check the local contract summary:
+
+```bash
+python3 products/openclaw/scripts/set_prod_environment_state.py status
+```
+
+2. Check the prod root health:
+
+```bash
+k3s kubectl -n argocd get application platform-root-prod
+```
+
+3. Check the explicit lifecycle evidence:
+
+```bash
+k3s kubectl -n argocd get configmap openclaw-prod-lifecycle -o yaml
+```
+
+4. Check the remaining OpenClaw prod footprint:
+
+```bash
+k3s kubectl -n openclaw get all,cm,secret,sa
+```
+
+Treat the lifecycle configmap and remaining namespace footprint as the
+authoritative live proof of what is still running.
 
 When prod state is `traffic-stopped`:
 

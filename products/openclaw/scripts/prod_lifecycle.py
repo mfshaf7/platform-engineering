@@ -26,6 +26,10 @@ PROD_MANAGED_APPLICATIONS = {
     "platform-secrets-app.yaml": "platform-secrets-prod",
     "platform-version-app.yaml": "platform-version",
 }
+PROD_SUPPORT_SURFACE_APPLICATIONS = (
+    "platform-secrets-prod",
+    "platform-version",
+)
 PROD_LIVE_RESOURCES = (
     "platform-dashboards-app.yaml",
     LIFECYCLE_CONFIGMAP_RESOURCE,
@@ -179,6 +183,66 @@ def prod_state_requires_incident_ref(state: str) -> bool:
 def expected_prod_resources(state: str) -> list[str]:
     policy = PROD_LIFECYCLE_POLICIES.get(state) or PROD_LIFECYCLE_POLICIES["live"]
     return list(policy["resources"])
+
+
+def retained_prod_managed_applications(state: str) -> list[str]:
+    expected_resources = set(expected_prod_resources(state))
+    return [
+        application_name
+        for resource_name, application_name in PROD_MANAGED_APPLICATIONS.items()
+        if resource_name in expected_resources
+    ]
+
+
+def removed_prod_managed_applications(state: str) -> list[str]:
+    retained = set(retained_prod_managed_applications(state))
+    return [
+        application_name
+        for application_name in PROD_MANAGED_APPLICATIONS.values()
+        if application_name not in retained
+    ]
+
+
+def prod_support_surfaces_active(state: str) -> bool:
+    retained = set(retained_prod_managed_applications(state))
+    return all(application_name in retained for application_name in PROD_SUPPORT_SURFACE_APPLICATIONS)
+
+
+def prod_gateway_active(state: str) -> bool:
+    retained = set(retained_prod_managed_applications(state))
+    return "openclaw-gateway" in retained
+
+
+def prod_lifecycle_operator_summary(state: str) -> dict[str, str]:
+    gateway = "active" if prod_gateway_active(state) else "removed"
+    support_surfaces = "retained" if prod_support_surfaces_active(state) else "removed"
+    promotion = "allowed" if prod_promotion_allowed_for_state(state) else "blocked"
+    incident_ref = "required" if prod_state_requires_incident_ref(state) else "optional"
+    retained = retained_prod_managed_applications(state)
+    removed = removed_prod_managed_applications(state)
+    if state == "traffic-stopped":
+        operator_use = "quiet prod user traffic while retaining version and secrets support surfaces"
+        resume_requirement = "return to live, then record fresh prod smoke/UAT before calling prod complete"
+    elif state == "suspended":
+        operator_use = "take the full OpenClaw prod slice down for maintenance or stage-only work"
+        resume_requirement = "return to live, then record fresh prod smoke/UAT before calling prod complete"
+    elif state == "quarantined":
+        operator_use = "contain a suspected incident or unsafe prod condition with promotion blocked"
+        resume_requirement = "incident follow-up required before returning to live; then record fresh prod smoke/UAT"
+    else:
+        operator_use = "normal governed prod operation"
+        resume_requirement = "keep prod smoke/UAT current for the active prod contract"
+    return {
+        "gateway": gateway,
+        "support_surfaces": support_surfaces,
+        "promotion": promotion,
+        "prod_verification": prod_verification_status_for_state(state),
+        "incident_ref": incident_ref,
+        "retained_apps": ", ".join(retained) if retained else "none",
+        "removed_apps": ", ".join(removed) if removed else "none",
+        "operator_use": operator_use,
+        "resume_requirement": resume_requirement,
+    }
 
 
 def prod_verification_inactive_note(state: str) -> str:

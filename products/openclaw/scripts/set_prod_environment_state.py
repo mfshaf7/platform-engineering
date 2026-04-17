@@ -8,6 +8,7 @@ from gateway_environment import dump_yaml, write_yaml
 from prod_lifecycle import (
     load_prod_lifecycle,
     now_utc,
+    prod_lifecycle_operator_summary,
     prod_state_requires_incident_ref,
     prod_lifecycle_path,
     prod_verification_inactive_note,
@@ -45,14 +46,27 @@ def main() -> int:
     current = load_prod_lifecycle(repo_root)
 
     if args.state == "status":
+        state = str(current.get("state") or "unset")
+        summary = prod_lifecycle_operator_summary(state)
         print(
-            f"state={current.get('state') or 'unset'} "
+            f"state={state} "
             f"changed_by={current.get('changedBy') or 'none'} "
             f"changed_at={current.get('changedAt') or 'none'} "
             f"reason={current.get('reason') or 'none'} "
-            f"incident_ref={current.get('incidentRef') or 'none'} "
-            f"note={current.get('note') or 'none'}"
+            f"incident_ref={current.get('incidentRef') or 'none'}"
         )
+        print(
+            f"gateway={summary['gateway']} "
+            f"support_surfaces={summary['support_surfaces']} "
+            f"promotion={summary['promotion']} "
+            f"prod_verification={summary['prod_verification']} "
+            f"incident_ref_requirement={summary['incident_ref']}"
+        )
+        print(f"operator_use={summary['operator_use']}")
+        print(f"resume_requirement={summary['resume_requirement']}")
+        print(f"retained_apps={summary['retained_apps']}")
+        print(f"removed_apps={summary['removed_apps']}")
+        print(f"note={current.get('note') or 'none'}")
         return 0
 
     if not args.changed_by.strip():

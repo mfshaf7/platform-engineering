@@ -52,7 +52,7 @@ Concrete security references for this repo:
 - `security-architecture/docs/architecture/domains/gitops-and-machine-trust.md`
 - `security-architecture/docs/architecture/domains/secrets-and-recovery.md`
 - `security-architecture/docs/reviews/security-review-checklist.md`
-- `security-architecture/docs/reviews/platform/README.md`
+- `security-architecture/docs/reviews/platform/2026-04-18-platform-engineering-security-baseline.md`
 
 ## Workflow Maturity Rule
 

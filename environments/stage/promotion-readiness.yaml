@@ -5,24 +5,19 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage lifecycle changed; active components now gateway,secrets,version. Re-approve
-  stage before promoting to prod.
+note: Stage Telegram overlay lane pins changed; promotion remains blocked until the
+  current overlay lane is approved or reset.
 candidateRef:
   path: environments/stage/release-candidate.yaml
-  status: candidate
-  sourceBundleRef: 272f455878c7
-  imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
+  status: pending-build
+  sourceBundleRef: null
+  imageDigest: null
+  requiredChecks: []
 verificationRef:
   path: environments/stage/verification.yaml
   status: pending
   verifiedAt: null
-  candidateSourceBundleRef: 272f455878c7
+  candidateSourceBundleRef: null
 approvedCandidate:
   sourceBundleRef: null
   image:

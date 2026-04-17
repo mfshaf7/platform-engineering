@@ -48,6 +48,7 @@ runtime on the local cluster plus its documented operator procedures.
 
 - [AGENTS.md](AGENTS.md)
 - [runtime-contract.md](runtime-contract.md)
+- [idea-backlog-contract.md](idea-backlog-contract.md)
 - [dependencies.md](dependencies.md)
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)

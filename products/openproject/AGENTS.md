@@ -10,6 +10,7 @@ declared, operated, and verified on this platform.
 
 - `README.md`
 - `runtime-contract.md`
+- `idea-backlog-contract.md`
 - `dependencies.md`
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
@@ -23,6 +24,7 @@ Keep OpenProject-specific platform material here:
 
 - access, bootstrap, and uninstall runbooks
 - backup and restore runbooks
+- idea and proposal backlog contract
 - product-scoped operator scripts
 - OpenProject visibility and operator checks
 
@@ -56,6 +58,11 @@ If an OpenProject task arrives:
 - do not claim a separate stage or prod promotion workflow unless that path is
   deliberately created later
 
+When the change affects the canonical project model used by operator workflows
+or automation, keep the contract in:
+
+- `idea-backlog-contract.md`
+
 ## Governance Rule
 
 When an OpenProject change also changes shared platform design, use:
@@ -76,6 +83,7 @@ For meaningful PRs, fill the shared governance declaration in:
 When OpenProject access, exposure, or admin credential flow changes, update:
 
 - `runtime-contract.md`
+- `idea-backlog-contract.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
 

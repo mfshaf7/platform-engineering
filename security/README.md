@@ -9,3 +9,4 @@ Expected contents include:
 - secret-management patterns
 - threat-model documentation
 - access-control guidance
+- governed AI model-profile registry

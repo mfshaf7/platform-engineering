@@ -1,0 +1,34 @@
+schema_version: 1
+registry:
+  owner_repo: platform-engineering
+  security_owner: security-architecture
+  review_ref:
+    repo: security-architecture
+    path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
+model_profiles:
+  intake-classifier-v1:
+    status: suspended
+    purpose: workspace-intake-assist
+    invocation_path: governed-ai-gateway
+    provider: internal-ai-gateway
+    upstream_model: pending-selection
+    allowed_callers:
+      - workspace-governance/intake-assist
+    allowed_data_scope:
+      - repo metadata
+      - top-level manifests
+      - README excerpts
+      - AGENTS excerpts
+      - operator-supplied intake notes
+    output_schema_ref:
+      repo: workspace-governance
+      path: contracts/schemas/intake-ai-suggestion.schema.json
+    human_approval_required: true
+    direct_provider_access_allowed: false
+    security_review_ref:
+      repo: security-architecture
+      path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
+    notes: >
+      Reserved intake-classifier profile. Keep suspended until the internal AI
+      gateway, caller identity, audit emission, and provider-egress block are
+      live.

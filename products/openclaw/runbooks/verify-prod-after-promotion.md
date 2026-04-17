@@ -33,6 +33,7 @@ Required checks today:
 ## Preconditions
 
 - the prod promotion PR is merged
+- prod OpenClaw lifecycle is `live`
 - Argo reports the promoted prod applications as `Synced Healthy`
 - the live prod deployment image matches the promoted digest
 - the promoted product is reachable through its intended operator or user path
@@ -85,5 +86,6 @@ For a prod-affecting OpenClaw promotion, the rollout is not operationally
 complete until:
 
 - the prod contract is reconciled
+- the prod lifecycle is `live`
 - the prod smoke or UAT evidence is recorded in Git
 - the recorded check results satisfy the current prod verification catalog

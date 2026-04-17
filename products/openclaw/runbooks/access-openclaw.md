@@ -6,7 +6,8 @@ This runbook defines how operators access OpenClaw directly on this platform.
 
 ## Current Access Reality
 
-- prod OpenClaw is active in namespace `openclaw`
+- prod OpenClaw is active by default in namespace `openclaw`, but may be
+  deliberately suspended through the governed prod lifecycle contract
 - stage OpenClaw is suspended by default and only exists during deliberate test
   windows
 - OpenClaw does not currently expose a shared browser UI
@@ -40,6 +41,7 @@ Useful operator checks:
 ```bash
 k3s kubectl -n openclaw logs deploy/openclaw-gateway --tail=200
 k3s kubectl -n argocd get application openclaw-gateway
+python3 products/openclaw/scripts/set_prod_environment_state.py status
 ```
 
 Treat the port-forwarded endpoint as an operator/debug surface, not an end-user
@@ -85,6 +87,20 @@ When the rehearsal is complete, suspend stage again:
 ```bash
 python3 products/openclaw/scripts/set_stage_environment_state.py suspend
 ```
+
+## Governing Prod Runtime State
+
+Use the bounded prod lifecycle control when prod OpenClaw must be deliberately
+stopped or returned to service:
+
+```bash
+python3 products/openclaw/scripts/set_prod_environment_state.py status
+python3 products/openclaw/scripts/set_prod_environment_state.py suspended --changed-by <operator> --reason <reason>
+python3 products/openclaw/scripts/set_prod_environment_state.py live --changed-by <operator> --reason <reason>
+```
+
+That control only governs the OpenClaw prod runtime slice. It must not prune
+OpenProject or unrelated shared prod services.
 
 ## Shared Platform Surfaces Used For OpenClaw
 

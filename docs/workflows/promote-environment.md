@@ -36,6 +36,10 @@ Promotion is allowed only from an approved stage candidate.
 - compare URL in the workflow summary
 - updated prod versions and related stage readiness/lifecycle files
 
+If prod OpenClaw is suspended, the workflow may still update the prod contract
+without bringing the runtime back online. The governed prod lifecycle still
+owns whether OpenClaw prod is active.
+
 The workflow does not bypass Git review. It creates the change that must still
 be reviewed and merged.
 

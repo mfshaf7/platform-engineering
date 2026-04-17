@@ -43,6 +43,9 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
      - allow `stage -> prod` only by reusing the exact approved overlay digest on the same base line
    - readiness approval when the standard stage contract is promotable and stage evidence is good
    - `python3 products/openclaw/scripts/gateway_release.py promote stage prod`
+   - if prod OpenClaw must be kept quiet or deliberately stopped:
+     - use `python3 products/openclaw/scripts/set_prod_environment_state.py live|suspended ...`
+     - treat the prod lifecycle as separate from promotion; contract updates may happen while prod stays suspended
    - `python3 products/openclaw/scripts/gateway_release.py prod-verification record ...`
    - stage suspension when appropriate
 5. Record the evidence needed to explain:
@@ -62,6 +65,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
 - Do not rebuild a separate prod-branded image for the same approved source
   bundle.
 - Do not promote a Telegram overlay lane that is still `pending-build` or tied to a different base image than the current stage contract.
+- Do not suspend unrelated prod services when the goal is only to stop OpenClaw prod.
 - Keep stage suspended by default outside deliberate rehearsal windows.
 - Real behavior checks matter more than `/healthz` alone.
 

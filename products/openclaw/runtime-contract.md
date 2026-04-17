@@ -17,6 +17,8 @@ For the platform-side architecture and repo boundary model, see
 - supporting prod applications:
   - `platform-secrets-prod`
   - `platform-version`
+- prod lifecycle contract:
+  - `environments/prod/openclaw-lifecycle.yaml`
 - prod service: `openclaw-gateway.openclaw.svc.cluster.local:18789`
 - prod exposure model: ClusterIP only; no dedicated browser UI
 - stage namespace: `openclaw-stage` when resumed
@@ -32,6 +34,8 @@ The platform-managed deployment must provide:
 - version and build evidence
 - Vault-backed runtime secret delivery
 - configured bridge and host-recovery dependencies
+- a bounded governed prod lifecycle with explicit `live` and `suspended`
+  states for the OpenClaw prod runtime slice
 - stage suspended by default unless a deliberate rehearsal is in progress
 - release-state evidence under:
   - `environments/stage/release-candidate.yaml`
@@ -66,6 +70,10 @@ Health alone is not enough for OpenClaw promotion.
 Promotion approval is still stage-gated, but a user-facing prod rollout is not
 operationally complete until post-promotion prod smoke is recorded against the
 current prod contract.
+
+Prod lifecycle is separate from promotion. Promotion may update the prod
+contract while prod is suspended, but the governed prod lifecycle still decides
+whether the OpenClaw prod runtime is active.
 
 ## Access Model
 

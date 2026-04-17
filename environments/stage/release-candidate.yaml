@@ -4,8 +4,8 @@ environment: stage
 status: pending-build
 recordedAt: null
 recordedPlatformEngineeringCommit: null
-note: Telegram overlay lane completed successfully; return stage to the standard
-  gateway candidate flow before any future promotion.
+note: Stage Telegram overlay lane pins changed; build and record a new overlay artifact
+  before rehearsal.
 candidate:
   sourceBundleRef: null
   image:

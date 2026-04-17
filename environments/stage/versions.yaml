@@ -23,23 +23,23 @@ sourceRepos:
     commit: e5b78abbfe1501c90710aa0e3084a1bd86d17060
   runtimeDistribution:
     repository: github.com/mfshaf7/openclaw-runtime-distribution
-    commit: f86a780c5ac8aa20fb64fa65037ff6b3b6f54ffe
+    commit: 7c883924cd7f5335b740729dac138f8b3d03b667
   platformEngineering:
     repository: github.com/mfshaf7/platform-engineering
-    commit: c127e73c2f4c460d03d0ebb8890ed52378649d07
+    commit: b1ecf5342efe85fc13faa6847a5a37ad12a1d505
 experiments:
   telegramOverlay:
-    status: inactive
-    qualifiedBaseImage: ''
+    status: pending-build
+    qualifiedBaseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
     publish:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
       tagPrefix: telegram-overlay
     source:
       repository: github.com/mfshaf7/openclaw-telegram-enhanced
-      commit: ''
+      commit: 8935fe4f29f1b33ee65144238e01e64c66468505
     image:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
-      tag: ''
+      tag: telegram-overlay-8935fe4f29f1
       digest: ''
 argocd:
   namespace: argocd

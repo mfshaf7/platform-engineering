@@ -5,8 +5,8 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage suspended; explicit resume and approval are required before the next prod
-  promotion.
+note: Stage Telegram overlay lane pins changed; promotion remains blocked until the
+  current overlay lane is approved or reset.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: pending-build

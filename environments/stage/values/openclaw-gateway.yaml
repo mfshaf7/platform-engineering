@@ -19,7 +19,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
   OPENCLAW_HOST_BRIDGE_SHA: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-  OPENCLAW_PLATFORM_SHA: c127e73c2f4c460d03d0ebb8890ed52378649d07
+  OPENCLAW_PLATFORM_SHA: b1ecf5342efe85fc13faa6847a5a37ad12a1d505
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.stage.k3s.json
@@ -151,8 +151,8 @@ extraVolumes:
     path: /home/mfshaf7/.openclaw-stage
     type: Directory
 podAnnotations:
-  openclaw.io/telegram-overlay-status: inactive
-  openclaw.io/telegram-overlay-source-sha: disabled
+  openclaw.io/telegram-overlay-status: pending-build
+  openclaw.io/telegram-overlay-source-sha: 8935fe4f29f1b33ee65144238e01e64c66468505
   openclaw.io/telegram-overlay-image: disabled
-  openclaw.io/telegram-overlay-qualified-base-image: disabled
+  openclaw.io/telegram-overlay-qualified-base-image: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
 extraInitContainers: []

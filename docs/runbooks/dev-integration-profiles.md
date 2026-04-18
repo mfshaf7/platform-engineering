@@ -156,6 +156,11 @@ The required handoff is:
 4. move those changes through the normal PR and platform contract path
 5. rehearse the governed candidate in `stage`
 
+For the workspace-level PR flow and Codex review procedure that begins after
+step 4, use:
+
+- [workspace-governance/docs/codex-github-review-and-automation.md](https://github.com/mfshaf7/workspace-governance/blob/main/docs/codex-github-review-and-automation.md)
+
 Supporting standard:
 
 - [../standards/dev-integration-lane.md](../standards/dev-integration-lane.md)

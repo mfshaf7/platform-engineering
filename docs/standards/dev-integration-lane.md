@@ -165,3 +165,8 @@ The required handoff is:
 5. rehearse the governed candidate in `stage`
 
 That keeps fast local iteration separate from governed rollout.
+
+When the handoff reaches the PR path, follow the workspace-level Codex review
+and PR procedure in:
+
+- [workspace-governance/docs/codex-github-review-and-automation.md](https://github.com/mfshaf7/workspace-governance/blob/main/docs/codex-github-review-and-automation.md)

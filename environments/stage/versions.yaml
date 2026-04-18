@@ -29,7 +29,7 @@ sourceRepos:
     commit: 3da0c240c8aaec53e759ae12bf79d46925fd9510
 experiments:
   telegramOverlay:
-    status: pending-build
+    status: candidate
     qualifiedBaseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
     publish:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
@@ -40,7 +40,7 @@ experiments:
     image:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
       tag: telegram-overlay-c0b004c1e60f
-      digest: ''
+      digest: sha256:a2a822f88dca521a1b648900523ce84372ba51af8e683700079eefde51edba56
 argocd:
   namespace: argocd
   project: platform-core

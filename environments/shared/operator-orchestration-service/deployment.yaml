@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator-orchestration-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operator-orchestration-service
+  template:
+    metadata:
+      labels:
+        app: operator-orchestration-service
+    spec:
+      containers:
+        - name: operator-orchestration-service
+        image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:407115ae5d534c5dc3ae4d761d3c3abb3f92d120e4f1d1bc527c5400745152e2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVICE_VERSION
+              value: "0.1.0"
+            - name: OPENPROJECT_BASE_URL
+              value: http://openproject.openproject.svc.cluster.local:8080
+            - name: OPENPROJECT_PROJECT_IDENTIFIER
+              value: workspace-proposals
+            - name: OPENPROJECT_IDEA_TYPE_ID
+              value: "41"
+            - name: OPENPROJECT_CAPTURED_STATUS_ID
+              value: "81"
+            - name: OPENPROJECT_CUSTOM_FIELD_SOURCE_SURFACE_ID
+              value: "1"
+            - name: OPENPROJECT_CUSTOM_FIELD_SOURCE_REFERENCE_ID
+              value: "2"
+            - name: CALLER_ALLOWED_IDS
+              value: openclaw-stage-gateway
+          envFrom:
+            - secretRef:
+                name: operator-orchestration-service-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

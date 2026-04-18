@@ -126,6 +126,41 @@ Phase 1 should provision these custom fields in OpenProject:
 
 Field ids may vary by instance, but the semantic names above are the contract.
 
+## Current Live Mapping
+
+As of `2026-04-18`, the current local platform OpenProject runtime reports:
+
+- type ids:
+  - `Idea`: `41`
+  - `Governance Proposal`: `42`
+  - `Security Proposal`: `43`
+  - `Product Proposal`: `44`
+  - `Component Proposal`: `45`
+- status ids:
+  - `captured`: `81`
+  - `triaged`: `82`
+  - `parked`: `83`
+  - `owner-assigned`: `84`
+  - `accepted`: `85`
+  - `rejected`: `80`
+  - `implemented`: `86`
+  - `superseded`: `87`
+- custom field ids:
+  - `Source Surface`: `1`
+  - `Source Reference`: `2`
+  - `Suspected Owner`: `3`
+  - `Affected Scope`: `4`
+  - `Trust Boundary Areas`: `5`
+  - `Promotion Target`: `6`
+  - `Triage Decision ID`: `7`
+  - `Triage Confidence`: `8`
+  - `AI Assist Lane`: `9`
+  - `Revisit On`: `10`
+
+These ids are instance-local runtime facts, not the semantic contract. If the
+OpenProject backlog model is reprovisioned in a new instance, operators should
+re-read the live ids before wiring or repairing broker runtime env values.
+
 ## Description Structure
 
 In addition to custom fields, the work package description should preserve these

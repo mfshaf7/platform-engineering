@@ -10,7 +10,7 @@ note: Stage Telegram overlay lane is active; promotion remains gated by the curr
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
-  sourceBundleRef: 272f455878c7
+  sourceBundleRef: 8d1dabb18bf3
   imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
   requiredChecks:
   - artifact-delivery
@@ -22,7 +22,7 @@ verificationRef:
   path: environments/stage/verification.yaml
   status: pending
   verifiedAt: null
-  candidateSourceBundleRef: 272f455878c7
+  candidateSourceBundleRef: 8d1dabb18bf3
 approvedCandidate:
   sourceBundleRef: null
   image:

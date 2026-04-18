@@ -219,7 +219,11 @@ def record_overlay_image(
     require_real_value("telegram overlay qualified base image", overlay.get("qualifiedBaseImage"))
 
     expected_tag = compute_overlay_tag(overlay)
-    effective_tag = tag or expected_tag
+    if not tag:
+        raise SystemExit(
+            "telegram overlay record requires --tag from the build output so the recorded digest cannot be matched to the wrong pinned source"
+        )
+    effective_tag = tag
     if effective_tag != expected_tag:
         raise SystemExit(
             f"telegram overlay tag must match the current pinned source commit: expected {expected_tag!r}, got {effective_tag!r}"

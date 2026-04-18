@@ -2,7 +2,7 @@ schemaVersion: 1
 product: openclaw
 environment: stage
 status: candidate
-recordedAt: '2026-04-18T11:42:28Z'
+recordedAt: '2026-04-18T11:55:15Z'
 recordedPlatformEngineeringCommit: 1876d836acbf7b78b413d1944e87f83860111bbf
 note: Stage Telegram overlay lane recorded from the pinned Telegram source commit.
 candidate:
@@ -29,7 +29,7 @@ candidate:
     image:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
       tag: telegram-overlay-8dca54ed1268
-      digest: sha256:42d69b5649ecf187d6d456dad5282463a5900a580a40f0a87c320c78703bc8c5
+      digest: sha256:6cc145a3f36e1dee7490468f81e66e874061db13c7d3b5b929d11bf4f506ae93
   requiredChecks:
   - artifact-delivery
   - primary-user-path

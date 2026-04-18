@@ -34,7 +34,7 @@ Then read the source owner's `AGENTS.md` and `README.md` before editing.
      - `python3 products/openclaw/scripts/telegram_overlay_experiment.py pin stage`
      - `Build Telegram Overlay Image` workflow
        - prefer `scripts/dispatch_github_workflow_from_k3s_secret.sh build-telegram-overlay-image.yaml --ref main`
-     - `python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage --digest ...`
+     - `python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage --digest ... --tag telegram-overlay-<pinned-telegram-sha-prefix>`
    - deliberate stage resume through `set_stage_environment_state.py`
    - real stage behavior checks
    - `python3 products/openclaw/scripts/gateway_release.py verification record ...`

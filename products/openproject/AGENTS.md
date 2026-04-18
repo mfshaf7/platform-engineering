@@ -78,6 +78,20 @@ For meaningful PRs, fill the shared governance declaration in:
 
 - `../../.github/pull_request_template.md`
 
+## Review guidelines
+
+For Codex GitHub review, treat the following as `P1` when they plausibly
+misstate the OpenProject operating model:
+
+- wording or workflow changes that imply OpenProject already has an
+  OpenClaw-style governed `source -> stage -> prod` promotion path
+- wording or workflow changes that stop describing OpenProject as
+  `platform-integrated` and instead imply a deeper governed rollout maturity
+- changes to backlog, access, backup, restore, or credential flow that do not
+  update the owning product docs and runbooks
+- shared dependency or platform-surface changes that are hidden only in
+  product-local docs instead of being routed back to shared platform guidance
+
 ## Documentation Sync Rule
 
 When OpenProject access, exposure, or admin credential flow changes, update:

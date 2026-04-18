@@ -193,3 +193,19 @@ For any meaningful PR, fill the governance declaration in:
 - `.github/pull_request_template.md`
 
 Do not use one as a substitute for the other.
+
+## Review guidelines
+
+For Codex GitHub review, treat the following as `P1` when they plausibly
+regress the repo's control model:
+
+- shared-vs-product placement drift, including product-local scripts, runbooks,
+  or workflow lore leaking back into shared platform paths
+- workflow maturity overstatement, including PRs that imply a governed stage or
+  prod path that the product does not actually have
+- shared design or governed environment changes that omit the required ADR,
+  change record, or runbook updates
+- delivery, GitOps, secrets, runtime, or AI-governance changes that drop the
+  concrete `security-architecture` review references or evidence
+- changes to shared operator entrypoints that skip the primary operator
+  instruction surface or leave shared docs out of sync

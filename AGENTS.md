@@ -10,6 +10,7 @@ Do not let the platform root drift back into a product-specific dumping ground.
 Start with:
 
 - `README.md`
+- `docs/runbooks/dev-integration-profiles.md`
 - `docs/components/README.md`
 - `docs/decisions/adr/README.md`
 - `docs/records/change-records/README.md`

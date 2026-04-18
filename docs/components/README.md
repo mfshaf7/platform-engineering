@@ -25,6 +25,7 @@ Product-specific runtimes do not belong here. Use `products/<product>/` for:
 | Observability | [README.md](observability/README.md) | [architecture.md](observability/architecture.md) | [access.md](observability/access.md) | [operations.md](observability/operations.md) |
 | External Secrets Operator | [README.md](external-secrets/README.md) | [architecture.md](external-secrets/architecture.md) | [access.md](external-secrets/access.md) | [operations.md](external-secrets/operations.md) |
 | Platform PostgreSQL | [README.md](platform-postgresql/README.md) | [architecture.md](platform-postgresql/architecture.md) | [access.md](platform-postgresql/access.md) | [operations.md](platform-postgresql/operations.md) |
+| Operator Orchestration Service | [README.md](operator-orchestration-service/README.md) | [architecture.md](operator-orchestration-service/architecture.md) | [access.md](operator-orchestration-service/access.md) | [operations.md](operator-orchestration-service/operations.md) |
 
 Each shared component directory should keep the same file contract:
 

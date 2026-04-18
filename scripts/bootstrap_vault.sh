@@ -42,6 +42,14 @@ path "kv/data/products/openclaw/stage/*" {
 path "kv/metadata/products/openclaw/stage/*" {
   capabilities = ["read", "list"]
 }
+
+path "kv/data/components/operator-orchestration-service/shared/runtime" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/components/operator-orchestration-service/shared/runtime" {
+  capabilities = ["read", "list"]
+}
 EOF
   vault policy write platform-stage-read /tmp/platform-stage-read.hcl
 
@@ -127,6 +135,25 @@ path "kv/metadata/platform/argocd/*" {
 EOF
   vault policy write platform-argocd-read /tmp/platform-argocd-read.hcl
 
+  cat <<EOF >/tmp/platform-operator-orchestration-read.hcl
+path "kv/data/components/operator-orchestration-service/shared/runtime" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/components/operator-orchestration-service/shared/runtime" {
+  capabilities = ["read", "list"]
+}
+
+path "kv/data/components/operator-orchestration-service/prod/openproject" {
+  capabilities = ["read"]
+}
+
+path "kv/metadata/components/operator-orchestration-service/prod/openproject" {
+  capabilities = ["read", "list"]
+}
+EOF
+  vault policy write platform-operator-orchestration-read /tmp/platform-operator-orchestration-read.hcl
+
   vault write auth/kubernetes/role/platform-stage-secrets \
     bound_service_account_names="platform-vault-reader" \
     bound_service_account_namespaces="openclaw-stage" \
@@ -174,5 +201,12 @@ EOF
     bound_service_account_namespaces="argocd" \
     audience="vault" \
     token_policies="platform-argocd-read" \
+    ttl="1h"
+
+  vault write auth/kubernetes/role/platform-operator-orchestration-secrets \
+    bound_service_account_names="platform-vault-reader" \
+    bound_service_account_namespaces="operator-orchestration-service" \
+    audience="vault" \
+    token_policies="platform-operator-orchestration-read" \
     ttl="1h"
 '

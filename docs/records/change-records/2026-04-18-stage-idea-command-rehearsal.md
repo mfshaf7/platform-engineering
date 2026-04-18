@@ -1,5 +1,12 @@
 # 2026-04-18 stage idea command rehearsal
 
+## Historical Note
+
+This record captures the earlier stage rehearsal that still used Telegram-local
+`/idea help` guidance. The current supported design is recorded in
+`2026-04-18-stage-broker-owned-idea-workflow-rehearsal.md`, which supersedes
+the local-help ownership model.
+
 ## Summary
 
 Completed the real stage rehearsal of the Telegram `/idea` command lane across

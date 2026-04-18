@@ -160,6 +160,7 @@ The automation identity should have only the minimum access required for the
 
 - project roles:
   - `Reader`
+  - `Work package creator`
   - `Work package editor`
 
 These roles together provide:

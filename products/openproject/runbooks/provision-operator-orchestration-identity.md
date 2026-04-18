@@ -11,6 +11,7 @@ This converges:
 - project membership on `workspace-proposals`
 - project roles:
   - `Reader`
+  - `Work package creator`
   - `Work package editor`
 - named API token:
   - `openproject-workspace-proposals-v1`
@@ -46,6 +47,7 @@ OPENPROJECT_ROTATE_API_TOKEN=true \
 - the user is a member of `workspace-proposals`
 - the user has only:
   - `Reader`
+  - `Work package creator`
   - `Work package editor`
 - Vault path `kv/components/operator-orchestration-service/prod/openproject`
   contains key `apiToken`

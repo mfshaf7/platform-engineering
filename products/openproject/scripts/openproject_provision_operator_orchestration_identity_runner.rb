@@ -15,7 +15,18 @@ TARGET_TOKEN_NAME = ENV.fetch("TARGET_TOKEN_NAME", "openproject-workspace-propos
 TARGET_LANGUAGE = ENV.fetch("TARGET_LANGUAGE", Setting.default_language.presence || "en")
 ROTATE_API_TOKEN = ENV.fetch("ROTATE_API_TOKEN", "false") == "true"
 
-ROLE_NAMES = JSON.parse(ENV.fetch("TARGET_ROLE_NAMES_JSON", '["Reader","Work package editor"]'))
+ROLE_NAMES = JSON.parse(
+  ENV.fetch(
+    "TARGET_ROLE_NAMES_JSON",
+    '["Reader","Work package creator","Work package editor"]'
+  )
+)
+CUSTOM_ROLE_PERMISSIONS = {
+  "Work package creator" => ["add_work_packages"]
+}.freeze
+CUSTOM_ROLE_CLASSES = {
+  "Work package creator" => ProjectRole
+}.freeze
 
 def ensure_user!
   user = User.find_or_initialize_by(login: TARGET_LOGIN)
@@ -46,6 +57,19 @@ def ensure_membership!(project:, user:, roles:)
   member.role_ids = roles.map(&:id)
   member.save!
   member
+end
+
+def ensure_role!(name)
+  permissions = CUSTOM_ROLE_PERMISSIONS[name]
+  return Role.distinct.find_by!(name:) unless permissions
+
+  role_class = CUSTOM_ROLE_CLASSES.fetch(name)
+  role = role_class.find_or_initialize_by(name:)
+  role.builtin = 0 if role.respond_to?(:builtin=) && role.new_record?
+  role.position ||= Role.maximum(:position).to_i + 1 if role.respond_to?(:position=)
+  role.permissions = permissions.map(&:to_sym)
+  role.save!
+  role
 end
 
 def ensure_api_token!(user:)
@@ -82,7 +106,7 @@ def ensure_api_token!(user:)
 end
 
 project = Project.find_by!(identifier: TARGET_PROJECT_IDENTIFIER)
-roles = ROLE_NAMES.map { |name| Role.distinct.find_by!(name:) }
+roles = ROLE_NAMES.map { |name| ensure_role!(name) }
 
 user_result = ensure_user!
 member = ensure_membership!(project:, user: user_result[:user], roles:)

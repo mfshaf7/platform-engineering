@@ -19,7 +19,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
   OPENCLAW_HOST_BRIDGE_SHA: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-  OPENCLAW_PLATFORM_SHA: 3da0c240c8aaec53e759ae12bf79d46925fd9510
+  OPENCLAW_PLATFORM_SHA: b753c0c8131811a5879f5edaf74773ee86204aad
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.stage.k3s.json
@@ -114,8 +114,6 @@ extraEnv:
   value: http://operator-orchestration-service.operator-orchestration-service.svc.cluster.local:8080
 - name: OPERATOR_ORCHESTRATION_CALLER_ID
   value: openclaw-stage-gateway
-- name: OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA
-  value: c0b004c1e60f5e7cb3a58d7e0b0f68d3bf4c258c
 resources:
   requests:
     cpu: 500m
@@ -154,31 +152,14 @@ extraVolumeMounts:
 - name: openclaw-home
   mountPath: /home/node/.openclaw/update-check.json
   subPath: update-check.json
-- name: telegram-overlay-runtime
-  mountPath: /app/extensions/telegram
-  subPath: telegram
-  readOnly: true
 extraVolumes:
 - name: openclaw-home
   hostPath:
     path: /home/mfshaf7/.openclaw-stage
     type: Directory
-- name: telegram-overlay-runtime
-  emptyDir: {}
 podAnnotations:
-  openclaw.io/telegram-overlay-status: candidate
-  openclaw.io/telegram-overlay-source-sha: c0b004c1e60f5e7cb3a58d7e0b0f68d3bf4c258c
-  openclaw.io/telegram-overlay-image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:a2a822f88dca521a1b648900523ce84372ba51af8e683700079eefde51edba56
+  openclaw.io/telegram-overlay-status: pending-build
+  openclaw.io/telegram-overlay-source-sha: f2b7edb2bab1a65e4c38b25c6daaca6c93b7cc1c
+  openclaw.io/telegram-overlay-image: disabled
   openclaw.io/telegram-overlay-qualified-base-image: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-extraInitContainers:
-- name: telegram-overlay-runtime
-  image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:a2a822f88dca521a1b648900523ce84372ba51af8e683700079eefde51edba56
-  imagePullPolicy: IfNotPresent
-  command:
-  - sh
-  - -lc
-  - rm -rf /work/telegram && mkdir -p /work/telegram && cp -a /telegram-overlay/telegram/.
-    /work/telegram/
-  volumeMounts:
-  - name: telegram-overlay-runtime
-    mountPath: /work
+extraInitContainers: []

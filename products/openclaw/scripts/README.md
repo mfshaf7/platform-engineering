@@ -40,7 +40,7 @@ The reusable operator workflow for this path is published separately under
 - `make openclaw-telegram-overlay-status`
 - `make openclaw-telegram-overlay-pin TELEGRAM_REF=<git-ref>`
 - `make openclaw-telegram-overlay-validate`
-- `make openclaw-telegram-overlay-record DIGEST=sha256:...`
+- `make openclaw-telegram-overlay-record DIGEST=sha256:... TAG=telegram-overlay-<pinned-telegram-sha-prefix>`
 - `make openclaw-telegram-overlay-disable`
 - `make openclaw-prod-state STATE=<live|traffic-stopped|suspended|quarantined|status>`
 - `make openclaw-stage-state STATE=<resume|suspend|status> COMPONENTS=gateway,version`
@@ -66,7 +66,7 @@ Telegram-only fixes on a platform-qualified OpenClaw base:
 
 1. `openclaw-telegram-overlay-pin`
 2. `Build Telegram Overlay Image` workflow
-3. `openclaw-telegram-overlay-record`
+3. `openclaw-telegram-overlay-record` with both the built digest and built tag
 4. stage rehearsal against the recorded overlay artifact
 5. readiness approval for the current stage candidate when the qualified base
    matches

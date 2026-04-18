@@ -6,5 +6,5 @@ versions:
   platformSha: 1876d836acbf7b78b413d1944e87f83860111bbf
   telegramOverlayStatus: candidate
   telegramOverlaySourceSha: 8dca54ed1268bda7d97d0f8eee9930d57fe1f11e
-  telegramOverlayImage: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:42d69b5649ecf187d6d456dad5282463a5900a580a40f0a87c320c78703bc8c5
+  telegramOverlayImage: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:6cc145a3f36e1dee7490468f81e66e874061db13c7d3b5b929d11bf4f506ae93
   telegramOverlayQualifiedBaseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed

@@ -40,7 +40,7 @@ experiments:
     image:
       repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
       tag: telegram-overlay-8dca54ed1268
-      digest: sha256:42d69b5649ecf187d6d456dad5282463a5900a580a40f0a87c320c78703bc8c5
+      digest: sha256:6cc145a3f36e1dee7490468f81e66e874061db13c7d3b5b929d11bf4f506ae93
 argocd:
   namespace: argocd
   project: platform-core

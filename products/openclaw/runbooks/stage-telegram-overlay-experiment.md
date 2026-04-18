@@ -44,8 +44,13 @@ contains the matching packager and Dockerfile.
 
 ```bash
 python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage \
-  --digest sha256:<overlay-digest>
+  --digest sha256:<overlay-digest> \
+  --tag telegram-overlay-<pinned-telegram-sha-prefix>
 ```
+
+Use the exact tag emitted by the `Build Telegram Overlay Image` workflow
+summary. The record step now fails closed unless the explicit built tag matches
+the currently pinned Telegram source commit.
 
 4. Resume stage if needed and rehearse the affected Telegram capabilities.
 

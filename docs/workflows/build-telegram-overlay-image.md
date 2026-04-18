@@ -44,9 +44,10 @@ metadata`.
 
 - workflow run URL
 - pushed overlay image digest
+- pushed overlay image tag
 - pinned Telegram SHA
 - qualified OpenClaw base image
-- subsequent `telegram_overlay_experiment.py record stage --digest ...`
+- subsequent `telegram_overlay_experiment.py record stage --digest ... --tag ...`
   evidence once the digest is written into the stage contract
 
 ## Related Docs
@@ -62,5 +63,6 @@ Recording the digest is a separate governed step:
 
 ```bash
 python3 products/openclaw/scripts/telegram_overlay_experiment.py record stage \
-  --digest sha256:<overlay-digest>
+  --digest sha256:<overlay-digest> \
+  --tag telegram-overlay-<pinned-telegram-sha-prefix>
 ```

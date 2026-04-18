@@ -116,6 +116,22 @@ Shared operator entrypoints:
 The shared runner dispatches those actions into the owner repo's concrete
 profile.
 
+## Profile Admission
+
+`dev-integration` profiles are not automatically self-serve just because a repo
+contains a `profile.yaml`.
+
+The workspace contract tracks profile lifecycle separately:
+
+- `proposed`
+- `active`
+- `suspended`
+- `retired`
+
+Only `active` profiles are launchable from the shared runner. The request and
+admission truth is owned in `workspace-governance`, even if the current human
+request surface happens to be a specific tool such as OpenProject.
+
 ## Forbidden Targets
 
 `dev-integration` must never:

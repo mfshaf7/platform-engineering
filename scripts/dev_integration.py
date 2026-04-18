@@ -22,6 +22,8 @@ ACTIONS = {
     "promote-check": "promote_check",
 }
 
+ACTIVE_ONLY_ACTIONS = {"up", "smoke"}
+
 
 def load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text()) or {}
@@ -122,15 +124,24 @@ def load_registry(workspace_root: Path) -> tuple[dict, dict]:
 
 def resolve_profile(
     *,
+    action: str,
     workspace_root: Path,
     profile_id: str,
     repo_overrides: dict[str, Path],
 ) -> tuple[dict, dict, Path, Path, dict[str, Path], dict[str, dict]]:
-    _policy, registry = load_registry(workspace_root)
+    policy, registry = load_registry(workspace_root)
     try:
         entry = registry["profiles"][profile_id]
     except KeyError as exc:
         raise SystemExit(f"Unknown dev-integration profile {profile_id!r}") from exc
+    launchable_statuses = set(policy["profile_lifecycle"]["self_serve_statuses"])
+    lifecycle = entry["lifecycle"]
+    if action in ACTIVE_ONLY_ACTIONS and lifecycle not in launchable_statuses:
+        raise SystemExit(
+            "dev-integration profile "
+            f"{profile_id!r} is {lifecycle!r} and cannot run action {action!r}. "
+            "Request or complete admission first, then activate the profile before launching or rehearsing it from the shared runner."
+        )
 
     owner_repo_root = workspace_root / entry["owner_repo"]
     profile_path = owner_repo_root / entry["profile_path"]
@@ -185,6 +196,7 @@ def build_manifest(
         "schema_version": 1,
         "lane": "dev-integration",
         "profile_id": profile_id,
+        "profile_lifecycle": entry["lifecycle"],
         "profile_path": str(profile_path),
         "summary": profile["summary"],
         "owner_repo": entry["owner_repo"],
@@ -289,6 +301,7 @@ def main() -> int:
     repo_overrides = parse_repo_overrides(args.repo_path)
 
     entry, profile, owner_repo_root, profile_path, repo_paths, repo_states = resolve_profile(
+        action=ACTIONS[args.action],
         workspace_root=workspace_root,
         profile_id=args.profile,
         repo_overrides=repo_overrides,

@@ -22,6 +22,8 @@ This project is intended to hold:
 - triaged proposals
 - parked or deferred architecture items
 - accepted proposals that have not yet been promoted into Git-owned artifacts
+- current `dev-integration` profile requests while OpenProject remains the
+  active request surface adapter
 
 It should not be used for:
 
@@ -98,6 +100,40 @@ The canonical backlog record must express at least:
 - workflow status
 - triage decision id
 - triage confidence
+
+## Dev-Integration Profile Requests
+
+The `dev-integration` profile admission model is owned generically in
+`workspace-governance`.
+
+While OpenProject is the current request surface adapter, a new profile request
+may be recorded in `Workspace Proposals` before the profile becomes
+`active`.
+
+Recommended minimum mapping for that request:
+
+- type:
+  - `Component Proposal` when the profile is clearly owned by one component repo
+  - otherwise the proposal type that best fits the real owner shape
+- status:
+  - `captured` or `triaged` while the profile is still `proposed`
+- description:
+  - purpose
+  - participating repos
+  - expected runtime dependencies
+  - whether identity, secrets, runtime privilege, or AI review is involved
+- custom fields:
+  - `Suspected Owner`
+  - `Affected Scope`
+  - `Trust Boundary Areas`
+  - `Promotion Target`
+
+The generic workspace contract should then store only:
+
+- `request_record.system`
+- `request_record.ref`
+
+That keeps the admission model portable if the request surface changes later.
 
 ## Required Custom Fields
 

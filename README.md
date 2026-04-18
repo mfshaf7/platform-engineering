@@ -171,6 +171,10 @@ governance documentation, workflow docs, and review surface.
 allows local branch or worktree inputs without PRs, and requires a governed
 handoff back into `stage` once the winning shape is ready.
 
+Only `active` profiles are self-serve launchable there. Profile admission and
+request state are tracked in `workspace-governance`, while this repo only owns
+the shared runner and local-k3s lane mechanics.
+
 The shared-vs-product structure contract for this repo lives in
 [repo-structure-manifest.yaml](repo-structure-manifest.yaml), not only inside
 the validator code.

@@ -12,6 +12,8 @@ These support shared platform operations:
 - `dev_integration.py`
   - runs the shared local-k3s `dev-integration` lane by dispatching a standard
     action such as `up`, `smoke`, or `promote-check` into a repo-owned profile
+  - only launches profiles whose lifecycle is currently `active` in the
+    workspace contract registry
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `validate_governance_docs.py`

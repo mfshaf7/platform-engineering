@@ -77,6 +77,7 @@ That split is implemented under:
 - [docs/architecture/current-platform-topology.md](docs/architecture/current-platform-topology.md)
 - [docs/workflows/README.md](docs/workflows/README.md)
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
+- [docs/runbooks/dev-integration-profiles.md](docs/runbooks/dev-integration-profiles.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
 - [docs/standards/dev-integration-lane.md](docs/standards/dev-integration-lane.md)
@@ -174,6 +175,11 @@ handoff back into `stage` once the winning shape is ready.
 Only `active` profiles are self-serve launchable there. Profile admission and
 request state are tracked in `workspace-governance`, while this repo only owns
 the shared runner and local-k3s lane mechanics.
+
+The primary operator-facing procedure for requesting and using those profiles
+is:
+
+- [docs/runbooks/dev-integration-profiles.md](docs/runbooks/dev-integration-profiles.md)
 
 The shared-vs-product structure contract for this repo lives in
 [repo-structure-manifest.yaml](repo-structure-manifest.yaml), not only inside

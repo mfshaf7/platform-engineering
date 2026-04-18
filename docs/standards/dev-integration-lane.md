@@ -25,6 +25,14 @@ It is not:
 - a source of governed rollout evidence
 - a place that may write to governed backends or consume governed secrets
 
+Primary operator procedure:
+
+- [../runbooks/dev-integration-profiles.md](../runbooks/dev-integration-profiles.md)
+
+Use that runbook for the actual request and usage path. This standard defines
+the lane model and boundaries; it is not the primary step-by-step operator
+surface.
+
 ## Ownership
 
 - lane standard: `workspace-governance`

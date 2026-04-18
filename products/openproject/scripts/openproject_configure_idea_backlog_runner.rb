@@ -2,6 +2,9 @@
 
 require "json"
 
+RESULT_BEGIN = "__OPENPROJECT_IDEA_BACKLOG_BEGIN__"
+RESULT_END = "__OPENPROJECT_IDEA_BACKLOG_END__"
+
 DEMO_PROJECT_IDENTIFIERS = %w[demo-project your-scrum-project].freeze
 PROJECT_IDENTIFIER = "workspace-proposals"
 PROJECT_NAME = "Workspace Proposals"
@@ -247,10 +250,18 @@ result = {
     name: project.name,
     enabled_modules: project.enabled_module_names,
     types: project.types.pluck(:name),
-    work_package_custom_fields: project.work_package_custom_fields.pluck(:name)
+    work_package_custom_fields: project.work_package_custom_fields.order(:position).map do |field|
+      {
+        id: field.id,
+        name: field.name,
+        field_format: field.field_format
+      }
+    end
   },
   statuses: statuses.map { |status| { id: status.id, name: status.name, is_closed: status.is_closed } },
   types: types.map { |type| { id: type.id, name: type.name, workflow_count: Workflow.where(type_id: type.id).count } }
 }
 
-puts(JSON.pretty_generate(result))
+puts RESULT_BEGIN
+puts JSON.pretty_generate(result)
+puts RESULT_END

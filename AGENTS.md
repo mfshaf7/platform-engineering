@@ -115,6 +115,10 @@ Product docs, scripts, and runbooks stay in:
 - `products/<product>/scripts/`
 - `products/<product>/runbooks/`
 
+The shared `dev-integration` lane is a shared platform concern. Keep the
+runner, namespace model, and local-k3s operator surface in this repo. Keep the
+concrete profile implementation in the owning repo for the workflow.
+
 ## Non-Negotiable Rules
 
 - Do not add new product-specific scripts at the repo-root `scripts/`.
@@ -131,11 +135,16 @@ Product docs, scripts, and runbooks stay in:
 Top-level `make` targets may still expose product-specific commands, but their
 names must be product-qualified.
 
+Shared local-k3s `dev-integration` commands are also allowed at the top level
+because they are platform-wide operator entrypoints rather than product-only
+release flows.
+
 Examples:
 
 - `make openclaw-gateway-pin`
 - `make openclaw-gateway-promote`
 - `make openproject-apply`
+- `make devint-up PROFILE=idea-workflow`
 
 When you add or change a product-specific operator flow, update:
 

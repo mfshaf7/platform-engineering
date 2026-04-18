@@ -25,6 +25,12 @@ help:
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
 	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
+	@printf "  devint-up Launch or converge a local-k3s dev-integration profile\n"
+	@printf "  devint-status Show the current local-k3s dev-integration profile state\n"
+	@printf "  devint-smoke Run the smoke checks for a local-k3s dev-integration profile\n"
+	@printf "  devint-down Stop a local-k3s dev-integration profile while keeping local state\n"
+	@printf "  devint-reset Tear down a local-k3s dev-integration profile and remove local state\n"
+	@printf "  devint-promote-check Render the local handoff report required before governed stage rehearsal\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -118,6 +124,36 @@ openproject-provision-operator-orchestration-identity:
 .PHONY: openproject-uninstall
 openproject-uninstall:
 	./products/openproject/scripts/openproject_uninstall.sh
+
+.PHONY: devint-up
+devint-up:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-up PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py up --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-status
+devint-status:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-status PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py status --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-smoke
+devint-smoke:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-smoke PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py smoke --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-down
+devint-down:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-down PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py down --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-reset
+devint-reset:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-reset PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py reset --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-promote-check
+devint-promote-check:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-promote-check PROFILE=idea-workflow"; exit 1; }
+	python3 scripts/dev_integration.py promote-check --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: verify-platform-host
 verify-platform-host:

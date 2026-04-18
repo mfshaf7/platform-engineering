@@ -24,6 +24,8 @@ spec:
               value: "0.1.0"
             - name: OPENPROJECT_BASE_URL
               value: http://openproject.openproject.svc.cluster.local:8080
+            - name: OPENPROJECT_HOST_HEADER
+              value: 127.0.0.1:32083
             - name: OPENPROJECT_PROJECT_IDENTIFIER
               value: workspace-proposals
             - name: OPENPROJECT_IDEA_TYPE_ID

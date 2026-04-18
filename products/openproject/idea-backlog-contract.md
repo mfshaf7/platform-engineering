@@ -229,6 +229,7 @@ namespace secret tree.
 Non-secret config:
 
 - OpenProject base URL
+- OpenProject host header when the runtime enforces a canonical external host
 - project identifier `workspace-proposals`
 - type mapping
 - status mapping

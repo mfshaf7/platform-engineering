@@ -79,6 +79,7 @@ That split is implemented under:
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
+- [docs/standards/dev-integration-lane.md](docs/standards/dev-integration-lane.md)
 - [docs/standards/governed-ai-access-model.md](docs/standards/governed-ai-access-model.md)
 - [docs/standards/review-and-approval-model.md](docs/standards/review-and-approval-model.md)
 - [docs/standards/governed-change-model.md](docs/standards/governed-change-model.md)
@@ -135,6 +136,12 @@ product-neutral.
 - shared platform and provisioning commands:
   - `make provision-wsl-host`
   - `make provision-k3s-node`
+  - `make devint-up PROFILE=<profile>`
+  - `make devint-status PROFILE=<profile>`
+  - `make devint-smoke PROFILE=<profile>`
+  - `make devint-down PROFILE=<profile>`
+  - `make devint-reset PROFILE=<profile>`
+  - `make devint-promote-check PROFILE=<profile>`
   - `make verify-platform-host`
   - `make validate`
 - OpenClaw-specific release commands:
@@ -159,6 +166,10 @@ the product-local script indexes:
 `scripts/validate_repo_structure.py` so product-specific files cannot drift back
 into shared `docs/runbooks/` or `scripts/` unnoticed. It also validates the
 governance documentation, workflow docs, and review surface.
+
+`dev-integration` is the shared fast-iteration lane. It runs on local `k3s`,
+allows local branch or worktree inputs without PRs, and requires a governed
+handoff back into `stage` once the winning shape is ready.
 
 The shared-vs-product structure contract for this repo lives in
 [repo-structure-manifest.yaml](repo-structure-manifest.yaml), not only inside

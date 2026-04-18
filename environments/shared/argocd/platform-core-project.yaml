@@ -33,6 +33,8 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: openproject
       server: https://kubernetes.default.svc
+    - namespace: operator-orchestration-service
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"

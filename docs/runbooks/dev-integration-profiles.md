@@ -18,7 +18,7 @@ operator path.
 
 The canonical registry is:
 
-- [workspace-governance/contracts/developer-integration-profiles.yaml](/home/mfshaf7/projects/workspace-governance/contracts/developer-integration-profiles.yaml)
+- [workspace-governance/contracts/developer-integration-profiles.yaml](https://github.com/mfshaf7/workspace-governance/blob/main/contracts/developer-integration-profiles.yaml)
 
 Only profiles with:
 
@@ -31,7 +31,7 @@ Current example:
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - profile path:
-    [operator-orchestration-service/dev-integration/profiles/idea-workflow/profile.yaml](/home/mfshaf7/projects/operator-orchestration-service/dev-integration/profiles/idea-workflow/profile.yaml)
+    [operator-orchestration-service/dev-integration/profiles/idea-workflow/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/idea-workflow/profile.yaml)
 
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
@@ -84,9 +84,9 @@ Current request surface:
 - project: `Workspace Proposals`
 - identifier: `workspace-proposals`
 - access path:
-  [../../products/openproject/runbooks/access-openproject.md](/home/mfshaf7/projects/platform-engineering/products/openproject/runbooks/access-openproject.md)
+  [../../products/openproject/runbooks/access-openproject.md](../../products/openproject/runbooks/access-openproject.md)
 - canonical backlog contract:
-  [products/openproject/idea-backlog-contract.md](/home/mfshaf7/projects/platform-engineering/products/openproject/idea-backlog-contract.md)
+  [../../products/openproject/idea-backlog-contract.md](../../products/openproject/idea-backlog-contract.md)
 
 Recommended request record shape in the current adapter:
 
@@ -111,7 +111,7 @@ Required request content:
 
 Supporting template:
 
-- [workspace-governance/templates/dev-integration-request/README.md](/home/mfshaf7/projects/workspace-governance/templates/dev-integration-request/README.md)
+- [workspace-governance/templates/dev-integration-request/README.md](https://github.com/mfshaf7/workspace-governance/blob/main/templates/dev-integration-request/README.md)
 
 When the current adapter is OpenProject, record:
 
@@ -158,4 +158,4 @@ The required handoff is:
 
 Supporting standard:
 
-- [docs/standards/dev-integration-lane.md](/home/mfshaf7/projects/platform-engineering/docs/standards/dev-integration-lane.md)
+- [../standards/dev-integration-lane.md](../standards/dev-integration-lane.md)

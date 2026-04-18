@@ -114,6 +114,8 @@ extraEnv:
   value: http://operator-orchestration-service.operator-orchestration-service.svc.cluster.local:8080
 - name: OPERATOR_ORCHESTRATION_CALLER_ID
   value: openclaw-stage-gateway
+- name: OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA
+  value: 8dca54ed1268bda7d97d0f8eee9930d57fe1f11e
 resources:
   requests:
     cpu: 500m
@@ -152,14 +154,31 @@ extraVolumeMounts:
 - name: openclaw-home
   mountPath: /home/node/.openclaw/update-check.json
   subPath: update-check.json
+- name: telegram-overlay-runtime
+  mountPath: /app/extensions/telegram
+  subPath: telegram
+  readOnly: true
 extraVolumes:
 - name: openclaw-home
   hostPath:
     path: /home/mfshaf7/.openclaw-stage
     type: Directory
+- name: telegram-overlay-runtime
+  emptyDir: {}
 podAnnotations:
-  openclaw.io/telegram-overlay-status: pending-build
+  openclaw.io/telegram-overlay-status: candidate
   openclaw.io/telegram-overlay-source-sha: 8dca54ed1268bda7d97d0f8eee9930d57fe1f11e
-  openclaw.io/telegram-overlay-image: disabled
+  openclaw.io/telegram-overlay-image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:42d69b5649ecf187d6d456dad5282463a5900a580a40f0a87c320c78703bc8c5
   openclaw.io/telegram-overlay-qualified-base-image: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-extraInitContainers: []
+extraInitContainers:
+- name: telegram-overlay-runtime
+  image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:42d69b5649ecf187d6d456dad5282463a5900a580a40f0a87c320c78703bc8c5
+  imagePullPolicy: IfNotPresent
+  command:
+  - sh
+  - -lc
+  - rm -rf /work/telegram && mkdir -p /work/telegram && cp -a /telegram-overlay/telegram/.
+    /work/telegram/
+  volumeMounts:
+  - name: telegram-overlay-runtime
+    mountPath: /work

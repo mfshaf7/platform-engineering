@@ -1,45 +1,34 @@
 schemaVersion: 1
 product: openclaw
 environment: stage
-status: candidate
-recordedAt: '2026-04-18T09:52:45Z'
-recordedPlatformEngineeringCommit: 3da0c240c8aaec53e759ae12bf79d46925fd9510
-note: Stage Telegram overlay lane recorded for /idea usage guidance rehearsal.
+status: pending-build
+recordedAt: null
+recordedPlatformEngineeringCommit: null
+note: Stage Telegram overlay lane pins changed; build and record a new overlay artifact
+  before rehearsal.
 candidate:
-  sourceBundleRef: 8d1dabb18bf3
+  sourceBundleRef: null
   image:
-    repository: ghcr.io/mfshaf7/openclaw-gateway
-    tag: gateway-1fb1b11b4142
-    digest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
+    repository: null
+    tag: null
+    digest: null
   build:
-    baseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
-    dockerfile: deployment/Dockerfile.plugin-install.example
-    platforms:
-    - linux/amd64
+    baseImage: null
+    dockerfile: null
+    platforms: []
   sourceRepos:
-    telegramEnhanced: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
-    hostBridge: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-    runtimeDistribution: ca8d8a00953ad6e71e97fd8c8183859ec22dac1a
-    platformEngineering: 3da0c240c8aaec53e759ae12bf79d46925fd9510
+    telegramEnhanced: null
+    hostBridge: null
+    runtimeDistribution: null
+    platformEngineering: null
   telegramOverlay:
-    status: candidate
-    runtimeActive: true
-    sourceCommit: c0b004c1e60f5e7cb3a58d7e0b0f68d3bf4c258c
-    qualifiedBaseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
+    status: inactive
+    runtimeActive: false
+    sourceCommit: null
+    qualifiedBaseImage: null
     image:
-      repository: ghcr.io/mfshaf7/openclaw-telegram-overlay
-      tag: telegram-overlay-c0b004c1e60f
-      digest: sha256:a2a822f88dca521a1b648900523ce84372ba51af8e683700079eefde51edba56
-  requiredChecks:
-  - artifact-delivery
-  - primary-user-path
-  - privileged-path-posture
-  - runtime-start
-  - screenshot-delivery
-  capabilities:
-  - artifact-delivery
-  - host-control
-  - privileged-control
-  - runtime
-  - screenshot-delivery
-  - telegram-channel
+      repository: null
+      tag: null
+      digest: null
+  requiredChecks: []
+  capabilities: []

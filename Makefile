@@ -23,6 +23,7 @@ help:
 	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
 	@printf "  openproject-sync-admin-password Reconcile the admin password from Vault-backed secret into OpenProject\n"
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
+	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -109,6 +110,10 @@ openproject-sync-admin-password:
 .PHONY: openproject-configure-idea-backlog
 openproject-configure-idea-backlog:
 	./products/openproject/scripts/openproject_configure_idea_backlog.sh
+
+.PHONY: openproject-provision-operator-orchestration-identity
+openproject-provision-operator-orchestration-identity:
+	./products/openproject/scripts/openproject_provision_operator_orchestration_identity.sh
 
 .PHONY: openproject-uninstall
 openproject-uninstall:

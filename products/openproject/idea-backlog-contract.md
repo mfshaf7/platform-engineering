@@ -158,6 +158,12 @@ other applications.
 The automation identity should have only the minimum access required for the
 `workspace-proposals` project:
 
+- project roles:
+  - `Reader`
+  - `Work package editor`
+
+These roles together provide:
+
 - view project
 - view work packages
 - create work packages
@@ -177,9 +183,12 @@ When the broker becomes active, split config into:
 Secret:
 
 - Vault path:
-  - `kv/products/openproject/prod/operator-orchestration-service`
+  - `kv/components/operator-orchestration-service/prod/openproject`
 - expected secret:
   - `apiToken`
+
+This secret belongs to the broker component, not to the OpenProject runtime
+namespace secret tree.
 
 Non-secret config:
 

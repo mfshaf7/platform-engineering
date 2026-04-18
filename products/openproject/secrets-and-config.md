@@ -26,6 +26,18 @@ The standalone PostgreSQL service also expects:
 
 That value is consumed only in namespace `platform-postgresql`.
 
+## Non-Runtime Automation Secret
+
+The future broker credential for OpenProject does not belong in the OpenProject
+runtime secret tree because it is not consumed by the `openproject` namespace.
+
+- Vault path: `kv/components/operator-orchestration-service/prod/openproject`
+- expected key: `apiToken`
+
+This secret is owned by the `operator-orchestration-service` component and
+should only be delivered to that component's runtime once it is admitted and
+deployed.
+
 ## Chart-Generated Secrets
 
 The OpenProject chart may still generate in-cluster secrets for bundled

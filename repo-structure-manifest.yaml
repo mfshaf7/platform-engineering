@@ -25,6 +25,7 @@ shared_paths:
       - bootstrap-wsl-distro.md
       - bootstrap.md
       - deploy.md
+      - dev-integration-profiles.md
       - host-runtime-drift-recovery.md
       - host-stack-rollout.md
       - incident-hotfix.md

@@ -29,6 +29,12 @@ If either artifact is not required, explain why briefly.
 - Environment or rollout validation:
 - Functional verification:
 
+## Codex Review
+
+- Codex review requested:
+- Automatic or manual review path:
+- Findings resolved or explicitly acknowledged:
+
 ## Review Gates
 
 - Identity impact:

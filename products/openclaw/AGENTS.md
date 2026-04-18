@@ -151,3 +151,18 @@ host-owned live state, use:
 For meaningful PRs, fill the shared governance declaration in:
 
 - `../../.github/pull_request_template.md`
+
+## Review guidelines
+
+For Codex GitHub review, treat the following as `P1` when they plausibly
+regress the governed OpenClaw release path:
+
+- any change that bypasses stage candidate recording, stage verification,
+  readiness validation, prod lifecycle controls, or post-promotion prod
+  verification
+- Telegram overlay or gateway build changes that bypass qualified base-image
+  matching or stage approval requirements
+- lifecycle changes that avoid the documented product scripts or workflows and
+  instead rely on ad hoc repo edits
+- docs or contracts that describe OpenClaw rollout evidence as complete when
+  the actual rehearsal, approval, or verification artifact is still missing

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: operator-orchestration-service
-          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:0b93a00811f0286339f6873297cacbc4bb6f91e046852bf99df8c4bf42d40723
+          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:671aeef58be1cd13fb5b90e85a6def35798d302ca5be228a6ff070aa645e0b2d
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

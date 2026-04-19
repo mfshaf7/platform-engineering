@@ -4,9 +4,9 @@
   connection: local
   gather_facts: false
   vars_files:
-    - ../group_vars/all/main.yml
+    - ../../group_vars/all/main.yml
   vars:
-    openclaw_runtime_container_verification_dir: "{{ playbook_dir }}/../generated/runtime-container-verification"
+    openclaw_runtime_container_verification_dir: "{{ playbook_dir }}/../../generated/legacy/runtime-container-verification"
     openclaw_runtime_container_verification_path: "{{ openclaw_runtime_container_verification_dir }}/runtime-container-verification.md"
     openclaw_runtime_bridge_host: host.docker.internal
     openclaw_runtime_bridge_url: "http://{{ openclaw_runtime_bridge_host }}:48721"
@@ -21,6 +21,6 @@
 
     - name: Render runtime container verification checklist
       template:
-        src: ../roles/wsl_host_stack/templates/runtime-container-verification.md.j2
+        src: ../../roles/wsl_host_stack/templates/legacy/runtime-container-verification.md.j2
         dest: "{{ openclaw_runtime_container_verification_path }}"
         mode: "0644"

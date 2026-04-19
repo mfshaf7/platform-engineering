@@ -4,9 +4,9 @@
   connection: local
   gather_facts: false
   vars_files:
-    - ../group_vars/all/main.yml
+    - ../../group_vars/all/main.yml
   vars:
-    openclaw_runtime_reachability_dir: "{{ playbook_dir }}/../generated/runtime-reachability"
+    openclaw_runtime_reachability_dir: "{{ playbook_dir }}/../../generated/legacy/runtime-reachability"
     openclaw_runtime_reachability_path: "{{ openclaw_runtime_reachability_dir }}/runtime-reachability-checklist.md"
     openclaw_runtime_bridge_host: host.docker.internal
     openclaw_runtime_bridge_url: "http://{{ openclaw_runtime_bridge_host }}:48721"
@@ -20,6 +20,6 @@
 
     - name: Render runtime reachability checklist
       template:
-        src: ../roles/wsl_host_stack/templates/runtime-reachability-checklist.md.j2
+        src: ../../roles/wsl_host_stack/templates/legacy/runtime-reachability-checklist.md.j2
         dest: "{{ openclaw_runtime_reachability_path }}"
         mode: "0644"

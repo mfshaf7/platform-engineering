@@ -9,6 +9,7 @@ are not shared platform procedures.
 
 - [access-openclaw.md](access-openclaw.md)
 - [build-gateway-artifact.md](build-gateway-artifact.md)
+- [host-stack-rollout.md](host-stack-rollout.md)
 - [manage-prod-lifecycle.md](manage-prod-lifecycle.md)
 - [record-gateway-image.md](record-gateway-image.md)
 - [rebuild-and-promote-gateway.md](rebuild-and-promote-gateway.md)

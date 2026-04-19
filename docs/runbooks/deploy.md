@@ -21,7 +21,3 @@ Examples:
   [products/openclaw/runbooks/](../../products/openclaw/runbooks/README.md)
 - OpenProject access and lifecycle runbooks now live under
   [products/openproject/runbooks/](../../products/openproject/runbooks/README.md)
-
-For fresh host migration and cutover, use:
-
-- [migrate-to-platform-core.md](migrate-to-platform-core.md)

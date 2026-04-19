@@ -24,8 +24,8 @@ governed lane with early design churn.
 
 ## Source Changes
 
-- added [docs/standards/dev-integration-lane.md](/home/mfshaf7/projects/platform-engineering/docs/standards/dev-integration-lane.md)
-- added [scripts/dev_integration.py](/home/mfshaf7/projects/platform-engineering/scripts/dev_integration.py)
+- added [../../standards/dev-integration-lane.md](../../standards/dev-integration-lane.md)
+- added [../../../scripts/dev_integration.py](../../../scripts/dev_integration.py)
 - updated the shared Make targets and repo guidance to expose `devint-*`
 - updated the canonical OpenProject backlog runner to emit custom field ids for
   reusable local seeding

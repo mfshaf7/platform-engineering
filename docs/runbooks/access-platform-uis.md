@@ -5,10 +5,12 @@
 This runbook defines the current operator access paths for the shared platform
 and the currently integrated products.
 
+It is an observed operator-access surface for the current live environment, not the target steady-state architecture.
+
 This is the practical companion to
 [../architecture/current-platform-topology.md](../architecture/current-platform-topology.md).
 
-Last access verification update: `2026-04-16`.
+Last access verification update: `2026-04-19`.
 
 ## Supported Access Model
 
@@ -33,11 +35,11 @@ Important clarification:
 | Prometheus prod | Live | `http://127.0.0.1:32090` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | Alertmanager prod | Live | `http://127.0.0.1:32093` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | OpenProject | Live | `http://127.0.0.1:32083` | `k3s kubectl -n openproject port-forward svc/openproject 8080:8080` | Vault path `kv/products/openproject/prod/admin` |
-| OpenClaw prod | Live by default; may be deliberately traffic-stopped, suspended, or quarantined | no browser UI; primary user path is Telegram | `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
+| OpenClaw prod | Suspended by the governed prod lifecycle | no browser UI while suspended | return prod to `live`, then use `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
 | Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
 | Prometheus stage | Not currently live | `http://127.0.0.1:32091` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9091:9090` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
 | Alertmanager stage | Not currently live | `http://127.0.0.1:32094` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9094:9093` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
-| OpenClaw stage | Not currently live | no browser UI; only exists when stage is resumed | resume stage, then use `k3s kubectl -n openclaw-stage port-forward svc/openclaw-gateway 28789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
+| OpenClaw stage | Live for the current stabilization window | no browser UI; primary live user path is Telegram | `k3s kubectl -n openclaw-stage port-forward svc/openclaw-gateway 28789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
 
 ## What Is Not Directly Exposed
 
@@ -47,6 +49,8 @@ These are intentionally not documented as direct operator UIs:
   - internal-only cluster service
 - External Secrets Operator
   - controller only, no UI
+- `operator-orchestration-service`
+  - internal-only shared broker service, no shared browser UI
 - OpenClaw gateway
   - health and runtime API surface only, not an end-user browser application
 
@@ -95,6 +99,7 @@ Use the shared component docs for shared services:
 - Vault: [../components/vault/README.md](../components/vault/README.md)
 - Observability: [../components/observability/README.md](../components/observability/README.md)
 - External Secrets: [../components/external-secrets/README.md](../components/external-secrets/README.md)
+- Operator Orchestration Service: [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
 - Platform PostgreSQL: [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
 
 Use the product-local runbooks for product details:

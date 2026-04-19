@@ -11,13 +11,6 @@ help:
 	@printf "  provision-wsl-host Run the WSL host provisioning playbook\n"
 	@printf "  provision-k3s-node Run the k3s node provisioning playbook\n"
 	@printf "  provision-transit-vault-host Run the dedicated transit Vault host provisioning playbook\n"
-	@printf "  capture-cutover-evidence Snapshot pre-cutover host and runtime state\n"
-	@printf "  render-cutover-command-inventory Render migration stop/start command inventory\n"
-	@printf "  render-cutover-record Render the migration cutover record template\n"
-	@printf "  render-runtime-container-verification Render runtime container verification commands\n"
-	@printf "  render-runtime-reachability Render post-cutover runtime reachability checklist\n"
-	@printf "  render-windows-cutover-inventory Render Windows task cutover inventory\n"
-	@printf "  capture-windows-task-evidence Capture current Windows scheduled-task evidence\n"
 	@printf "  openproject-apply  Register and wait for the OpenProject Argo apps\n"
 	@printf "  openproject-status Show current OpenProject Argo and workload status\n"
 	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
@@ -54,6 +47,15 @@ help:
 	@printf "  show-prod-versions Show current prod version pins\n"
 	@printf "  show-stage-versions Show current stage version pins\n"
 	@printf "\n"
+	@printf "Legacy migration helpers (historical Docker-to-Platform-Core cutover only):\n"
+	@printf "  legacy-capture-cutover-evidence Snapshot legacy cutover host and runtime state\n"
+	@printf "  legacy-render-cutover-command-inventory Render historical stop/start command inventory\n"
+	@printf "  legacy-render-cutover-record Render the historical cutover record template\n"
+	@printf "  legacy-render-runtime-container-verification Render historical runtime container verification commands\n"
+	@printf "  legacy-render-runtime-reachability Render historical runtime reachability checklist\n"
+	@printf "  legacy-render-windows-cutover-inventory Render historical Windows task cutover inventory\n"
+	@printf "  legacy-capture-windows-task-evidence Capture historical Windows scheduled-task evidence\n"
+	@printf "\n"
 	@printf "Override variables with ANSIBLE_EXTRA_VARS, for example:\n"
 	@printf "  make render-windows-bootstrap ANSIBLE_EXTRA_VARS=\"platform_windows_wsl_distro=Platform-Core\"\n"
 
@@ -69,33 +71,33 @@ provision-k3s-node:
 provision-transit-vault-host:
 	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/provision-transit-vault-host.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: capture-cutover-evidence
-capture-cutover-evidence:
-	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/capture-cutover-evidence.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-capture-cutover-evidence
+legacy-capture-cutover-evidence:
+	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/legacy/capture-cutover-evidence.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: render-cutover-command-inventory
-render-cutover-command-inventory:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-cutover-command-inventory.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-render-cutover-command-inventory
+legacy-render-cutover-command-inventory:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/render-cutover-command-inventory.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: render-cutover-record
-render-cutover-record:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-cutover-record.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-render-cutover-record
+legacy-render-cutover-record:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/render-cutover-record.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: render-runtime-container-verification
-render-runtime-container-verification:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-runtime-container-verification.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-render-runtime-container-verification
+legacy-render-runtime-container-verification:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/render-runtime-container-verification.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: render-runtime-reachability
-render-runtime-reachability:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-runtime-reachability-checklist.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-render-runtime-reachability
+legacy-render-runtime-reachability:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/render-runtime-reachability-checklist.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: render-windows-cutover-inventory
-render-windows-cutover-inventory:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-windows-cutover-inventory.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-render-windows-cutover-inventory
+legacy-render-windows-cutover-inventory:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/render-windows-cutover-inventory.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
-.PHONY: capture-windows-task-evidence
-capture-windows-task-evidence:
-	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/capture-windows-task-evidence.yml $(ANSIBLE_EXTRA_VARS_ARG)
+.PHONY: legacy-capture-windows-task-evidence
+legacy-capture-windows-task-evidence:
+	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/legacy/capture-windows-task-evidence.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
 .PHONY: openproject-apply
 openproject-apply:

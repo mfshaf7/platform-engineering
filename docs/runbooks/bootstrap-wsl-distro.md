@@ -34,7 +34,8 @@ The target distro must end up with:
      when stage Telegram-native operator commands such as `/platform` are part
      of the rehearsal surface
 5. Confirm these paths exist before provisioning:
-   - `{{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-stack-tmux.sh`
+   - `{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-bridge-supervisor.sh`
+   - `{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-recovery-supervisor.sh`
    - `{{ openclaw_host_bridge_config_path }}`
    - `{{ openclaw_openclaw_config_path }}`
    - `{{ openclaw_stage_host_bridge_config_path }}`
@@ -51,6 +52,10 @@ The target distro must end up with:
 11. Run `make verify-platform-host` and require a clean verification result.
 12. Continue with [bootstrap-k3s.md](bootstrap-k3s.md) and then the remaining
    platform bootstrap flow.
+
+For the current OpenClaw-specific host-stack rollout procedure that sits on top
+of this shared bootstrap path, use
+[../../products/openclaw/runbooks/host-stack-rollout.md](../../products/openclaw/runbooks/host-stack-rollout.md).
 
 ## Recovery Checkpoint For Interrupted First-Run
 
@@ -83,10 +88,6 @@ Recommended pickup prompt before the shutdown step:
 - bring the new platform host up in parallel first, then perform a controlled cutover, then cleanup
 - the old runtime, including Docker-backed pieces, may be stopped or removed during controlled cutover if required for a clean migration
 - if cutover fails, restore the previously healthy runtime path first and fix the new host after service is back
-
-For the full cutover sequence, use:
-
-- [migrate-to-platform-core.md](migrate-to-platform-core.md)
 
 ## Verification
 

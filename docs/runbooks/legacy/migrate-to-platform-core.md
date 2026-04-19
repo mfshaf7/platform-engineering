@@ -1,5 +1,11 @@
 # Migrate to Platform-Core
 
+This is a legacy runbook.
+
+It documents the retired Docker-to-`Platform-Core` migration path and is kept
+only as historical reference. It is not part of the current shared operator
+surface.
+
 This runbook covers the migration from the legacy Docker-backed host path into the
 managed `Platform-Core` distro.
 

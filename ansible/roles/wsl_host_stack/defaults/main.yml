@@ -1,5 +1,4 @@
 openclaw_wsl_required_packages:
-  - tmux
   - git
   - curl
   - ca-certificates
@@ -15,7 +14,6 @@ openclaw_host_bridge_required_paths:
   - "{{ openclaw_host_bridge_root }}"
   - "{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-bridge-supervisor.sh"
   - "{{ openclaw_host_bridge_root }}/scripts/run-openclaw-host-recovery-supervisor.sh"
-  - "{{ openclaw_host_bridge_root }}/scripts/start-openclaw-host-stack-tmux.sh"
 openclaw_host_runtime_required_paths:
   - "{{ openclaw_host_bridge_config_path }}"
   - "{{ openclaw_openclaw_config_path }}"

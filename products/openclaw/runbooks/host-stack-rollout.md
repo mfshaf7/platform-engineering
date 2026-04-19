@@ -61,9 +61,9 @@ The platform-managed task name is:
 
 - `PlatformCoreHostStack`
 
-After post-cutover verification and one real reboot/logon validation, retire
-the legacy Windows startup hooks and keep `PlatformCoreHostStack` as the only
-supported Windows bootstrap path.
+If any migration-era Windows startup hooks still remain, retire them after
+post-cutover verification and one real reboot/logon validation, and keep
+`PlatformCoreHostStack` as the only supported Windows bootstrap path.
 
 This keeps Windows responsible only for logon-triggered WSL entry while systemd
 inside WSL owns bridge and recovery supervision.
@@ -73,4 +73,4 @@ until the separate transit trust root is actually deployed.
 
 For full replacement of an unreliable distro, use:
 
-- [bootstrap-wsl-distro.md](bootstrap-wsl-distro.md)
+- [../../../docs/runbooks/bootstrap-wsl-distro.md](../../../docs/runbooks/bootstrap-wsl-distro.md)

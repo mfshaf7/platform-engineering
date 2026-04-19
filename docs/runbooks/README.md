@@ -34,3 +34,10 @@ Then use the product-local access runbooks:
 
 - `products/openclaw/runbooks/access-openclaw.md`
 - `products/openproject/runbooks/access-openproject.md`
+
+## Legacy Runbooks
+
+Historical or retired platform migration material lives under `legacy/`.
+
+That directory is not part of the current operator surface. Use it only when
+you intentionally need historical Docker-to-Platform-Core migration context.

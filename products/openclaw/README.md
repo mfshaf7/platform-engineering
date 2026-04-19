@@ -64,6 +64,7 @@ candidate on the same qualified base image.
 - [host-integration.md](host-integration.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
+- [runbooks/host-stack-rollout.md](runbooks/host-stack-rollout.md)
 - [runbooks/manage-prod-lifecycle.md](runbooks/manage-prod-lifecycle.md)
 - [scripts/README.md](scripts/README.md)
 - [skills-src/README.md](skills-src/README.md)

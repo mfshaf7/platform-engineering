@@ -52,6 +52,7 @@ Primary Ansible entrypoints:
 - [ansible/playbooks/provision-k3s-node.yml](../../ansible/playbooks/provision-k3s-node.yml)
 - [ansible/playbooks/provision-wsl-host.yml](../../ansible/playbooks/provision-wsl-host.yml)
 - [bootstrap-wsl-distro.md](bootstrap-wsl-distro.md)
+- [../../products/openclaw/runbooks/host-stack-rollout.md](../../products/openclaw/runbooks/host-stack-rollout.md)
 
 ## Phase 5: Build And Publish Artifacts
 

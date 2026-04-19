@@ -4,9 +4,9 @@
   connection: local
   gather_facts: false
   vars_files:
-    - ../group_vars/all/main.yml
+    - ../../group_vars/all/main.yml
   vars:
-    openclaw_windows_task_evidence_dir: "{{ playbook_dir }}/../generated/windows-task-evidence"
+    openclaw_windows_task_evidence_dir: "{{ playbook_dir }}/../../generated/legacy/windows-task-evidence"
     openclaw_windows_task_evidence_path: "{{ openclaw_windows_task_evidence_dir }}/windows-task-evidence.md"
   tasks:
     - name: Ensure Windows task evidence directory exists
@@ -77,6 +77,6 @@
 
     - name: Render Windows task evidence
       template:
-        src: ../roles/wsl_host_stack/templates/windows-task-evidence.md.j2
+        src: ../../roles/wsl_host_stack/templates/legacy/windows-task-evidence.md.j2
         dest: "{{ openclaw_windows_task_evidence_path }}"
         mode: "0644"

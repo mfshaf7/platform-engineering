@@ -5,6 +5,8 @@
 This document defines the target end-to-end platform for managed runtime
 delivery.
 
+It is the target architecture surface for this repo, not an observed live-state snapshot.
+
 The goal is to remove ambiguity about:
 
 - where release authority lives
@@ -40,26 +42,26 @@ There are four control planes:
 The current deployed platform is a shared multi-product stack, not an
 OpenClaw-only environment.
 
-As validated on `2026-04-16`, the live cluster currently includes:
+As validated on `2026-04-19`, the live cluster currently includes:
 
 - shared control plane:
   - Argo CD
   - Vault
   - External Secrets Operator
+  - operator-orchestration-service
 - shared observability:
   - prod Grafana
   - prod Prometheus
   - prod Alertmanager
   - platform dashboards
 - product workloads:
-  - OpenClaw prod
+  - OpenClaw stage
   - OpenProject
 - shared product dependency:
   - PostgreSQL
 
-Stage exists as an environment boundary, but it is suspended by default. That
-means stage namespaces can exist while stage workloads and stage observability
-are intentionally absent until resumed.
+OpenClaw prod is currently suspended through its governed lifecycle contract
+while the stage stabilization window remains active.
 
 ## Runtime Zones
 
@@ -83,13 +85,13 @@ Production consumes immutable artifacts from this zone.
 
 ### 3. Cluster zone
 
-- isolated Ubuntu VM
+- isolated Linux host running the single-node platform cluster
 - Kubernetes control plane
 - Argo CD
 - External Secrets Operator
 - Prometheus
 - Grafana
-- product workloads
+- shared broker and product workloads
 
 This zone owns the application runtime.
 

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
+import re
+import subprocess
 
 import yaml
 
 
 MANIFEST_FILE = "repo-structure-manifest.yaml"
+MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
 
 def check_exact_files(errors: list[str], directory: Path, expected_files: set[str]) -> None:
@@ -65,6 +68,9 @@ def check_components_dir(errors: list[str], components_dir: Path, config: dict) 
     missing = sorted(required_component_dirs - actual_dirs)
     if missing:
         errors.append(f"{components_dir}: missing required component directories: {', '.join(missing)}")
+    unexpected = sorted(actual_dirs - required_component_dirs - {config["template_directory"]})
+    if unexpected:
+        errors.append(f"{components_dir}: unexpected component directories: {', '.join(unexpected)}")
 
     template_dir = components_dir / config["template_directory"]
     if not template_dir.exists():
@@ -99,6 +105,46 @@ def check_required_files_map(errors: list[str], repo_root: Path, required_files_
             errors.append(f"{target_dir}: missing required files: {', '.join(missing)}")
 
 
+def tracked_markdown_files(repo_root: Path) -> list[Path]:
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "ls-files", "--", "*.md"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return [repo_root / line for line in result.stdout.splitlines() if line]
+
+
+def validate_markdown_navigation_links(errors: list[str], repo_root: Path) -> None:
+    for path in tracked_markdown_files(repo_root):
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in MARKDOWN_LINK_RE.finditer(text):
+            target = match.group(1).strip()
+            if not target:
+                continue
+            target = target.strip("<>")
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target_path = target.split("#", 1)[0].split("?", 1)[0]
+            if not target_path:
+                continue
+            if target.startswith("/"):
+                errors.append(f"{path}: absolute markdown link target is not allowed: {target}")
+                continue
+            resolved = (path.parent / target_path).resolve()
+            try:
+                resolved.relative_to(repo_root)
+            except ValueError:
+                errors.append(
+                    f"{path}: markdown link target escapes repo boundary; use a web-safe cross-repo link instead: {target}"
+                )
+                continue
+            if not resolved.exists():
+                errors.append(f"{path}: markdown link target does not exist: {target}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate that platform-engineering keeps shared paths product-neutral."
@@ -124,6 +170,7 @@ def main() -> int:
     check_runbooks_dir(errors, runbooks_dir, manifest["shared_paths"]["docs/runbooks"])
     check_components_dir(errors, components_dir, manifest["components"])
     check_required_files_map(errors, repo_root, manifest["governance"]["required_files"])
+    validate_markdown_navigation_links(errors, repo_root)
 
     for product_dir in sorted(path for path in products_dir.iterdir() if path.is_dir()):
         check_product_directory(errors, product_dir, manifest["products"])

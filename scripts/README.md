@@ -33,8 +33,17 @@ decision and evidence path. It also validates optional `security_evidence`
 front matter on change records when a record is being used as structured
 security remediation evidence.
 
-`validate_operational_docs.py` checks workflow-doc coverage and freshness stamps
-for current topology and access docs.
+`validate_operational_docs.py` checks workflow-doc coverage, freshness stamps
+for current topology and access docs, the supported WSL host bootstrap
+contract, the shared-vs-product operator-runbook boundary, and the
+operator-surface split between current platform procedures and legacy migration
+materials. It also checks that the shared component indexes in the repo root
+and `docs/components/README.md` cover every governed shared component.
+
+When you need to refresh the current platform topology doc against the live
+local cluster, run:
+
+- `python3 scripts/validate_operational_docs.py --repo-root . --check-live-cluster`
 
 ## Product-Specific Scripts
 

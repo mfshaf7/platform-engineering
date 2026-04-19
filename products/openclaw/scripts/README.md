@@ -17,6 +17,11 @@ The reusable operator workflow for this path is published separately under
 - `telegram_overlay_experiment.py`
 - `validate_gateway_source_bundle.py`
 
+`set_stage_environment_state.py` is also the supported local stage bridge
+orchestrator. When it runs inside `Platform-Core` WSL, it can reuse the
+Windows-to-WSL root bootstrap path for stage bridge control instead of relying
+only on an interactive `sudo` prompt.
+
 ## Internal Helper Modules
 
 - `gateway_contract.py`

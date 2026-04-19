@@ -80,4 +80,4 @@ reference an `active` approved profile whose purpose is
 
 - [../../../docs/standards/governed-ai-access-model.md](../../../docs/standards/governed-ai-access-model.md)
 - [../../../security/governed-ai-model-profiles.yaml](../../../security/governed-ai-model-profiles.yaml)
-- [../../../../security-architecture/docs/standards/ai-security-and-governance.md](../../../../security-architecture/docs/standards/ai-security-and-governance.md)
+- [security-architecture/docs/standards/ai-security-and-governance.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)

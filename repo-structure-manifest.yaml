@@ -27,9 +27,7 @@ shared_paths:
       - deploy.md
       - dev-integration-profiles.md
       - host-runtime-drift-recovery.md
-      - host-stack-rollout.md
       - incident-hotfix.md
-      - migrate-to-platform-core.md
       - platform-naming-audit.md
       - restart-validation.md
       - rollback.md
@@ -37,7 +35,8 @@ shared_paths:
       - vault-backup-restore.md
       - vault-recovery.md
       - vault-secret-rotation.md
-    allowed_subdirectories: []
+    allowed_subdirectories:
+      - legacy
 governance:
   required_files:
     .github:
@@ -92,6 +91,12 @@ components:
         - access.md
         - operations.md
     external-secrets:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+    operator-orchestration-service:
       required_files:
         - README.md
         - architecture.md

@@ -4,9 +4,9 @@
   connection: local
   gather_facts: false
   vars_files:
-    - ../group_vars/all/main.yml
+    - ../../group_vars/all/main.yml
   vars:
-    openclaw_cutover_inventory_dir: "{{ playbook_dir }}/../generated/cutover-command-inventory"
+    openclaw_cutover_inventory_dir: "{{ playbook_dir }}/../../generated/legacy/cutover-command-inventory"
     openclaw_cutover_inventory_path: "{{ openclaw_cutover_inventory_dir }}/cutover-command-inventory.md"
   tasks:
     - name: Ensure cutover command inventory directory exists
@@ -17,6 +17,6 @@
 
     - name: Render cutover command inventory
       template:
-        src: ../roles/wsl_host_stack/templates/cutover-command-inventory.md.j2
+        src: ../../roles/wsl_host_stack/templates/legacy/cutover-command-inventory.md.j2
         dest: "{{ openclaw_cutover_inventory_path }}"
         mode: "0644"

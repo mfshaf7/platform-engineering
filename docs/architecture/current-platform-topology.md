@@ -4,6 +4,8 @@
 
 This document describes the platform that is actually deployed today.
 
+It is an observed live-state surface, not the target steady-state architecture.
+
 Use it when you need to answer practical operator questions such as:
 
 - what components exist right now
@@ -12,7 +14,7 @@ Use it when you need to answer practical operator questions such as:
 - which surfaces are directly reachable
 - which things are intentionally internal-only or suspended
 
-Last validated against the live local cluster on `2026-04-16`.
+Last validated against the live local cluster on `2026-04-19`.
 
 ## Read This With
 
@@ -28,27 +30,28 @@ The platform uses an app-of-apps model rooted in three Argo applications:
 
 | Root application | Git path | Role | Current live outcome |
 | --- | --- | --- | --- |
-| `platform-root-shared` | `environments/shared/argocd` | Shared control-plane services and shared secret-delivery assets | Deploys shared services such as Vault and External Secrets |
-| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Deploys OpenClaw prod, OpenProject, PostgreSQL, prod observability, dashboards, and prod secrets/version assets; OpenClaw prod can now be deliberately suspended through a product-scoped lifecycle contract |
-| `platform-root-stage` | `environments/stage/argocd` | Stage-only workloads | Currently suspended; only a suspend sentinel is applied and no stage child apps are live |
+| `platform-root-shared` | `environments/shared/argocd` | Shared control-plane services and shared secret-delivery assets | Deploys shared services such as Vault, External Secrets, and operator-orchestration-service |
+| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Deploys OpenProject, PostgreSQL, prod observability, and prod dashboards; OpenClaw prod is currently suspended through the governed lifecycle contract |
+| `platform-root-stage` | `environments/stage/argocd` | Stage-only workloads and shared product support surfaces | Currently resumed for the OpenClaw stage gateway plus stage secrets and stage version while stage observability remains absent |
 
 ## Current Live Argo Applications
 
-As of `2026-04-16`, the cluster reports these live Argo applications:
+As of `2026-04-19`, the cluster reports these live Argo applications:
 
 - `external-secrets`
-- `openclaw-gateway`
+- `openclaw-gateway-stage`
 - `openclaw-observability`
 - `openproject`
 - `openproject-secrets`
+- `operator-orchestration-service`
 - `platform-dashboards-prod`
 - `platform-postgresql`
 - `platform-postgresql-secrets`
 - `platform-root-prod`
 - `platform-root-shared`
 - `platform-root-stage`
-- `platform-secrets-prod`
-- `platform-version`
+- `platform-secrets-stage`
+- `platform-version-stage`
 - `vault`
 
 That means the platform is not "just OpenClaw". The current live shared and
@@ -57,10 +60,14 @@ product-integrated stack includes:
 - Argo CD
 - Vault
 - External Secrets Operator
+- operator-orchestration-service
 - prod observability
-- OpenClaw prod
+- OpenClaw stage
 - OpenProject
 - shared PostgreSQL
+
+OpenClaw prod is intentionally absent from the current live app set because its
+governed prod lifecycle is presently `suspended`.
 
 ## Namespace Inventory
 
@@ -70,10 +77,11 @@ product-integrated stack includes:
 | `vault` | Vault cluster and UI/API service | Active and populated |
 | `external-secrets` | External Secrets Operator | Active and populated |
 | `observability` | prod Prometheus, Alertmanager, Grafana, operator auth proxy, dashboards | Active and populated |
-| `observability-stage` | stage observability namespace | Exists but currently empty because stage is suspended |
-| `openclaw` | prod OpenClaw gateway | Active and populated |
-| `openclaw-stage` | stage OpenClaw namespace | Exists but currently empty because stage is suspended |
+| `observability-stage` | stage observability namespace | Exists but currently empty because stage observability remains suspended |
+| `openclaw` | prod OpenClaw namespace | Active but currently empty because prod OpenClaw is suspended |
+| `openclaw-stage` | stage OpenClaw namespace | Active and populated for the current gateway rehearsal window |
 | `openproject` | OpenProject web application | Active and populated |
+| `operator-orchestration-service` | shared workflow broker | Active and populated |
 | `platform-postgresql` | shared PostgreSQL service for platform products | Active and populated |
 
 ## Operator-Facing Surfaces
@@ -88,7 +96,8 @@ These are the current direct operator-facing surfaces:
 | Prometheus (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | Alertmanager (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | OpenProject | `openproject` | `openproject` | NodePort plus Windows localhost proxy | Live |
-| OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Live by default, but subject to the governed OpenClaw prod lifecycle |
+| OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Currently suspended through the governed prod lifecycle |
+| OpenClaw stage gateway | `openclaw-stage` | `openclaw-gateway-stage` | ClusterIP only; primary user surface is Telegram | Live for the current stage stabilization window |
 
 For exact URLs, credentials, and shell-local fallback commands, use
 [../runbooks/access-platform-uis.md](../runbooks/access-platform-uis.md).
@@ -99,6 +108,7 @@ For per-component architecture and operations, use:
 - [../components/vault/README.md](../components/vault/README.md)
 - [../components/observability/README.md](../components/observability/README.md)
 - [../components/external-secrets/README.md](../components/external-secrets/README.md)
+- [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
 - [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
 
 ## Internal-Only Or Currently Absent Surfaces
@@ -111,15 +121,15 @@ These surfaces should not be documented as if they are directly reachable today:
 - External Secrets Operator
   - controller only
   - no platform UI
-- OpenClaw gateway
+- `operator-orchestration-service`
+  - internal-only shared broker service
+  - no direct operator UI
+- OpenClaw prod gateway
   - no dedicated browser UI today
-  - use Telegram for user interaction and port-forward only for operator checks
+  - currently absent because prod OpenClaw is suspended
 - stage Grafana, stage Prometheus, stage Alertmanager
   - configured in source for stage use
-  - not currently deployed while stage remains suspended
-- stage OpenClaw gateway
-  - configured in source for rehearsals
-  - not currently deployed while stage remains suspended
+  - not currently deployed because stage observability remains suspended
 
 ## Access Model Clarification
 

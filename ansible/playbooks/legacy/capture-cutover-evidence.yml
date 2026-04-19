@@ -4,10 +4,10 @@
   become: false
   gather_facts: false
   vars_files:
-    - ../group_vars/all/main.yml
+    - ../../group_vars/all/main.yml
   vars:
-    openclaw_cutover_evidence_dir: "{{ playbook_dir }}/../generated/cutover-evidence"
-    openclaw_windows_bootstrap_artifact_path: "{{ playbook_dir }}/../generated/openclaw-host-stack-windows-bootstrap.ps1"
+    openclaw_cutover_evidence_dir: "{{ playbook_dir }}/../../generated/legacy/cutover-evidence"
+    openclaw_windows_bootstrap_artifact_path: "{{ playbook_dir }}/../../generated/openclaw-host-stack-windows-bootstrap.ps1"
   tasks:
     - name: Ensure cutover evidence directory exists
       delegate_to: localhost
@@ -106,6 +106,6 @@
       delegate_to: localhost
       become: false
       template:
-        src: ../roles/wsl_host_stack/templates/cutover-evidence.md.j2
+        src: ../../roles/wsl_host_stack/templates/legacy/cutover-evidence.md.j2
         dest: "{{ openclaw_cutover_evidence_dir }}/cutover-evidence.md"
         mode: "0644"

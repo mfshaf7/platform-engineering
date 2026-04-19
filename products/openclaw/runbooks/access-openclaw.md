@@ -74,6 +74,11 @@ Resume stage only when you need a rehearsal or validation window:
 python3 products/openclaw/scripts/set_stage_environment_state.py resume --components gateway,version
 ```
 
+When that script is run inside the `Platform-Core` WSL distro, it now prefers
+the same Windows-to-WSL root bootstrap path used by the platform bootstrap
+scripts before falling back to interactive `sudo`. Do not use the legacy tmux
+bridge helpers for normal stage recovery.
+
 Then inspect the stage gateway:
 
 ```bash

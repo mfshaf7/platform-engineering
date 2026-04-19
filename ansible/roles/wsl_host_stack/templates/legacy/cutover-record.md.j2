@@ -1,5 +1,7 @@
 # Cutover Record
 
+Legacy migration artifact. Not part of the current platform operator surface.
+
 Use this record during `Platform-Core` migration cutover.
 
 ## Scope
@@ -12,7 +14,7 @@ Use this record during `Platform-Core` migration cutover.
 ## Pre-Cutover Check
 
 - [ ] `make verify-platform-host` passed
-- [ ] `make capture-cutover-evidence` completed
+- [ ] `make legacy-capture-cutover-evidence` completed
 - [ ] rendered Windows bootstrap script targets `{{ platform_windows_wsl_distro }}`
 - [ ] rollback path reviewed and accessible
 

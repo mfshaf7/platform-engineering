@@ -1,5 +1,7 @@
 # Cutover Command Inventory
 
+Legacy migration artifact. Not part of the current platform operator surface.
+
 Use this inventory during controlled migration to `{{ platform_windows_wsl_distro }}`.
 
 ## New Platform Path
@@ -9,9 +11,9 @@ Use this inventory during controlled migration to `{{ platform_windows_wsl_distr
 - Verify platform host:
   - `make verify-platform-host`
 - Capture pre-cutover evidence:
-  - `make capture-cutover-evidence`
+  - `make legacy-capture-cutover-evidence`
 - Render cutover record:
-  - `make render-cutover-record`
+  - `make legacy-render-cutover-record`
 
 ## Current Legacy Runtime Signals
 

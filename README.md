@@ -34,6 +34,26 @@ This repository owns shared platform concerns:
 It does not own product source implementations such as Telegram behavior, host
 bridge code, or upstream application code.
 
+## Documentation Truth Model
+
+Use the repo surfaces by truth type, not interchangeably:
+
+- target architecture and steady-state design
+  - `docs/architecture/overview.md`
+  - shared standards and ADRs under `docs/standards/` and `docs/decisions/`
+  - product runtime contracts under `products/<product>/runtime-contract.md`
+- declared desired operating posture in Git
+  - environment manifests under `environments/`
+  - product lifecycle contracts such as
+    `environments/prod/openclaw-lifecycle.yaml`
+- observed live reality
+  - `docs/architecture/current-platform-topology.md`
+  - `docs/runbooks/access-platform-uis.md`
+
+The live-truth documents should reflect what is actually deployed on their
+validation date, even during rehearsals or temporary prod suspension. The
+target and contract documents should describe the intended durable model.
+
 ## Platform Model
 
 There are two layers in this repo:
@@ -127,6 +147,7 @@ For shared component architecture and operations, use:
 - [docs/components/vault/README.md](docs/components/vault/README.md)
 - [docs/components/observability/README.md](docs/components/observability/README.md)
 - [docs/components/external-secrets/README.md](docs/components/external-secrets/README.md)
+- [docs/components/operator-orchestration-service/README.md](docs/components/operator-orchestration-service/README.md)
 - [docs/components/platform-postgresql/README.md](docs/components/platform-postgresql/README.md)
 
 ## Operator Entrypoints
@@ -137,6 +158,7 @@ product-neutral.
 - shared platform and provisioning commands:
   - `make provision-wsl-host`
   - `make provision-k3s-node`
+  - `make provision-transit-vault-host`
   - `make devint-up PROFILE=<profile>`
   - `make devint-status PROFILE=<profile>`
   - `make devint-smoke PROFILE=<profile>`
@@ -144,18 +166,40 @@ product-neutral.
   - `make devint-reset PROFILE=<profile>`
   - `make devint-promote-check PROFILE=<profile>`
   - `make verify-platform-host`
+  - `make verify-restart-survival`
+  - `make render-windows-bootstrap`
   - `make validate`
 - OpenClaw-specific release commands:
+  - `make openclaw-gateway-prepull-image`
+  - `make openclaw-gateway-tag`
   - `make openclaw-gateway-pin`
   - `make openclaw-gateway-validate`
   - `make openclaw-gateway-record`
+  - `make openclaw-gateway-verification`
   - `make openclaw-gateway-promote`
+  - `make openclaw-gateway-prod-verification`
   - `make openclaw-gateway-readiness`
+  - `make openclaw-telegram-overlay-status`
+  - `make openclaw-telegram-overlay-pin`
+  - `make openclaw-telegram-overlay-validate`
+  - `make openclaw-telegram-overlay-record`
+  - `make openclaw-telegram-overlay-disable`
+  - `make openclaw-prod-state`
+  - `make openclaw-stage-state`
+  - `make show-prod-versions`
+  - `make show-stage-versions`
 - OpenProject-specific commands:
   - `make openproject-apply`
   - `make openproject-status`
   - `make openproject-access`
+  - `make openproject-sync-admin-password`
+  - `make openproject-configure-idea-backlog`
+  - `make openproject-provision-operator-orchestration-identity`
   - `make openproject-uninstall`
+
+Historical Docker-to-`Platform-Core` migration helpers remain available only as
+explicit `legacy-...` targets in the top-level `Makefile`. They are not part of
+the current deployment surface.
 
 See [scripts/README.md](scripts/README.md) for shared platform scripts, then use
 the product-local script indexes:

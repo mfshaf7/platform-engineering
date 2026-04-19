@@ -3,6 +3,8 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shlex
+import shutil
 import subprocess
 import time
 from urllib.error import HTTPError
@@ -16,6 +18,22 @@ DEFAULT_STAGE_BRIDGE_SERVICE_NAME = "openclaw-host-bridge-stage.service"
 DEFAULT_STAGE_BRIDGE_HEALTH_URL = "http://127.0.0.1:48731/healthz"
 DEFAULT_STAGE_BRIDGE_REQUEST_URL = "http://127.0.0.1:48731/v1/bridge"
 DEFAULT_STAGE_GATEWAY_BRIDGE_URL = "http://172.27.88.8:48731"
+DEFAULT_STAGE_WSL_DISTRO = "Platform-Core"
+READ_ONLY_SYSTEMCTL_ACTIONS = frozenset({"is-active", "show", "status", "cat"})
+DEFAULT_WINDOWS_POWERSHELL_CANDIDATES = tuple(
+    candidate
+    for candidate in (
+        os.environ.get("OPENCLAW_WINDOWS_POWERSHELL"),
+        os.environ.get("OPENCLAW_POWERSHELL_BIN"),
+        "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+        "/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe",
+        "/mnt/c/Program Files/PowerShell/7/pwsh.exe",
+        "/mnt/c/Program Files/PowerShell/7-preview/pwsh.exe",
+        "powershell.exe",
+        "pwsh.exe",
+    )
+    if candidate
+)
 
 COMPONENT_RESOURCE_MAP = {
     "gateway": "openclaw-gateway-app.yaml",
@@ -54,6 +72,31 @@ def stage_gateway_bridge_url() -> str:
     return os.environ.get("OPENCLAW_STAGE_GATEWAY_BRIDGE_URL", DEFAULT_STAGE_GATEWAY_BRIDGE_URL)
 
 
+def stage_wsl_distro_name() -> str:
+    return (
+        os.environ.get("OPENCLAW_STAGE_WSL_DISTRO")
+        or os.environ.get("WSL_DISTRO_NAME")
+        or DEFAULT_STAGE_WSL_DISTRO
+    )
+
+
+def running_inside_wsl() -> bool:
+    return bool(os.environ.get("WSL_DISTRO_NAME")) or "microsoft" in os.uname().release.lower()
+
+
+def resolve_windows_powershell_binary() -> str:
+    for candidate in DEFAULT_WINDOWS_POWERSHELL_CANDIDATES:
+        expanded = os.path.expanduser(candidate)
+        if os.path.isabs(expanded):
+            if Path(expanded).exists():
+                return expanded
+            continue
+        resolved = shutil.which(expanded)
+        if resolved:
+            return resolved
+    raise FileNotFoundError("No Windows PowerShell binary available for stage bridge control")
+
+
 def stage_bridge_policy_path(repo_root: Path) -> Path:
     override = os.environ.get("OPENCLAW_STAGE_BRIDGE_POLICY_PATH")
     if override:
@@ -68,8 +111,62 @@ def stage_openclaw_config_path() -> Path:
     return Path.home() / ".openclaw-stage" / "openclaw.stage.k3s.json"
 
 
-def run_systemctl(*args: str, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
+def run_systemctl_via_windows_wsl_root(
+    *args: str,
+    repo_root: Path,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    if not running_inside_wsl():
+        raise RuntimeError("Windows-to-WSL root bridge control is only available inside WSL")
+    powershell_bin = resolve_windows_powershell_binary()
+    bash_command = shlex.join(["systemctl", *args])
+    wsl_command = " ".join(
+        (
+            "wsl.exe",
+            "-d",
+            shlex.quote(stage_wsl_distro_name()),
+            "-u",
+            "root",
+            "--cd",
+            shlex.quote(str(repo_root)),
+            "/bin/bash",
+            "-lc",
+            shlex.quote(bash_command),
+        )
+    )
+    return subprocess.run(
+        [powershell_bin, "-NoProfile", "-Command", wsl_command],
+        check=True,
+        text=True,
+        capture_output=capture_output,
+    )
+
+
+def run_systemctl(
+    *args: str,
+    capture_output: bool = False,
+    repo_root: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
     command = ["systemctl", *args]
+    action = args[0] if args else ""
+    if os.geteuid() == 0 or action in READ_ONLY_SYSTEMCTL_ACTIONS:
+        return subprocess.run(
+            command,
+            check=True,
+            text=True,
+            capture_output=capture_output,
+        )
+
+    if repo_root is not None:
+        try:
+            return run_systemctl_via_windows_wsl_root(
+                *args,
+                repo_root=repo_root,
+                capture_output=capture_output,
+            )
+        except (FileNotFoundError, RuntimeError):
+            pass
+
     if os.geteuid() != 0:
         command = ["sudo", *command]
     return subprocess.run(
@@ -209,12 +306,12 @@ def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
 
 def ensure_stage_bridge_running(repo_root: Path) -> None:
     validate_stage_bridge_inputs(repo_root)
-    run_systemctl("start", stage_bridge_service_name())
+    run_systemctl("start", stage_bridge_service_name(), repo_root=repo_root)
     wait_for_stage_bridge_ready()
 
 
-def ensure_stage_bridge_stopped() -> None:
-    run_systemctl("stop", stage_bridge_service_name())
+def ensure_stage_bridge_stopped(repo_root: Path) -> None:
+    run_systemctl("stop", stage_bridge_service_name(), repo_root=repo_root)
 
 
 def discover_stage_resources(stage_argocd_root: Path) -> list[str]:
@@ -400,7 +497,7 @@ def main() -> int:
             )
 
     if args.state == "suspend" and not desired_gateway_active and not args.skip_bridge_control:
-        ensure_stage_bridge_stopped()
+        ensure_stage_bridge_stopped(args.repo_root)
 
     if not changed:
         scope = ",".join(sorted(affected_components)) or "none"

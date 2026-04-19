@@ -3,8 +3,8 @@ versions:
   telegramSha: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
   hostBridgeSha: e5b78abbfe1501c90710aa0e3084a1bd86d17060
   runtimeDistributionSha: 9c2ae383adcb8d11a694124948c5898e653076b4
-  platformSha: 2172c83d2a90cf96083696b0767e0782165be4bd
-  telegramOverlayStatus: pending-build
+  platformSha: 86571b09bd7fa65f09f54e715f63c400eeb587f5
+  telegramOverlayStatus: candidate
   telegramOverlaySourceSha: d7390578c440f10a47dcc47881dc72a96af9aa0b
-  telegramOverlayImage: disabled
+  telegramOverlayImage: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:97084661d3546db76fdc7c43330f79967b8a93688480205f08d66e179c080bda
   telegramOverlayQualifiedBaseImage: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed

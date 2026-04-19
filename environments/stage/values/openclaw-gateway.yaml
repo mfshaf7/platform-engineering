@@ -19,7 +19,7 @@ env:
   OPENCLAW_ENV: stage
   OPENCLAW_TELEGRAM_SHA: 349970cfa72c0edc1c4bac612a4555f79efcd8f3
   OPENCLAW_HOST_BRIDGE_SHA: e5b78abbfe1501c90710aa0e3084a1bd86d17060
-  OPENCLAW_PLATFORM_SHA: 530812276f0c25c16fbd435e6a2a1411f6773d43
+  OPENCLAW_PLATFORM_SHA: bb1c3d876ae6aa570cdf6f86109252964dd76c91
 extraEnv:
 - name: OPENCLAW_CONFIG_PATH
   value: /home/node/.openclaw/openclaw.stage.k3s.json
@@ -115,7 +115,7 @@ extraEnv:
 - name: OPERATOR_ORCHESTRATION_CALLER_ID
   value: openclaw-stage-gateway
 - name: OPENCLAW_TELEGRAM_OVERLAY_SOURCE_SHA
-  value: 4a5c804ae59b0ffbd2b2c6ab3bd0e10be201b212
+  value: 695e222a44cb60bd10af9662c3c2fe38b981cefc
 resources:
   requests:
     cpu: 500m
@@ -167,12 +167,12 @@ extraVolumes:
   emptyDir: {}
 podAnnotations:
   openclaw.io/telegram-overlay-status: candidate
-  openclaw.io/telegram-overlay-source-sha: 4a5c804ae59b0ffbd2b2c6ab3bd0e10be201b212
-  openclaw.io/telegram-overlay-image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:c31d68a1700e7b2f949ead8f63ae2979287eb1a2263e3ed959021d5897e310ff
+  openclaw.io/telegram-overlay-source-sha: 695e222a44cb60bd10af9662c3c2fe38b981cefc
+  openclaw.io/telegram-overlay-image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:5364a660d9f30ce28db0b640cdea59d3fef987a7fc8ab197f169d5f7b7a09ba8
   openclaw.io/telegram-overlay-qualified-base-image: ghcr.io/openclaw/openclaw@sha256:7ea070b04d1e70811fe8ba15feaad5890b1646021b24e00f4795bd4587a594ed
 extraInitContainers:
 - name: telegram-overlay-runtime
-  image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:c31d68a1700e7b2f949ead8f63ae2979287eb1a2263e3ed959021d5897e310ff
+  image: ghcr.io/mfshaf7/openclaw-telegram-overlay@sha256:5364a660d9f30ce28db0b640cdea59d3fef987a7fc8ab197f169d5f7b7a09ba8
   imagePullPolicy: IfNotPresent
   command:
   - sh

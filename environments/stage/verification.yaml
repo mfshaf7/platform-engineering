@@ -10,7 +10,7 @@ note: Stage Telegram overlay lane recorded; rehearse the current candidate befor
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate
-  sourceBundleRef: 8d1dabb18bf3
+  sourceBundleRef: f51f50083f7c
   imageDigest: sha256:348acf9bbbbe1714b6f41b13e2d1dec367d98f85b3bd7c00ef8b17f1b6eb790e
   requiredChecks:
   - artifact-delivery

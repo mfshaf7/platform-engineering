@@ -6,8 +6,9 @@ Define the canonical OpenProject project model for captured ideas and proposals
 that originate from operator workflows and later flow through
 `operator-orchestration-service`.
 
-OpenProject is the canonical backlog store for these records. Git remains the
-place for accepted design, implementation, and governed change artifacts.
+OpenProject is the canonical backlog store for these proposal records. Git
+remains the place for accepted design, implementation, and governed change
+artifacts.
 
 ## Canonical Project
 
@@ -73,19 +74,24 @@ Status meaning:
 - `captured`
   - raw record exists but no approved triage yet
 - `triaged`
-  - bounded suggestion accepted by an operator
+  - operator-authored or operator-accepted framing exists and the next decision
+    is easier to make
 - `parked`
   - worth keeping, not ready for active work
 - `owner-assigned`
   - clear owning repo or product has been identified
 - `accepted`
-  - ready to promote into a concrete Git or delivery artifact
+  - ready to be promoted into a concrete governed artifact or implementation
+    plan
 - `rejected`
   - explicitly not proceeding
 - `implemented`
   - outcome already realized elsewhere
 - `superseded`
   - replaced by a newer item or better framing
+
+Terminal statuses are future archive candidates. `archive` remains reserved as
+a later visibility flag, not a lifecycle stage.
 
 ## Required Record Fields
 
@@ -98,8 +104,10 @@ The canonical backlog record must express at least:
 - suspected owner
 - affected scope
 - workflow status
-- triage decision id
-- triage confidence
+- triage summary
+- internal evaluation notes
+- optional AI-assist decision metadata when a future AI discussion path is used
+- optional archival metadata when a future visibility-only archive flag is used
 
 ## Dev-Integration Profile Requests
 
@@ -206,9 +214,36 @@ sections in a stable order:
 2. discussion excerpt or source context
 3. triage summary
 4. operator decision notes
+5. internal evaluation
 
 This keeps the record readable to humans even if custom fields are later
 changed.
+
+## Reserved Archive Placeholder
+
+Archive is reserved as a future visibility flag only.
+
+Reserved metadata keys:
+
+- `archived`
+- `archived_at`
+- `archived_reason`
+
+Rules:
+
+- archive is not a canonical status and must not replace lifecycle state
+- only terminal records are future archive candidates:
+  - `rejected`
+  - `implemented`
+  - `superseded`
+- non-terminal records are not future archive candidates:
+  - `captured`
+  - `triaged`
+  - `parked`
+  - `owner-assigned`
+  - `accepted`
+- Phase 1 does not provision archive fields, broker behavior, or list filters
+  yet
 
 ## Automation Identity
 
@@ -285,23 +320,42 @@ Non-secret config:
 
 `triage` should:
 
-- update triage summary and suggestion metadata
-- set `Triage Decision ID`
-- set `Triage Confidence`
-- set `AI Assist Lane`
-- leave final durable status unchanged until operator decision
+- update the triage summary
+- set status `triaged`
+- set `AI Assist Lane` to `none` for the current operator-authored phone-friendly
+  path
+- record `Triage Decision ID` and `Triage Confidence` only when a future
+  AI-assisted discussion path is actually used
 
 ### Decision
 
 `decision` should:
 
-- update the canonical work package with the accepted or overridden outcome
-- set status according to the operator action
-- preserve the decision id tied to that accepted outcome
+- update the operator decision notes section on the canonical work package
+- set status to one of the current bounded durable outcomes:
+  - `parked`
+  - `accepted`
+  - `rejected`
+- preserve the captured idea and triage summary sections
+- defer `owner-assigned` until the broker carries an explicit owner vocabulary
+- record `Triage Decision ID` only when a future AI-assisted discussion path
+  actually produces that metadata
+
+### Internal Evaluation Metadata
+
+`evaluation` should:
+
+- update `Suspected Owner` using canonical workspace tokens only
+- update `Affected Scope` using canonical workspace tokens only
+- update `Trust Boundary Areas`, `Triage Confidence`, and `AI Assist Lane`
+- preserve a free-text internal evaluation note in the description so the later
+  full AI write-up remains readable from Telegram and OpenProject
+- not change lifecycle status by itself
 
 ## Deferred In Phase 1
 
 - OpenProject webhooks back into Telegram
 - attachment mirroring
 - automatic Git artifact creation
+- archive visibility flag and archive-aware list behavior
 - bidirectional sync with workspace contracts

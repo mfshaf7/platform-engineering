@@ -11,6 +11,7 @@ declared, operated, and verified on this platform.
 - `README.md`
 - `runtime-contract.md`
 - `idea-backlog-contract.md`
+- `delivery-art-contract.md`
 - `dependencies.md`
 - `secrets-and-config.md`
 - `visibility-and-operations.md`

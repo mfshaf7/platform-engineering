@@ -58,7 +58,8 @@ Meaning:
 - `devint-smoke`
   - runs the profile’s smoke checks
 - `devint-promote-check`
-  - shows what must be formalized before governed `stage`
+  - renders the profile-owned governed handoff checklist that must be proven
+    before calling the local slice ready for `stage`
 - `devint-reset`
   - tears down and rebuilds the local profile state
 - `devint-down`
@@ -71,6 +72,8 @@ Important boundaries:
 - it must not write to governed `stage` or `prod` backends
 - it may use local branches, worktrees, and dirty state
 - it still requires a governed handoff before `stage`
+- the active profile README and `stage_handoff.required_checks` are part of
+  that handoff contract, not optional notes
 
 ## 3. Request A New Profile When None Fits
 
@@ -155,6 +158,14 @@ The required handoff is:
 3. run repo-local validation
 4. move those changes through the normal PR and platform contract path
 5. rehearse the governed candidate in `stage`
+
+Additional rule:
+
+- do not treat source landing as workflow closure when the profile still
+  requires governed `stage` rehearsal
+- if the landed workflow surface changed, update the profile-owned
+  `stage_handoff.required_checks`, the profile README `Stage Handoff Checks`
+  section, and the promote-check output in the same work
 
 For the workspace-level PR flow and Codex review procedure that begins after
 step 4, use:

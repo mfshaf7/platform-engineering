@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: operator-orchestration-service
-          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:40fac8f1ee3cdbb20ff0c1b81e13ffdf9bbef1ff10c00a4c98868497ec5399fe
+          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:b948c5b26c847428ca8e5b2556a1adb30b40adb09770c14ce4279c198dbfc5da
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -32,10 +32,32 @@ spec:
               value: "41"
             - name: OPENPROJECT_CAPTURED_STATUS_ID
               value: "81"
+            - name: OPENPROJECT_TRIAGED_STATUS_ID
+              value: "82"
+            - name: OPENPROJECT_PARKED_STATUS_ID
+              value: "83"
+            - name: OPENPROJECT_ACCEPTED_STATUS_ID
+              value: "85"
+            - name: OPENPROJECT_REJECTED_STATUS_ID
+              value: "80"
+            - name: OPENPROJECT_CUSTOM_FIELD_SUSPECTED_OWNER_ID
+              value: "3"
+            - name: OPENPROJECT_CUSTOM_FIELD_AFFECTED_SCOPE_ID
+              value: "4"
+            - name: OPENPROJECT_CUSTOM_FIELD_TRUST_BOUNDARY_AREAS_ID
+              value: "5"
+            - name: OPENPROJECT_CUSTOM_FIELD_TRIAGE_CONFIDENCE_ID
+              value: "8"
+            - name: OPENPROJECT_CUSTOM_FIELD_AI_ASSIST_LANE_ID
+              value: "9"
             - name: OPENPROJECT_CUSTOM_FIELD_SOURCE_SURFACE_ID
               value: "1"
             - name: OPENPROJECT_CUSTOM_FIELD_SOURCE_REFERENCE_ID
               value: "2"
+            - name: WORKSPACE_OWNER_TOKENS_JSON
+              value: '["component:argo-cd","component:external-secrets","component:host-control-plugin","component:observability","component:openclaw-host-bridge","component:openclaw-runtime-distribution","component:openclaw-telegram-channel","component:operator-orchestration-service","component:platform-postgresql","component:vault","product:openclaw","product:openproject","repo:openclaw-host-bridge","repo:openclaw-runtime-distribution","repo:openclaw-telegram-enhanced","repo:operator-orchestration-service","repo:platform-engineering","repo:security-architecture","repo:workspace-governance"]'
+            - name: WORKSPACE_SCOPE_TOKENS_JSON
+              value: '["component:argo-cd","component:external-secrets","component:host-control-plugin","component:observability","component:openclaw-host-bridge","component:openclaw-runtime-distribution","component:openclaw-telegram-channel","component:operator-orchestration-service","component:platform-postgresql","component:vault","product:openclaw","product:openproject","repo:openclaw-host-bridge","repo:openclaw-runtime-distribution","repo:openclaw-telegram-enhanced","repo:operator-orchestration-service","repo:platform-engineering","repo:security-architecture","repo:workspace-governance"]'
             - name: CALLER_ALLOWED_IDS
               value: openclaw-stage-gateway
           envFrom:

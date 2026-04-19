@@ -107,6 +107,33 @@ Recommended initial Kanban-oriented execution statuses:
 These statuses apply to delivery work in the ART project, not to proposal
 records in `Workspace Proposals`.
 
+## Blocker / Impediment Governance
+
+`blocked` is an execution visibility state, not a sufficient enterprise record
+by itself.
+
+When delivery work is blocked, the delivery plane should also capture:
+
+- blocker statement
+- impact on the affected delivery item or initiative
+- blocker owner
+- discovered date
+- decision path:
+  - `remove`
+  - `workaround`
+  - `accept-risk`
+  - `defer`
+- justification for the chosen path
+
+If the blocker is not removed immediately:
+
+- record a follow-up owner
+- record a review date
+- keep the reasoning visible from the delivery record or its linked blocker record
+
+Workaround, accepted-risk, and defer paths must not live only in chat memory or
+board labels.
+
 ## Intake Boundary
 
 The intake point into the delivery project is:

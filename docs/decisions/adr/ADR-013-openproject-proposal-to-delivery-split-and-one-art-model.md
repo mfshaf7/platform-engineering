@@ -62,6 +62,16 @@ Specifically:
   - `Milestone`
 - Kanban boards visualize execution within that ART
 
+Blocker and impediment handling is part of the enterprise model, not an
+afterthought:
+
+- blocked delivery work must carry an explicit blocker discussion path
+- the operator must choose whether to remove the blocker, use a workaround,
+  accept the risk temporarily, or defer/escalate
+- the chosen path requires recorded justification
+- workaround, accepted-risk, and defer/escalate paths require a follow-up owner
+  and review date
+
 The intake boundary is:
 
 - source idea reaches `accepted` in `Workspace Proposals`
@@ -83,6 +93,8 @@ What becomes simpler:
   without pretending every proposal record is already execution work
 - one ART gives a credible scaled-agile story without artificial early
   multi-train complexity
+- blocker decisions become reviewable and explainable instead of living only in
+  board state or chat memory
 
 What becomes harder:
 

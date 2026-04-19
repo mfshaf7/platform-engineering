@@ -164,6 +164,16 @@ The required handoff is:
 4. move through the normal PR and platform contract path
 5. rehearse the governed candidate in `stage`
 
+Active profiles must carry a concrete stage-handoff contract:
+
+- `stage_handoff.required_checks` in the profile contract
+- matching documentation in the profile README
+- promote-check output that reflects the same checks instead of stale
+  hardcoded assumptions
+
+Source landing is not closure when the documented handoff still requires
+governed `stage` evidence.
+
 That keeps fast local iteration separate from governed rollout.
 
 When the handoff reaches the PR path, follow the workspace-level Codex review

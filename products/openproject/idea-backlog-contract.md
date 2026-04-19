@@ -8,7 +8,8 @@ that originate from operator workflows and later flow through
 
 OpenProject is the canonical backlog store for these proposal records. Git
 remains the place for accepted design, implementation, and governed change
-artifacts.
+artifacts. Execution tracking for consumed accepted ideas belongs in the
+separate delivery ART project defined in `delivery-art-contract.md`.
 
 ## Canonical Project
 
@@ -29,6 +30,7 @@ This project is intended to hold:
 It should not be used for:
 
 - source change records
+- execution tracking for consumed delivery work
 - release approval or promotion state
 - platform runtime evidence
 
@@ -81,8 +83,8 @@ Status meaning:
 - `owner-assigned`
   - clear owning repo or product has been identified
 - `accepted`
-  - ready to be promoted into a concrete governed artifact or implementation
-    plan
+  - ready to be consumed into a concrete delivery artifact such as the delivery
+    ART project and later promoted into Git-owned implementation artifacts
 - `rejected`
   - explicitly not proceeding
 - `implemented`
@@ -108,6 +110,20 @@ The canonical backlog record must express at least:
 - internal evaluation notes
 - optional AI-assist decision metadata when a future AI discussion path is used
 - optional archival metadata when a future visibility-only archive flag is used
+
+## Proposal-To-Delivery Handoff
+
+`Workspace Proposals` is the intake plane, not the execution plane.
+
+Rules:
+
+- an accepted proposal remains the proposal-of-record
+- it should be consumed into the separate delivery ART project through an
+  explicit promotion step
+- the proposal record should retain a durable backlink such as `delivery_ref`
+- the delivery record should retain a durable backlink such as
+  `origin_idea_ref`
+- source proposal lifecycle must not be replaced with delivery execution status
 
 ## Dev-Integration Profile Requests
 

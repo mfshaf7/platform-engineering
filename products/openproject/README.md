@@ -9,6 +9,7 @@ uses the shared platform control plane.
 ## What This Directory Covers
 
 - runtime contract
+- delivery ART contract
 - dependencies
 - secrets and non-secret config expectations
 - visibility and operating checks
@@ -49,6 +50,7 @@ runtime on the local cluster plus its documented operator procedures.
 - [AGENTS.md](AGENTS.md)
 - [runtime-contract.md](runtime-contract.md)
 - [idea-backlog-contract.md](idea-backlog-contract.md)
+- [delivery-art-contract.md](delivery-art-contract.md)
 - [dependencies.md](dependencies.md)
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)

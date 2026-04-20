@@ -12,6 +12,7 @@ They are not shared platform procedures.
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [manage-proposal-to-delivery.md](manage-proposal-to-delivery.md)
+- [prepare-production-clean-start.md](prepare-production-clean-start.md)
 - [provision-operator-orchestration-identity.md](provision-operator-orchestration-identity.md)
 - [openproject-backup-restore.md](openproject-backup-restore.md)
 - [uninstall-openproject.md](uninstall-openproject.md)

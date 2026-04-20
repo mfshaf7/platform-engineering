@@ -36,6 +36,11 @@ V1 readiness is proven through:
 V1 does not add a dedicated Prometheus or version-metadata contract for
 OpenProject yet.
 
+If the proposal-to-delivery workflow is later activated in a real production
+plane, that plane must also pass the initial activation clean-start gate from:
+
+- `runbooks/prepare-production-clean-start.md`
+
 ## Access Model
 
 - primary operator path: `http://127.0.0.1:32083`

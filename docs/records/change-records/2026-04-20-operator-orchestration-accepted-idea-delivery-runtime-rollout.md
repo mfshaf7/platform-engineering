@@ -6,7 +6,8 @@ Pinned the shared `operator-orchestration-service` deployment to the rebuilt
 broker image that carries the internal accepted-idea delivery consume path,
 the socket-reset hardening for the long-running broker transport, the
 write-success/read-failure backlink recovery for the source proposal PATCH, the
-retry hardening for the delivery-project preflight lookup, and the live
+retry hardening for the delivery-project preflight lookup, the generalized
+safe-read retry policy across broker OpenProject projections, and the live
 OpenProject delivery-project env contract in the shared runtime.
 
 This rollout also required one live OpenProject convergence step before the
@@ -57,11 +58,11 @@ runtime would not have been able to persist the source backlink durably.
 ## Artifact And Deployment Evidence
 
 - broker source SHA:
-  - `926270e8b86a340481aae05d11b7a4990c82765c`
+  - `f575ba920c1f2a478f290e3d30ce67e0c6096fc2`
 - published broker image:
   - `ghcr.io/mfshaf7/operator-orchestration-service`
-- published digest resolved from tag `sha-926270e`:
-  - `sha256:1ff48d83baaad548e1661aaaa396baa0ee191258d8ecbb1e7359bb4c82d43442`
+- published digest resolved from tag `sha-f575ba9`:
+  - `sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a`
 - live OpenProject delivery ART project:
   - project id `37`
   - identifier `workspace-delivery-art`
@@ -77,7 +78,7 @@ runtime would not have been able to persist the source backlink durably.
 
 - pending after merge:
   - `platform-root-shared` refresh onto the new deployment manifest
-  - broker pod rollout to digest `sha256:1ff48d83baaad548e1661aaaa396baa0ee191258d8ecbb1e7359bb4c82d43442`
+  - broker pod rollout to digest `sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a`
   - broker `/healthz`, `/readyz`, and `/version`
   - one governed consume rehearsal against the real OpenProject runtime with:
     - accepted idea lookup

@@ -11,6 +11,17 @@ TARGET_FIRSTNAME = ENV.fetch("TARGET_FIRSTNAME", "Operator")
 TARGET_LASTNAME = ENV.fetch("TARGET_LASTNAME", "Orchestration Service")
 TARGET_MAIL = ENV.fetch("TARGET_MAIL", "operator-orchestration-service@local.invalid")
 TARGET_PROJECT_IDENTIFIER = ENV.fetch("TARGET_PROJECT_IDENTIFIER", "workspace-proposals")
+TARGET_PROJECT_IDENTIFIERS = begin
+  raw = ENV["TARGET_PROJECT_IDENTIFIERS_JSON"]
+  parsed = raw ? JSON.parse(raw) : nil
+  values = Array(parsed).filter_map do |entry|
+    value = entry.to_s.strip
+    value.empty? ? nil : value
+  end
+  values.empty? ? [TARGET_PROJECT_IDENTIFIER] : values.uniq
+rescue JSON::ParserError
+  [TARGET_PROJECT_IDENTIFIER]
+end
 TARGET_TOKEN_NAME = ENV.fetch("TARGET_TOKEN_NAME", "openproject-workspace-proposals-v1")
 TARGET_LANGUAGE = ENV.fetch("TARGET_LANGUAGE", Setting.default_language.presence || "en")
 ROTATE_API_TOKEN = ENV.fetch("ROTATE_API_TOKEN", "false") == "true"
@@ -105,20 +116,32 @@ def ensure_api_token!(user:)
   }
 end
 
-project = Project.find_by!(identifier: TARGET_PROJECT_IDENTIFIER)
+projects = TARGET_PROJECT_IDENTIFIERS.map do |identifier|
+  Project.find_by!(identifier: identifier)
+end
 roles = ROLE_NAMES.map { |name| ensure_role!(name) }
 
 user_result = ensure_user!
-member = ensure_membership!(project:, user: user_result[:user], roles:)
+memberships = projects.map do |project|
+  member = ensure_membership!(project:, user: user_result[:user], roles:)
+  {
+    project_identifier: project.identifier,
+    project_name: project.name,
+    role_names: member.roles.order(:name).pluck(:name)
+  }
+end
 token_result = ensure_api_token!(user: user_result[:user])
+primary_membership = memberships.first
 
 result = {
   login: user_result[:user].login,
   mail: user_result[:user].mail,
   user_created: user_result[:created],
-  project_identifier: project.identifier,
-  project_name: project.name,
-  role_names: member.roles.order(:name).pluck(:name),
+  project_identifier: primary_membership[:project_identifier],
+  project_name: primary_membership[:project_name],
+  project_identifiers: memberships.map { |membership| membership[:project_identifier] },
+  role_names: primary_membership[:role_names],
+  memberships: memberships,
   api_token: {
     token_name: token_result[:token_name],
     token_id: token_result[:token_id],

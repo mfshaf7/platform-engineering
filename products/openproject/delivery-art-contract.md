@@ -44,6 +44,12 @@ Use:
 This means the delivery project is not a second proposal backlog and not a
 plain task board.
 
+The initial platform bootstrap for this project should provision the canonical
+project, work package types, execution statuses, and required custom fields.
+Program Increment versions and board presets are part of the operating model,
+but they do not need to be precreated before the accepted-idea-delivery flow is
+active.
+
 ## One-ART Shape
 
 The first delivery implementation should model one `Agile Release Train`.
@@ -209,6 +215,11 @@ That means:
 - operator or broker creates the top-level delivery initiative explicitly
 - backlinks are recorded
 - execution proceeds inside the ART project
+
+The initial platform bootstrap may stop short of precreating Program Increment
+versions or Kanban boards. Those can be added once the first real delivery
+cycle is activated, as long as the canonical project model and required fields
+already exist.
 
 Broker-assisted creation may come later, but it should preserve the same link
 and governance model.

@@ -25,7 +25,7 @@ Keep OpenProject-specific platform material here:
 
 - access, bootstrap, and uninstall runbooks
 - backup and restore runbooks
-- idea and proposal backlog contract
+- idea backlog and delivery ART contracts
 - product-scoped operator scripts
 - OpenProject visibility and operator checks
 
@@ -63,6 +63,7 @@ When the change affects the canonical project model used by operator workflows
 or automation, keep the contract in:
 
 - `idea-backlog-contract.md`
+- `delivery-art-contract.md`
 
 ## Governance Rule
 
@@ -110,3 +111,12 @@ If the change affects shared platform entrypoints, also update:
 
 - `../../docs/architecture/current-platform-topology.md`
 - `../../docs/runbooks/access-platform-uis.md`
+
+When the change affects the canonical proposal-to-delivery project model or the
+broker's OpenProject access path, also update:
+
+- `idea-backlog-contract.md`
+- `delivery-art-contract.md`
+- `runbooks/configure-idea-backlog.md`
+- `runbooks/configure-delivery-art.md`
+- `runbooks/provision-operator-orchestration-identity.md`

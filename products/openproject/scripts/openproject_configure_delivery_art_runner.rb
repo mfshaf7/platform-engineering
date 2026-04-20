@@ -2,46 +2,68 @@
 
 require "json"
 
-RESULT_BEGIN = "__OPENPROJECT_IDEA_BACKLOG_BEGIN__"
-RESULT_END = "__OPENPROJECT_IDEA_BACKLOG_END__"
+RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_BEGIN__"
+RESULT_END = "__OPENPROJECT_DELIVERY_ART_END__"
 
-DEMO_PROJECT_IDENTIFIERS = %w[demo-project your-scrum-project].freeze
-PROJECT_IDENTIFIER = "workspace-proposals"
-PROJECT_NAME = "Workspace Proposals"
+PROJECT_IDENTIFIER = "workspace-delivery-art"
+PROJECT_NAME = "Workspace Delivery ART"
 PROJECT_DESCRIPTION = <<~TEXT.strip
-  Canonical backlog for captured ideas and proposals that originate from operator workflows.
+  Canonical delivery plane for accepted ideas that have moved out of Workspace Proposals.
 TEXT
 PROJECT_MODULES = %w[work_package_tracking].freeze
 
 TYPE_SPECS = [
-  { name: "Idea", description: "Default type for newly captured items." },
-  { name: "Governance Proposal", description: "Proposal targeting workspace or platform governance." },
-  { name: "Security Proposal", description: "Proposal targeting security posture or trust boundaries." },
-  { name: "Product Proposal", description: "Proposal targeting a product-level workflow or operating model." },
-  { name: "Component Proposal", description: "Proposal targeting a shared or product component." }
+  {
+    name: "Epic",
+    description: "Top-level delivery initiative for one consumed accepted idea.",
+    is_milestone: false
+  },
+  {
+    name: "Feature",
+    description: "Delivery feature inside the single-ART execution model.",
+    is_milestone: false
+  },
+  {
+    name: "Enabler",
+    description: "Delivery enabler needed for the single-ART execution model.",
+    is_milestone: false
+  },
+  {
+    name: "User story",
+    description: "User-facing or operator-facing delivery slice under a feature or enabler.",
+    is_milestone: false
+  },
+  {
+    name: "Task",
+    description: "Execution task inside the delivery ART project.",
+    is_milestone: false
+  },
+  {
+    name: "Milestone",
+    description: "Milestone marker inside the delivery ART project.",
+    is_milestone: true
+  }
 ].freeze
 
 STATUS_SPECS = [
-  { name: "captured", is_closed: false, default_done_ratio: 0 },
-  { name: "triaged", is_closed: false, default_done_ratio: 10 },
-  { name: "parked", is_closed: false, default_done_ratio: 25 },
-  { name: "owner-assigned", is_closed: false, default_done_ratio: 40 },
-  { name: "accepted", is_closed: false, default_done_ratio: 60 },
-  { name: "rejected", is_closed: true, default_done_ratio: 100 },
-  { name: "implemented", is_closed: true, default_done_ratio: 100 },
-  { name: "superseded", is_closed: true, default_done_ratio: 100 }
+  { name: "new", is_closed: false, default_done_ratio: 0 },
+  { name: "ready", is_closed: false, default_done_ratio: 20 },
+  { name: "in-progress", is_closed: false, default_done_ratio: 50 },
+  { name: "blocked", is_closed: false, default_done_ratio: 50 },
+  { name: "done", is_closed: true, default_done_ratio: 100 }
 ].freeze
 
 CUSTOM_FIELD_SPECS = [
   {
-    name: "Source Surface",
-    field_format: "string",
-    searchable: true,
+    name: "PM² Phase",
+    field_format: "list",
+    searchable: false,
     is_filter: true,
-    multi_value: false
+    multi_value: false,
+    possible_values: ["Initiating", "Planning", "Executing", "Closing"]
   },
   {
-    name: "Source Reference",
+    name: "Origin Idea Ref",
     field_format: "string",
     searchable: true,
     is_filter: true,
@@ -49,74 +71,94 @@ CUSTOM_FIELD_SPECS = [
     max_length: 512
   },
   {
-    name: "Delivery Ref",
+    name: "Sponsor",
     field_format: "string",
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 512
+    max_length: 255
   },
   {
-    name: "Suspected Owner",
+    name: "Business Objective",
     field_format: "string",
     searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024
+  },
+  {
+    name: "Success Criteria",
+    field_format: "string",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024
+  },
+  {
+    name: "Target PI",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255
+  },
+  {
+    name: "Blocker Statement",
+    field_format: "string",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024
+  },
+  {
+    name: "Blocker Impact",
+    field_format: "string",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024
+  },
+  {
+    name: "Blocker Owner",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255
+  },
+  {
+    name: "Blocker Discovered On",
+    field_format: "date",
+    searchable: false,
     is_filter: true,
     multi_value: false
   },
   {
-    name: "Affected Scope",
+    name: "Blocker Decision Path",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["remove", "workaround", "accept-risk", "defer"]
+  },
+  {
+    name: "Blocker Justification",
+    field_format: "string",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024
+  },
+  {
+    name: "Blocker Follow-Up Owner",
     field_format: "string",
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 512
+    max_length: 255
   },
   {
-    name: "Trust Boundary Areas",
-    field_format: "list",
-    searchable: false,
-    is_filter: true,
-    multi_value: true,
-    possible_values: %w[identity secrets delivery runtime ai]
-  },
-  {
-    name: "Promotion Target",
-    field_format: "list",
-    searchable: false,
-    is_filter: true,
-    multi_value: false,
-    possible_values: [
-      "workspace-governance",
-      "platform-engineering",
-      "security-architecture",
-      "product-repo"
-    ]
-  },
-  {
-    name: "Triage Decision ID",
-    field_format: "string",
-    searchable: true,
-    is_filter: true,
-    multi_value: false
-  },
-  {
-    name: "Triage Confidence",
-    field_format: "list",
-    searchable: false,
-    is_filter: true,
-    multi_value: false,
-    possible_values: %w[low medium high]
-  },
-  {
-    name: "AI Assist Lane",
-    field_format: "list",
-    searchable: false,
-    is_filter: true,
-    multi_value: false,
-    possible_values: %w[none local governed exception]
-  },
-  {
-    name: "Revisit On",
+    name: "Blocker Review Date",
     field_format: "date",
     searchable: false,
     is_filter: true,
@@ -158,7 +200,7 @@ def ensure_types!
     type.description = spec[:description]
     type.is_default = false
     type.is_standard = false
-    type.is_milestone = false
+    type.is_milestone = spec[:is_milestone]
     type.is_in_roadmap = false
     type.save!
     type
@@ -229,15 +271,6 @@ def rebuild_workflows!(types:, statuses:)
   end
 end
 
-deleted_projects = []
-DEMO_PROJECT_IDENTIFIERS.each do |identifier|
-  project = Project.find_by(identifier: identifier)
-  next unless project
-
-  deleted_projects << { id: project.id, identifier: project.identifier, name: project.name }
-  project.destroy!
-end
-
 statuses = ensure_statuses!
 types = ensure_types!
 project = ensure_project!(types: types)
@@ -251,7 +284,6 @@ rebuild_workflows!(types: types, statuses: statuses)
 project.reload
 
 result = {
-  deleted_projects: deleted_projects,
   project: {
     id: project.id,
     identifier: project.identifier,
@@ -266,8 +298,20 @@ result = {
       }
     end
   },
-  statuses: statuses.map { |status| { id: status.id, name: status.name, is_closed: status.is_closed } },
-  types: types.map { |type| { id: type.id, name: type.name, workflow_count: Workflow.where(type_id: type.id).count } }
+  statuses: statuses.map do |status|
+    {
+      id: status.id,
+      name: status.name,
+      is_closed: status.is_closed
+    }
+  end,
+  types: types.map do |type|
+    {
+      id: type.id,
+      is_milestone: type.is_milestone,
+      name: type.name
+    }
+  end
 }
 
 puts RESULT_BEGIN

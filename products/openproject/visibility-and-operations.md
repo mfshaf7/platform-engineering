@@ -48,6 +48,10 @@ Minimum meaningful checks:
 - PostgreSQL dependency reachable
 - application pod stable after reconciliation
 
+Before activating a real production proposal-to-delivery workflow, also run:
+
+- [runbooks/prepare-production-clean-start.md](runbooks/prepare-production-clean-start.md)
+
 Backup and restore procedure lives in:
 
 - [runbooks/openproject-backup-restore.md](runbooks/openproject-backup-restore.md)

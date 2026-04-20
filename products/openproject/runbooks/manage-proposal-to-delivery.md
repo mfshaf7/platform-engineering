@@ -173,8 +173,8 @@ Also record:
 
 ## Production Clean-Start Rule
 
-If this workflow is later activated in a real `prod` environment, start from a
-clean state.
+If this workflow is later activated in a real `prod` environment, the initial
+production activation must start from a clean state.
 
 That means:
 
@@ -185,7 +185,7 @@ That means:
 - no placeholder PI values or fake governance records carried over as if they
   were real delivery history
 
-Required production baseline:
+Required initial production baseline:
 
 - proposal plane contains only real operator proposals or explicitly curated
   historical imports
@@ -195,6 +195,15 @@ Required production baseline:
 
 If you want seed data in production at all, import only vetted real records
 with explicit provenance. Do not promote local or stage rehearsal data.
+
+After the production plane is live, it should keep its own production history.
+The clean-start rule only applies to the initial activation gate.
+
+Before activating that production plane, run:
+
+```bash
+make openproject-verify-clean-start REQUIRE_EMPTY=true
+```
 
 ## Related References
 

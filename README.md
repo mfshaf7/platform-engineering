@@ -195,6 +195,7 @@ product-neutral.
   - `make openproject-sync-admin-password`
   - `make openproject-configure-idea-backlog`
   - `make openproject-configure-delivery-art`
+  - `make openproject-consume-accepted-idea`
   - `make openproject-provision-operator-orchestration-identity`
   - `make openproject-provision-operator-orchestration-delivery-access`
   - `make openproject-uninstall`

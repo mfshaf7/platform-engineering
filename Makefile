@@ -17,6 +17,7 @@ help:
 	@printf "  openproject-sync-admin-password Reconcile the admin password from Vault-backed secret into OpenProject\n"
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
 	@printf "  openproject-configure-delivery-art Provision the workspace delivery ART project model\n"
+	@printf "  openproject-consume-accepted-idea Consume one accepted proposal into the delivery ART through the broker-owned internal route\n"
 	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
 	@printf "  openproject-provision-operator-orchestration-delivery-access Grant the broker service identity access to both proposal and delivery projects\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
@@ -124,6 +125,12 @@ openproject-configure-idea-backlog:
 .PHONY: openproject-configure-delivery-art
 openproject-configure-delivery-art:
 	./products/openproject/scripts/openproject_configure_delivery_art.sh
+
+.PHONY: openproject-consume-accepted-idea
+openproject-consume-accepted-idea:
+	@test -n "$(IDEA_ID)" || { echo "IDEA_ID is required, for example: make openproject-consume-accepted-idea IDEA_ID=idea-64 TARGET_PI=PI-2026-02 OPERATOR_ID=mfshaf7 OPERATOR_HANDLE=mfshaf7"; exit 1; }
+	IDEA_ID="$(IDEA_ID)" TARGET_PI="$(TARGET_PI)" OPERATOR_ID="$(OPERATOR_ID)" OPERATOR_HANDLE="$(OPERATOR_HANDLE)" \
+	./products/openproject/scripts/openproject_consume_accepted_idea.sh
 
 .PHONY: openproject-provision-operator-orchestration-identity
 openproject-provision-operator-orchestration-identity:

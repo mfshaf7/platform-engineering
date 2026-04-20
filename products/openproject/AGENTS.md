@@ -16,6 +16,7 @@ declared, operated, and verified on this platform.
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
+- `runbooks/manage-proposal-to-delivery.md`
 - `scripts/README.md`
 - `runbooks/README.md`
 
@@ -117,6 +118,7 @@ broker's OpenProject access path, also update:
 
 - `idea-backlog-contract.md`
 - `delivery-art-contract.md`
+- `runbooks/manage-proposal-to-delivery.md`
 - `runbooks/configure-idea-backlog.md`
 - `runbooks/configure-delivery-art.md`
 - `runbooks/provision-operator-orchestration-identity.md`

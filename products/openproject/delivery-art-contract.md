@@ -98,6 +98,16 @@ Recommended additional governance fields on the top-level initiative:
 
 The PM² phase is not the same thing as Kanban execution status.
 
+In the current v1 UI, `PM²` appears as:
+
+- the top-level delivery `Epic`
+- field `PM² Phase`
+- companion governance fields such as `Sponsor`, `Business Objective`,
+  `Success Criteria`, and `Target PI`
+
+There is no separate PM² plugin or board package yet. The governance overlay is
+carried by the delivery record shape itself.
+
 ## Execution Status Model
 
 Execution tracking should stay separate from proposal lifecycle.
@@ -204,6 +214,22 @@ Rules:
 - source proposal may move to `superseded` if a newer accepted record replaces
   it
 - delivery execution statuses must not be pushed back into proposal status
+
+## Production Activation Hygiene
+
+If this delivery plane is later activated in a real `prod` environment, it
+must start from a clean state.
+
+That means:
+
+- no dev-integration rehearsal epics
+- no governed stage proof records
+- no placeholder PI values carried over as if they were real production plans
+- no copied backlinks from local or stage rehearsal
+- no test blocker records or fabricated PM² governance data
+
+The first production delivery `Epic` should originate from a real accepted
+production proposal, not a rehearsal consume run.
 
 ## Initial Operating Model
 

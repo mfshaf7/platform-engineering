@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: operator-orchestration-service
-          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:b948c5b26c847428ca8e5b2556a1adb30b40adb09770c14ce4279c198dbfc5da
+          image: ghcr.io/mfshaf7/operator-orchestration-service@sha256:f167f8257dfd7b89fb3e73ff006d6faf831614fc3dea566b2e553a9cf3f7581f
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -28,8 +28,12 @@ spec:
               value: 127.0.0.1:32083
             - name: OPENPROJECT_PROJECT_IDENTIFIER
               value: workspace-proposals
+            - name: OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER
+              value: workspace-delivery-art
             - name: OPENPROJECT_IDEA_TYPE_ID
               value: "41"
+            - name: OPENPROJECT_DELIVERY_TOP_LEVEL_TYPE_ID
+              value: "38"
             - name: OPENPROJECT_CAPTURED_STATUS_ID
               value: "81"
             - name: OPENPROJECT_TRIAGED_STATUS_ID
@@ -40,6 +44,8 @@ spec:
               value: "85"
             - name: OPENPROJECT_REJECTED_STATUS_ID
               value: "80"
+            - name: OPENPROJECT_DELIVERY_NEW_STATUS_ID
+              value: "67"
             - name: OPENPROJECT_CUSTOM_FIELD_SUSPECTED_OWNER_ID
               value: "3"
             - name: OPENPROJECT_CUSTOM_FIELD_AFFECTED_SCOPE_ID
@@ -54,6 +60,14 @@ spec:
               value: "1"
             - name: OPENPROJECT_CUSTOM_FIELD_SOURCE_REFERENCE_ID
               value: "2"
+            - name: OPENPROJECT_CUSTOM_FIELD_DELIVERY_REF_ID
+              value: "25"
+            - name: OPENPROJECT_DELIVERY_CUSTOM_FIELD_ORIGIN_IDEA_REF_ID
+              value: "12"
+            - name: OPENPROJECT_DELIVERY_CUSTOM_FIELD_PM2_PHASE_ID
+              value: "11"
+            - name: OPENPROJECT_DELIVERY_CUSTOM_FIELD_TARGET_PI_ID
+              value: "16"
             - name: WORKSPACE_OWNER_TOKENS_JSON
               value: '["component:argo-cd","component:external-secrets","component:host-control-plugin","component:observability","component:openclaw-host-bridge","component:openclaw-runtime-distribution","component:openclaw-telegram-channel","component:operator-orchestration-service","component:platform-postgresql","component:vault","product:openclaw","product:openproject","repo:openclaw-host-bridge","repo:openclaw-runtime-distribution","repo:openclaw-telegram-enhanced","repo:operator-orchestration-service","repo:platform-engineering","repo:security-architecture","repo:workspace-governance"]'
             - name: WORKSPACE_SCOPE_TOKENS_JSON

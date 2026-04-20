@@ -65,6 +65,7 @@ do not imply a separate OpenClaw-style governed promotion lane.
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
+- [runbooks/manage-proposal-to-delivery.md](runbooks/manage-proposal-to-delivery.md)
 - [scripts/README.md](scripts/README.md)
 - [runbooks/README.md](runbooks/README.md)
 

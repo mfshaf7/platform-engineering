@@ -127,6 +127,21 @@ Rules:
   `origin_idea_ref`
 - source proposal lifecycle must not be replaced with delivery execution status
 
+## Production Activation Hygiene
+
+If this two-plane model is later activated in a real `prod` environment, the
+proposal plane must start from a clean state.
+
+That means:
+
+- no dev-integration smoke records
+- no governed stage rehearsal records
+- no placeholder or manually fabricated test proposals
+- no rehearsal-only `Delivery Ref` values carried forward as production data
+
+If historical proposal records are imported into production, they must be real
+records with explicit provenance. Rehearsal data is not an acceptable seed set.
+
 ## Dev-Integration Profile Requests
 
 The `dev-integration` profile admission model is owned generically in

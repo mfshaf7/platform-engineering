@@ -26,12 +26,16 @@ Only profiles with:
 
 are self-serve launchable from the shared runner.
 
-Current example:
+Current active profiles:
 
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/idea-workflow/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/idea-workflow/profile.yaml)
+- `accepted-idea-delivery`
+  - owner repo: `operator-orchestration-service`
+  - profile path:
+    [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery/profile.yaml)
 
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.

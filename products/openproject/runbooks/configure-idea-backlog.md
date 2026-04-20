@@ -48,6 +48,8 @@ make openproject-configure-idea-backlog
   - `implemented`
   - `superseded`
 - project-scoped custom fields exist for the backlog workflow
+  - including the `Delivery Ref` backlink field used once accepted proposals
+    are consumed into the separate ART project
 
 ## Verification
 

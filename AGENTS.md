@@ -146,6 +146,7 @@ Examples:
 - `make openclaw-gateway-promote`
 - `make openproject-apply`
 - `make devint-up PROFILE=idea-workflow`
+- `make devint-up PROFILE=accepted-idea-delivery`
 
 When you add or change a product-specific operator flow, update:
 

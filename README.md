@@ -194,7 +194,9 @@ product-neutral.
   - `make openproject-access`
   - `make openproject-sync-admin-password`
   - `make openproject-configure-idea-backlog`
+  - `make openproject-configure-delivery-art`
   - `make openproject-provision-operator-orchestration-identity`
+  - `make openproject-provision-operator-orchestration-delivery-access`
   - `make openproject-uninstall`
 
 Historical Docker-to-`Platform-Core` migration helpers remain available only as

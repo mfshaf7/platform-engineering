@@ -9,10 +9,12 @@ uses the shared platform control plane.
 ## What This Directory Covers
 
 - runtime contract
-- delivery ART contract
+- proposal backlog and delivery ART project contracts
 - dependencies
 - secrets and non-secret config expectations
 - visibility and operating checks
+- product-scoped operator scripts and runbooks for the OpenProject workflow
+  model
 
 ## What It Does Not Cover
 
@@ -44,6 +46,14 @@ That means:
 
 The highest implemented endpoint today is the platform-managed OpenProject
 runtime on the local cluster plus its documented operator procedures.
+
+The canonical OpenProject workflow model now has two distinct planes:
+
+- `Workspace Proposals` for intake and proposal triage
+- `Workspace Delivery ART` for accepted work that moves into tracked delivery
+
+Both remain platform-managed operator flows inside this product directory. They
+do not imply a separate OpenClaw-style governed promotion lane.
 
 ## Start Here
 

@@ -24,11 +24,24 @@ This converges:
 - the canonical `workspace-proposals` backlog model already exists
 - `VAULT_TOKEN` is set for a token that can write the target Vault path
 
+Additional precondition for delivery-plane access:
+
+- the canonical `workspace-delivery-art` project already exists
+
 ## Command
+
+For the current proposal backlog only:
 
 ```bash
 export VAULT_TOKEN='...'
 make openproject-provision-operator-orchestration-identity
+```
+
+For the accepted-idea delivery baseline:
+
+```bash
+export VAULT_TOKEN='...'
+make openproject-provision-operator-orchestration-delivery-access
 ```
 
 ## Optional Rotation
@@ -52,11 +65,15 @@ OPENPROJECT_ROTATE_API_TOKEN=true \
 - Vault path `kv/components/operator-orchestration-service/prod/openproject`
   contains key `apiToken`
 
+When the delivery-access target is used:
+
+- the user is also a member of `workspace-delivery-art`
+
 ## Verification
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "user = User.find_by!(login: \"operator-orchestration-service\"); project = Project.find_by!(identifier: \"workspace-proposals\"); member = Member.find_by!(project: project, principal: user); puts({login: user.login, admin: user.admin, roles: member.roles.order(:name).pluck(:name), tokens: user.api_tokens.where(token_name: \"openproject-workspace-proposals-v1\").count}.to_json)"'
+  sh -lc 'bundle exec rails runner "user = User.find_by!(login: \"operator-orchestration-service\"); projects = Project.where(identifier: [\"workspace-proposals\", \"workspace-delivery-art\"]).order(:identifier).map { |project| member = Member.find_by(project: project, principal: user); {identifier: project.identifier, roles: member&.roles&.order(:name)&.pluck(:name) || []} }; puts({login: user.login, admin: user.admin, projects: projects, tokens: user.api_tokens.where(token_name: \"openproject-workspace-proposals-v1\").count}.to_json)"'
 ```
 
 ```bash

@@ -16,7 +16,9 @@ help:
 	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
 	@printf "  openproject-sync-admin-password Reconcile the admin password from Vault-backed secret into OpenProject\n"
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
+	@printf "  openproject-configure-delivery-art Provision the workspace delivery ART project model\n"
 	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
+	@printf "  openproject-provision-operator-orchestration-delivery-access Grant the broker service identity access to both proposal and delivery projects\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "  devint-up Launch or converge a local-k3s dev-integration profile\n"
 	@printf "  devint-status Show the current local-k3s dev-integration profile state\n"
@@ -119,8 +121,17 @@ openproject-sync-admin-password:
 openproject-configure-idea-backlog:
 	./products/openproject/scripts/openproject_configure_idea_backlog.sh
 
+.PHONY: openproject-configure-delivery-art
+openproject-configure-delivery-art:
+	./products/openproject/scripts/openproject_configure_delivery_art.sh
+
 .PHONY: openproject-provision-operator-orchestration-identity
 openproject-provision-operator-orchestration-identity:
+	./products/openproject/scripts/openproject_provision_operator_orchestration_identity.sh
+
+.PHONY: openproject-provision-operator-orchestration-delivery-access
+openproject-provision-operator-orchestration-delivery-access:
+	OPENPROJECT_AUTOMATION_PROJECT_IDENTIFIERS_JSON='["workspace-proposals","workspace-delivery-art"]' \
 	./products/openproject/scripts/openproject_provision_operator_orchestration_identity.sh
 
 .PHONY: openproject-uninstall

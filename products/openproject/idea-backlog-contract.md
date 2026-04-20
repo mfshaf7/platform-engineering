@@ -103,6 +103,8 @@ The canonical backlog record must express at least:
 - description or body
 - source surface
 - source reference
+- delivery ref when the accepted proposal has already been consumed into the
+  delivery ART
 - suspected owner
 - affected scope
 - workflow status
@@ -167,6 +169,8 @@ Phase 1 should provision these custom fields in OpenProject:
   - example: `telegram`
 - `Source Reference`
   - canonical source ref such as chat/topic/message tuple
+- `Delivery Ref`
+  - durable backlink to the consumed delivery record when one exists
 - `Suspected Owner`
   - repo or product owner guess
 - `Affected Scope`

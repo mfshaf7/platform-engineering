@@ -76,18 +76,51 @@ runtime would not have been able to persist the source backlink durably.
 
 ## Live Verification
 
-- pending after merge:
-  - `platform-root-shared` refresh onto the new deployment manifest
-  - broker pod rollout to digest `sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a`
-  - broker `/healthz`, `/readyz`, and `/version`
-  - one governed consume rehearsal against the real OpenProject runtime with:
-    - accepted idea lookup
-    - delivery-art project verification
-    - consume accepted idea
-    - backlink verification
+- shared runtime deployment:
+  - Argo child app `operator-orchestration-service` reached `Healthy Synced` on
+    revision `9b87557ea2f2f1ff80586d0e614bc921ab585d7e`
+  - deployment spec image:
+    - `ghcr.io/mfshaf7/operator-orchestration-service@sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a`
+  - live broker pod:
+    - `operator-orchestration-service-bc7c599b5-fh7lz`
+  - broker self-checks from the live pod returned `200`:
+    - `/healthz`:
+      - `{"ok":true,"status":"live"}`
+    - `/readyz`:
+      - `{"ready":true,"failing":[],"checks":{"openproject":"reachable","openproject_target":"openproject://projects/workspace-proposals"}}`
+    - `/version`:
+      - `{"service":"operator-orchestration-service","version":"0.1.0","gitCommit":null,"callerAuthMode":"required"}`
+- governed shared-runtime consume confirmation:
+  - run id:
+    - `aid-live-20260420112208`
+  - correlation ids:
+    - capture: `aid-live-20260420112208-capture`
+    - triage: `aid-live-20260420112208-triage`
+    - decision: `aid-live-20260420112208-decision`
+    - lookup: `aid-live-20260420112208-lookup`
+    - consume: `aid-live-20260420112208-consume`
+    - final lookup: `aid-live-20260420112208-final-lookup`
+  - accepted idea lookup returned:
+    - `idea-62`
+  - delivery-art project verification returned:
+    - project id `37`
+    - identifier `workspace-delivery-art`
+  - consume returned:
+    - `delivery_created=true`
+    - `source_updated=true`
+    - `delivery_ref=openproject://work_packages/63`
+    - `delivery_pm2_phase=Initiating`
+    - `target_pi=PI-2026-02`
+  - backlink verification confirmed:
+    - broker projection `delivery_ref=openproject://work_packages/63`
+    - source proposal `delivery_ref=openproject://work_packages/63`
+    - delivery record `origin_idea_ref=idea-62`
+    - delivery record `PM² Phase=Initiating`
+    - delivery record `Target PI=PI-2026-02`
 
 ## Follow-Up Actions
 
-- merge this shared runtime rollout first
-- wait for Argo to reconcile `operator-orchestration-service`
-- capture the governed live rehearsal in a separate stage evidence record
+- the shared-runtime rollout is complete; do not use this record as a
+  substitute for governed `stage` evidence
+- stage handoff still requires a separate stage rehearsal and stage evidence
+  record for accepted-idea delivery

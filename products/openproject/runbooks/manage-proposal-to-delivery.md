@@ -204,8 +204,8 @@ deletion, use the supported parking command instead of manual UI cleanup:
 
 ## Production Clean-Start Rule
 
-If this workflow is later activated in a real `prod` environment, the initial
-production activation must start from a clean state.
+If this workflow is later activated in a real `prod` environment, the
+production plane must be noise-free and provenance-safe before activation.
 
 That means:
 
@@ -216,21 +216,41 @@ That means:
 - no placeholder PI values or fake governance records carried over as if they
   were real delivery history
 
-Required initial production baseline:
+Allowed production-plane history:
+
+- real production proposals and delivery records already created there
+- curated historical imports with explicit provenance
+- an explicitly approved promoted ART baseline, including the current
+  validated proposal and delivery history when it is being carried into
+  production deliberately
+
+Required production activation baseline:
 
 - proposal plane contains only real operator proposals or explicitly curated
   historical imports
 - delivery plane contains no rehearsal-generated execution records
-- the first production delivery `Epic` originates from a real accepted proposal
-  in the production proposal plane
+- any existing delivery `Epic` history originates from real accepted production
+  proposals or curated imports with explicit provenance
 
 If you want seed data in production at all, import only vetted real records
 with explicit provenance. Do not promote local or stage rehearsal data.
 
-After the production plane is live, it should keep its own production history.
-The clean-start rule only applies to the initial activation gate.
+An empty production plane is still a valid and stricter first-activation
+choice, but it is no longer mandatory when the existing records are already
+noise-free and provenance-safe.
+
+Promoted baseline history is allowed here only when it is the intentional
+production starting point. Smoke, demo, and rehearsal-only records are still
+not allowed.
 
 Before activating that production plane, run:
+
+```bash
+make openproject-verify-clean-start
+```
+
+Use the stricter empty-plane mode only when you explicitly want that stronger
+initial activation gate:
 
 ```bash
 make openproject-verify-clean-start REQUIRE_EMPTY=true

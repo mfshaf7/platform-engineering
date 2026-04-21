@@ -130,7 +130,7 @@ Rules:
 ## Production Activation Hygiene
 
 If this two-plane model is later activated in a real `prod` environment, the
-proposal plane must start from a clean state.
+proposal plane must be noise-free and provenance-safe.
 
 That means:
 
@@ -139,8 +139,15 @@ That means:
 - no placeholder or manually fabricated test proposals
 - no rehearsal-only `Delivery Ref` values carried forward as production data
 
-If historical proposal records are imported into production, they must be real
-records with explicit provenance. Rehearsal data is not an acceptable seed set.
+Allowed existing production-plane history:
+
+- real production proposals already created there
+- vetted historical imports with explicit provenance
+- an explicitly approved promoted proposal-plane baseline, including the
+  current validated ART/proposal history when it is being carried into
+  production deliberately
+
+Smoke, demo, and rehearsal-only data are not acceptable seed sets.
 
 ## Dev-Integration Profile Requests
 

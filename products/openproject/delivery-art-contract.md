@@ -584,7 +584,7 @@ Rules:
 ## Production Activation Hygiene
 
 If this delivery plane is later activated in a real `prod` environment, it
-must start from a clean state.
+must be noise-free and provenance-safe.
 
 That means:
 
@@ -594,8 +594,16 @@ That means:
 - no copied backlinks from local or stage rehearsal
 - no test blocker records or fabricated PM² governance data
 
-The first production delivery `Epic` should originate from a real accepted
-production proposal, not a rehearsal consume run.
+Allowed existing production-plane history:
+
+- real production delivery epics already created there
+- vetted historical imports with explicit provenance
+- an explicitly approved promoted delivery baseline, including the current
+  validated ART history when it is being carried into production deliberately
+
+Production delivery history still must originate from real accepted production
+proposals, explicit curated imports, or an approved promoted baseline, not
+smoke, demo, or rehearsal-only consume runs.
 
 ## Initial Operating Model
 

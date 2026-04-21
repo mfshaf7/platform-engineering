@@ -64,7 +64,7 @@ openproject_pod() {
 need_cmd "${KUBECTL%% *}"
 
 if [[ -z "${TARGET_WORK_PACKAGE_ID}" ]]; then
-  echo "TARGET_WORK_PACKAGE_ID is required, for example: make openproject-update-delivery-work-item TARGET_WORK_PACKAGE_ID=40 STATUS=in-progress ASSIGNEE_LOGIN=admin" >&2
+  echo "TARGET_WORK_PACKAGE_ID is required, for example: make openproject-update-delivery-work-item TARGET_WORK_PACKAGE_ID=40 STATUS=in-progress TARGET_PI=PI-2026-02" >&2
   exit 1
 fi
 

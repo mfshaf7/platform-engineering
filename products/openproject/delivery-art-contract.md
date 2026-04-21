@@ -218,6 +218,11 @@ Child delivery work should instead carry:
 - `remaining work`
 - `% complete`
 - assignee or responsible owner
+
+For broker-backed create and update surfaces, an assignee login is valid only
+when OpenProject exposes that principal as assignable in the target project or
+work-item form. The delivery workflow contract should not promise arbitrary
+user assignment outside that backend rule.
 - `Delivery Team`
 - `Iteration`
 - `Acceptance Criteria`

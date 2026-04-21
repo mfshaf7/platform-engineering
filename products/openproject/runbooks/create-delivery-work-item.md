@@ -29,7 +29,6 @@ make openproject-create-delivery-work-item \
   SUBJECT="Inventory repo split boundary" \
   STATUS=ready \
   TARGET_PI=PI-2026-02 \
-  ASSIGNEE_LOGIN=admin \
   START_DATE=2026-04-21 \
   DUE_DATE=2026-04-25 \
   ESTIMATED_WORK=8 \
@@ -80,6 +79,8 @@ Behavior:
 
 - creates exactly one new child item under the requested parent
 - sends the create request through the broker-owned internal delivery API
+- when `ASSIGNEE_LOGIN` is supplied, it must be a login that OpenProject
+  exposes as assignable in the target project
 - fails if a sibling already exists with the same `parent + type + subject`
 - inherits the parent priority
 - inherits the parent PI when `TARGET_PI` is not supplied
@@ -114,7 +115,9 @@ In the OpenProject UI:
 - open `Workspace Delivery ART`
 - open the parent work item
 - confirm the new child item exists under the correct parent
-- confirm the intended `Status`, `Target PI`, and `Assignee` values
+- confirm the intended `Status` and `Target PI` values
+- if `ASSIGNEE_LOGIN` was supplied, confirm the chosen login is assignable in
+  the project and appears on the created item
 - confirm any supplied schedule and progress values are present
 - confirm any supplied structured SAFe fields appear on the new record
 

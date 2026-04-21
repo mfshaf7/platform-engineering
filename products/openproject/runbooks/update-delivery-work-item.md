@@ -36,7 +36,6 @@ Run from `platform-engineering/`:
 make openproject-update-delivery-work-item \
   TARGET_WORK_PACKAGE_ID=40 \
   STATUS=in-progress \
-  ASSIGNEE_LOGIN=admin \
   TARGET_PI=PI-2026-02 \
   START_DATE=2026-04-21 \
   DUE_DATE=2026-04-25 \
@@ -97,6 +96,8 @@ Rules:
 
 - `TARGET_PI` and `CLEAR_TARGET_PI=true` are mutually exclusive
 - `ASSIGNEE_LOGIN` and `CLEAR_ASSIGNEE=true` are mutually exclusive
+- when `ASSIGNEE_LOGIN` is supplied, it must be a login that OpenProject
+  exposes as assignable on the target work item
 - `CLEAR_DESCRIPTION=true` removes the current description
 - `CLEAR_START_DATE=true`, `CLEAR_DUE_DATE=true`, `CLEAR_ESTIMATED_WORK=true`,
   and `CLEAR_REMAINING_WORK=true` remove those values
@@ -117,8 +118,7 @@ For the `accepted-idea-delivery` devint lane, also set the namespace:
 make openproject-update-delivery-work-item \
   OPENPROJECT_NAMESPACE=devint-accepted-idea-delivery-mfshaf7 \
   TARGET_WORK_PACKAGE_ID=40 \
-  STATUS=in-progress \
-  ASSIGNEE_LOGIN=admin
+  STATUS=in-progress
 ```
 
 ## Expected Outcome
@@ -135,7 +135,9 @@ In the OpenProject UI:
 
 - open `Workspace Delivery ART`
 - open the target work item
-- confirm the intended `Status`, `Target PI`, `Assignee`, and description values
+- confirm the intended `Status`, `Target PI`, and description values
+- if `ASSIGNEE_LOGIN` was supplied, confirm the chosen login is assignable on
+  the target work item and appears on the record
 - confirm any supplied schedule and progress values reflect the intended state
 - confirm any supplied structured SAFe fields reflect the intended values
 - if `WORK_NOTE` was supplied, confirm the note appears either in the activity history or in the `Operator work notes` description section

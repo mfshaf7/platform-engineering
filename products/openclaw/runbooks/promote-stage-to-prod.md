@@ -123,8 +123,13 @@ always-on listener.
 - resume stage through
   `products/openclaw/scripts/set_stage_environment_state.py`, not by editing
   the stage Argo kustomization by hand
-- the resume path must start `openclaw-host-bridge-stage.service` and confirm
-  its health before the stage gateway is allowed back online
-- the suspend path should stop `openclaw-host-bridge-stage.service` after the
-  stage gateway is removed
+- the resume path must enable and start
+  `openclaw-host-bridge-stage.service`, then confirm both bridge health and an
+  authenticated request-path probe before the stage gateway is treated as
+  ready
+- the suspend path should stop and disable
+  `openclaw-host-bridge-stage.service` after the stage gateway is removed
+- `set_stage_environment_state.py status` should be treated as the truthful
+  local stage readiness check because it now reports bridge-path degradation as
+  well as Git-managed component intent
 - prod steady state should keep only the prod bridge listener online

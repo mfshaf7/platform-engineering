@@ -91,6 +91,11 @@ python3 products/openclaw/scripts/set_prod_environment_state.py status
 python3 products/openclaw/scripts/set_stage_environment_state.py status
 ```
 
+For OpenClaw stage, treat that status command as a bridge-aware readiness
+surface, not just a Git-managed component summary. When stage `gateway` is
+active, it now exits non-zero if the local stage bridge request path is
+degraded.
+
 ## Product-Specific Access
 
 Use the shared component docs for shared services:

@@ -27,8 +27,15 @@ blocker_field_names = [
   "Blocker Follow-Up Owner",
   "Blocker Review Date"
 ]
+inactive_field_names = [
+  "Parking Decision",
+  "Parking Reason",
+  "Parking Review Date",
+  "Retirement Reason"
+]
 
-custom_fields = project.work_package_custom_fields.where(name: blocker_field_names).index_by(&:name)
+custom_fields = project.work_package_custom_fields.where(name: blocker_field_names + inactive_field_names).index_by(&:name)
+inactive_statuses = %w[parked retired].freeze
 
 work_packages = WorkPackage.where(project_id: project.id).to_a
 children_by_parent_id = Hash.new { |hash, key| hash[key] = [] }
@@ -54,6 +61,14 @@ end
 
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
+    field = custom_fields[field_name]
+    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    [field_name, value]
+  end
+end
+
+read_inactive_fields = lambda do |entry|
+  inactive_field_names.to_h do |field_name|
     field = custom_fields[field_name]
     value = field ? entry.custom_value_for(field)&.value.presence : nil
     [field_name, value]
@@ -87,6 +102,8 @@ end
 node_summary = lambda do |entry|
   blocker_fields = read_blocker_fields.call(entry)
   blocker_active = blocker_fields.values.any?(&:present?)
+  inactive_fields = read_inactive_fields.call(entry)
+  inactive_fields_present = inactive_fields.values.any?(&:present?)
   completion_state = completion_evidence_state.call(entry)
   {
     id: entry.id,
@@ -102,7 +119,8 @@ node_summary = lambda do |entry|
     blocked: blocker_active || entry.status&.name == "blocked",
     completion_evidence_present: completion_state[:present],
     completion_evidence_sections: completion_state[:sections],
-    blocker_fields: blocker_active ? blocker_fields : nil
+    blocker_fields: blocker_active ? blocker_fields : nil,
+    inactive_scope_fields: (inactive_fields_present || inactive_statuses.include?(entry.status&.name)) ? inactive_fields : nil
   }
 end
 
@@ -125,7 +143,8 @@ all_nodes = flatten_tree.call(root_tree)
 descendant_nodes = all_nodes.reject { |node| node[:id] == epic.id }
 
 parked_items = descendant_nodes.select { |node| node[:status] == "parked" }
-active_open_items = descendant_nodes.reject { |node| %w[done parked].include?(node[:status]) }
+retired_items = descendant_nodes.select { |node| node[:status] == "retired" }
+active_open_items = descendant_nodes.reject { |node| ["done", *inactive_statuses].include?(node[:status]) }
 blocked_items = descendant_nodes.select { |node| node[:blocked] }
 completed_without_evidence = descendant_nodes.select do |node|
   node[:status] == "done" && !node[:completion_evidence_present]
@@ -152,6 +171,7 @@ result = {
     total_descendants: descendant_nodes.length,
     open_descendant_count: active_open_items.length,
     parked_count: parked_items.length,
+    retired_count: retired_items.length,
     blocked_count: blocked_items.length,
     completed_without_evidence_count: completed_without_evidence.length,
     by_status: counts.call(descendant_nodes, :status),
@@ -161,6 +181,7 @@ result = {
   },
   open_descendants: active_open_items,
   parked_items: parked_items,
+  retired_items: retired_items,
   blocked_items: blocked_items,
   completed_without_evidence: completed_without_evidence
 }

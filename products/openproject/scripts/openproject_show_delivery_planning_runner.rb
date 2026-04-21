@@ -4,7 +4,8 @@ require "json"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 include_done = ENV.fetch("INCLUDE_DONE", "false") == "true"
-include_parked = ENV.fetch("INCLUDE_PARKED", "false") == "true"
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
+inactive_statuses = %w[parked retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -125,7 +126,7 @@ end
 
 descendants = build_descendants.call(epic.id)
 descendants = descendants.reject { |entry| entry.status&.name == "done" } unless include_done
-descendants = descendants.reject { |entry| entry.status&.name == "parked" } unless include_parked
+descendants = descendants.reject { |entry| inactive_statuses.include?(entry.status&.name) } unless include_inactive
 
 planning_items = descendants.map do |entry|
   ready_state = ready_contract_state.call(entry)
@@ -214,7 +215,7 @@ result = {
   },
   summary: {
     include_done: include_done,
-    include_parked: include_parked,
+    include_inactive: include_inactive,
     total_items: planning_items.length,
     by_status: counts.call(planning_items, :status),
     by_type: counts.call(planning_items, :type),

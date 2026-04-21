@@ -8,7 +8,7 @@ through a supported read-only operator surface.
 Use this when you need to inspect:
 
 - which delivery initiatives currently exist
-- which initiatives are still active versus `done`
+- which initiatives are still active versus inactive or `done`
 - which initiatives are PI-scoped
 - which initiatives carry blocked descendants
 - which initiatives still carry `ready` items that violate the execution contract
@@ -67,14 +67,15 @@ make openproject-show-delivery-initiatives
 Optional fields:
 
 - `INCLUDE_DONE=true|false`
-- `INCLUDE_PARKED=true|false`
+- `INCLUDE_INACTIVE=true|false`
+- `INCLUDE_PARKED=true|false` as a backward-compatible alias
 
 Examples:
 
 ```bash
 make openproject-show-delivery-initiatives \
   INCLUDE_DONE=false \
-  INCLUDE_PARKED=false
+  INCLUDE_INACTIVE=false
 ```
 
 For the `accepted-idea-delivery` devint lane, also set the namespace:
@@ -92,7 +93,7 @@ The command prints JSON with:
 - summary counts for total, active, blocked, and closeout-ready initiatives
 - closeout readiness that already accounts for missing completion evidence on
   `done` descendants
-- summary counts for parked initiatives and parked descendants
+- summary counts for parked initiatives, retired initiatives, and inactive descendants
 - summary counts for dependency links, unresolved dependencies, and cross-initiative dependencies
 - summary counts for PI objectives, ART risks, ready-contract gaps, and
   system-demo / inspect-and-adapt coverage
@@ -115,7 +116,9 @@ when you already know the active initiative.
 Default visibility:
 
 - `INCLUDE_DONE=true` shows completed initiatives
-- `INCLUDE_PARKED=false` keeps parked descendant details out of the per-initiative detail by default while still reporting parked counts
+- `INCLUDE_INACTIVE=false` keeps inactive descendant details (`parked` and
+  `retired`) out of the per-initiative detail by default while still reporting
+  inactive counts
 
 ## Verification
 
@@ -124,7 +127,7 @@ In the OpenProject UI:
 - open `Workspace Delivery ART`
 - compare the top-level `Epic` list with the command output
 - confirm `PM² Phase`, `Target PI`, and initiative status match the UI
-- open any initiative reported as blocked, parked, or closeout-ready and verify the
+- open any initiative reported as blocked, parked, retired, or closeout-ready and verify the
   details match the current delivery tree
 - confirm dependency counts and external dependency details match the relations shown on the affected work items
 - run [check-delivery-art-quality.md](check-delivery-art-quality.md) before

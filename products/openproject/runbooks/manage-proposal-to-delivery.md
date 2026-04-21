@@ -139,6 +139,7 @@ Current execution statuses:
 - `in-progress`
 - `blocked`
 - `parked`
+- `retired`
 - `done`
 
 To seed the first execution tree under a consumed delivery `Epic`, use:
@@ -201,6 +202,9 @@ When a delivery item is intentionally removed from active scope without
 deletion, use the supported parking command instead of manual UI cleanup:
 
 - [manage-delivery-parking.md](manage-delivery-parking.md)
+
+Deferred work should end in `parked`. Duplicate, superseded, or mistaken work
+should end in `retired` with an explicit retirement reason.
 
 ## Production Clean-Start Rule
 

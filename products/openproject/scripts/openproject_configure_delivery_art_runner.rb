@@ -61,6 +61,7 @@ STATUS_SPECS = [
   { name: "in-progress", is_closed: false, default_done_ratio: 50 },
   { name: "blocked", is_closed: false, default_done_ratio: 50 },
   { name: "parked", is_closed: true, default_done_ratio: 100 },
+  { name: "retired", is_closed: true, default_done_ratio: 100 },
   { name: "done", is_closed: true, default_done_ratio: 100 }
 ].freeze
 
@@ -388,6 +389,15 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+  },
+  {
+    name: "Retirement Reason",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["superseded", "duplicate", "invalid", "absorbed", "cancelled"],
     type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   }
 ].freeze

@@ -12,6 +12,7 @@ delivery_project_identifier = ENV.fetch(
 )
 resume_status_name = ENV["RESUME_STATUS"]&.strip
 park_decision = ENV["PARK_DECISION"]&.strip
+retirement_reason = ENV["RETIREMENT_REASON"]&.strip
 park_reason = ENV["PARK_REASON"]&.strip
 park_review_date = ENV["PARK_REVIEW_DATE"]&.strip
 work_note = ENV["WORK_NOTE"]&.strip&.presence
@@ -31,7 +32,8 @@ User.current = author if User.respond_to?(:current=)
 parking_field_names = [
   "Parking Decision",
   "Parking Reason",
-  "Parking Review Date"
+  "Parking Review Date",
+  "Retirement Reason"
 ]
 blocker_field_names = [
   "Blocker Statement",
@@ -57,6 +59,15 @@ decision_values =
     decision_field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
   elsif decision_field.respond_to?(:possible_values)
     Array(decision_field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
+  else
+    []
+  end
+retirement_reason_field = custom_fields.fetch("Retirement Reason")
+retirement_reason_values =
+  if retirement_reason_field.respond_to?(:custom_options)
+    retirement_reason_field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
+  elsif retirement_reason_field.respond_to?(:possible_values)
+    Array(retirement_reason_field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
   else
     []
   end
@@ -105,22 +116,33 @@ when "park"
   if park_decision == "defer"
     raise "PARK_REVIEW_DATE is required for PARK_DECISION=defer" if park_review_date.nil? || park_review_date.empty?
     parse_iso_date!(park_review_date, "PARK_REVIEW_DATE")
+    raise "RETIREMENT_REASON must not be set for PARK_DECISION=defer" if retirement_reason&.present?
   elsif park_review_date && !park_review_date.empty?
     parse_iso_date!(park_review_date, "PARK_REVIEW_DATE")
   end
 
-  parked_status = Status.find_by!(name: "parked")
-  if work_package.status&.name != parked_status.name
+  if park_decision == "retire"
+    raise "RETIREMENT_REASON is required for PARK_DECISION=retire" if retirement_reason.nil? || retirement_reason.empty?
+    raise "PARK_REVIEW_DATE must not be set for PARK_DECISION=retire" if park_review_date&.present?
+    if retirement_reason_values.any? && !retirement_reason_values.include?(retirement_reason)
+      raise "Unknown RETIREMENT_REASON #{retirement_reason.inspect}"
+    end
+  end
+
+  target_status_name = park_decision == "retire" ? "retired" : "parked"
+  target_status = Status.find_by!(name: target_status_name)
+  if work_package.status&.name != target_status.name
     changes[:status] = {
       from: work_package.status&.name,
-      to: parked_status.name
+      to: target_status.name
     }
-    work_package.status = parked_status
+    work_package.status = target_status
   end
 
   assign_custom_value!(work_package, custom_fields.fetch("Parking Decision"), park_decision)
   assign_custom_value!(work_package, custom_fields.fetch("Parking Reason"), park_reason)
   assign_custom_value!(work_package, custom_fields.fetch("Parking Review Date"), park_review_date.presence)
+  assign_custom_value!(work_package, custom_fields.fetch("Retirement Reason"), park_decision == "retire" ? retirement_reason : nil)
 
   blocker_field_names.each do |field_name|
     field = custom_fields[field_name]
@@ -135,7 +157,7 @@ when "resume"
 
   resume_status = Status.find_by(name: resume_status_name)
   raise "Unknown RESUME_STATUS #{resume_status_name.inspect}" unless resume_status
-  raise "RESUME_STATUS must not be parked" if resume_status.name == "parked"
+  raise "RESUME_STATUS must not be parked or retired" if %w[parked retired].include?(resume_status.name)
 
   if work_package.status&.name != resume_status.name
     changes[:status] = {

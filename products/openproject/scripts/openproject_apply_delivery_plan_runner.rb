@@ -66,6 +66,7 @@ delivery_project_identifier = ENV.fetch(
 )
 reconcile_missing = ENV.fetch("RECONCILE_MISSING", "ignore").strip
 reconcile_decision = ENV.fetch("RECONCILE_DECISION", "retire").strip
+reconcile_retirement_reason = ENV.fetch("RECONCILE_RETIREMENT_REASON", "superseded").strip
 reconcile_reason = ENV["RECONCILE_REASON"]&.strip&.presence || "Removed by delivery plan reconciliation"
 reconcile_review_date = ENV["RECONCILE_REVIEW_DATE"]&.strip&.presence
 
@@ -85,6 +86,10 @@ if reconcile_missing == "park" && reconcile_decision == "defer"
   rescue ArgumentError
     raise "RECONCILE_REVIEW_DATE must be an ISO date (YYYY-MM-DD)"
   end
+end
+
+if reconcile_missing == "park" && reconcile_decision == "retire" && !reconcile_review_date.nil?
+  raise "RECONCILE_REVIEW_DATE must not be set when RECONCILE_DECISION=retire"
 end
 
 plan = JSON.parse(File.read(plan_path))
@@ -493,11 +498,28 @@ end
 parking_field_names = [
   "Parking Decision",
   "Parking Reason",
-  "Parking Review Date"
+  "Parking Review Date",
+  "Retirement Reason"
+]
+blocker_field_names = [
+  "Blocker Statement",
+  "Blocker Impact",
+  "Blocker Owner",
+  "Blocker Discovered On",
+  "Blocker Decision Path",
+  "Blocker Justification",
+  "Blocker Follow-Up Owner",
+  "Blocker Review Date"
 ]
 parking_fields =
   if reconcile_missing == "park"
     project.work_package_custom_fields.where(name: parking_field_names).index_by(&:name)
+  else
+    {}
+  end
+blocker_fields =
+  if reconcile_missing == "park"
+    project.work_package_custom_fields.where(name: blocker_field_names).index_by(&:name)
   else
     {}
   end
@@ -507,8 +529,14 @@ if reconcile_missing == "park"
   raise "Missing delivery parking custom fields: #{missing_fields.join(', ')}" if missing_fields.any?
 end
 
+if reconcile_missing == "park" && reconcile_decision == "retire" && reconcile_retirement_reason.empty?
+  raise "RECONCILE_RETIREMENT_REASON must be a non-empty string when RECONCILE_DECISION=retire"
+end
+
 parked_status = statuses_by_name["parked"] if reconcile_missing == "park"
+retired_status = statuses_by_name["retired"] if reconcile_missing == "park"
 raise "Missing parked status for reconciliation" if reconcile_missing == "park" && parked_status.nil?
+raise "Missing retired status for reconciliation" if reconcile_missing == "park" && retired_status.nil?
 
 work_package_summary = lambda do |work_package, parent_id:, changes: nil|
   summary = {
@@ -585,7 +613,8 @@ end
 created = []
 updated = []
 reused = []
-parked = []
+deferred = []
+retired = []
 
 apply_items = lambda do |items, parent|
   planned_keys = []
@@ -761,10 +790,11 @@ apply_items = lambda do |items, parent|
 
   WorkPackage.where(project_id: project.id, parent_id: parent.id).find_each do |child|
     next if planned_keys.include?([child.type_id, child.subject.to_s.strip.downcase])
-    next if child.status&.name == parked_status.name
+    target_inactive_status = reconcile_decision == "retire" ? retired_status : parked_status
+    next if child.status&.name == target_inactive_status.name
 
     previous_status_name = child.status&.name
-    child.status = parked_status
+    child.status = target_inactive_status
     assign_custom_value.call(child, parking_fields.fetch("Parking Decision"), reconcile_decision)
     assign_custom_value.call(child, parking_fields.fetch("Parking Reason"), reconcile_reason)
     assign_custom_value.call(
@@ -772,18 +802,28 @@ apply_items = lambda do |items, parent|
       parking_fields.fetch("Parking Review Date"),
       reconcile_decision == "defer" ? reconcile_review_date : nil,
     )
+    assign_custom_value.call(
+      child,
+      parking_fields.fetch("Retirement Reason"),
+      reconcile_decision == "retire" ? reconcile_retirement_reason : nil,
+    )
+    blocker_fields.each_value do |field|
+      assign_custom_value.call(child, field, nil)
+    end
     child.save!
     child.reload
 
-    parked << work_package_summary.call(
+    destination = reconcile_decision == "retire" ? retired : deferred
+    destination << work_package_summary.call(
       child,
       parent_id: parent.id,
       changes: {
         status: {
           from: previous_status_name,
-          to: parked_status.name
+          to: target_inactive_status.name
         },
-        parking_decision: reconcile_decision
+        parking_decision: reconcile_decision,
+        retirement_reason: reconcile_decision == "retire" ? reconcile_retirement_reason : nil
       }
     )
   end
@@ -803,12 +843,14 @@ result = {
   created: created,
   updated: updated,
   reused: reused,
-  parked: parked,
+  deferred: deferred,
+  retired: retired,
   summary: {
     created_count: created.length,
     updated_count: updated.length,
     reused_count: reused.length,
-    parked_count: parked.length,
+    deferred_count: deferred.length,
+    retired_count: retired.length,
     total_requested: count_plan_items(plan["items"])
   }
 }

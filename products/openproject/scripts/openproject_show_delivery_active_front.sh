@@ -8,7 +8,7 @@ BROKER_DEPLOYMENT="${BROKER_DEPLOYMENT:-operator-orchestration-service}"
 BROKER_PORT="${BROKER_PORT:-8080}"
 TARGET_EPIC_ID="${TARGET_EPIC_ID:-}"
 INCLUDE_DONE="${INCLUDE_DONE:-false}"
-INCLUDE_PARKED="${INCLUDE_PARKED:-false}"
+INCLUDE_INACTIVE="${INCLUDE_INACTIVE:-${INCLUDE_PARKED:-false}}"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -42,12 +42,12 @@ kubectl_cmd -n "${BROKER_NAMESPACE}" exec -i "deploy/${BROKER_DEPLOYMENT}" -- \
   env \
     TARGET_EPIC_ID="${TARGET_EPIC_ID}" \
     INCLUDE_DONE="${INCLUDE_DONE}" \
-    INCLUDE_PARKED="${INCLUDE_PARKED}" \
+    INCLUDE_INACTIVE="${INCLUDE_INACTIVE}" \
     BROKER_PORT="${BROKER_PORT}" \
     node --input-type=module - <<'NODE'
 const targetEpicId = process.env.TARGET_EPIC_ID?.trim();
 const includeDone = (process.env.INCLUDE_DONE || "false").trim().toLowerCase() === "true";
-const includeParked = (process.env.INCLUDE_PARKED || "false").trim().toLowerCase() === "true";
+const includeInactive = (process.env.INCLUDE_INACTIVE || "false").trim().toLowerCase() === "true";
 const brokerPort = process.env.BROKER_PORT || "8080";
 
 if (!targetEpicId) {
@@ -88,7 +88,7 @@ if (!ready.ready) {
 }
 
 const payload = await requestJson(
-  `${brokerBase}/v1/delivery-initiatives/${deliveryId}/execution-summary?include_done=${includeDone}&include_parked=${includeParked}`,
+  `${brokerBase}/v1/delivery-initiatives/${deliveryId}/execution-summary?include_done=${includeDone}&include_parked=${includeInactive}`,
   {
     headers: {
       "x-correlation-id": `openproject-show-delivery-active-front-${Date.now()}`,

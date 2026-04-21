@@ -23,9 +23,16 @@ The operator surface must capture:
   - `retire`
 - `Parking Reason`
 - `Parking Review Date` when the decision is `defer`
+- `Retirement Reason` when the decision is `retire`
+  - `superseded`
+  - `duplicate`
+  - `invalid`
+  - `absorbed`
+  - `cancelled`
 
-Parking sets status to `parked` and clears active blocker fields so parked
-items do not keep poisoning closeout readiness or active execution views.
+Deferred items move to status `parked`. Retired items move to status
+`retired`. Both paths clear active blocker fields so inactive items do not keep
+poisoning closeout readiness or active execution views.
 
 ## Park A Work Item
 
@@ -34,8 +41,9 @@ make openproject-manage-delivery-parking \
   TARGET_WORK_PACKAGE_ID=43 \
   ACTION=park \
   PARK_DECISION=retire \
+  RETIREMENT_REASON=superseded \
   PARK_REASON="This task was created during planning, but the move surface now covers the correction directly." \
-  WORK_NOTE="Parked after the hierarchy correction was proven through the dedicated move helper."
+  WORK_NOTE="Retired after the hierarchy correction was proven through the dedicated move helper."
 ```
 
 For a deferred item:
@@ -51,9 +59,11 @@ make openproject-manage-delivery-parking \
 
 Behavior:
 
-- sets delivery status to `parked`
+- sets delivery status to `parked` for `PARK_DECISION=defer`
+- sets delivery status to `retired` for `PARK_DECISION=retire`
 - writes the parking governance fields
 - requires `PARK_REVIEW_DATE` when `PARK_DECISION=defer`
+- requires `RETIREMENT_REASON` when `PARK_DECISION=retire`
 - clears any blocker governance fields on the same item
 
 ## Resume A Parked Work Item
@@ -70,7 +80,7 @@ Behavior:
 
 - clears the parking governance fields
 - moves the work item to `RESUME_STATUS`
-- refuses `RESUME_STATUS=parked`
+- refuses `RESUME_STATUS=parked` or `RESUME_STATUS=retired`
 
 ## Dev-Integration Lane
 
@@ -82,6 +92,7 @@ make openproject-manage-delivery-parking \
   TARGET_WORK_PACKAGE_ID=43 \
   ACTION=park \
   PARK_DECISION=retire \
+  RETIREMENT_REASON=superseded \
   PARK_REASON="..."
 ```
 
@@ -91,7 +102,8 @@ In the OpenProject UI:
 
 - open `Workspace Delivery ART`
 - open the target work package
-- confirm the work package status is `parked` after `ACTION=park`
+- confirm the work package status is `parked` after `ACTION=park PARK_DECISION=defer`
+- confirm the work package status is `retired` after `ACTION=park PARK_DECISION=retire`
 - confirm the parking fields are populated
 - confirm blocker fields are cleared if the item was previously blocked
 - after `ACTION=resume`, confirm the parking fields are empty and the status

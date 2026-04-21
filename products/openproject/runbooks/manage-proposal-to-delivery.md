@@ -83,6 +83,8 @@ The helper:
 - verifies the source idea is already `accepted`
 - verifies project `workspace-delivery-art` exists
 - calls the broker-owned internal `POST /v1/ideas/{idea_id}/consume` route
+- refreshes the managed delivery-art views after consume
+- creates or reuses the matching PI version when `TARGET_PI` is supplied
 - prints the resulting delivery ref and backlink summary as JSON
 
 ## Step 3: Verify The Result In OpenProject
@@ -98,6 +100,10 @@ In `Workspace Delivery ART`, confirm:
 - `Origin Idea Ref` equals the original broker idea id
 - `PM² Phase` is set
 - `Target PI` is set when you supplied one
+
+To update the top-level delivery governance record after consume, use:
+
+- [update-delivery-initiative.md](update-delivery-initiative.md)
 
 Minimum backlink check:
 
@@ -132,7 +138,17 @@ Current execution statuses:
 - `ready`
 - `in-progress`
 - `blocked`
+- `parked`
 - `done`
+
+To seed the first execution tree under a consumed delivery `Epic`, use:
+
+- [start-delivery-execution.md](start-delivery-execution.md)
+
+When the delivery `Epic` is complete and ready to move the source proposal to
+`implemented`, use:
+
+- [close-delivery-initiative.md](close-delivery-initiative.md)
 
 ## Where PM² Is In The UI
 
@@ -150,7 +166,13 @@ This is the current v1 form of PM² here:
 
 - one top-level PM²-governed initiative
 - one ART execution model below it
-- no separate PM² plugin or board package yet
+- board `PM² Initiative Register` as the PM² list surface
+- board `ART Execution Kanban` as the execution status surface
+- board `Program Increment Planning` when PI versions exist
+
+Because the current runtime is OpenProject Community Edition, these are
+implemented through basic board presets plus project versions, not the native
+enterprise action-board types.
 
 ## Blockers And Impediments
 
@@ -170,6 +192,15 @@ Also record:
 - `Blocker Justification`
 - `Blocker Follow-Up Owner`
 - `Blocker Review Date`
+
+Use the supported blocker command instead of manual field editing:
+
+- [manage-delivery-blocker.md](manage-delivery-blocker.md)
+
+When a delivery item is intentionally removed from active scope without
+deletion, use the supported parking command instead of manual UI cleanup:
+
+- [manage-delivery-parking.md](manage-delivery-parking.md)
 
 ## Production Clean-Start Rule
 
@@ -211,5 +242,9 @@ make openproject-verify-clean-start REQUIRE_EMPTY=true
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
+- [sync-delivery-art-views.md](sync-delivery-art-views.md)
+- [update-delivery-initiative.md](update-delivery-initiative.md)
+- [manage-delivery-blocker.md](manage-delivery-blocker.md)
+- [close-delivery-initiative.md](close-delivery-initiative.md)
 - [provision-operator-orchestration-identity.md](provision-operator-orchestration-identity.md)
 - [`operator-orchestration-service/docs/contracts/accepted-idea-delivery-consumption-v1.md`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/contracts/accepted-idea-delivery-consumption-v1.md)

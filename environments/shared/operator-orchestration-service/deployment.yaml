@@ -44,6 +44,8 @@ spec:
               value: "85"
             - name: OPENPROJECT_REJECTED_STATUS_ID
               value: "80"
+            - name: OPENPROJECT_IMPLEMENTED_STATUS_ID
+              value: "86"
             - name: OPENPROJECT_DELIVERY_NEW_STATUS_ID
               value: "67"
             - name: OPENPROJECT_CUSTOM_FIELD_SUSPECTED_OWNER_ID

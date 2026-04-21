@@ -10,7 +10,7 @@ PROJECT_NAME = "Workspace Delivery ART"
 PROJECT_DESCRIPTION = <<~TEXT.strip
   Canonical delivery plane for accepted ideas that have moved out of Workspace Proposals.
 TEXT
-PROJECT_MODULES = %w[work_package_tracking].freeze
+PROJECT_MODULES = %w[work_package_tracking board_view].freeze
 
 TYPE_SPECS = [
   {
@@ -21,6 +21,11 @@ TYPE_SPECS = [
   {
     name: "Feature",
     description: "Delivery feature inside the single-ART execution model.",
+    is_milestone: false
+  },
+  {
+    name: "PI Objective",
+    description: "SAFe Program Increment objective tracked under the delivery initiative.",
     is_milestone: false
   },
   {
@@ -42,6 +47,11 @@ TYPE_SPECS = [
     name: "Milestone",
     description: "Milestone marker inside the delivery ART project.",
     is_milestone: true
+  },
+  {
+    name: "Risk",
+    description: "SAFe program risk tracked with ROAM state inside the delivery ART.",
+    is_milestone: false
   }
 ].freeze
 
@@ -50,6 +60,7 @@ STATUS_SPECS = [
   { name: "ready", is_closed: false, default_done_ratio: 20 },
   { name: "in-progress", is_closed: false, default_done_ratio: 50 },
   { name: "blocked", is_closed: false, default_done_ratio: 50 },
+  { name: "parked", is_closed: true, default_done_ratio: 100 },
   { name: "done", is_closed: true, default_done_ratio: 100 }
 ].freeze
 
@@ -60,7 +71,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    possible_values: ["Initiating", "Planning", "Executing", "Closing"]
+    possible_values: ["Initiating", "Planning", "Executing", "Closing"],
+    type_names: ["Epic"]
   },
   {
     name: "Origin Idea Ref",
@@ -68,7 +80,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 512
+    max_length: 512,
+    type_names: ["Epic"]
   },
   {
     name: "Sponsor",
@@ -76,7 +89,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 255
+    max_length: 255,
+    type_names: ["Epic"]
   },
   {
     name: "Business Objective",
@@ -84,7 +98,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    max_length: 1024
+    max_length: 1024,
+    type_names: ["Epic"]
   },
   {
     name: "Success Criteria",
@@ -92,7 +107,24 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    max_length: 1024
+    max_length: 1024,
+    type_names: ["Epic"]
+  },
+  {
+    name: "System Demo Evidence",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Epic"]
+  },
+  {
+    name: "Inspect & Adapt Actions",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Epic"]
   },
   {
     name: "Target PI",
@@ -100,7 +132,167 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 255
+    max_length: 255,
+    type_names: ["Epic", "Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+  },
+  {
+    name: "Delivery Team",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+  },
+  {
+    name: "Iteration",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+  },
+  {
+    name: "Acceptance Criteria",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+  },
+  {
+    name: "Definition of Ready",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+  },
+  {
+    name: "Definition of Done",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+  },
+  {
+    name: "NFR Category",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["Security", "Reliability", "Performance", "Scalability", "Operability", "Compliance", "Usability", "Maintainability"],
+    type_names: ["Epic", "Feature", "Enabler"]
+  },
+  {
+    name: "WSJF User-Business Value",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "Enabler"]
+  },
+  {
+    name: "WSJF Time Criticality",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "Enabler"]
+  },
+  {
+    name: "WSJF Risk Reduction / Opportunity Enablement",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "Enabler"]
+  },
+  {
+    name: "WSJF Job Size",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "Enabler"]
+  },
+  {
+    name: "WSJF Score",
+    field_format: "float",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "Enabler"]
+  },
+  {
+    name: "PI Objective Type",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["Committed", "Stretch"],
+    type_names: ["PI Objective"]
+  },
+  {
+    name: "PI Objective Review Outcome",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["Met", "Partially met", "Not met"],
+    type_names: ["PI Objective"]
+  },
+  {
+    name: "Planned Business Value",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["PI Objective"]
+  },
+  {
+    name: "Actual Business Value",
+    field_format: "int",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["PI Objective"]
+  },
+  {
+    name: "ROAM State",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["Resolved", "Owned", "Accepted", "Mitigated"],
+    type_names: ["Risk"]
+  },
+  {
+    name: "Risk Owner",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255,
+    type_names: ["Risk"]
+  },
+  {
+    name: "Risk Review Date",
+    field_format: "date",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Risk"]
+  },
+  {
+    name: "Risk Disposition",
+    field_format: "text",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    type_names: ["Risk"]
   },
   {
     name: "Blocker Statement",
@@ -108,7 +300,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    max_length: 1024
+    max_length: 1024,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Impact",
@@ -116,7 +309,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    max_length: 1024
+    max_length: 1024,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Owner",
@@ -124,14 +318,16 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 255
+    max_length: 255,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Discovered On",
     field_format: "date",
     searchable: false,
     is_filter: true,
-    multi_value: false
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Decision Path",
@@ -139,7 +335,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    possible_values: ["remove", "workaround", "accept-risk", "defer"]
+    possible_values: ["remove", "workaround", "accept-risk", "defer"],
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Justification",
@@ -147,7 +344,8 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    max_length: 1024
+    max_length: 1024,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Follow-Up Owner",
@@ -155,14 +353,42 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: true,
     multi_value: false,
-    max_length: 255
+    max_length: 255,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   },
   {
     name: "Blocker Review Date",
     field_format: "date",
     searchable: false,
     is_filter: true,
-    multi_value: false
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+  },
+  {
+    name: "Parking Decision",
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: ["defer", "retire"],
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+  },
+  {
+    name: "Parking Reason",
+    field_format: "string",
+    searchable: true,
+    is_filter: false,
+    multi_value: false,
+    max_length: 1024,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+  },
+  {
+    name: "Parking Review Date",
+    field_format: "date",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
   }
 ].freeze
 
@@ -207,7 +433,7 @@ def ensure_types!
   end
 end
 
-def ensure_custom_field!(project:, types:, spec:, position:)
+def ensure_custom_field!(project:, types_by_name:, spec:, position:)
   field = WorkPackageCustomField.find_or_initialize_by(name: spec[:name])
   if field.new_record?
     field.field_format = spec[:field_format]
@@ -226,8 +452,16 @@ def ensure_custom_field!(project:, types:, spec:, position:)
   field.possible_values = spec[:possible_values] if spec.key?(:possible_values)
   field.save!
 
+  type_names = spec.fetch(:type_names)
+  field_types = type_names.map do |name|
+    type = types_by_name[name]
+    raise "Unknown work package type #{name.inspect} for custom field #{spec[:name].inspect}" if type.nil?
+
+    type
+  end
+
   field.projects = [project]
-  field.types = types
+  field.types = field_types
   field.save!
   field
 end
@@ -273,10 +507,11 @@ end
 
 statuses = ensure_statuses!
 types = ensure_types!
+types_by_name = types.index_by(&:name)
 project = ensure_project!(types: types)
 
 CUSTOM_FIELD_SPECS.each_with_index do |spec, index|
-  ensure_custom_field!(project: project, types: types, spec: spec, position: index + 1)
+  ensure_custom_field!(project: project, types_by_name: types_by_name, spec: spec, position: index + 1)
 end
 
 rebuild_workflows!(types: types, statuses: statuses)

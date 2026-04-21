@@ -34,3 +34,8 @@ cat > "${tmp_script}"
 bundle exec rails runner "${tmp_script}"
 rm -f "${tmp_script}"
 ' <"${RUNNER_SCRIPT}"
+
+OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE}" \
+OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT}" \
+OPENPROJECT_DELIVERY_PI_NAMES="${OPENPROJECT_DELIVERY_PI_NAMES:-}" \
+"${REPO_ROOT}/products/openproject/scripts/openproject_sync_delivery_art_views.sh"

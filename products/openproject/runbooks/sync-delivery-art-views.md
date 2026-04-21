@@ -25,7 +25,9 @@ So the supported delivery-art surface here is:
 - a basic-board `Program Increment Planning` when PI versions exist
 - a basic-board `PI Objectives` when PI versions exist
 - a basic-board `ART Risk Register`
-- project versions used as the SAFe Program Increment model
+- project versions used as the declared SAFe Program Increment set
+- `Target PI` used as the writable work-item placement field for PI planning
+  and PI objective views
 
 This is the strongest supported SAFe plus PM² operator surface in the current
 packaged runtime.
@@ -48,7 +50,8 @@ The command:
 
 - enables `board_view` on `workspace-delivery-art`
 - creates or reuses project versions for the supplied PI names
-- also reuses any PI names already present through actual work-package PI version assignment
+- also reuses any PI names already present through actual `Target PI` values on
+  delivery work items
 - recreates the managed query set for PM², execution status, PI planning,
   PI objectives, and ART risks
 - recreates the managed board set from those queries

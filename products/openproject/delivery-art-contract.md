@@ -146,7 +146,9 @@ The initial platform bootstrap for this project should provision the canonical
 project, work package types, execution statuses, required custom fields, and
 the operator-visible board surface supported by the current runtime. Program
 Increment versions should be created from explicit PI operator input or from
-real delivery records that already carry `Target PI`.
+real delivery records that already carry `Target PI`. The writable placement
+signal for delivery work items is `Target PI`; versions exist to declare the PI
+set and back the managed board/view structure.
 
 ## One-ART Shape
 
@@ -253,7 +255,9 @@ That means the delivery project cannot rely on the native enterprise
 
 - `board_view` enabled on the project
 - basic-board presets backed by public project queries
-- project versions used for Program Increment structure
+- project versions used to declare the Program Increment set
+- `Target PI` used as the writable work-item placement field for PI planning
+  and PI objective views
 
 So the canonical runtime surface is:
 

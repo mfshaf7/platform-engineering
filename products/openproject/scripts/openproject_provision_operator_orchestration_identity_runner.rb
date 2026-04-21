@@ -29,14 +29,20 @@ ROTATE_API_TOKEN = ENV.fetch("ROTATE_API_TOKEN", "false") == "true"
 ROLE_NAMES = JSON.parse(
   ENV.fetch(
     "TARGET_ROLE_NAMES_JSON",
-    '["Reader","Work package creator","Work package editor"]'
+    '["Reader","Work package creator","Work package editor","Work package structure editor"]'
   )
 )
 CUSTOM_ROLE_PERMISSIONS = {
-  "Work package creator" => ["add_work_packages"]
+  "Work package creator" => ["add_work_packages"],
+  "Work package structure editor" => [
+    "manage_subtasks",
+    "manage_work_package_relations",
+    "move_work_packages"
+  ]
 }.freeze
 CUSTOM_ROLE_CLASSES = {
-  "Work package creator" => ProjectRole
+  "Work package creator" => ProjectRole,
+  "Work package structure editor" => ProjectRole
 }.freeze
 
 def ensure_user!

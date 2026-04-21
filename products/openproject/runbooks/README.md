@@ -28,6 +28,7 @@ evidence, closeout, and ART-quality validation.
 - [complete-delivery-work-item.md](complete-delivery-work-item.md)
 - [manage-delivery-dependency.md](manage-delivery-dependency.md)
 - [show-delivery-initiatives.md](show-delivery-initiatives.md)
+- [show-delivery-active-front.md](show-delivery-active-front.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
 - [show-delivery-execution.md](show-delivery-execution.md)
 - [show-delivery-planning.md](show-delivery-planning.md)

@@ -17,6 +17,7 @@ declared, operated, and verified on this platform.
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
 - `runbooks/show-delivery-initiatives.md`
+- `runbooks/show-delivery-active-front.md`
 - `runbooks/check-delivery-art-quality.md`
 - `runbooks/manage-proposal-to-delivery.md`
 - `runbooks/start-delivery-execution.md`
@@ -165,6 +166,7 @@ broker's OpenProject access path, also update:
 - `runbooks/manage-proposal-to-delivery.md`
 - `runbooks/start-delivery-execution.md`
 - `runbooks/show-delivery-initiatives.md`
+- `runbooks/show-delivery-active-front.md`
 - `runbooks/check-delivery-art-quality.md`
 - `runbooks/create-delivery-work-item.md`
 - `runbooks/bulk-update-delivery-work-items.md`

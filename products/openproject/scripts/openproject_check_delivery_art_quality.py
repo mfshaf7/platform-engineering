@@ -113,19 +113,25 @@ def main() -> int:
     env = os.environ.copy()
     include_done = env.get("INCLUDE_DONE", "true")
     target_epic_id = env.get("TARGET_EPIC_ID", "").strip()
+    scoped_execution_only = bool(target_epic_id)
 
-    initiatives_payload = run_json([str(SHOW_INITIATIVES)], env=env)
-    initiatives = initiatives_payload.get("initiatives", [])
-    if not isinstance(initiatives, list):
-        raise RuntimeError("unexpected initiative payload shape")
-
-    if target_epic_id:
+    if scoped_execution_only:
+        initiatives_payload = {
+            "project": None,
+            "initiatives": [],
+        }
         initiatives = [
-            entry for entry in initiatives
-            if str(((entry.get("epic") or {}).get("id"))) == target_epic_id
+            {
+                "epic": {
+                    "id": int(target_epic_id),
+                },
+            }
         ]
-        if not initiatives:
-            raise RuntimeError(f"target epic {target_epic_id} was not found in the delivery ART summary")
+    else:
+        initiatives_payload = run_json([str(SHOW_INITIATIVES)], env=env)
+        initiatives = initiatives_payload.get("initiatives", [])
+        if not isinstance(initiatives, list):
+            raise RuntimeError("unexpected initiative payload shape")
 
     issues: list[dict[str, object]] = []
     narrative_findings: list[dict[str, object]] = []
@@ -136,7 +142,7 @@ def main() -> int:
             continue
         initiative_id = int(epic["id"])
         epic_status = epic.get("status")
-        if epic_status not in {"new", "parked"}:
+        if not scoped_execution_only and epic_status not in {"new", "parked"}:
             if not epic.get("pm2_phase"):
                 add_issue(
                     issues,
@@ -182,6 +188,7 @@ def main() -> int:
         root = execution_payload.get("epic")
         if not isinstance(root, dict):
             raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
+        epic = root
         descendants = flatten_tree(root)[1:]
 
         for node in descendants:
@@ -271,6 +278,7 @@ def main() -> int:
         "project": initiatives_payload.get("project"),
         "scope": {
             "include_done": include_done == "true",
+            "mode": "scoped-execution" if scoped_execution_only else "full-portfolio",
             "target_epic_id": int(target_epic_id) if target_epic_id else None,
         },
         "summary": {

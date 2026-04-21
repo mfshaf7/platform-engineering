@@ -27,6 +27,7 @@ help:
 	@printf "  openproject-update-delivery-work-item Update one delivery work item for day-to-day execution changes and SAFe execution metadata\n"
 	@printf "  openproject-complete-delivery-work-item Mark one delivery work item done with explicit completion evidence and optional attached test output\n"
 	@printf "  openproject-show-delivery-initiatives Show the portfolio-level delivery initiative summary across Workspace Delivery ART\n"
+	@printf "  openproject-show-delivery-active-front Show the fast broker-backed active front for one delivery Epic\n"
 	@printf "  openproject-check-delivery-art-quality Check whether the current delivery ART records are clean enough to use as primary work-state truth\n"
 	@printf "  openproject-show-delivery-execution Show the current execution tree, blockers, assignees, and PI placement for one delivery Epic\n"
 	@printf "  openproject-show-delivery-planning Show the current team and iteration planning summary for one delivery Epic\n"
@@ -213,15 +214,21 @@ openproject-show-delivery-initiatives:
 	INCLUDE_DONE="$(INCLUDE_DONE)" INCLUDE_PARKED="$(INCLUDE_PARKED)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
 	./products/openproject/scripts/openproject_show_delivery_initiatives.sh
 
+.PHONY: openproject-show-delivery-active-front
+openproject-show-delivery-active-front:
+	@test -n "$(TARGET_EPIC_ID)" || { echo "TARGET_EPIC_ID is required, for example: make openproject-show-delivery-active-front TARGET_EPIC_ID=38"; exit 1; }
+	TARGET_EPIC_ID="$(TARGET_EPIC_ID)" INCLUDE_DONE="$(INCLUDE_DONE)" INCLUDE_PARKED="$(INCLUDE_PARKED)" BROKER_NAMESPACE="$(BROKER_NAMESPACE)" BROKER_DEPLOYMENT="$(BROKER_DEPLOYMENT)" BROKER_PORT="$(BROKER_PORT)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" \
+	./products/openproject/scripts/openproject_show_delivery_active_front.sh
+
 .PHONY: openproject-check-delivery-art-quality
 openproject-check-delivery-art-quality:
-	INCLUDE_DONE="$(INCLUDE_DONE)" TARGET_EPIC_ID="$(TARGET_EPIC_ID)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
+	INCLUDE_DONE="$(INCLUDE_DONE)" TARGET_EPIC_ID="$(TARGET_EPIC_ID)" BROKER_NAMESPACE="$(BROKER_NAMESPACE)" BROKER_DEPLOYMENT="$(BROKER_DEPLOYMENT)" BROKER_PORT="$(BROKER_PORT)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
 	./products/openproject/scripts/openproject_check_delivery_art_quality.sh
 
 .PHONY: openproject-show-delivery-execution
 openproject-show-delivery-execution:
 	@test -n "$(TARGET_EPIC_ID)" || { echo "TARGET_EPIC_ID is required, for example: make openproject-show-delivery-execution TARGET_EPIC_ID=38"; exit 1; }
-	TARGET_EPIC_ID="$(TARGET_EPIC_ID)" INCLUDE_DONE="$(INCLUDE_DONE)" INCLUDE_PARKED="$(INCLUDE_PARKED)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
+	TARGET_EPIC_ID="$(TARGET_EPIC_ID)" INCLUDE_DONE="$(INCLUDE_DONE)" INCLUDE_PARKED="$(INCLUDE_PARKED)" BROKER_NAMESPACE="$(BROKER_NAMESPACE)" BROKER_DEPLOYMENT="$(BROKER_DEPLOYMENT)" BROKER_PORT="$(BROKER_PORT)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
 	./products/openproject/scripts/openproject_show_delivery_execution.sh
 
 .PHONY: openproject-show-delivery-planning

@@ -20,6 +20,10 @@ Use this when you need to inspect:
 This avoids hunting manually through multiple OpenProject UI screens when the
 question is operational visibility rather than editing.
 
+Use [show-delivery-active-front.md](show-delivery-active-front.md) first for a
+routine startup read. Use this deeper surface when the active `Epic` is
+already known and you need the full execution details.
+
 ## Command
 
 Run from `platform-engineering/`:
@@ -92,6 +96,7 @@ In the OpenProject UI:
 ## Related References
 
 - [show-delivery-initiatives.md](show-delivery-initiatives.md)
+- [show-delivery-active-front.md](show-delivery-active-front.md)
 - [show-delivery-planning.md](show-delivery-planning.md)
 - [show-pi-objectives.md](show-pi-objectives.md)
 - [start-delivery-execution.md](start-delivery-execution.md)

@@ -207,6 +207,7 @@ product-neutral.
   - `make openproject-complete-delivery-work-item`
   - `make openproject-manage-delivery-dependency`
   - `make openproject-show-delivery-initiatives`
+  - `make openproject-show-delivery-active-front`
   - `make openproject-check-delivery-art-quality`
   - `make openproject-show-delivery-execution`
   - `make openproject-show-delivery-planning`

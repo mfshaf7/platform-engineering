@@ -5,7 +5,8 @@
 Verify that the current `Workspace Delivery ART` records are clean enough to be
 used as the primary work-state truth for a serious delivery session.
 
-Use this before treating the ART as the current queue for implementation work.
+Use this as a scoped hygiene gate for the active initiative, and reserve the
+full portfolio sweep for replanning, portfolio review, or governance cleanup.
 
 ## What It Checks
 
@@ -69,6 +70,7 @@ Optional fields:
 
 - `TARGET_EPIC_ID=<epic-id>`
   - limit the check to one initiative
+  - recommended for routine active-session startup
 - `INCLUDE_DONE=true|false`
   - include or skip fully done initiatives in the portfolio sweep
 
@@ -88,6 +90,16 @@ The command prints a JSON quality report and exits:
 
 Narrative findings do not change the exit code by themselves. They are a
 discussion gate, not a structural failure gate.
+
+Quality modes:
+
+- full portfolio sweep
+  - no `TARGET_EPIC_ID`
+  - validates initiative-level PM² governance plus execution hygiene
+- scoped execution check
+  - `TARGET_EPIC_ID=<epic-id>`
+  - validates execution hygiene and narrative quality for the active initiative
+  - preferred for routine session startup when the active `Epic` is already known
 
 Typical fields include:
 

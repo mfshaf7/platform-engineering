@@ -22,14 +22,20 @@ visibility rather than editing.
 
 ## Session Start Rule
 
-For any serious initiative already tracked in `Workspace Delivery ART`, start
-the session here before reading repo code or resuming from chat memory.
+Use this as the portfolio-selection and PI-replanning surface, not as the
+default deep read for every active-coding turn.
 
-Use this order:
+Recommended order:
 
-1. `make openproject-show-delivery-initiatives`
-2. `make openproject-check-delivery-art-quality`
-3. `make openproject-show-delivery-execution TARGET_EPIC_ID=<epic-id>`
+1. If the active `Epic` is already known:
+   - `make openproject-show-delivery-active-front TARGET_EPIC_ID=<epic-id>`
+   - `make openproject-check-delivery-art-quality TARGET_EPIC_ID=<epic-id>`
+   - `make openproject-show-delivery-execution TARGET_EPIC_ID=<epic-id>` only when a deep read is needed
+2. Use `make openproject-show-delivery-initiatives` when:
+   - the active `Epic` is not yet known
+   - you need a portfolio or PI-level view
+   - you are replanning committed vs stretch work
+   - you need to confirm initiative-level PM² governance across the ART
 
 Truth split:
 
@@ -102,6 +108,10 @@ The command prints JSON with:
   - external dependency details
   - computed `closeout_ready` state
 
+This is the deeper portfolio read. It is intentionally broader than the
+broker-backed execution read and should not be the first command you reach for
+when you already know the active initiative.
+
 Default visibility:
 
 - `INCLUDE_DONE=true` shows completed initiatives
@@ -124,6 +134,7 @@ In the OpenProject UI:
 
 - [start-delivery-execution.md](start-delivery-execution.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
+- [show-delivery-active-front.md](show-delivery-active-front.md)
 - [show-delivery-execution.md](show-delivery-execution.md)
 - [show-delivery-planning.md](show-delivery-planning.md)
 - [show-pi-objectives.md](show-pi-objectives.md)

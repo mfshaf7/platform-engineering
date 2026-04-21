@@ -108,6 +108,7 @@ the initiative layer and SAFe-aligned at the execution layer, including:
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/show-delivery-initiatives.md](runbooks/show-delivery-initiatives.md)
+- [runbooks/show-delivery-active-front.md](runbooks/show-delivery-active-front.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
 - [runbooks/manage-proposal-to-delivery.md](runbooks/manage-proposal-to-delivery.md)
 - [runbooks/start-delivery-execution.md](runbooks/start-delivery-execution.md)

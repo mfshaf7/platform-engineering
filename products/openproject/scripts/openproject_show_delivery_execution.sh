@@ -8,7 +8,6 @@ OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFI
 TARGET_EPIC_ID="${TARGET_EPIC_ID:-}"
 INCLUDE_DONE="${INCLUDE_DONE:-true}"
 INCLUDE_PARKED="${INCLUDE_PARKED:-false}"
-
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_show_delivery_execution_runner.rb"
 
@@ -21,12 +20,6 @@ need_cmd() {
 
 kubectl_cmd() {
   ${KUBECTL} "$@"
-}
-
-openproject_pod() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" get pod \
-    -l "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject" \
-    -o jsonpath='{.items[0].metadata.name}'
 }
 
 need_cmd "${KUBECTL%% *}"
@@ -42,6 +35,12 @@ if [[ ! -f "${RUNNER_SCRIPT}" ]]; then
 fi
 
 echo "Showing delivery execution for epic ${TARGET_EPIC_ID} in ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
+
+openproject_pod() {
+  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" get pod \
+    -l "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject" \
+    -o jsonpath='{.items[0].metadata.name}'
+}
 
 pod_name="$(openproject_pod)"
 runner_basename="$(basename "${RUNNER_SCRIPT}" .rb)"

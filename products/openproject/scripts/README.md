@@ -34,6 +34,7 @@ For `Workspace Delivery ART`, these entrypoints now cover:
 - `openproject_complete_delivery_work_item.sh`
 - `openproject_manage_delivery_dependency.sh`
 - `openproject_show_delivery_initiatives.sh`
+- `openproject_show_delivery_active_front.sh`
 - `openproject_check_delivery_art_quality.sh`
 - `openproject_show_delivery_execution.sh`
 - `openproject_show_delivery_planning.sh`
@@ -68,6 +69,7 @@ For `Workspace Delivery ART`, these entrypoints now cover:
 - `make openproject-complete-delivery-work-item`
 - `make openproject-manage-delivery-dependency`
 - `make openproject-show-delivery-initiatives`
+- `make openproject-show-delivery-active-front`
 - `make openproject-check-delivery-art-quality`
 - `make openproject-show-delivery-execution`
 - `make openproject-show-delivery-planning`

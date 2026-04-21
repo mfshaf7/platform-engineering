@@ -16,7 +16,28 @@ declared, operated, and verified on this platform.
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
+- `runbooks/show-delivery-initiatives.md`
+- `runbooks/check-delivery-art-quality.md`
 - `runbooks/manage-proposal-to-delivery.md`
+- `runbooks/start-delivery-execution.md`
+- `runbooks/create-delivery-work-item.md`
+- `runbooks/bulk-update-delivery-work-items.md`
+- `runbooks/move-delivery-work-item.md`
+- `runbooks/update-delivery-work-item.md`
+- `runbooks/complete-delivery-work-item.md`
+- `runbooks/manage-delivery-dependency.md`
+- `runbooks/show-delivery-execution.md`
+- `runbooks/show-delivery-planning.md`
+- `runbooks/show-pi-objectives.md`
+- `runbooks/record-pi-review.md`
+- `runbooks/check-delivery-closeout-readiness.md`
+- `runbooks/close-delivery-initiative.md`
+- `runbooks/sync-delivery-art-views.md`
+- `runbooks/update-delivery-initiative.md`
+- `runbooks/record-system-demo.md`
+- `runbooks/record-inspect-and-adapt.md`
+- `runbooks/manage-delivery-blocker.md`
+- `runbooks/manage-delivery-parking.md`
 - `runbooks/prepare-production-clean-start.md`
 - `scripts/README.md`
 - `runbooks/README.md`
@@ -53,6 +74,9 @@ unless it is genuinely shared platform behavior.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,
   not silently folded into OpenProject-only docs when the control is broader
   than the product.
+- For serious delivery work already tracked in `Workspace Delivery ART`, start
+  each session from the initiative summary and quality-check surfaces here
+  instead of reconstructing the work queue from chat or handoff prose.
 
 If an OpenProject task arrives:
 
@@ -60,6 +84,25 @@ If an OpenProject task arrives:
 - complete it through the current platform-managed path
 - do not claim a separate stage or prod promotion workflow unless that path is
   deliberately created later
+
+## Delivery Work-State Rule
+
+For work that is already inside `Workspace Delivery ART`:
+
+- the ART is the primary work-state truth
+- owner repos hold the implementation and design truth
+- `workspace-governance` holds workspace-control truth
+
+If a requested change is not already covered by the active ART:
+
+- absorb it into the active work item only when it is a tiny same-slice patch
+- otherwise add a new in-scope ART item when it belongs to the same initiative
+- route it through `Workspace Proposals` when it is a new initiative
+- route repeated process or control misses into `workspace-governance`
+  improvement candidates
+- route security or trust-boundary judgment into `security-architecture`
+
+No meaningful delivery work should live only in chat.
 
 When the change affects the canonical project model used by operator workflows
 or automation, keep the contract in:
@@ -120,6 +163,27 @@ broker's OpenProject access path, also update:
 - `idea-backlog-contract.md`
 - `delivery-art-contract.md`
 - `runbooks/manage-proposal-to-delivery.md`
+- `runbooks/start-delivery-execution.md`
+- `runbooks/show-delivery-initiatives.md`
+- `runbooks/check-delivery-art-quality.md`
+- `runbooks/create-delivery-work-item.md`
+- `runbooks/bulk-update-delivery-work-items.md`
+- `runbooks/move-delivery-work-item.md`
+- `runbooks/update-delivery-work-item.md`
+- `runbooks/complete-delivery-work-item.md`
+- `runbooks/manage-delivery-dependency.md`
+- `runbooks/show-delivery-execution.md`
+- `runbooks/show-delivery-planning.md`
+- `runbooks/show-pi-objectives.md`
+- `runbooks/record-pi-review.md`
+- `runbooks/check-delivery-closeout-readiness.md`
+- `runbooks/close-delivery-initiative.md`
+- `runbooks/sync-delivery-art-views.md`
+- `runbooks/update-delivery-initiative.md`
+- `runbooks/record-system-demo.md`
+- `runbooks/record-inspect-and-adapt.md`
+- `runbooks/manage-delivery-blocker.md`
+- `runbooks/manage-delivery-parking.md`
 - `runbooks/prepare-production-clean-start.md`
 - `runbooks/configure-idea-backlog.md`
 - `runbooks/configure-delivery-art.md`

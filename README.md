@@ -161,6 +161,7 @@ product-neutral.
   - `make provision-transit-vault-host`
   - `make devint-up PROFILE=<profile>`
   - `make devint-status PROFILE=<profile>`
+  - `make devint-access PROFILE=<profile>`
   - `make devint-smoke PROFILE=<profile>`
   - `make devint-down PROFILE=<profile>`
   - `make devint-reset PROFILE=<profile>`
@@ -195,7 +196,28 @@ product-neutral.
   - `make openproject-sync-admin-password`
   - `make openproject-configure-idea-backlog`
   - `make openproject-configure-delivery-art`
+  - `make openproject-sync-delivery-art-views`
+  - `make openproject-update-delivery-initiative`
+  - `make openproject-record-system-demo`
+  - `make openproject-record-inspect-and-adapt`
+  - `make openproject-create-delivery-work-item`
+  - `make openproject-bulk-update-delivery-work-items`
+  - `make openproject-move-delivery-work-item`
+  - `make openproject-update-delivery-work-item`
+  - `make openproject-complete-delivery-work-item`
+  - `make openproject-manage-delivery-dependency`
+  - `make openproject-show-delivery-initiatives`
+  - `make openproject-check-delivery-art-quality`
+  - `make openproject-show-delivery-execution`
+  - `make openproject-show-delivery-planning`
+  - `make openproject-show-pi-objectives`
+  - `make openproject-record-pi-review`
+  - `make openproject-check-delivery-closeout-readiness`
+  - `make openproject-manage-delivery-blocker`
+  - `make openproject-manage-delivery-parking`
   - `make openproject-consume-accepted-idea`
+  - `make openproject-apply-delivery-plan`
+  - `make openproject-close-delivery-initiative`
   - `make openproject-verify-clean-start`
   - `make openproject-provision-operator-orchestration-identity`
   - `make openproject-provision-operator-orchestration-delivery-access`

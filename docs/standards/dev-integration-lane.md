@@ -15,7 +15,7 @@ basic environment, command, and integration-shape mistakes.
 - local only
 - ungoverned for delivery
 - contract-aligned for interfaces
-- disposable
+- runtime-model driven: disposable or persistent-project-backed
 - isolated from governed `stage` and `prod`
 
 It is not:
@@ -70,7 +70,35 @@ Expected lane properties:
 - local-only generated secrets
 - no Argo or environment-pin updates
 - no writes to governed `stage` or `prod` services
-- easy reset and teardown
+- easy reset and teardown for disposable profiles
+- safe suspend and resume for persistent project-backed profiles
+
+## Runtime State Models
+
+Profiles must declare one of these runtime state models in `profile.yaml`:
+
+- `disposable`
+  - optimized for short-lived smoke and workflow rehearsal
+  - `devint-down` may remove the live runtime
+  - `devint-reset` is destructive and wipes the local profile state
+- `persistent`
+  - optimized for long-running project-backed execution in the local lane
+  - `devint-down` must preserve project data and act as suspend, not wipe
+  - `devint-up` must resume or reconcile the preserved runtime state
+  - `devint-reset` remains the only destructive rebuild path
+
+Persistent profiles are still local-only and ungoverned. They do not become a
+replacement for `stage`, but they do avoid forcing large in-flight project
+trees to rebuild on every stop/start cycle.
+
+When a new profile requests `persistent` state, the admission record must make
+these operator commitments explicit:
+
+- why a disposable lane is insufficient
+- what data survives normal suspend/resume
+- what storage footprint or storage-class assumptions are required
+- what `devint-reset` is allowed to destroy
+- whether a cutover plan is required from an existing disposable lane
 
 ## Git Model
 

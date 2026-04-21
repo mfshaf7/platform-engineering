@@ -5,11 +5,14 @@ KUBECTL="${KUBECTL:-k3s kubectl}"
 BROKER_NAMESPACE="${BROKER_NAMESPACE:-operator-orchestration-service}"
 BROKER_DEPLOYMENT="${BROKER_DEPLOYMENT:-operator-orchestration-service}"
 BROKER_PORT="${BROKER_PORT:-8080}"
+OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE:-openproject}"
+OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT:-openproject-web}"
 OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER:-workspace-delivery-art}"
 IDEA_ID="${IDEA_ID:-}"
 TARGET_PI="${TARGET_PI:-}"
 OPERATOR_ID="${OPERATOR_ID:-${USER:-unknown}}"
 OPERATOR_HANDLE="${OPERATOR_HANDLE:-${USER:-unknown}}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -31,7 +34,7 @@ fi
 
 echo "Consuming accepted proposal ${IDEA_ID} into ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
 
-kubectl_cmd -n "${BROKER_NAMESPACE}" exec "deploy/${BROKER_DEPLOYMENT}" -- \
+kubectl_cmd -n "${BROKER_NAMESPACE}" exec -i "deploy/${BROKER_DEPLOYMENT}" -- \
   env \
     IDEA_ID="${IDEA_ID}" \
     TARGET_PI="${TARGET_PI}" \
@@ -40,6 +43,9 @@ kubectl_cmd -n "${BROKER_NAMESPACE}" exec "deploy/${BROKER_DEPLOYMENT}" -- \
     BROKER_PORT="${BROKER_PORT}" \
     OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}" \
     node --input-type=module - <<'NODE'
+import http from "node:http";
+import https from "node:https";
+
 const ideaId = process.env.IDEA_ID;
 const targetPi = process.env.TARGET_PI?.trim() || null;
 const operatorId = process.env.OPERATOR_ID?.trim();
@@ -128,15 +134,49 @@ function readCustomField(payload, fieldId) {
 }
 
 async function requestJson(url, { method = "GET", headers = {}, body } = {}) {
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+  const parsedUrl = new URL(url);
+  const transport = parsedUrl.protocol === "https:" ? https : http;
+  const requestBody =
+    body === undefined ? undefined : JSON.stringify(body);
+  const response = await new Promise((resolve, reject) => {
+    const request = transport.request(
+      parsedUrl,
+      {
+        agent: false,
+        headers,
+        method,
+      },
+      (incoming) => {
+        const chunks = [];
+
+        incoming.on("data", (chunk) => {
+          chunks.push(chunk);
+        });
+
+        incoming.on("end", () => {
+          resolve({
+            ok:
+              typeof incoming.statusCode === "number" &&
+              incoming.statusCode >= 200 &&
+              incoming.statusCode < 300,
+            status: incoming.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+
+    request.on("error", reject);
+
+    if (requestBody) {
+      request.write(requestBody);
+    }
+
+    request.end();
   });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  const payload = response.text ? JSON.parse(response.text) : null;
   if (!response.ok) {
-    throw new Error(`${method} ${url} failed with ${response.status}: ${text}`);
+    throw new Error(`${method} ${url} failed with ${response.status}: ${response.text}`);
   }
   return payload;
 }
@@ -249,3 +289,8 @@ const result = {
 
 console.log(JSON.stringify(result, null, 2));
 NODE
+
+OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE}" \
+OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT}" \
+OPENPROJECT_DELIVERY_PI_NAMES="${TARGET_PI}" \
+"${REPO_ROOT}/products/openproject/scripts/openproject_sync_delivery_art_views.sh" >/dev/null

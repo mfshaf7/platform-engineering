@@ -14,6 +14,7 @@ import yaml
 
 
 ACTIONS = {
+    "access": "access",
     "up": "up",
     "status": "status",
     "smoke": "smoke",
@@ -22,7 +23,7 @@ ACTIONS = {
     "promote-check": "promote_check",
 }
 
-ACTIVE_ONLY_ACTIONS = {"up", "smoke"}
+ACTIVE_ONLY_ACTIONS = {"access", "up", "smoke"}
 
 
 def load_yaml(path: Path) -> dict:
@@ -197,6 +198,7 @@ def build_manifest(
         "lane": "dev-integration",
         "profile_id": profile_id,
         "profile_lifecycle": entry["lifecycle"],
+        "runtime_state_model": profile.get("runtime", {}).get("state_model", "disposable"),
         "profile_path": str(profile_path),
         "summary": profile["summary"],
         "owner_repo": entry["owner_repo"],
@@ -360,7 +362,15 @@ def main() -> int:
     )
 
     command_key = ACTIONS[args.action]
-    command_path = workspace_root / entry["owner_repo"] / profile["commands"][command_key]
+    try:
+        command_relpath = profile["commands"][command_key]
+    except KeyError as exc:
+        available_actions = ", ".join(sorted(profile.get("commands", {}).keys()))
+        raise SystemExit(
+            f"dev-integration profile {args.profile!r} does not implement action {command_key!r}. "
+            f"Available actions: {available_actions or 'none'}."
+        ) from exc
+    command_path = workspace_root / entry["owner_repo"] / command_relpath
     dispatch_command(command_path, cwd=owner_repo_root, env=env)
 
     print(

@@ -47,6 +47,7 @@ Run the shared operator commands from `platform-engineering/`:
 ```bash
 make devint-up PROFILE=<profile>
 make devint-status PROFILE=<profile>
+make devint-access PROFILE=<profile>
 make devint-smoke PROFILE=<profile>
 make devint-promote-check PROFILE=<profile>
 make devint-reset PROFILE=<profile>
@@ -56,9 +57,12 @@ make devint-down PROFILE=<profile>
 Meaning:
 
 - `devint-up`
-  - creates or refreshes the local `k3s` namespace and starts the profile
+  - creates, refreshes, or resumes the local `k3s` profile runtime
 - `devint-status`
   - shows the current session and runtime state
+- `devint-access`
+  - holds open the profile's primary inspection surface, such as a local
+    OpenProject UI port-forward, until you stop it
 - `devint-smoke`
   - runs the profile’s smoke checks
 - `devint-promote-check`
@@ -67,7 +71,18 @@ Meaning:
 - `devint-reset`
   - tears down and rebuilds the local profile state
 - `devint-down`
-  - stops and removes the local profile session
+  - stops the profile runtime using the profile's declared state model
+
+State-model rule:
+
+- `disposable` profiles
+  - `devint-down` may remove the live runtime entirely
+  - use `devint-reset` when you want a full local wipe including profile state
+- `persistent` profiles
+  - `devint-down` must preserve project data and behave as suspend
+  - `devint-up` resumes or reconciles the preserved runtime
+  - use `devint-reset` only when you intentionally want to destroy the local
+    project history and rebuild from scratch
 
 Important boundaries:
 
@@ -108,6 +123,9 @@ Required request content:
 - requested profile id
 - owner repo
 - purpose
+- requested runtime state model:
+  - `disposable`
+  - `persistent`
 - participating repos
 - runtime dependencies
 - expected canonical backend writes, if any
@@ -115,6 +133,16 @@ Required request content:
 - requested by
 - request record system
 - request record ref
+
+Additional required request content for `persistent` profiles:
+
+- why `persistent` is needed instead of a disposable smoke lane
+- what data must survive normal `devint-down` / `devint-up` cycles
+- what suspend/resume behavior operators expect
+- expected storage size or storage-class constraints
+- what `devint-reset` is allowed to destroy
+- cutover plan when upgrading an existing disposable profile into a
+  persistent project-backed lane
 
 Supporting template:
 
@@ -139,6 +167,13 @@ The admission path is:
 5. `workspace-governance` records the profile in
    `developer-integration-profiles.yaml`
 6. the profile becomes self-serve only when its lifecycle is set to `active`
+
+Persistent-profile acceptance rule:
+
+- `platform-engineering` must explicitly accept the persistent runtime fit,
+  storage model, and suspend/resume semantics
+- `workspace-governance` should not mark a persistent profile `active` until
+  the request record and owner docs make the destructive-reset boundary clear
 
 Lifecycle meanings:
 

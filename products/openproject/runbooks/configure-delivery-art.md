@@ -10,12 +10,13 @@ This configures:
 - the `workspace-delivery-art` project
 - the delivery work package types
 - the delivery execution statuses
-- the project-scoped custom fields used for PM² governance, origin backlinks,
-  and blocker tracking
+- the project-scoped custom fields used for PM² governance, SAFe planning,
+  origin backlinks, blocker governance, parking, WSJF, and ROAM risk tracking
+- the delivery-art board module plus the managed PM², execution, PI objective,
+  risk, and Program Increment board presets
 
-This baseline does not precreate Program Increment versions or Kanban boards.
-Those remain part of the delivery operating model, but they are added when the
-accepted-idea-delivery flow is activated for real work.
+Program Increment versions are created when you supply `PI_NAMES` or when real
+delivery records already carry `Target PI` values.
 
 ## Preconditions
 
@@ -29,30 +30,74 @@ accepted-idea-delivery flow is activated for real work.
 make openproject-configure-delivery-art
 ```
 
+To create or refresh explicit PI versions in the same run:
+
+```bash
+make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
+```
+
 ## Expected Outcome
 
 - `workspace-delivery-art` exists
 - delivery types exist:
   - `Epic`
+  - `PI Objective`
   - `Feature`
   - `Enabler`
   - `User story`
   - `Task`
   - `Milestone`
+  - `Risk`
 - delivery statuses exist:
   - `new`
   - `ready`
   - `in-progress`
   - `blocked`
+  - `parked`
   - `done`
 - project-scoped custom fields exist for:
-  - `PM² Phase`
-  - `Origin Idea Ref`
-  - `Sponsor`
-  - `Business Objective`
-  - `Success Criteria`
+  - initiative-only `Epic` governance:
+    - `PM² Phase`
+    - `Origin Idea Ref`
+    - `Sponsor`
+    - `Business Objective`
+    - `Success Criteria`
+    - `System Demo Evidence`
+    - `Inspect & Adapt Actions`
   - `Target PI`
+  - SAFe execution fields:
+    - `Delivery Team`
+    - `Iteration`
+    - `Acceptance Criteria`
+    - `Definition of Ready`
+    - `Definition of Done`
+    - `NFR Category`
+  - PI objective fields:
+    - `PI Objective Type`
+    - `PI Objective Review Outcome`
+    - `Planned Business Value`
+    - `Actual Business Value`
+  - prioritization fields:
+    - `WSJF User-Business Value`
+    - `WSJF Time Criticality`
+    - `WSJF Risk Reduction / Opportunity Enablement`
+    - `WSJF Job Size`
+    - `WSJF Score`
+  - risk fields:
+    - `ROAM State`
+    - `Risk Owner`
+    - `Risk Review Date`
+    - `Risk Disposition`
   - blocker statement, ownership, decision, and review tracking
+  - parking decision, reason, and review tracking
+- initiative-only governance fields are hidden from child work-item forms by
+  type scoping
+- the `Boards` project module is enabled
+- managed board `PM² Initiative Register` exists
+- managed board `ART Execution Kanban` exists
+- managed board `Program Increment Planning` exists when PI versions are present
+- managed board `PI Objectives` exists when PI versions are present
+- managed board `ART Risk Register` exists
 
 ## Verification
 
@@ -63,17 +108,17 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "puts Type.where(name: [\"Epic\", \"Feature\", \"Enabler\", \"User story\", \"Task\", \"Milestone\"]).pluck(:name).inspect"'
+  sh -lc 'bundle exec rails runner "puts Type.where(name: [\"Epic\", \"PI Objective\", \"Feature\", \"Enabler\", \"User story\", \"Task\", \"Milestone\", \"Risk\"]).pluck(:name).inspect"'
 ```
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "puts Status.where(name: [\"new\", \"ready\", \"in-progress\", \"blocked\", \"done\"]).pluck(:name).inspect"'
+  sh -lc 'bundle exec rails runner "puts Status.where(name: [\"new\", \"ready\", \"in-progress\", \"blocked\", \"parked\", \"done\"]).pluck(:name).inspect"'
 ```
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "project = Project.find_by!(identifier: \"workspace-delivery-art\"); puts project.work_package_custom_fields.order(:position).pluck(:name).inspect"'
+  sh -lc 'bundle exec rails runner "project = Project.find_by!(identifier: \"workspace-delivery-art\"); puts({custom_fields: project.work_package_custom_fields.order(:position).pluck(:name), enabled_modules: project.enabled_module_names, boards: Boards::Grid.where(project: project).pluck(:name), versions: project.versions.with_status_open.pluck(:name)}.to_json)"'
 ```
 
 ## Next Step
@@ -84,4 +129,10 @@ the proposal and delivery projects:
 ```bash
 export VAULT_TOKEN='...'
 make openproject-provision-operator-orchestration-delivery-access
+```
+
+To refresh the delivery views later without reprovisioning the whole project:
+
+```bash
+make openproject-sync-delivery-art-views PI_NAMES="PI-2026-02,PI-2026-03"
 ```

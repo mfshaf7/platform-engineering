@@ -39,7 +39,7 @@ help:
 	@printf "  openproject-consume-accepted-idea Consume one accepted proposal into the delivery ART through the broker-owned internal route\n"
 	@printf "  openproject-apply-delivery-plan Apply a delivery execution plan to an existing delivery Epic\n"
 	@printf "  openproject-close-delivery-initiative Close a completed delivery Epic and mark the source proposal implemented\n"
-	@printf "  openproject-verify-clean-start Report or enforce the clean-start gate for future production activation\n"
+	@printf "  openproject-verify-clean-start Report production-activation hygiene and optionally enforce the stricter empty-plane gate\n"
 	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
 	@printf "  openproject-provision-operator-orchestration-delivery-access Grant the broker service identity access to both proposal and delivery projects\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"

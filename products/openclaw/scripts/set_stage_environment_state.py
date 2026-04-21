@@ -19,7 +19,7 @@ DEFAULT_STAGE_BRIDGE_HEALTH_URL = "http://127.0.0.1:48731/healthz"
 DEFAULT_STAGE_BRIDGE_REQUEST_URL = "http://127.0.0.1:48731/v1/bridge"
 DEFAULT_STAGE_GATEWAY_BRIDGE_URL = "http://172.27.88.8:48731"
 DEFAULT_STAGE_WSL_DISTRO = "Platform-Core"
-READ_ONLY_SYSTEMCTL_ACTIONS = frozenset({"is-active", "show", "status", "cat"})
+READ_ONLY_SYSTEMCTL_ACTIONS = frozenset({"is-active", "is-enabled", "show", "status", "cat"})
 DEFAULT_WINDOWS_POWERSHELL_CANDIDATES = tuple(
     candidate
     for candidate in (
@@ -271,6 +271,61 @@ def probe_stage_bridge_request_path(timeout_seconds: int = 5) -> None:
         )
 
 
+def read_systemctl_state(unit_name: str) -> str:
+    try:
+        result = run_systemctl("is-active", unit_name, capture_output=True)
+        return result.stdout.strip() or "unknown"
+    except subprocess.CalledProcessError as exc:
+        return exc.stdout.strip() or exc.stderr.strip() or "inactive"
+
+
+def collect_stage_bridge_status(repo_root: Path, verify_request_path: bool) -> dict[str, object]:
+    service_name = stage_bridge_service_name()
+    state = read_systemctl_state(service_name)
+    status: dict[str, object] = {
+        "service": service_name,
+        "state": state,
+        "health_ok": False,
+        "request_ok": False,
+        "issues": [],
+    }
+
+    if state != "active":
+        status["issues"] = [f"{service_name} is {state}"]
+        return status
+
+    if not verify_request_path:
+        return status
+
+    issues: list[str] = []
+    try:
+        validate_stage_bridge_inputs(repo_root)
+    except SystemExit as exc:
+        issues.append(str(exc))
+        status["issues"] = issues
+        return status
+
+    try:
+        with urlopen(stage_bridge_health_url(), timeout=2) as response:
+            payload = json.load(response)
+        if payload.get("ok") is True:
+            status["health_ok"] = True
+        else:
+            issues.append(f"{stage_bridge_health_url()} returned ok={payload.get('ok')!r}")
+    except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        issues.append(f"{stage_bridge_health_url()} failed: {exc}")
+
+    if status["health_ok"]:
+        try:
+            probe_stage_bridge_request_path()
+            status["request_ok"] = True
+        except SystemExit as exc:
+            issues.append(str(exc))
+
+    status["issues"] = issues
+    return status
+
+
 def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
     deadline = time.monotonic() + timeout_seconds
     health_url = stage_bridge_health_url()
@@ -306,12 +361,14 @@ def wait_for_stage_bridge_ready(timeout_seconds: int = 20) -> None:
 
 def ensure_stage_bridge_running(repo_root: Path) -> None:
     validate_stage_bridge_inputs(repo_root)
+    run_systemctl("enable", stage_bridge_service_name(), repo_root=repo_root)
     run_systemctl("start", stage_bridge_service_name(), repo_root=repo_root)
     wait_for_stage_bridge_ready()
 
 
 def ensure_stage_bridge_stopped(repo_root: Path) -> None:
     run_systemctl("stop", stage_bridge_service_name(), repo_root=repo_root)
+    run_systemctl("disable", stage_bridge_service_name(), repo_root=repo_root)
 
 
 def discover_stage_resources(stage_argocd_root: Path) -> list[str]:
@@ -442,9 +499,29 @@ def main() -> int:
     if args.state == "status":
         if current_resources == [SUSPEND_SENTINEL]:
             print("suspended")
+            bridge_status = collect_stage_bridge_status(args.repo_root, verify_request_path=False)
+            if bridge_status["state"] == "active":
+                print(f"stage_bridge:unexpected-active service={bridge_status['service']}")
+                return 1
         else:
             active = ",".join(sorted(current_components)) or "none"
             print(f"active:{active}")
+            if "gateway" in current_components:
+                bridge_status = collect_stage_bridge_status(args.repo_root, verify_request_path=True)
+                if (
+                    bridge_status["state"] == "active"
+                    and bridge_status["health_ok"] is True
+                    and bridge_status["request_ok"] is True
+                ):
+                    print(f"stage_bridge:ready service={bridge_status['service']}")
+                    return 0
+                issues = "; ".join(bridge_status["issues"]) or "unknown bridge failure"
+                print(f"stage_bridge:degraded service={bridge_status['service']} issues={issues}")
+                return 1
+            bridge_status = collect_stage_bridge_status(args.repo_root, verify_request_path=False)
+            if bridge_status["state"] == "active":
+                print(f"stage_bridge:unexpected-active service={bridge_status['service']}")
+                return 1
         return 0
 
     requested_components = parse_components(args.components, available_components)

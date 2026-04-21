@@ -40,6 +40,13 @@ does not start or stop the local stage bridge service on the operator host.
 Host bridge orchestration remains part of the local operator-side rehearsal
 path when `gateway` is being resumed or suspended directly from WSL.
 
+When stage is expected to stay active across host restart, the local WSL
+operator path must still run
+`products/openclaw/scripts/set_stage_environment_state.py resume` at least
+once. That supported local resume path enables the stage bridge service while
+stage is active, and the matching suspend path disables it again when stage is
+shut down.
+
 ## Operator Evidence
 
 Capture:

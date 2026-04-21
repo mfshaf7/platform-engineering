@@ -79,6 +79,9 @@ the same Windows-to-WSL root bootstrap path used by the platform bootstrap
 scripts before falling back to interactive `sudo`. Do not use the legacy tmux
 bridge helpers for normal stage recovery.
 
+That supported resume path now also enables the on-demand stage bridge service
+so it survives host restart while stage intentionally remains active.
+
 Then inspect the stage gateway:
 
 ```bash
@@ -88,11 +91,24 @@ curl http://127.0.0.1:28789/healthz
 curl http://127.0.0.1:28789/readyz
 ```
 
+For truthful stage status, use:
+
+```bash
+python3 products/openclaw/scripts/set_stage_environment_state.py status
+```
+
+When `gateway` is active, this status command now also validates the stage
+bridge request path and exits non-zero if host-control traffic is degraded
+even though the cluster-side stage components still look active.
+
 When the rehearsal is complete, suspend stage again:
 
 ```bash
 python3 products/openclaw/scripts/set_stage_environment_state.py suspend
 ```
+
+That suspend path stops and disables the stage bridge again so it does not
+come back outside active stage windows.
 
 ## Governing Prod Runtime State
 

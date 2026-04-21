@@ -22,6 +22,26 @@ orchestrator. When it runs inside `Platform-Core` WSL, it can reuse the
 Windows-to-WSL root bootstrap path for stage bridge control instead of relying
 only on an interactive `sudo` prompt.
 
+When `gateway` is resumed through this script:
+
+- the local stage bridge service is enabled and started so it survives host
+  restart while stage intentionally remains active
+- the bridge must pass both `/healthz` and an authenticated read-only request
+  probe before the resume path reports success
+
+When `gateway` is suspended through this script:
+
+- the local stage bridge service is stopped and disabled again so it does not
+  linger outside active stage windows
+
+`set_stage_environment_state.py status` is now bridge-aware:
+
+- it still reports the Git-managed stage component state
+- when `gateway` is active, it also verifies the stage bridge request path and
+  exits non-zero if the host-control path is degraded
+- when stage is suspended, it exits non-zero if the stage bridge is still
+  unexpectedly active
+
 ## Internal Helper Modules
 
 - `gateway_contract.py`

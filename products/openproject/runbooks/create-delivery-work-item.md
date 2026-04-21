@@ -79,10 +79,11 @@ Optional fields:
 Behavior:
 
 - creates exactly one new child item under the requested parent
+- sends the create request through the broker-owned internal delivery API
 - fails if a sibling already exists with the same `parent + type + subject`
 - inherits the parent priority
 - inherits the parent PI when `TARGET_PI` is not supplied
-- syncs the `Target PI` custom field with the assigned PI version
+- writes `Target PI` as the delivery PI placement field
 - supports initial schedule and progress fields directly on creation
 - validates that structured SAFe fields are applicable to the requested type
 - rejects `STATUS=ready` when the required structured execution fields for the

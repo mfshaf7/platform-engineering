@@ -13,6 +13,7 @@ This converges:
   - `Reader`
   - `Work package creator`
   - `Work package editor`
+  - `Work package structure editor`
 - named API token:
   - `openproject-workspace-proposals-v1`
 - Vault secret path:
@@ -62,6 +63,7 @@ OPENPROJECT_ROTATE_API_TOKEN=true \
   - `Reader`
   - `Work package creator`
   - `Work package editor`
+  - `Work package structure editor`
 - Vault path `kv/components/operator-orchestration-service/prod/openproject`
   contains key `apiToken`
 

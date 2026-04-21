@@ -82,14 +82,12 @@ def configured_pi_names
 end
 
 def existing_target_pi_names(project)
+  target_pi_field = project.work_package_custom_fields.find_by(name: "Target PI")
+  raise "Missing Target PI custom field for PI planning views" if target_pi_field.nil?
+
   WorkPackage.where(project: project)
-             .includes(:version)
              .filter_map do |work_package|
-               if work_package.respond_to?(:version)
-                 work_package.version&.name
-               elsif work_package.respond_to?(:fixed_version)
-                 work_package.fixed_version&.name
-               end
+               work_package.custom_value_for(target_pi_field)&.value.to_s.strip.presence
              end
              .uniq
 end
@@ -172,9 +170,9 @@ def execution_filters(status:, execution_types:)
   ]
 end
 
-def pi_filters(version:, execution_types:)
+def pi_filters(version:, execution_types:, target_pi_field:)
   [
-    { version_id: { operator: "=", values: [version.id.to_s] } },
+    { "cf_#{target_pi_field.id}": { operator: "=", values: [version.name] } },
     { type_id: { operator: "=", values: execution_types.map { |type| type.id.to_s } } }
   ]
 end
@@ -208,6 +206,8 @@ pi_names = (configured_pi_names + existing_target_pi_names(project)).uniq
 versions = ensure_versions!(project, pi_names)
 roam_field = project.work_package_custom_fields.find_by(name: "ROAM State")
 raise "Missing ROAM State custom field for risk views" if roam_field.nil?
+target_pi_field = project.work_package_custom_fields.find_by(name: "Target PI")
+raise "Missing Target PI custom field for PI planning views" if target_pi_field.nil?
 
 destroy_managed_views!(project)
 
@@ -256,7 +256,11 @@ pi_queries = []
 if versions.any?
   pi_planning_types = execution_types + [pi_objective_type]
   pi_widgets = versions.map do |version|
-    filters = pi_filters(version: version, execution_types: pi_planning_types)
+    filters = pi_filters(
+      version: version,
+      execution_types: pi_planning_types,
+      target_pi_field: target_pi_field
+    )
     query = create_query!(
       project: project,
       name: "PI Planning / #{version.name}",
@@ -277,7 +281,11 @@ pi_objective_board = nil
 pi_objective_queries = []
 if versions.any?
   pi_objective_widgets = versions.map do |version|
-    filters = pi_filters(version: version, execution_types: [pi_objective_type])
+    filters = pi_filters(
+      version: version,
+      execution_types: [pi_objective_type],
+      target_pi_field: target_pi_field
+    )
     query = create_query!(
       project: project,
       name: "PI Objectives / #{version.name}",

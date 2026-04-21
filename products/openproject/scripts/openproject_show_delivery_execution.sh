@@ -44,7 +44,8 @@ fi
 echo "Showing delivery execution for epic ${TARGET_EPIC_ID} in ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
 
 pod_name="$(openproject_pod)"
-runner_remote="/tmp/openproject_show_delivery_execution_runner.rb"
+runner_basename="$(basename "${RUNNER_SCRIPT}" .rb)"
+runner_remote="/tmp/${runner_basename}-$$.rb"
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
 

@@ -6,7 +6,7 @@ OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE:-${BROKER_NAMESPACE:-openproject}
 OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT:-openproject-web}"
 OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER:-workspace-delivery-art}"
 INCLUDE_DONE="${INCLUDE_DONE:-true}"
-INCLUDE_PARKED="${INCLUDE_PARKED:-false}"
+INCLUDE_INACTIVE="${INCLUDE_INACTIVE:-${INCLUDE_PARKED:-false}}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_show_delivery_initiatives_runner.rb"
@@ -50,6 +50,6 @@ trap cleanup EXIT
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- env \
   INCLUDE_DONE="${INCLUDE_DONE}" \
-  INCLUDE_PARKED="${INCLUDE_PARKED}" \
+  INCLUDE_INACTIVE="${INCLUDE_INACTIVE}" \
   OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}" \
   sh -lc 'bundle exec rails runner "$1"' sh "${runner_remote}"

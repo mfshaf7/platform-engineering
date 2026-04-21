@@ -42,6 +42,7 @@ The command prints JSON with:
 - summary counts for descendants, statuses, blockers, PI, and assignees
 - `open_descendants`
 - `parked_items`
+- `retired_items`
 - `blocked_items`
 - `completed_without_evidence`
 
@@ -49,7 +50,7 @@ Exit behavior:
 
 - exits `0` when the delivery initiative is ready for closeout
 - exits non-zero when the initiative is not ready
-- parked descendants are reported but do not block closeout by themselves
+- parked or retired descendants are reported but do not block closeout by themselves
 
 ## Verification
 
@@ -58,7 +59,7 @@ In the OpenProject UI:
 - open `Workspace Delivery ART`
 - open the target `Epic`
 - confirm the epic is `done`
-- confirm no descendant work items remain outside `done` or `parked`
+- confirm no descendant work items remain outside `done`, `parked`, or `retired`
 - confirm no blocker fields remain active
 - confirm each `done` descendant carries:
   - `Completion Summary`

@@ -26,7 +26,8 @@ make openproject-show-delivery-active-front \
 Optional fields:
 
 - `INCLUDE_DONE=true|false`
-- `INCLUDE_PARKED=true|false`
+- `INCLUDE_INACTIVE=true|false`
+- `INCLUDE_PARKED=true|false` as a backward-compatible alias
 
 For the `accepted-idea-delivery` devint lane, also set the namespace:
 

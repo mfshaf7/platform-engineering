@@ -54,6 +54,7 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
   - `in-progress`
   - `blocked`
   - `parked`
+  - `retired`
   - `done`
 - project-scoped custom fields exist for:
   - initiative-only `Epic` governance:
@@ -89,7 +90,7 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
     - `Risk Review Date`
     - `Risk Disposition`
   - blocker statement, ownership, decision, and review tracking
-  - parking decision, reason, and review tracking
+  - parking decision, reason, deferred review tracking, and `Retirement Reason`
 - initiative-only governance fields are hidden from child work-item forms by
   type scoping
 - the `Boards` project module is enabled
@@ -113,7 +114,7 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "puts Status.where(name: [\"new\", \"ready\", \"in-progress\", \"blocked\", \"parked\", \"done\"]).pluck(:name).inspect"'
+  sh -lc 'bundle exec rails runner "puts Status.where(name: [\"new\", \"ready\", \"in-progress\", \"blocked\", \"parked\", \"retired\", \"done\"]).pluck(:name).inspect"'
 ```
 
 ```bash

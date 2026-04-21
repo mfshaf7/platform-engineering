@@ -3,7 +3,8 @@
 require "json"
 
 include_done = ENV.fetch("INCLUDE_DONE", "true") == "true"
-include_parked = ENV.fetch("INCLUDE_PARKED", "false") == "true"
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
+inactive_statuses = %w[parked retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -20,6 +21,12 @@ blocker_field_names = [
   "Blocker Justification",
   "Blocker Follow-Up Owner",
   "Blocker Review Date"
+]
+inactive_field_names = [
+  "Parking Decision",
+  "Parking Reason",
+  "Parking Review Date",
+  "Retirement Reason"
 ]
 
 governance_field_names = [
@@ -66,7 +73,7 @@ execution_field_names = [
 ]
 
 custom_fields = project.work_package_custom_fields
-  .where(name: blocker_field_names + governance_field_names + execution_field_names)
+  .where(name: blocker_field_names + inactive_field_names + governance_field_names + execution_field_names)
   .index_by(&:name)
 
 work_packages = WorkPackage.where(project_id: project.id).includes(:type, :status, :version).to_a
@@ -115,6 +122,14 @@ end
 
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
+    field = custom_fields[field_name]
+    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    [field_name, value]
+  end
+end
+
+read_inactive_fields = lambda do |entry|
+  inactive_field_names.to_h do |field_name|
     field = custom_fields[field_name]
     value = field ? entry.custom_value_for(field)&.value.presence : nil
     [field_name, value]
@@ -174,6 +189,8 @@ end
 node_summary = lambda do |entry|
   blocker_fields = read_blocker_fields.call(entry)
   blocker_active = blocker_fields.values.any?(&:present?)
+  inactive_fields = read_inactive_fields.call(entry)
+  inactive_fields_present = inactive_fields.values.any?(&:present?)
   completion_state = completion_evidence_state.call(entry)
   ready_state = ready_contract_state.call(entry)
   {
@@ -209,7 +226,8 @@ node_summary = lambda do |entry|
     completion_evidence_present: completion_state[:present],
     description_present: entry.description.to_s.strip.present?,
     description_headings: description_headings.call(entry),
-    blocker_fields: blocker_active ? blocker_fields : nil
+    blocker_fields: blocker_active ? blocker_fields : nil,
+    inactive_scope_fields: (inactive_fields_present || inactive_statuses.include?(entry.status&.name)) ? inactive_fields : nil
   }
 end
 
@@ -273,7 +291,8 @@ initiatives = top_level_epics.filter_map do |epic|
   descendant_nodes = all_nodes.reject { |node| node[:id] == epic.id }
   subtree_ids = all_nodes.map { |node| node[:id] }
   parked_items = descendant_nodes.select { |node| node[:status] == "parked" }
-  open_descendants = descendant_nodes.reject { |node| %w[done parked].include?(node[:status]) }
+  retired_items = descendant_nodes.select { |node| node[:status] == "retired" }
+  open_descendants = descendant_nodes.reject { |node| ["done", *inactive_statuses].include?(node[:status]) }
   blocked_items = descendant_nodes.select { |node| node[:blocked] }
   ready_without_contract = descendant_nodes.select do |node|
     node[:status] == "ready" && node[:ready_contract_applicable] && !node[:ready_contract_satisfied]
@@ -308,6 +327,7 @@ initiatives = top_level_epics.filter_map do |epic|
   closeout_ready = closeout_reasons.empty?
 
   next if !include_done && epic.status&.name == "done"
+  next if !include_inactive && inactive_statuses.include?(epic.status&.name)
 
   {
     epic: node_summary.call(epic).merge(
@@ -323,6 +343,8 @@ initiatives = top_level_epics.filter_map do |epic|
       total_descendants: descendant_nodes.length,
       open_descendant_count: open_descendants.length,
       parked_count: parked_items.length,
+      retired_count: retired_items.length,
+      inactive_count: parked_items.length + retired_items.length,
       blocked_count: blocked_items.length,
       ready_without_contract_count: ready_without_contract.length,
       completed_without_evidence_count: completed_without_evidence.length,
@@ -347,7 +369,8 @@ initiatives = top_level_epics.filter_map do |epic|
     },
     closeout_ready: closeout_ready,
     closeout_reasons: closeout_reasons,
-    parked_items: include_parked ? parked_items : [],
+    parked_items: include_inactive ? parked_items : [],
+    retired_items: include_inactive ? retired_items : [],
     blocked_items: blocked_items,
     ready_without_contract: ready_without_contract,
     pi_objectives: pi_objectives,
@@ -381,12 +404,14 @@ result = {
   },
   summary: {
     include_done: include_done,
-    include_parked: include_parked,
+    include_inactive: include_inactive,
     total_initiatives: initiatives.length,
-    active_initiatives: initiatives.count { |entry| !%w[done parked].include?(entry.dig(:epic, :status)) },
+    active_initiatives: initiatives.count { |entry| !(["done", *inactive_statuses].include?(entry.dig(:epic, :status))) },
     parked_initiatives: initiatives.count { |entry| entry.dig(:epic, :status) == "parked" },
+    retired_initiatives: initiatives.count { |entry| entry.dig(:epic, :status) == "retired" },
     blocked_initiatives: initiatives.count { |entry| entry.dig(:execution_summary, :blocked_count).to_i.positive? },
     parked_descendant_total: initiatives.sum { |entry| entry.dig(:execution_summary, :parked_count).to_i },
+    retired_descendant_total: initiatives.sum { |entry| entry.dig(:execution_summary, :retired_count).to_i },
     ready_without_contract_total: initiatives.sum { |entry| entry.dig(:execution_summary, :ready_without_contract_count).to_i },
     pi_objective_total: initiatives.sum { |entry| entry.dig(:execution_summary, :pi_objective_count).to_i },
     risk_total: initiatives.sum { |entry| entry.dig(:execution_summary, :risk_count).to_i },

@@ -13,6 +13,7 @@ SHOW_INITIATIVES = REPO_ROOT / "products" / "openproject" / "scripts" / "openpro
 SHOW_EXECUTION = REPO_ROOT / "products" / "openproject" / "scripts" / "openproject_show_delivery_execution.sh"
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
+INACTIVE_STATUSES = {"parked", "retired"}
 NARRATIVE_REQUIREMENTS = {
     "Epic": ["Current PI Focus", "Scope Boundaries"],
     "PI Objective": ["Outcome Statement", "Why This PI", "Success Signal"],
@@ -142,7 +143,7 @@ def main() -> int:
             continue
         initiative_id = int(epic["id"])
         epic_status = epic.get("status")
-        if not scoped_execution_only and epic_status not in {"new", "parked"}:
+        if not scoped_execution_only and epic_status not in {"new", "parked", "retired"}:
             if not epic.get("pm2_phase"):
                 add_issue(
                     issues,
@@ -238,7 +239,14 @@ def main() -> int:
                         detail="backlog item marked as not committed to a PI iteration still has concrete schedule dates",
                     )
 
-        narrative_targets = [epic, *[node for node in descendants if node.get("status") != "done"]]
+        narrative_targets = [
+            epic,
+            *[
+                node
+                for node in descendants
+                if node.get("status") not in {"done", *INACTIVE_STATUSES}
+            ],
+        ]
         for node in narrative_targets:
             node_type = node.get("type")
             required_headings = NARRATIVE_REQUIREMENTS.get(str(node_type), [])

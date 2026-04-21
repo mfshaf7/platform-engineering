@@ -4,7 +4,8 @@ require "json"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 include_done = ENV.fetch("INCLUDE_DONE", "true") == "true"
-include_parked = ENV.fetch("INCLUDE_PARKED", "false") == "true"
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
+inactive_statuses = %w[parked retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -26,6 +27,12 @@ blocker_field_names = [
   "Blocker Justification",
   "Blocker Follow-Up Owner",
   "Blocker Review Date"
+]
+inactive_field_names = [
+  "Parking Decision",
+  "Parking Reason",
+  "Parking Review Date",
+  "Retirement Reason"
 ]
 ready_required_field_names_by_type = {
   "Feature" => ["Delivery Team", "Iteration", "Acceptance Criteria", "Definition of Ready", "Definition of Done"],
@@ -62,7 +69,7 @@ execution_field_names = [
   "Risk Disposition"
 ]
 
-custom_fields = project.work_package_custom_fields.where(name: blocker_field_names + execution_field_names).index_by(&:name)
+custom_fields = project.work_package_custom_fields.where(name: blocker_field_names + inactive_field_names + execution_field_names).index_by(&:name)
 
 work_packages = WorkPackage.where(project_id: project.id).to_a
 by_id = work_packages.index_by(&:id)
@@ -138,6 +145,14 @@ read_blocker_fields = lambda do |entry|
   end
 end
 
+read_inactive_fields = lambda do |entry|
+  inactive_field_names.to_h do |field_name|
+    field = custom_fields[field_name]
+    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    [field_name, value]
+  end
+end
+
 read_custom_field_value = lambda do |entry, field_name|
   field = custom_fields[field_name]
   field ? entry.custom_value_for(field)&.value.presence : nil
@@ -186,6 +201,8 @@ end
 node_summary = lambda do |entry|
   blocker_fields = read_blocker_fields.call(entry)
   blocker_active = blocker_fields.values.any?(&:present?)
+  inactive_fields = read_inactive_fields.call(entry)
+  inactive_fields_present = inactive_fields.values.any?(&:present?)
   unresolved_dependency_ids = unresolved_dependency_ids_by_target_id[entry.id].uniq.sort
   completion_state = completion_evidence_state.call(entry)
   ready_state = ready_contract_state.call(entry)
@@ -228,7 +245,8 @@ node_summary = lambda do |entry|
     depends_on_work_package_ids: depends_on_ids_by_target_id[entry.id].uniq.sort,
     required_by_work_package_ids: required_by_ids_by_source_id[entry.id].uniq.sort,
     unresolved_dependency_work_package_ids: unresolved_dependency_ids,
-    blocker_fields: blocker_active ? blocker_fields : nil
+    blocker_fields: blocker_active ? blocker_fields : nil,
+    inactive_scope_fields: (inactive_fields_present || inactive_statuses.include?(entry.status&.name)) ? inactive_fields : nil
   }
 end
 
@@ -244,7 +262,7 @@ end
 
 filter_tree = lambda do |node|
   return nil if node[:id] != epic.id && !include_done && node[:status] == "done"
-  return nil if node[:id] != epic.id && !include_parked && node[:status] == "parked"
+  return nil if node[:id] != epic.id && !include_inactive && inactive_statuses.include?(node[:status])
 
   filtered_children = node.fetch(:children)
     .map { |child| filter_tree.call(child) }
@@ -273,6 +291,8 @@ end
 
 blocked_items = descendant_nodes.select { |node| node[:blocked] }
 parked_items = descendant_nodes.select { |node| node[:status] == "parked" }
+retired_items = descendant_nodes.select { |node| node[:status] == "retired" }
+inactive_items = descendant_nodes.select { |node| inactive_statuses.include?(node[:status]) }
 completed_without_evidence = descendant_nodes.select do |node|
   node[:status] == "done" && !node[:completion_evidence_present]
 end
@@ -288,9 +308,11 @@ result = {
   epic: node_summary.call(epic),
   summary: {
     include_done: include_done,
-    include_parked: include_parked,
+    include_inactive: include_inactive,
     total_items: descendant_nodes.length,
     parked_count: parked_items.length,
+    retired_count: retired_items.length,
+    inactive_count: inactive_items.length,
     blocked_count: blocked_items.length,
     ready_without_contract_count: ready_without_contract.length,
     completed_without_evidence_count: completed_without_evidence.length,
@@ -314,6 +336,7 @@ result = {
     remaining_work_total: descendant_nodes.sum { |node| node[:remaining_work].to_f }.round(2)
   },
   parked_items: parked_items,
+  retired_items: retired_items,
   blocked_items: blocked_items,
   ready_without_contract: ready_without_contract,
   completed_without_evidence: completed_without_evidence,

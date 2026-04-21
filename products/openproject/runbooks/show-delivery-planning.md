@@ -29,7 +29,8 @@ make openproject-show-delivery-planning \
 Optional fields:
 
 - `INCLUDE_DONE=true|false`
-- `INCLUDE_PARKED=true|false`
+- `INCLUDE_INACTIVE=true|false`
+- `INCLUDE_PARKED=true|false` as a backward-compatible alias
 
 Example:
 
@@ -37,7 +38,7 @@ Example:
 make openproject-show-delivery-planning \
   TARGET_EPIC_ID=38 \
   INCLUDE_DONE=false \
-  INCLUDE_PARKED=false
+  INCLUDE_INACTIVE=false
 ```
 
 For the `accepted-idea-delivery` devint lane, also set the namespace:
@@ -59,6 +60,11 @@ The command prints JSON with:
 - rollups by `Delivery Team`
 - rollups by `Iteration`
 - a `team_iteration_matrix` for the current initiative
+
+Default visibility:
+
+- `INCLUDE_DONE=false` hides completed descendants
+- `INCLUDE_INACTIVE=false` hides inactive descendants (`parked` and `retired`)
 
 ## Verification
 

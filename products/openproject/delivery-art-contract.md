@@ -300,14 +300,21 @@ Recommended initial Kanban-oriented execution statuses:
 - `in-progress`
 - `blocked`
 - `parked`
+- `retired`
 - `done`
 
 These statuses apply to delivery work in the ART project, not to proposal
 records in `Workspace Proposals`.
 
-`parked` is the non-destructive state for delivery work that is intentionally
-removed from active scope without being deleted. Parked items are not active
-execution work and should not block initiative closeout on their own.
+`parked` is the deferred-only state for delivery work that is intentionally
+removed from active scope for possible later return.
+
+`retired` is the terminal state for delivery work that is duplicate, mistaken,
+superseded, absorbed, invalid, or otherwise not returning to active scope.
+
+Neither `parked` nor `retired` counts as active execution work, and neither
+should appear in open-scope views by default or block initiative closeout on
+their own.
 
 ## Blocker / Impediment Governance
 
@@ -511,16 +518,27 @@ manual UI inspection.
 Delivery work that is mistaken, superseded, or intentionally deferred must not
 be deleted or left as silent active scope.
 
-Use the delivery `parked` status plus explicit parking governance:
+Use explicit inactive-scope governance:
 
 - parking decision:
   - `defer`
   - `retire`
 - parking reason
 - parking review date when the decision is `defer`
+- retirement reason when the decision is `retire`
+  - `superseded`
+  - `duplicate`
+  - `invalid`
+  - `absorbed`
+  - `cancelled`
 
-Parking removes the item from active execution scope while keeping the record
-auditable and reversible.
+Deferred items move to `parked`. Retired items move to `retired`.
+
+`superseded` is a retirement reason, not a primary execution status.
+
+Inactive-scope transitions remove the item from active execution scope while
+keeping the record auditable. Deferred items remain reversible. Retired items
+are terminal unless deliberately re-opened through a future operator workflow.
 
 ## Intake Boundary
 
@@ -584,7 +602,7 @@ Rules:
 - source proposal moves to `implemented` only when delivery closes with a real
   realized outcome
 - delivery closeout requires the top-level epic to be `done`, with no open
-  descendants outside `done` or `parked`, and no active blocker records
+  descendants outside `done`, `parked`, or `retired`, and no active blocker records
   remaining under that epic
 - source proposal may move to `superseded` if a newer accepted record replaces
   it

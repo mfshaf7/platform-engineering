@@ -217,6 +217,7 @@ Optional reconciliation fields:
 
 - `RECONCILE_MISSING=ignore|park`
 - `RECONCILE_DECISION=retire|defer`
+- `RECONCILE_RETIREMENT_REASON=superseded|duplicate|invalid|absorbed|cancelled`
 - `RECONCILE_REASON="..."`
 - `RECONCILE_REVIEW_DATE=YYYY-MM-DD`
 
@@ -229,6 +230,7 @@ make openproject-apply-delivery-plan \
   DELIVERY_PLAN_FILE=/abs/path/delivery-plan.json \
   RECONCILE_MISSING=park \
   RECONCILE_DECISION=retire \
+  RECONCILE_RETIREMENT_REASON=superseded \
   RECONCILE_REASON="Removed by revised execution plan"
 ```
 
@@ -242,6 +244,8 @@ make openproject-apply-delivery-plan \
   - created items
   - updated items
   - reused items
+  - deferred items when `RECONCILE_DECISION=defer`
+  - retired items when `RECONCILE_DECISION=retire`
 
 ## Verification
 
@@ -277,7 +281,8 @@ When a child item is no longer active scope but should remain auditable, either:
 
 Type changes are now handled non-destructively through the same reconciliation
 path: the new typed item is created from the plan and the obsolete unmatched
-item can be parked during reconcile instead of being deleted manually.
+item can be deferred or retired during reconcile instead of being deleted
+manually.
 
 Use [close-delivery-initiative.md](close-delivery-initiative.md) when the top-level
 delivery `Epic` is complete and the source proposal should move to

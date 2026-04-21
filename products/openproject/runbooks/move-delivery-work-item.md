@@ -3,7 +3,7 @@
 ## Purpose
 
 Move one existing delivery work item under a different parent inside
-`Workspace Delivery ART` through the supported operator surface.
+`Workspace Delivery ART` through the supported broker-backed operator surface.
 
 Use this when:
 
@@ -40,8 +40,10 @@ Optional fields:
 Rules:
 
 - the target and new parent must both live in `Workspace Delivery ART`
+- the target and new parent must stay within the same delivery initiative
 - the target cannot become its own parent
 - the target cannot move under one of its descendants
+- the move fails if the new parent type is not allowed for the target type
 - the move fails if the new parent already has a sibling with the same
   `type + subject`
 - the move keeps the existing status, PI, assignee, and description unless a
@@ -59,6 +61,8 @@ make openproject-move-delivery-work-item \
 ## Expected Outcome
 
 - the target work item is reparented under the new parent
+- the move is executed through the broker route:
+  - `POST /v1/delivery-work-items/{work_item_id}/move`
 - the command prints the new parent linkage and previous parent linkage
 - `WORK_NOTE` is recorded as a journal note when available, otherwise in the
   `Operator work notes` description section

@@ -9,6 +9,7 @@ ACTION="${ACTION:-}"
 TARGET_WORK_PACKAGE_ID="${TARGET_WORK_PACKAGE_ID:-}"
 RESUME_STATUS="${RESUME_STATUS:-}"
 PARK_DECISION="${PARK_DECISION:-}"
+RETIREMENT_REASON="${RETIREMENT_REASON:-}"
 PARK_REASON="${PARK_REASON:-}"
 PARK_REVIEW_DATE="${PARK_REVIEW_DATE:-}"
 WORK_NOTE="${WORK_NOTE:-}"
@@ -36,12 +37,12 @@ openproject_pod() {
 need_cmd "${KUBECTL%% *}"
 
 if [[ -z "${ACTION}" ]]; then
-  echo "ACTION is required, for example: make openproject-manage-delivery-parking ACTION=park TARGET_WORK_PACKAGE_ID=43 PARK_DECISION=retire PARK_REASON='No longer needed'" >&2
+  echo "ACTION is required, for example: make openproject-manage-delivery-parking ACTION=park TARGET_WORK_PACKAGE_ID=43 PARK_DECISION=retire RETIREMENT_REASON=superseded PARK_REASON='No longer needed'" >&2
   exit 1
 fi
 
 if [[ -z "${TARGET_WORK_PACKAGE_ID}" ]]; then
-  echo "TARGET_WORK_PACKAGE_ID is required, for example: make openproject-manage-delivery-parking ACTION=park TARGET_WORK_PACKAGE_ID=43 PARK_DECISION=retire PARK_REASON='No longer needed'" >&2
+  echo "TARGET_WORK_PACKAGE_ID is required, for example: make openproject-manage-delivery-parking ACTION=park TARGET_WORK_PACKAGE_ID=43 PARK_DECISION=retire RETIREMENT_REASON=superseded PARK_REASON='No longer needed'" >&2
   exit 1
 fi
 
@@ -67,6 +68,7 @@ kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- env \
   TARGET_WORK_PACKAGE_ID="${TARGET_WORK_PACKAGE_ID}" \
   RESUME_STATUS="${RESUME_STATUS}" \
   PARK_DECISION="${PARK_DECISION}" \
+  RETIREMENT_REASON="${RETIREMENT_REASON}" \
   PARK_REASON="${PARK_REASON}" \
   PARK_REVIEW_DATE="${PARK_REVIEW_DATE}" \
   WORK_NOTE="${WORK_NOTE}" \

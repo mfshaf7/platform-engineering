@@ -36,7 +36,8 @@ make openproject-show-delivery-execution \
 Optional fields:
 
 - `INCLUDE_DONE=true|false`
-- `INCLUDE_PARKED=true|false`
+- `INCLUDE_INACTIVE=true|false`
+- `INCLUDE_PARKED=true|false` as a backward-compatible alias
 
 Examples:
 
@@ -44,7 +45,7 @@ Examples:
 make openproject-show-delivery-execution \
   TARGET_EPIC_ID=38 \
   INCLUDE_DONE=false \
-  INCLUDE_PARKED=false
+  INCLUDE_INACTIVE=false
 ```
 
 For the `accepted-idea-delivery` devint lane, also set the namespace:
@@ -64,6 +65,7 @@ The command prints JSON with:
 - summary counts by delivery team, iteration, PI objective type, and ROAM state
 - summary counts for dependency links and unresolved dependencies
 - a `parked_items` list when parked descendants exist
+- a `retired_items` list when retired descendants exist
 - a list of blocked items with blocker details when present
 - a list of `ready` items missing required execution fields
 - a list of `done` items missing `Completion Summary`, `Changed Surfaces`, or
@@ -80,8 +82,9 @@ Each item summary also reports attachment visibility through:
 Default visibility:
 
 - `INCLUDE_DONE=true` shows completed descendants
-- `INCLUDE_PARKED=false` hides parked descendants from the tree by default while
-  still reporting them in `parked_items`
+- `INCLUDE_INACTIVE=false` hides inactive descendants (`parked` and `retired`)
+  from the tree by default while still reporting them in `parked_items` and
+  `retired_items`
 
 ## Verification
 

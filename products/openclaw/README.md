@@ -10,6 +10,26 @@ It does not replace the canonical source repositories:
 
 Instead, it explains how OpenClaw uses the shared platform.
 
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+    Sources[Canonical OpenClaw repos]
+    Product[products/openclaw]
+    Platform[Shared platform and release controls]
+    Stage[stage]
+    Prod[prod]
+
+    Sources --> Product
+    Product --> Platform
+    Platform --> Stage
+    Platform --> Prod
+```
+
+This directory is the product-integration layer for OpenClaw. It connects the
+canonical source repos to the shared platform runtime, release, and operator
+model without becoming the source repo itself.
+
 ## What This Directory Covers
 
 - OpenClaw runtime contract on the platform

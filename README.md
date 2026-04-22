@@ -10,6 +10,34 @@ more products are added later.
 Security standards, trust-boundary review, and durable security evidence are
 owned in `security-architecture/`, not duplicated here.
 
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+    Sources[Canonical product and component repos]
+    PE[platform-engineering]
+    Shared[Shared platform components]
+    Integrations[Product integration surfaces]
+    Stage[stage]
+    Prod[prod]
+    WG[workspace-governance]
+    SA[security-architecture]
+
+    Sources --> PE
+    PE --> Shared
+    PE --> Integrations
+    Shared --> Stage
+    Shared --> Prod
+    Integrations --> Stage
+    Integrations --> Prod
+    WG -. control contracts .-> PE
+    SA -. security review .-> PE
+```
+
+This repo is where approved source and platform policy become declared runtime
+shape. It is the release and environment authority, not the canonical home of
+every product implementation.
+
 Concrete security review references for this repo:
 
 - [`security-architecture/docs/architecture/platform/trust-boundaries.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/platform/trust-boundaries.md)

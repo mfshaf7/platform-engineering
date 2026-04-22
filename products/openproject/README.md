@@ -3,8 +3,9 @@
 This directory captures the platform-specific integration contract for
 OpenProject Community Edition on the local `k3s` cluster.
 
-OpenProject is treated here as an internal supporting product or service that
-uses the shared platform control plane.
+OpenProject is an internal supporting product on the shared platform. This
+directory explains how it is declared, operated, and used as part of the
+workspace workflow model.
 
 ## What This Directory Covers
 
@@ -34,27 +35,25 @@ OpenProject is currently:
 
 ## Current Workflow Maturity
 
-OpenProject is currently `platform-integrated`, not `product-governed`
-end-to-end.
+OpenProject is currently `platform-integrated`.
 
-That means:
-
-- product docs, access guidance, scripts, and platform-managed deployment exist
-- the product has a real operating model on the shared platform
-- but it does not currently have its own product-governed
-  `source -> stage -> prod` workflow with separate rehearsal and promotion
-  gates
+In practice, that means the product has a real runtime, real operator
+procedures, and a real workflow model on the shared platform, but it does not
+yet have its own product-governed `source -> stage -> prod` lane with separate
+rehearsal and promotion gates.
 
 The highest implemented endpoint today is the platform-managed OpenProject
 runtime on the local cluster plus its documented operator procedures.
 
 The canonical OpenProject workflow model now has two distinct planes:
 
-- `Workspace Proposals` for intake and proposal triage
-- `Workspace Delivery ART` for accepted work that moves into tracked delivery
+- [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
+  triage
+- [Workspace Delivery ART](delivery-art-contract.md) for accepted work that
+  moves into tracked delivery
 
 Both remain platform-managed operator flows inside this product directory. They
-do not imply a separate product-governed promotion lane.
+do not imply a separate rollout lane.
 
 ## Delivery Work-State Truth
 
@@ -63,30 +62,32 @@ start from the ART before doing repo work.
 
 Truth split:
 
-- `Workspace Delivery ART` = work-state truth
+- [Workspace Delivery ART](delivery-art-contract.md) = work-state truth
 - owner repos = implementation and design truth
-- `workspace-governance` = workspace-control truth
+- [`workspace-governance`](https://github.com/mfshaf7/workspace-governance/blob/main/README.md)
+  = workspace-control truth
 
-That means:
+In practice:
 
-- new sessions should open the active initiative summary first
-- chat and handoff notes are secondary context, not the official work queue
-- meaningful uncovered work must be reconciled into the ART or routed to the
-  correct alternate system of record
+- open the active initiative summary first
+- treat chat and handoff notes as context, not as the official work queue
+- reconcile meaningful uncovered work into the ART or route it to the correct
+  alternate system of record
 
 Out-of-coverage routing:
 
 - same initiative: add a new `Feature` or `Task` under the active `Epic`
-- new initiative: route through `Workspace Proposals`
+- new initiative: route through [Workspace Proposals](idea-backlog-contract.md)
 - repeated process or control miss: route to
-  `workspace-governance/reviews/improvement-candidates/`
+  [`workspace-governance/reviews/improvement-candidates/`](https://github.com/mfshaf7/workspace-governance/tree/main/reviews/improvement-candidates)
 - security or trust-boundary judgment: route through
-  `security-architecture` and reflect any blocking impact in the ART
+  [`security-architecture`](https://github.com/mfshaf7/security-architecture/blob/main/README.md)
+  and reflect any blocking impact in the ART
 - pure owner-repo maintenance outside the initiative: track it in the owner
   repo only
 
 Inside `Workspace Delivery ART`, the current operator model is PM²-governed at
-the initiative layer and SAFe-aligned at the execution layer, including:
+the initiative layer and SAFe-aligned at the execution layer. That includes:
 
 - PI versions
 - `PI Objective`, `Feature`, `Enabler`, `User story`, `Task`, `Milestone`, and

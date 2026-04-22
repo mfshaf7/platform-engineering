@@ -37,8 +37,7 @@ that OpenProject has its own separate product-governed rollout train.
 - dependencies
 - secrets and non-secret config expectations
 - visibility and operating checks
-- product-scoped operator scripts and runbooks for the OpenProject workflow
-  model
+- product-scoped runtime, bootstrap, and ART repair scripts and runbooks
 
 ## What It Does Not Cover
 
@@ -75,8 +74,10 @@ The canonical OpenProject workflow model now has two distinct planes:
 - [Workspace Delivery ART](delivery-art-contract.md) for accepted work that
   moves into tracked delivery
 
-Both remain platform-managed operator flows inside this product directory. They
-do not imply a separate rollout lane.
+Both remain OpenProject data planes on the shared platform. The supported
+operator execution surface for `Workspace Delivery ART` is now broker-owned in
+[`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md),
+not in this product directory.
 
 ## ART Lifecycle At A Glance
 
@@ -168,29 +169,9 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [secrets-and-config.md](secrets-and-config.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
-- [runbooks/show-delivery-initiatives.md](runbooks/show-delivery-initiatives.md)
-- [runbooks/show-delivery-active-front.md](runbooks/show-delivery-active-front.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
-- [runbooks/manage-proposal-to-delivery.md](runbooks/manage-proposal-to-delivery.md)
-- [runbooks/start-delivery-execution.md](runbooks/start-delivery-execution.md)
-- [runbooks/create-delivery-work-item.md](runbooks/create-delivery-work-item.md)
-- [runbooks/bulk-update-delivery-work-items.md](runbooks/bulk-update-delivery-work-items.md)
-- [runbooks/move-delivery-work-item.md](runbooks/move-delivery-work-item.md)
-- [runbooks/update-delivery-work-item.md](runbooks/update-delivery-work-item.md)
-- [runbooks/complete-delivery-work-item.md](runbooks/complete-delivery-work-item.md)
-- [runbooks/manage-delivery-dependency.md](runbooks/manage-delivery-dependency.md)
-- [runbooks/show-delivery-execution.md](runbooks/show-delivery-execution.md)
-- [runbooks/show-delivery-planning.md](runbooks/show-delivery-planning.md)
-- [runbooks/show-pi-objectives.md](runbooks/show-pi-objectives.md)
-- [runbooks/record-pi-review.md](runbooks/record-pi-review.md)
-- [runbooks/check-delivery-closeout-readiness.md](runbooks/check-delivery-closeout-readiness.md)
-- [runbooks/close-delivery-initiative.md](runbooks/close-delivery-initiative.md)
 - [runbooks/sync-delivery-art-views.md](runbooks/sync-delivery-art-views.md)
-- [runbooks/update-delivery-initiative.md](runbooks/update-delivery-initiative.md)
-- [runbooks/record-system-demo.md](runbooks/record-system-demo.md)
-- [runbooks/record-inspect-and-adapt.md](runbooks/record-inspect-and-adapt.md)
-- [runbooks/manage-delivery-blocker.md](runbooks/manage-delivery-blocker.md)
-- [runbooks/manage-delivery-parking.md](runbooks/manage-delivery-parking.md)
+- [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
 - [runbooks/prepare-production-clean-start.md](runbooks/prepare-production-clean-start.md)
 - [scripts/README.md](scripts/README.md)
 - [runbooks/README.md](runbooks/README.md)

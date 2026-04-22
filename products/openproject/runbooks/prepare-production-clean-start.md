@@ -147,9 +147,9 @@ Do not relabel rehearsal data as production history.
 
 ## Related References
 
-- [manage-proposal-to-delivery.md](manage-proposal-to-delivery.md)
 - [bootstrap-openproject.md](bootstrap-openproject.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [idea-backlog-contract.md](../idea-backlog-contract.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
+- [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

@@ -16,29 +16,9 @@ declared, operated, and verified on this platform.
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
-- `runbooks/show-delivery-initiatives.md`
-- `runbooks/show-delivery-active-front.md`
 - `runbooks/check-delivery-art-quality.md`
-- `runbooks/manage-proposal-to-delivery.md`
-- `runbooks/start-delivery-execution.md`
-- `runbooks/create-delivery-work-item.md`
-- `runbooks/bulk-update-delivery-work-items.md`
-- `runbooks/move-delivery-work-item.md`
-- `runbooks/update-delivery-work-item.md`
-- `runbooks/complete-delivery-work-item.md`
-- `runbooks/manage-delivery-dependency.md`
-- `runbooks/show-delivery-execution.md`
-- `runbooks/show-delivery-planning.md`
-- `runbooks/show-pi-objectives.md`
-- `runbooks/record-pi-review.md`
-- `runbooks/check-delivery-closeout-readiness.md`
-- `runbooks/close-delivery-initiative.md`
 - `runbooks/sync-delivery-art-views.md`
-- `runbooks/update-delivery-initiative.md`
-- `runbooks/record-system-demo.md`
-- `runbooks/record-inspect-and-adapt.md`
-- `runbooks/manage-delivery-blocker.md`
-- `runbooks/manage-delivery-parking.md`
+- `https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md`
 - `runbooks/prepare-production-clean-start.md`
 - `scripts/README.md`
 - `runbooks/README.md`
@@ -50,7 +30,7 @@ Keep OpenProject-specific platform material here:
 - access, bootstrap, and uninstall runbooks
 - backup and restore runbooks
 - idea backlog and delivery ART contracts
-- product-scoped operator scripts
+- product-scoped runtime, bootstrap, and ART repair scripts
 - OpenProject visibility and operator checks
 
 Do not push new OpenProject-specific guidance back into:
@@ -81,8 +61,10 @@ unless it is genuinely shared platform behavior.
 
 If an OpenProject task arrives:
 
-- route it to the owning OpenProject product docs and scripts here
-- complete it through the current platform-managed path
+- route runtime, bootstrap, and ART repair work to the owning OpenProject
+  product docs and scripts here
+- route delivery execution reads and writes through the broker-owned operator
+  surface in `operator-orchestration-service`
 - do not claim a separate stage or prod promotion workflow unless that path is
   deliberately created later
 
@@ -158,35 +140,15 @@ If the change affects shared platform entrypoints, also update:
 - `../../docs/architecture/current-platform-topology.md`
 - `../../docs/runbooks/access-platform-uis.md`
 
-When the change affects the canonical proposal-to-delivery project model or the
-broker's OpenProject access path, also update:
+When the change affects the canonical proposal-to-delivery project model, the
+broker's OpenProject access path, or the ART repair layer, also update:
 
 - `idea-backlog-contract.md`
 - `delivery-art-contract.md`
-- `runbooks/manage-proposal-to-delivery.md`
-- `runbooks/start-delivery-execution.md`
-- `runbooks/show-delivery-initiatives.md`
-- `runbooks/show-delivery-active-front.md`
 - `runbooks/check-delivery-art-quality.md`
-- `runbooks/create-delivery-work-item.md`
-- `runbooks/bulk-update-delivery-work-items.md`
-- `runbooks/move-delivery-work-item.md`
-- `runbooks/update-delivery-work-item.md`
-- `runbooks/complete-delivery-work-item.md`
-- `runbooks/manage-delivery-dependency.md`
-- `runbooks/show-delivery-execution.md`
-- `runbooks/show-delivery-planning.md`
-- `runbooks/show-pi-objectives.md`
-- `runbooks/record-pi-review.md`
-- `runbooks/check-delivery-closeout-readiness.md`
-- `runbooks/close-delivery-initiative.md`
 - `runbooks/sync-delivery-art-views.md`
-- `runbooks/update-delivery-initiative.md`
-- `runbooks/record-system-demo.md`
-- `runbooks/record-inspect-and-adapt.md`
-- `runbooks/manage-delivery-blocker.md`
-- `runbooks/manage-delivery-parking.md`
 - `runbooks/prepare-production-clean-start.md`
 - `runbooks/configure-idea-backlog.md`
 - `runbooks/configure-delivery-art.md`
 - `runbooks/provision-operator-orchestration-identity.md`
+- `https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md`

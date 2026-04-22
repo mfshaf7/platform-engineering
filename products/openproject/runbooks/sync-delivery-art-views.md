@@ -109,7 +109,5 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 ## Related References
 
 - [configure-delivery-art.md](configure-delivery-art.md)
-- [manage-proposal-to-delivery.md](manage-proposal-to-delivery.md)
-- [show-delivery-planning.md](show-delivery-planning.md)
-- [show-pi-objectives.md](show-pi-objectives.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
+- [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

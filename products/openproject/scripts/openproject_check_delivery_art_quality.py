@@ -3,38 +3,39 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+import shlex
 import subprocess
 import sys
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-SHOW_INITIATIVES = REPO_ROOT / "products" / "openproject" / "scripts" / "openproject_show_delivery_initiatives.sh"
-SHOW_EXECUTION = REPO_ROOT / "products" / "openproject" / "scripts" / "openproject_show_delivery_execution.sh"
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
 INACTIVE_STATUSES = {"retired"}
 NARRATIVE_REQUIREMENTS = {
-    "Epic": ["Current PI Focus", "Scope Boundaries"],
-    "PI Objective": ["Outcome Statement", "Why This PI", "Success Signal"],
-    "Risk": ["Trigger", "Impact", "Disposition"],
-    "Feature": ["Delivery Outcome", "Scope Boundaries"],
-    "Enabler": ["Delivery Outcome", "Runway Need"],
-    "User story": ["Concrete Output", "Evidence Expectation"],
-    "Task": ["Concrete Output", "Evidence Expectation"],
-    "Milestone": ["Exit Condition"],
+    "Epic": ["What This Initiative Achieves", "Current PI Focus", "Scope Boundaries", "Execution Context"],
+    "PI Objective": ["Outcome", "Why This PI", "Success Signal", "Execution Context"],
+    "Risk": ["Risk Event", "Impact", "Current Handling", "Execution Context"],
+    "Feature": ["What This Achieves", "Benefit Hypothesis", "Scope Boundaries", "Execution Context"],
+    "Enabler": ["What This Enables", "Benefit Hypothesis", "Scope Boundaries", "Execution Context"],
+    "User story": ["What This Achieves", "Why This Matters Now", "Evidence Expectation", "Execution Context"],
+    "Task": ["What This Achieves", "Why This Matters Now", "Evidence Expectation", "Execution Context"],
+    "Milestone": ["Exit Condition", "Execution Context"],
+}
+FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
+    "Acceptance Criteria",
+    "Definition of Ready",
+    "Definition of Done",
 }
 
 
 def run_json(command: list[str], *, env: dict[str, str]) -> dict[str, object]:
-    actual_command = ["bash", command[0], *command[1:]] if command and command[0].endswith(".sh") else command
     try:
-        completed = subprocess.run(actual_command, capture_output=True, text=True, env=env, check=True)
+        completed = subprocess.run(command, capture_output=True, text=True, env=env, check=True)
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         stdout = (exc.stdout or "").strip()
         detail = stderr or stdout or f"exit status {exc.returncode}"
-        raise RuntimeError(f"command failed: {' '.join(actual_command)}: {detail}") from exc
+        raise RuntimeError(f"command failed: {' '.join(command)}: {detail}") from exc
     lines = completed.stdout.splitlines()
     cleaned = "\n".join(
         line for line in lines
@@ -49,8 +50,84 @@ def run_json(command: list[str], *, env: dict[str, str]) -> dict[str, object]:
     json_start = cleaned.find("{")
     payload = cleaned[json_start:] if json_start >= 0 else ""
     if not payload:
-        raise RuntimeError(f"command returned no JSON payload: {' '.join(actual_command)}")
+        raise RuntimeError(f"command returned no JSON payload: {' '.join(command)}")
     return json.loads(payload)
+
+
+def resolve_broker_namespace(env: dict[str, str]) -> str:
+    broker_namespace = (env.get("BROKER_NAMESPACE") or "").strip()
+    if broker_namespace:
+        return broker_namespace
+    openproject_namespace = (env.get("OPENPROJECT_NAMESPACE") or "openproject").strip() or "openproject"
+    if openproject_namespace == "openproject":
+        return "operator-orchestration-service"
+    return openproject_namespace
+
+
+def normalize_delivery_id(raw_id: str) -> str:
+    value = raw_id.strip()
+    if not value:
+        raise RuntimeError("delivery id is required")
+    return value if value.startswith("delivery-") else f"delivery-{value}"
+
+
+def run_broker_json(path: str, *, env: dict[str, str]) -> dict[str, object]:
+    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
+    broker_namespace = resolve_broker_namespace(env)
+    broker_deployment = env.get("BROKER_DEPLOYMENT", "operator-orchestration-service")
+    broker_port = env.get("BROKER_PORT", "8080")
+    node_script = """
+const brokerPath = process.env.BROKER_PATH || "/";
+const brokerPort = process.env.BROKER_PORT || "8080";
+const callerAllowedIds = (process.env.CALLER_ALLOWED_IDS || "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+const callerId = callerAllowedIds[0] || "openproject-check-delivery-art-quality";
+const callerSecret = process.env.CALLER_AUTH_SHARED_SECRET || "";
+
+async function requestJson(url, { method = "GET", headers = {} } = {}) {
+  const response = await fetch(url, { method, headers });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`${method} ${url} failed: ${response.status} ${text}`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+const brokerBase = `http://127.0.0.1:${brokerPort}`;
+const ready = await requestJson(`${brokerBase}/readyz`);
+if (!ready.ready) {
+  throw new Error(`Broker is not ready: ${JSON.stringify(ready)}`);
+}
+const payload = await requestJson(`${brokerBase}${brokerPath}`, {
+  headers: {
+    "x-correlation-id": `openproject-check-delivery-art-quality-${Date.now()}`,
+    "x-oos-caller-id": callerId,
+    "x-oos-caller-secret": callerSecret,
+  },
+});
+process.stdout.write(`${JSON.stringify(payload, null, 2)}\\n`);
+"""
+    return run_json(
+        [
+            *kubectl,
+            "-n",
+            broker_namespace,
+            "exec",
+            "-i",
+            f"deploy/{broker_deployment}",
+            "--",
+            "env",
+            f"BROKER_PATH={path}",
+            f"BROKER_PORT={broker_port}",
+            "node",
+            "--input-type=module",
+            "-e",
+            node_script,
+        ],
+        env=env,
+    )
 
 
 def flatten_tree(node: dict[str, object]) -> list[dict[str, object]]:
@@ -115,6 +192,7 @@ def main() -> int:
     include_done = env.get("INCLUDE_DONE", "true")
     target_epic_id = env.get("TARGET_EPIC_ID", "").strip()
     scoped_execution_only = bool(target_epic_id)
+    include_done_param = "true" if include_done == "true" else "false"
 
     if scoped_execution_only:
         initiatives_payload = {
@@ -124,12 +202,15 @@ def main() -> int:
         initiatives = [
             {
                 "epic": {
-                    "id": int(target_epic_id),
+                    "id": int(normalize_delivery_id(target_epic_id).split("-", 1)[1]),
                 },
             }
         ]
     else:
-        initiatives_payload = run_json([str(SHOW_INITIATIVES)], env=env)
+        initiatives_payload = run_broker_json(
+            f"/v1/delivery-initiatives?include_done={include_done_param}&include_inactive=false",
+            env=env,
+        )
         initiatives = initiatives_payload.get("initiatives", [])
         if not isinstance(initiatives, list):
             raise RuntimeError("unexpected initiative payload shape")
@@ -177,16 +258,17 @@ def main() -> int:
                     detail="active initiative is missing Success Criteria",
                 )
 
-        execution_payload = run_json(
-            [str(SHOW_EXECUTION)],
-            env={
-                **env,
-                "TARGET_EPIC_ID": str(initiative_id),
-                "INCLUDE_DONE": include_done,
-                "INCLUDE_PARKED": "true",
-            },
+        execution_payload = run_broker_json(
+            (
+                f"/v1/delivery-initiatives/{normalize_delivery_id(str(initiative_id))}"
+                f"/execution-summary?include_done={include_done_param}&include_parked=true"
+            ),
+            env=env,
         )
-        root = execution_payload.get("epic")
+        execution_summary = execution_payload.get("execution_summary")
+        if not isinstance(execution_summary, dict):
+            raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
+        root = execution_summary.get("epic")
         if not isinstance(root, dict):
             raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
         epic = root
@@ -195,6 +277,12 @@ def main() -> int:
         for node in descendants:
             status = node.get("status")
             completion_present = bool(node.get("completion_evidence_present"))
+            completion_formatting_valid = bool(node.get("completion_evidence_formatting_valid", True))
+            completion_issues = node.get("completion_evidence_issues") or []
+            present_headings = set(node.get("description_headings") or [])
+            duplicated_structured_headings = sorted(
+                present_headings & FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS
+            )
             if status == "done" and not completion_present:
                 add_issue(
                     issues,
@@ -203,6 +291,14 @@ def main() -> int:
                     target=node,
                     detail="done work item is missing substantive completion evidence",
                 )
+            if status == "done" and completion_present and not completion_formatting_valid:
+                add_issue(
+                    issues,
+                    issue_type="done_item_has_weak_completion_evidence",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail=f"done work item completion evidence does not meet the closeout standard: {'; '.join(completion_issues)}",
+                )
             if status != "done" and completion_present:
                 add_issue(
                     issues,
@@ -210,6 +306,25 @@ def main() -> int:
                     initiative_id=initiative_id,
                     target=node,
                     detail="non-done work item still carries completion evidence sections",
+                )
+            if duplicated_structured_headings:
+                add_issue(
+                    issues,
+                    issue_type="description_duplicates_structured_execution_fields",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail=(
+                        "description duplicates structured execution fields as markdown headings: "
+                        + ", ".join(duplicated_structured_headings)
+                    ),
+                )
+            if not node.get("description_starts_with_heading", False) and node.get("description_present"):
+                add_issue(
+                    issues,
+                    issue_type="description_does_not_start_with_heading",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail="description must start with a markdown heading instead of loose prose",
                 )
             if status in ACTIVE_STATUSES and node.get("ready_contract_applicable") and not node.get("ready_contract_satisfied"):
                 missing = node.get("ready_contract_missing_fields") or []
@@ -220,6 +335,22 @@ def main() -> int:
                     target=node,
                     detail=f"active work item is missing required execution fields: {', '.join(missing)}",
                 )
+            if status == "done":
+                missing_done_ownership: list[str] = []
+                if not node.get("assignee_login"):
+                    missing_done_ownership.append("Assignee")
+                if not node.get("responsible_login"):
+                    missing_done_ownership.append("Responsible")
+                if not node.get("owner_repo"):
+                    missing_done_ownership.append("Owner Repo")
+                if missing_done_ownership:
+                    add_issue(
+                        issues,
+                        issue_type="done_item_missing_ownership_contract",
+                        initiative_id=initiative_id,
+                        target=node,
+                        detail=f"done work item is missing required ownership fields: {', '.join(missing_done_ownership)}",
+                    )
 
             if node.get("iteration") == BACKLOG_ITERATION_LABEL:
                 if node.get("target_pi"):

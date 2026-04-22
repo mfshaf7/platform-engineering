@@ -1,23 +1,42 @@
 # OpenProject Scripts
 
-This directory contains OpenProject-specific operator entrypoints for the
-platform integration.
+This directory contains OpenProject-specific platform-admin and repair
+entrypoints for the platform integration.
 
 These scripts are product-scoped. They are not shared platform tooling.
 
-For `Workspace Delivery ART`, these entrypoints now cover:
+Delivery execution is broker-owned in
+[`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md).
+This directory no longer carries the operator-facing ART read or mutation
+surface.
 
-- PM² initiative governance on the top-level `Epic`
-- SAFe-aligned delivery execution for `PI Objective`, `Feature`, `Enabler`,
-  `User story`, `Task`, `Milestone`, and `Risk`
-- PI views, PI-objective views, team/iteration planning summaries, explicit
-  system-demo and inspect-and-adapt recording, ART-risk views, dependencies,
-  blockers, deferred-vs-retired open-scope handling, completion evidence,
-  closeout readiness, and ART-quality validation
+## Script Shape
 
-The initiative-governance and plan-apply entrypoints are thin wrappers over
-the broker-owned `/v1/delivery-initiatives/.../governance` and
-`/v1/delivery-initiatives/.../plan/apply` routes.
+The supported OpenProject script surface has two execution shapes:
+
+- `*.sh`
+  - supported platform-admin or repair entrypoints
+  - these are the commands still exposed through `make` and the remaining
+    OpenProject runbooks
+- `*_runner.rb`
+  - internal Rails runners used only by the remaining direct OpenProject
+    admin/bootstrap entrypoints
+  - these are implementation details, not the primary operator surface
+- `*_support.rb`
+  - shared helper modules used by multiple runners
+- `*.py`
+  - repo-local validators or quality checks invoked by the shell entrypoints
+
+If a script is not listed as a supported operator entrypoint below, treat it
+as an implementation detail rather than a direct workflow surface.
+
+For `Workspace Delivery ART`, the remaining entrypoints here cover:
+
+- project bootstrap and schema provisioning
+- ART view synchronization
+- ART quality validation
+- one-time ART normalization after a contract change
+- clean-start and service-identity admin controls
 
 ## Operator Entrypoints
 
@@ -28,28 +47,8 @@ the broker-owned `/v1/delivery-initiatives/.../governance` and
 - `openproject_configure_idea_backlog.sh`
 - `openproject_configure_delivery_art.sh`
 - `openproject_sync_delivery_art_views.sh`
-- `openproject_update_delivery_initiative.sh`
-- `openproject_record_system_demo.sh`
-- `openproject_record_inspect_and_adapt.sh`
-- `openproject_create_delivery_work_item.sh`
-- `openproject_bulk_update_delivery_work_items.sh`
-- `openproject_move_delivery_work_item.sh`
-- `openproject_update_delivery_work_item.sh`
-- `openproject_complete_delivery_work_item.sh`
-- `openproject_manage_delivery_dependency.sh`
-- `openproject_show_delivery_initiatives.sh`
-- `openproject_show_delivery_active_front.sh`
 - `openproject_check_delivery_art_quality.sh`
-- `openproject_show_delivery_execution.sh`
-- `openproject_show_delivery_planning.sh`
-- `openproject_show_pi_objectives.sh`
-- `openproject_record_pi_review.sh`
-- `openproject_check_delivery_closeout_readiness.sh`
-- `openproject_manage_delivery_blocker.sh`
-- `openproject_manage_delivery_parking.sh`
-- `openproject_consume_accepted_idea.sh`
-- `openproject_apply_delivery_plan.sh`
-- `openproject_close_delivery_initiative.sh`
+- `openproject_standardize_delivery_art.sh`
 - `openproject_verify_clean_start.sh`
 - `openproject_provision_operator_orchestration_identity.sh`
 - `openproject_uninstall.sh`
@@ -63,29 +62,22 @@ the broker-owned `/v1/delivery-initiatives/.../governance` and
 - `make openproject-configure-idea-backlog`
 - `make openproject-configure-delivery-art`
 - `make openproject-sync-delivery-art-views`
-- `make openproject-update-delivery-initiative`
-- `make openproject-record-system-demo`
-- `make openproject-record-inspect-and-adapt`
-- `make openproject-create-delivery-work-item`
-- `make openproject-bulk-update-delivery-work-items`
-- `make openproject-move-delivery-work-item`
-- `make openproject-update-delivery-work-item`
-- `make openproject-complete-delivery-work-item`
-- `make openproject-manage-delivery-dependency`
-- `make openproject-show-delivery-initiatives`
-- `make openproject-show-delivery-active-front`
 - `make openproject-check-delivery-art-quality`
-- `make openproject-show-delivery-execution`
-- `make openproject-show-delivery-planning`
-- `make openproject-show-pi-objectives`
-- `make openproject-record-pi-review`
-- `make openproject-check-delivery-closeout-readiness`
-- `make openproject-manage-delivery-blocker`
-- `make openproject-manage-delivery-parking`
-- `make openproject-consume-accepted-idea`
-- `make openproject-apply-delivery-plan`
-- `make openproject-close-delivery-initiative`
+- `make openproject-standardize-delivery-art`
 - `make openproject-verify-clean-start`
 - `make openproject-provision-operator-orchestration-identity`
 - `make openproject-provision-operator-orchestration-delivery-access`
 - `make openproject-uninstall`
+
+## Retired Surface
+
+The following command family is intentionally removed from this repo:
+
+- ART portfolio and execution reads
+- delivery initiative mutations
+- delivery work-item mutations
+- proposal-to-delivery consume and closeout execution
+
+Use the broker-owned delivery operator surface in
+[`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
+instead of recreating local execution scripts.

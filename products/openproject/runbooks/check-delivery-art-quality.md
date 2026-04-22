@@ -19,34 +19,60 @@ The supported quality check currently verifies:
   - `Success Criteria`
 - non-done delivery work does not still carry completion-evidence sections
 - `done` delivery work carries substantive completion evidence
+- `done` delivery work does not carry weak or malformed completion attestation
 - active execution items do not violate the structured ready contract
 - items explicitly marked `Not committed to a PI iteration yet.` do not also
   pretend to have concrete PI assignment or scheduled dates
 - advisory narrative quality findings by work-item type:
   - `Epic`
+    - `What This Initiative Achieves`
     - `Current PI Focus`
     - `Scope Boundaries`
+    - `Execution Context`
   - `PI Objective`
-    - `Outcome Statement`
+    - `Outcome`
     - `Why This PI`
     - `Success Signal`
+    - `Execution Context`
   - `Risk`
-    - `Trigger`
+    - `Risk Event`
     - `Impact`
-    - `Disposition`
+    - `Current Handling`
+    - `Execution Context`
   - `Feature`
-    - `Delivery Outcome`
+    - `What This Achieves`
+    - `Benefit Hypothesis`
     - `Scope Boundaries`
+    - `Execution Context`
   - `Enabler`
-    - `Delivery Outcome`
-    - `Runway Need`
+    - `What This Enables`
+    - `Benefit Hypothesis`
+    - `Scope Boundaries`
+    - `Execution Context`
   - `User story` / `Task`
-    - `Concrete Output`
+    - `What This Achieves`
+    - `Why This Matters Now`
     - `Evidence Expectation`
+    - `Execution Context`
   - `Milestone`
     - `Exit Condition`
+    - `Execution Context`
 
 Structural issues are hard failures.
+
+That includes done-state attestation drift such as:
+
+- description starts with loose prose instead of a heading
+- description duplicates `Acceptance Criteria`, `Definition of Ready`, or
+  `Definition of Done` as markdown headings
+- active or done work is missing `Owner Repo`, `Assignee`, or `Responsible`
+
+- `Completion Summary` written as a bullet list instead of a short paragraph
+- `Changed Surfaces` not written as a flat bullet list
+- `Test Result Evidence` bullets missing the required `PASS:` / `FAIL:` /
+  `NOT APPLICABLE:` / `Attached artifact:` prefixes
+- `Validation Evidence` bullets missing the required `PASS:` / `FAIL:` /
+  `CHECK:` / `NOT APPLICABLE:` / `Attached artifact:` prefixes
 
 Narrative findings are advisory, but they still matter:
 
@@ -112,6 +138,6 @@ Typical fields include:
 
 ## Related References
 
-- [show-delivery-initiatives.md](show-delivery-initiatives.md)
-- [show-delivery-execution.md](show-delivery-execution.md)
+- [standardize-delivery-art.md](standardize-delivery-art.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
+- [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

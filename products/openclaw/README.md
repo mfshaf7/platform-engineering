@@ -29,13 +29,11 @@ Those remain in their owning repos or in shared platform docs.
 
 ## Current Product Reality
 
-OpenClaw currently has the most mature governed rollout path in this
-workspace.
+OpenClaw currently has the most mature governed rollout path in the workspace.
+Its platform-specific scripts, runbooks, and operator guidance live under this
+directory so the shared platform layer can stay product-neutral.
 
-Its platform-specific scripts, runbooks, and operator guidance now live under
-this product directory so the shared platform layer stays product-neutral.
-
-OpenClaw currently uses the most mature product-governed release path here:
+Today that maturity shows up as:
 
 - stage candidate and rehearsal evidence are explicit Git-managed release
   objects

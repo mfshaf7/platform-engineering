@@ -37,6 +37,11 @@ spec:
             enabled: true
             hocuspocus:
               protocol: ws
+        environment:
+          OPENPROJECT_WEB__WORKERS: "1"
+        workers:
+          default:
+            maxThreads: 10
         persistence:
           enabled: true
           accessModes:

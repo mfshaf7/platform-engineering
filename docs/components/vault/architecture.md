@@ -16,11 +16,12 @@ It owns:
 - namespace: `vault`
 - Argo application: `vault`
 - current UI/API service: `vault-ui`
+- server topology: single-node Raft server
 
 ## Model
 
-The current platform uses an in-cluster Vault as the workload and secret
-delivery store.
+The current platform uses an in-cluster single-node Vault as the workload and
+secret delivery store.
 
 Auto-unseal and recovery posture are governed by these ADRs:
 

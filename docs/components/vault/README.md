@@ -14,3 +14,4 @@ Vault is the shared secret source of truth for the platform.
 
 - namespace: `vault`
 - direct operator path: `http://127.0.0.1:32200`
+- current server topology: single-node Raft server

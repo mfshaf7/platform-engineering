@@ -22,13 +22,11 @@ procedure.
 ```bash
 k3s kubectl -n vault get pods
 k3s kubectl -n vault exec vault-0 -- vault status
-k3s kubectl -n vault exec vault-1 -- vault status
-k3s kubectl -n vault exec vault-2 -- vault status
 ```
 
-## Unseal A Sealed Pod
+## Unseal The Workload Pod
 
-Use the threshold number of unseal keys against the sealed pod:
+Use the threshold number of unseal keys against the sealed workload pod:
 
 ```bash
 k3s kubectl -n vault exec vault-0 -- vault operator unseal <key-1>
@@ -36,21 +34,13 @@ k3s kubectl -n vault exec vault-0 -- vault operator unseal <key-2>
 k3s kubectl -n vault exec vault-0 -- vault operator unseal <key-3>
 ```
 
-Repeat for each sealed pod.
-
-## Rejoin A Replacement Follower
-
-If a follower loses local Raft state and returns uninitialized:
-
-```bash
-k3s kubectl -n vault exec vault-1 -- vault operator raft join http://vault-0.vault-internal:8200
-```
-
-Then unseal it with the threshold number of unseal keys.
+There is no in-cluster follower rejoin flow in the current single-node posture.
+If the lone pod loses local Raft state, recover from the approved snapshot and
+re-bootstrap the pod rather than attempting a peer join.
 
 ## Verify Recovery
 
-- one active Vault node and healthy standbys
+- `vault-0` healthy and unsealed
 - `platform-secrets-stage` healthy
 - `platform-secrets-prod` healthy
 - representative secret reads succeed through External Secrets Operator

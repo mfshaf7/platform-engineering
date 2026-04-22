@@ -7,7 +7,7 @@ the platform Vault cluster.
 
 ## Scope
 
-- Vault runs as a Raft-backed HA cluster in the `vault` namespace
+- Vault runs as a single-node Raft-backed service in the `vault` namespace
 - product runtime secrets are stored under `products/<product>/<environment>/...`
 - External Secrets Operator consumes Vault as the source of truth
 

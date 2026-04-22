@@ -7,6 +7,29 @@ OpenProject is an internal supporting product on the shared platform. This
 directory explains how it is declared, operated, and used as part of the
 workspace workflow model.
 
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+    Platform[platform-engineering]
+    Product[products/openproject]
+    Runtime[OpenProject runtime]
+    Proposals[Workspace Proposals]
+    ART[Workspace Delivery ART]
+    OOS[operator-orchestration-service]
+
+    Platform --> Product
+    Product --> Runtime
+    Runtime --> Proposals
+    Runtime --> ART
+    OOS --> Runtime
+    OOS --> ART
+```
+
+This directory is the OpenProject integration layer on the shared platform. It
+connects the runtime, operator procedures, and workflow planes without claiming
+that OpenProject has its own separate product-governed rollout train.
+
 ## What This Directory Covers
 
 - runtime contract

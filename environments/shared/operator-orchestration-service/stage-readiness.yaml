@@ -1,0 +1,18 @@
+schemaVersion: 1
+component: operator-orchestration-service
+environment: stage
+status: pending
+approvedAt: null
+approvedBy: null
+note: >-
+  Stage readiness approval is required for the exact shared broker candidate.
+  Health and Argo sync do not make this shared control-plane component
+  stage-ready by themselves.
+candidateRef:
+  path: environments/shared/operator-orchestration-service/stage-candidate.yaml
+  status: candidate
+  imageDigest: sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a
+verificationRef:
+  path: environments/shared/operator-orchestration-service/stage-verification.yaml
+  status: pending
+  verifiedAt: null

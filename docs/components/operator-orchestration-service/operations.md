@@ -17,6 +17,10 @@ curl -fsS http://127.0.0.1:8080/version
 - pod is healthy but OpenProject writes fail with authentication or validation errors
 - stage `/idea` command fails while the service remains healthy
 - External Secret is stale or missing in the component namespace
+- stage readiness stays `pending` because the current candidate has no matching
+  verification record
+- prod verification stays `pending` because the shared deployment contract
+  changed without a new post-promotion evidence record
 
 ## First Response
 
@@ -67,3 +71,4 @@ OpenProject API token material remains at:
 
 - [../../../products/openproject/idea-backlog-contract.md](../../../products/openproject/idea-backlog-contract.md)
 - [../../architecture/current-platform-topology.md](../../architecture/current-platform-topology.md)
+- [release-governance.md](release-governance.md)

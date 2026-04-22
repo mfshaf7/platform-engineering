@@ -4,6 +4,10 @@
 
 This document defines how versions are promoted and how runtime drift is treated.
 
+For the shared release-governance tiers and the required candidate,
+verification, readiness, and prod-verification objects, see
+[governed-release-control-model.md](governed-release-control-model.md).
+
 ## Release Authority
 
 The platform repo is the release authority.
@@ -12,6 +16,8 @@ That means:
 
 - source repos define candidate code
 - this repo defines which version is approved for each environment
+- stage or prod readiness still depends on the matching release-governance
+  objects for the workload tier, not on version pins alone
 
 ## Version Objects
 
@@ -61,6 +67,10 @@ If runtime cannot report those values, production is not fully attestable.
 8. Ansible applies host-side changes if required
 9. Prometheus and Grafana confirm service health
 10. runtime attestation must match the approved manifest
+
+Promotion is not complete from version reconciliation alone. The governed
+release-control model still requires the matching stage readiness or
+post-promotion verification state for the workload tier.
 
 ## Rollback Path
 

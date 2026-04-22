@@ -22,6 +22,7 @@ Use it when the question is:
 - [artifact-build.md](artifact-build.md)
 - [ci-cd.md](ci-cd.md)
 - [gitops.md](gitops.md)
+- [governed-release-control-model.md](governed-release-control-model.md)
 - [observability.md](observability.md)
 - [release-model.md](release-model.md)
 - [restart-survival.md](restart-survival.md)

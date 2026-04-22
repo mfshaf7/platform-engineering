@@ -1,0 +1,34 @@
+schemaVersion: 1
+component: operator-orchestration-service
+environment: stage
+tier: shared_control_plane_component
+status: candidate
+recordedAt: '2026-04-22T00:00:00Z'
+recordedBy: Dev Integration Admin
+recordedPlatformEngineeringCommit: 9b87557ea2f2f1ff80586d0e614bc921ab585d7e
+note: >-
+  Initial governed stage candidate recorded from the current shared deployment
+  contract. The broker still runs once in the shared control plane, so this
+  candidate is the exact shared contract currently relied on by stage rehearsal
+  and prod-facing dependent workflows.
+candidate:
+  deploymentContractRef:
+    path: environments/shared/operator-orchestration-service/deployment.yaml
+    imageDigest: sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a
+  image:
+    repository: ghcr.io/mfshaf7/operator-orchestration-service
+    tag: sha-f575ba9
+    digest: sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a
+  sourceRefs:
+    operatorOrchestrationService: f575ba920c1f2a478f290e3d30ce67e0c6096fc2
+    platformEngineering: 9b87557ea2f2f1ff80586d0e614bc921ab585d7e
+  requiredChecks:
+    - runtime-start
+    - workflow-catalog
+    - openproject-adapter-readiness
+    - representative-workflow-smoke
+  capabilities:
+    - accepted-idea-delivery
+    - openproject-adapter
+    - shared-control-plane
+    - workflow-catalog

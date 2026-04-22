@@ -11,6 +11,7 @@ import sys
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
 INACTIVE_STATUSES = {"retired"}
+DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
 NARRATIVE_REQUIREMENTS = {
     "Epic": ["What This Initiative Achieves", "Current PI Focus", "Scope Boundaries", "Execution Context"],
     "PI Objective": ["Outcome", "Why This PI", "Success Signal", "Execution Context"],
@@ -268,11 +269,12 @@ def main() -> int:
         execution_summary = execution_payload.get("execution_summary")
         if not isinstance(execution_summary, dict):
             raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
-        root = execution_summary.get("epic")
-        if not isinstance(root, dict):
+        epic = execution_summary.get("epic")
+        root = execution_summary.get("execution_tree")
+        if not isinstance(epic, dict) or not isinstance(root, dict):
             raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
-        epic = root
-        descendants = flatten_tree(root)[1:]
+        all_nodes = flatten_tree(root)
+        descendants = all_nodes[1:]
 
         for node in descendants:
             status = node.get("status")
@@ -369,6 +371,38 @@ def main() -> int:
                         target=node,
                         detail="backlog item marked as not committed to a PI iteration still has concrete schedule dates",
                     )
+
+        for node in all_nodes:
+            if node.get("status") != "done":
+                continue
+
+            blocking_descendants = [
+                descendant
+                for descendant in flatten_tree(node)[1:]
+                if descendant.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            ]
+            if not blocking_descendants:
+                continue
+
+            rendered_descendants = ", ".join(
+                f"#{descendant.get('id')} ({descendant.get('status')})"
+                for descendant in blocking_descendants[:5]
+            )
+            overflow_note = (
+                f" and {len(blocking_descendants) - 5} more"
+                if len(blocking_descendants) > 5
+                else ""
+            )
+            add_issue(
+                issues,
+                issue_type="done_item_has_open_descendants",
+                initiative_id=initiative_id,
+                target=node,
+                detail=(
+                    "done work item still has descendants outside done or retired: "
+                    f"{rendered_descendants}{overflow_note}"
+                ),
+            )
 
         narrative_targets = [
             epic,

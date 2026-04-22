@@ -82,33 +82,54 @@ explicitly before continuing the item.
 Required narrative sections by type:
 
 - `Epic`
+  - `What This Initiative Achieves`
   - `Current PI Focus`
   - `Scope Boundaries`
+  - `Execution Context`
 - `PI Objective`
-  - `Outcome Statement`
+  - `Outcome`
   - `Why This PI`
   - `Success Signal`
+  - `Execution Context`
 - `Risk`
-  - `Trigger`
+  - `Risk Event`
   - `Impact`
-  - `Disposition`
+  - `Current Handling`
+  - `Execution Context`
 - `Feature`
-  - `Delivery Outcome`
+  - `What This Achieves`
+  - `Benefit Hypothesis`
   - `Scope Boundaries`
+  - `Execution Context`
 - `Enabler`
-  - `Delivery Outcome`
-  - `Runway Need`
+  - `What This Enables`
+  - `Benefit Hypothesis`
+  - `Scope Boundaries`
+  - `Execution Context`
 - `User story`
-  - `Concrete Output`
+  - `What This Achieves`
+  - `Why This Matters Now`
   - `Evidence Expectation`
+  - `Execution Context`
 - `Task`
-  - `Concrete Output`
+  - `What This Achieves`
+  - `Why This Matters Now`
   - `Evidence Expectation`
+  - `Execution Context`
 - `Milestone`
   - `Exit Condition`
+  - `Execution Context`
 
 These sections exist to make the record operationally safe to use as delivery
 truth. They are not free-form writing polish targets.
+
+Description rules:
+
+- start the description with a markdown heading instead of loose prose
+- keep `Acceptance Criteria`, `Definition of Ready`, and `Definition of Done`
+  in custom fields only
+- use `Execution Context` for the fast human-readable bridge to repo, review,
+  runtime, or operator surfaces
 
 ## Canonical Delivery Project
 
@@ -218,6 +239,7 @@ Child delivery work should instead carry:
 - `remaining work`
 - `% complete`
 - assignee or responsible owner
+- `Owner Repo`
 
 For broker-backed create and update surfaces, an assignee login is valid only
 when OpenProject exposes that principal as assignable in the target project or
@@ -487,6 +509,67 @@ Use these sections for different purposes:
 - `Validation Evidence`
   - record the broader validation commands or checks that proved the finished state
 
+Completion evidence uses a separate purpose from the execution narrative and
+from running operator notes:
+
+- execution narrative
+  - sections such as `What This Achieves`, `What This Enables`,
+    `Benefit Hypothesis`, `Evidence Expectation`, or `Execution Context`
+  - describe the intended result before the item is done
+- operator work notes
+  - timestamped running notes, reopen history, and live observations
+  - useful for execution history, but not the canonical done attestation
+- completion attestation
+  - the required done-state proof block described here
+  - this is the canonical closeout record
+
+Structured execution fields remain outside the markdown description:
+
+- `Acceptance Criteria`
+- `Definition of Ready`
+- `Definition of Done`
+
+Those three belong in OpenProject custom fields so the ART can validate and
+query them consistently. Do not mirror them back into markdown headings inside
+the description body. A work item should not render those sections twice in the
+UI.
+
+Formatting standard for the completion attestation:
+
+- `Completion Summary`
+  - one short paragraph
+  - outcome-first
+  - do not use bullet-list formatting
+- `Changed Surfaces`
+  - flat bullet list only
+  - list the concrete files, contracts, docs, endpoints, runtime surfaces, or
+    boards/views changed
+- `Test Result Evidence`
+  - flat bullet list only
+  - every bullet must start with:
+    - `PASS:`
+    - `FAIL:`
+    - `NOT APPLICABLE:`
+    - `Attached artifact:`
+- `Validation Evidence`
+  - flat bullet list only
+  - every bullet must start with:
+    - `PASS:`
+    - `FAIL:`
+    - `CHECK:`
+    - `NOT APPLICABLE:`
+    - `Attached artifact:`
+- optional `Residual Follow-Up`
+  - flat bullet list only
+  - use this only when the done item deliberately hands off explicit remaining
+    work
+  - every bullet must reference an explicit ART item or work package such as
+    `#179` or `openproject://work_packages/179`
+
+The best current directional example is `Task #62`, but the target standard is
+stricter than historical examples that only satisfied the minimum section
+presence check.
+
 These should be recorded through the supported operator workflow, not left as
 implicit chat memory or only in a transient CLI log.
 
@@ -497,11 +580,17 @@ the record carries both:
 - a short test result statement in the description
 - the attached raw output or report file when one exists
 
+Do not create a standalone `Attachments` section. Attachments should be named
+inside the evidence section they support so the record explains what each file
+proves.
+
 For work that is not yet complete, the record should state that completion
 evidence is not yet applicable instead of silently omitting the section.
 
 Initiative closeout readiness should treat missing completion evidence on
-`done` descendants as a failure, not just missing documentation.
+`done` descendants as a failure, not just missing documentation. Weakly
+formatted completion evidence should also fail closeout readiness and ART
+quality checks when it no longer reads like a disciplined delivery attestation.
 
 ## Dependency Governance
 

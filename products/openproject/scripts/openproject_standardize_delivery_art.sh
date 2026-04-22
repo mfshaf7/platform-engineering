@@ -2,14 +2,10 @@
 set -euo pipefail
 
 KUBECTL="${KUBECTL:-k3s kubectl}"
-OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE:-${BROKER_NAMESPACE:-openproject}}"
+OPENPROJECT_NAMESPACE="${OPENPROJECT_NAMESPACE:-openproject}"
 OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT:-openproject-web}"
-OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER:-workspace-delivery-art}"
-INCLUDE_DONE="${INCLUDE_DONE:-true}"
-INCLUDE_INACTIVE="${INCLUDE_INACTIVE:-false}"
-
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_show_delivery_initiatives_runner.rb"
+RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_standardize_delivery_art_runner.rb"
 SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_custom_field_support.rb"
 
 need_cmd() {
@@ -21,12 +17,6 @@ need_cmd() {
 
 kubectl_cmd() {
   ${KUBECTL} "$@"
-}
-
-openproject_pod() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" get pod \
-    -l "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject" \
-    -o jsonpath='{.items[0].metadata.name}'
 }
 
 need_cmd "${KUBECTL%% *}"
@@ -41,11 +31,10 @@ if [[ ! -f "${SUPPORT_SCRIPT}" ]]; then
   exit 1
 fi
 
-echo "Showing delivery initiatives in ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
+echo "Standardizing OpenProject delivery ART records in ${OPENPROJECT_NAMESPACE}/${OPENPROJECT_DEPLOYMENT}"
 
-pod_name="$(openproject_pod)"
-runner_basename="$(basename "${RUNNER_SCRIPT}" .rb)"
-runner_remote="/tmp/${runner_basename}-$$.rb"
+pod_name="$(${KUBECTL} -n "${OPENPROJECT_NAMESPACE}" get pod -l "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject" -o jsonpath='{.items[0].metadata.name}')"
+runner_remote="/tmp/openproject_standardize_delivery_art_runner.rb"
 support_remote="/tmp/openproject_delivery_art_custom_field_support.rb"
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
@@ -56,8 +45,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- env \
-  INCLUDE_DONE="${INCLUDE_DONE}" \
-  INCLUDE_INACTIVE="${INCLUDE_INACTIVE}" \
-  OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}" \
-  sh -lc 'bundle exec rails runner "$1"' sh "${runner_remote}"
+kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- sh -lc '
+  export TARGET_EPIC_ID="$1"
+  export OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$2"
+  bundle exec rails runner "$3"
+' sh "${TARGET_EPIC_ID:-}" "${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER:-workspace-delivery-art}" "${runner_remote}"

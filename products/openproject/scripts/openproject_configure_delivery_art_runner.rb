@@ -136,6 +136,15 @@ CUSTOM_FIELD_SPECS = [
     type_names: ["Epic", "Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
   },
   {
+    name: "Owner Repo",
+    field_format: "string",
+    searchable: true,
+    is_filter: true,
+    multi_value: false,
+    max_length: 255,
+    type_names: ["Epic", "Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+  },
+  {
     name: "Delivery Team",
     field_format: "string",
     searchable: true,

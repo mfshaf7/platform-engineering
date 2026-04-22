@@ -225,32 +225,18 @@ product-neutral.
   - `make openproject-configure-idea-backlog`
   - `make openproject-configure-delivery-art`
   - `make openproject-sync-delivery-art-views`
-  - `make openproject-update-delivery-initiative`
-  - `make openproject-record-system-demo`
-  - `make openproject-record-inspect-and-adapt`
-  - `make openproject-create-delivery-work-item`
-  - `make openproject-bulk-update-delivery-work-items`
-  - `make openproject-move-delivery-work-item`
-  - `make openproject-update-delivery-work-item`
-  - `make openproject-complete-delivery-work-item`
-  - `make openproject-manage-delivery-dependency`
-  - `make openproject-show-delivery-initiatives`
-  - `make openproject-show-delivery-active-front`
   - `make openproject-check-delivery-art-quality`
-  - `make openproject-show-delivery-execution`
-  - `make openproject-show-delivery-planning`
-  - `make openproject-show-pi-objectives`
-  - `make openproject-record-pi-review`
-  - `make openproject-check-delivery-closeout-readiness`
-  - `make openproject-manage-delivery-blocker`
-  - `make openproject-manage-delivery-parking`
-  - `make openproject-consume-accepted-idea`
-  - `make openproject-apply-delivery-plan`
-  - `make openproject-close-delivery-initiative`
+  - `make openproject-standardize-delivery-art`
   - `make openproject-verify-clean-start`
   - `make openproject-provision-operator-orchestration-identity`
   - `make openproject-provision-operator-orchestration-delivery-access`
   - `make openproject-uninstall`
+
+OpenProject delivery execution is no longer exposed as a platform-local script
+surface. Use the broker-owned operator surface in
+[`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
+for ART reads, mutations, review recording, completion, and proposal-to-
+delivery transitions.
 
 Historical Docker-to-`Platform-Core` migration helpers remain available only as
 explicit `legacy-...` targets in the top-level `Makefile`. They are not part of

@@ -10,7 +10,7 @@ Use this when:
 - the delivery ART already exists
 - board access or saved delivery views drifted
 - you need to add or refresh Program Increment versions
-- you want the canonical PM² initiative register and execution boards
+- you want the canonical PM², execution, PI-objective, and risk boards
 
 ## Current Truth
 
@@ -20,14 +20,15 @@ enterprise `status` and `version` action-board types.
 So the supported delivery-art surface here is:
 
 - `board_view` enabled on `workspace-delivery-art`
-- a basic-board `PM² Initiative Register`
+- a generated project overview that explains the ART operating model
+- a basic-board `ART Dashboard`
+- a basic-board `PM² Phase Board`
 - a basic-board `ART Execution Kanban`
-- a basic-board `Program Increment Planning` when PI versions exist
 - a basic-board `PI Objectives` when PI versions exist
 - a basic-board `ART Risk Register`
 - project versions used as the declared SAFe Program Increment set
-- `Target PI` used as the writable work-item placement field for PI planning
-  and PI objective views
+- `Target PI` used as the writable work-item placement field for PI objective
+  lanes and the planning read-model surfaces
 
 This is the strongest supported SAFe plus PM² operator surface in the current
 packaged runtime.
@@ -52,37 +53,49 @@ The command:
 - creates or reuses project versions for the supplied PI names
 - also reuses any PI names already present through actual `Target PI` values on
   delivery work items
-- recreates the managed query set for PM², execution status, PI planning,
-  PI objectives, and ART risks
+- refreshes the generated project overview content for the ART home
+- normalizes managed ART list custom-field storage to the current OpenProject
+  custom-option id form before rebuilding managed queries and boards
+- recreates the managed query set for PM² phase, execution status, PI
+  objectives, and ART risks
 - recreates the managed board set from those queries
 
 ## Expected Outcome
 
 The delivery project exposes these operator views:
 
-- `PM² Initiative Register`
+- `ART Dashboard`
+- `PM² Phase Board`
 - `ART Execution Kanban`
-- `Program Increment Planning` when PI versions exist
 - `PI Objectives` when PI versions exist
 - `ART Risk Register`
 
+Planning remains a supported read-model/report surface through:
+
+- `show-delivery-planning`
+- `show-delivery-initiatives`
+- `show-pi-objectives`
+
 The managed query set also exists for:
 
-- `PM² Initiatives`
+- `PM² Phase / <phase>`
 - `ART Execution / <status>`
-- `PI Planning / <version>`
-- `PI Objectives / <version>`
+- `PI Objectives / <version> / <committed-or-stretch>`
 - `ART Risks / <roam-state>`
+
+The managed execution board includes a dedicated `parked` lane so deferred open
+work stays visible in the OpenProject UI alongside the active execution flow.
 
 ## Verification
 
 In the OpenProject UI:
 
 - open project `Workspace Delivery ART`
+- confirm the overview explains the ART operating model and main board surfaces
 - confirm the `Boards` menu is present
-- confirm board `PM² Initiative Register` exists
+- confirm board `ART Dashboard` exists
+- confirm board `PM² Phase Board` exists
 - confirm board `ART Execution Kanban` exists
-- if PI versions exist, confirm board `Program Increment Planning` exists
 - if PI versions exist, confirm board `PI Objectives` exists
 - confirm board `ART Risk Register` exists
 
@@ -97,4 +110,6 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [manage-proposal-to-delivery.md](manage-proposal-to-delivery.md)
+- [show-delivery-planning.md](show-delivery-planning.md)
+- [show-pi-objectives.md](show-pi-objectives.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)

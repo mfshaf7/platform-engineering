@@ -125,7 +125,8 @@ make openproject-update-delivery-work-item \
 
 - the target work item reflects the requested execution changes
 - schedule and progress values are updated through the same supported path
-- `Program Increment Planning` stays in sync when `TARGET_PI` is supplied
+- managed PI-objective lanes and planning read-model surfaces stay aligned when
+  `TARGET_PI` is supplied
 - the command prints the updated work-item state plus the fields that actually changed
 - the command also reports where `WORK_NOTE` was applied
 

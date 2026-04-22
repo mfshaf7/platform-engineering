@@ -21,6 +21,7 @@ COMPLETION_NOTE_FILE="${COMPLETION_NOTE_FILE:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_complete_delivery_work_item_runner.rb"
+SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_custom_field_support.rb"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -73,6 +74,11 @@ if [[ ! -f "${RUNNER_SCRIPT}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${SUPPORT_SCRIPT}" ]]; then
+  echo "Missing support script: ${SUPPORT_SCRIPT}" >&2
+  exit 1
+fi
+
 COMPLETION_SUMMARY="$(read_value "${COMPLETION_SUMMARY}" "${COMPLETION_SUMMARY_FILE}" "COMPLETION_SUMMARY")"
 CHANGED_SURFACES="$(read_value "${CHANGED_SURFACES}" "${CHANGED_SURFACES_FILE}" "CHANGED_SURFACES")"
 TEST_RESULT_EVIDENCE="$(read_value "${TEST_RESULT_EVIDENCE}" "${TEST_RESULT_EVIDENCE_FILE}" "TEST_RESULT_EVIDENCE")"
@@ -108,10 +114,12 @@ echo "Completing delivery work item ${TARGET_WORK_PACKAGE_ID} in ${OPENPROJECT_D
 
 pod_name="$(openproject_pod)"
 runner_remote="/tmp/openproject_complete_delivery_work_item_runner.rb"
+support_remote="/tmp/openproject_delivery_art_custom_field_support.rb"
 artifact_remote=""
 artifact_name=""
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
+kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${SUPPORT_SCRIPT}" "${pod_name}:${support_remote}"
 
 if [[ -n "${TEST_RESULT_ARTIFACT_FILE}" ]]; then
   artifact_name="$(basename "${TEST_RESULT_ARTIFACT_FILE}")"
@@ -120,7 +128,7 @@ if [[ -n "${TEST_RESULT_ARTIFACT_FILE}" ]]; then
 fi
 
 cleanup() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" >/dev/null 2>&1 || true
+  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" "${support_remote}" >/dev/null 2>&1 || true
   if [[ -n "${artifact_remote}" ]]; then
     kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${artifact_remote}" >/dev/null 2>&1 || true
   fi

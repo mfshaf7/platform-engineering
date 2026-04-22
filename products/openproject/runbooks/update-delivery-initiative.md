@@ -4,7 +4,8 @@
 
 Update the top-level `Epic` in `Workspace Delivery ART` through the supported
 operator surface instead of ad hoc Rails commands or manual field hunting in
-the UI.
+the UI. The platform command is now a thin wrapper over the broker-owned
+initiative governance route.
 
 Use this when you need to change:
 
@@ -68,6 +69,17 @@ make openproject-update-delivery-initiative \
 - the target `Epic` is assigned to the supplied PI version when `TARGET_PI` is supplied
 - managed delivery-art views are refreshed when `TARGET_PI` is supplied
 
+## Backend Boundary
+
+The command now calls:
+
+- `POST /v1/delivery-initiatives/{delivery_id}/governance`
+
+The OpenProject runbook stays platform-owned, but the workflow meaning lives
+behind the broker route.
+When `TARGET_PI` is supplied, the wrapper still refreshes the managed delivery
+views through the platform-owned sync helper.
+
 ## Verification
 
 In the OpenProject UI:
@@ -81,9 +93,9 @@ In the OpenProject UI:
 
 If `TARGET_PI` was supplied:
 
-- open `Boards`
-- confirm `Program Increment Planning` exists
-- confirm the target `Epic` appears under the expected PI
+- run [show-delivery-initiatives.md](show-delivery-initiatives.md) or
+  [show-delivery-planning.md](show-delivery-planning.md)
+- confirm the target `Epic` and its descendants roll up under the expected PI
 
 ## Related References
 

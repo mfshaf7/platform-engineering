@@ -3,6 +3,7 @@
 require "json"
 require "time"
 require "date"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_work_package_id = Integer(ENV.fetch("TARGET_WORK_PACKAGE_ID"))
 delivery_project_identifier = ENV.fetch(
@@ -118,16 +119,8 @@ custom_fields = project.work_package_custom_fields.where(name: field_names).inde
 missing_fields = ["Target PI"].reject { |name| custom_fields.key?(name) }
 raise "Missing delivery-art custom fields: #{missing_fields.join(', ')}" if missing_fields.any?
 
-def assign_custom_value!(work_package, field, value)
-  custom_value = work_package.custom_value_for(field)
-  custom_value = work_package.custom_values.build(custom_field: field) if custom_value.nil?
-  custom_value.value = value
-end
-
 def custom_value_present?(work_package, field)
-  return false if field.nil?
-
-  work_package.custom_value_for(field)&.value.to_s.strip.present?
+  OpenprojectDeliveryArtCustomFieldSupport.custom_value_present?(entry: work_package, field: field)
 end
 
 def validate_ready_contract!(work_package:, custom_fields:)
@@ -141,24 +134,7 @@ def validate_ready_contract!(work_package:, custom_fields:)
 end
 
 def parse_custom_value(spec:, raw_value:, field:)
-  case spec[:kind]
-  when :int
-    Integer(raw_value).to_s
-  when :date
-    Date.iso8601(raw_value).iso8601
-  when :list
-    possible_values =
-      if field.respond_to?(:custom_options)
-        field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-      else
-        Array(field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-      end
-    raise "Invalid #{field.name.inspect} value #{raw_value.inspect}" if possible_values.any? && !possible_values.include?(raw_value)
-
-    raw_value
-  else
-    raw_value
-  end
+  OpenprojectDeliveryArtCustomFieldSupport.normalize_input_value!(field: field, value: raw_value, kind: spec[:kind])
 end
 
 def parse_date_value(raw_value, label)
@@ -376,7 +352,7 @@ if clear_target_pi
       to: nil
     }
     assign_work_package_version.call(work_package, nil)
-    assign_custom_value!(work_package, target_pi_field, nil)
+    OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: target_pi_field, value: nil)
   end
 elsif target_pi
   desired_version = resolve_version.call(target_pi)
@@ -389,9 +365,9 @@ elsif target_pi
     assign_work_package_version.call(work_package, desired_version)
   end
 
-  current_custom_target_pi = work_package.custom_value_for(target_pi_field)&.value.to_s.strip.presence
+  current_custom_target_pi = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: target_pi_field)
   if current_custom_target_pi != desired_version_name
-    assign_custom_value!(work_package, target_pi_field, desired_version_name)
+    OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: target_pi_field, value: desired_version_name)
   end
 end
 
@@ -410,14 +386,14 @@ provided_custom_fields.each do |spec, raw_value|
   end
 
   desired_value = parse_custom_value(spec: spec, raw_value: raw_value, field: field)
-  current_value = work_package.custom_value_for(field)&.value.to_s.strip.presence
+  current_value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)
   next if current_value == desired_value
 
   changes[spec[:env].downcase.to_sym] = {
     from: current_value,
     to: desired_value
   }
-  assign_custom_value!(work_package, field, desired_value)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: field, value: desired_value, kind: spec[:kind])
 end
 
 if provided_custom_fields.any? { |spec, _| WSJF_COMPONENT_FIELDS.include?(spec[:field]) }
@@ -426,7 +402,7 @@ if provided_custom_fields.any? { |spec, _| WSJF_COMPONENT_FIELDS.include?(spec[:
     raise "Missing delivery-art custom field #{field_name.inspect}" if field.nil?
     raise "Custom field #{field_name.inspect} is not available for work package type #{work_package.type&.name.inspect}" unless field.types.include?(work_package.type)
 
-    value = work_package.custom_value_for(field)&.value.to_s.strip
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)
     raise "WSJF component #{field_name.inspect} must be set before computing WSJF Score" if value.empty?
 
     Integer(value)
@@ -446,7 +422,7 @@ if provided_custom_fields.any? { |spec, _| WSJF_COMPONENT_FIELDS.include?(spec[:
       from: current_score,
       to: wsjf_score
     }
-    assign_custom_value!(work_package, score_field, wsjf_score)
+    OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: score_field, value: wsjf_score, kind: :float)
   end
 end
 
@@ -517,7 +493,7 @@ result = {
     description_present: work_package.description.to_s.strip.length.positive?,
     custom_fields: provided_custom_fields.to_h do |spec, _|
       field = custom_fields.fetch(spec[:field])
-      [field.name, work_package.custom_value_for(field)&.value]
+      [field.name, OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)]
     end
   },
   changes: changes,

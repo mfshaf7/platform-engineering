@@ -245,10 +245,10 @@ In the current v1 UI, `PM²` appears as:
 - field `PM² Phase`
 - companion governance fields such as `Sponsor`, `Business Objective`,
   `Success Criteria`, and `Target PI`
-- board `PM² Initiative Register`
+- board `PM² Phase Board`
 
 There is no separate PM² plugin package here. The governance overlay is carried
-by the delivery record shape itself plus the managed `PM² Initiative Register`
+by the delivery record shape itself plus the managed `PM² Phase Board`
 view.
 
 ## Runtime Board Boundary
@@ -266,11 +266,17 @@ That means the delivery project cannot rely on the native enterprise
 
 So the canonical runtime surface is:
 
-- `PM² Initiative Register`
+- `ART Dashboard`
+- `PM² Phase Board`
 - `ART Execution Kanban`
-- `Program Increment Planning` when PI versions exist
 - `PI Objectives` when PI versions exist
 - `ART Risk Register`
+
+Planning remains a supported read-model/report surface through:
+
+- `show-delivery-planning`
+- `show-delivery-initiatives`
+- `show-pi-objectives`
 
 The operator surface must also expose project-wide initiative visibility, not
 only per-epic drill-down. Operators should be able to inspect which delivery
@@ -307,14 +313,22 @@ These statuses apply to delivery work in the ART project, not to proposal
 records in `Workspace Proposals`.
 
 `parked` is the deferred-only state for delivery work that is intentionally
-removed from active scope for possible later return.
+removed from the current active front for possible later return.
 
 `retired` is the terminal state for delivery work that is duplicate, mistaken,
 superseded, absorbed, invalid, or otherwise not returning to active scope.
 
-Neither `parked` nor `retired` counts as active execution work, and neither
-should appear in open-scope views by default or block initiative closeout on
-their own.
+Neither `parked` nor `retired` counts as active execution work.
+
+`parked` is still open deferred work:
+
+- it should remain visible in all-open execution and portfolio views by default
+- it should still block initiative closeout
+
+`retired` is terminal inactive work:
+
+- it should stay out of normal open-scope views by default
+- it should not block initiative closeout on its own
 
 ## Blocker / Impediment Governance
 
@@ -405,9 +419,9 @@ ad hoc free-text when the structured field exists.
 
 Moving a delivery work item to `ready` is not only a status change.
 
-The supported operator workflows for create, update, and plan-apply should
-reject `ready` when the item still lacks the required structured execution
-fields for its type.
+The supported broker-backed workflows for create, update, and plan-apply
+should reject `ready` when the item still lacks the required structured
+execution fields for its type.
 
 Minimum `ready` expectations are:
 
@@ -536,9 +550,10 @@ Deferred items move to `parked`. Retired items move to `retired`.
 
 `superseded` is a retirement reason, not a primary execution status.
 
-Inactive-scope transitions remove the item from active execution scope while
-keeping the record auditable. Deferred items remain reversible. Retired items
-are terminal unless deliberately re-opened through a future operator workflow.
+Parking or retirement transitions remove the item from the current active front
+while keeping the record auditable. Deferred items remain reversible. Retired
+items are terminal unless deliberately re-opened through a future operator
+workflow.
 
 ## Intake Boundary
 
@@ -602,7 +617,7 @@ Rules:
 - source proposal moves to `implemented` only when delivery closes with a real
   realized outcome
 - delivery closeout requires the top-level epic to be `done`, with no open
-  descendants outside `done`, `parked`, or `retired`, and no active blocker records
+  descendants outside `done` or `retired`, and no active blocker records
   remaining under that epic
 - source proposal may move to `superseded` if a newer accepted record replaces
   it
@@ -640,6 +655,7 @@ That means:
 
 - operator approves the proposal in `Workspace Proposals`
 - operator or broker creates the top-level delivery initiative explicitly
+  through the broker-owned delivery workflow
 - backlinks are recorded
 - execution proceeds inside the ART project
 
@@ -647,7 +663,7 @@ The initial platform bootstrap must create the delivery-art board surface that
 the current runtime actually supports. PI versions can still be absent until
 real PI names are supplied or real delivery records carry `Target PI`.
 
-Broker-assisted creation may come later, but it should preserve the same link
+Broker-backed creation and governance updates should preserve the same link
 and governance model.
 
 ## Deferred In Phase 1

@@ -16,7 +16,7 @@ Use it when:
 - `Workspace Proposals` stays the proposal-of-record
 - `Workspace Delivery ART` is the execution-of-record
 - the current execution-start path is operator-driven
-- execution seeding is not a broker-owned workflow yet
+- plan application is now broker-backed
 - for ongoing serious delivery work, start from
   [show-delivery-initiatives.md](show-delivery-initiatives.md) and
   [check-delivery-art-quality.md](check-delivery-art-quality.md) before
@@ -24,7 +24,8 @@ Use it when:
 - the current durable operator path is:
   - capture or consume the top-level `Epic`
   - prepare a JSON delivery plan
-  - apply that plan to the target `Epic`
+  - apply that plan to the target `Epic` through the broker-owned plan/apply
+    route
   - verify the created execution tree in OpenProject
 
 ## Before You Start
@@ -212,6 +213,14 @@ make openproject-apply-delivery-plan \
   TARGET_EPIC_ID=38 \
   DELIVERY_PLAN_FILE=/abs/path/delivery-plan.json
 ```
+
+Backend boundary:
+
+- `openproject-apply-delivery-plan` is a thin wrapper over
+  `POST /v1/delivery-initiatives/{delivery_id}/plan/apply`
+- the platform-owned view sync still runs after the broker call using the PI
+  names present in the plan so PI-backed views stay aligned with the current
+  delivery tree
 
 Optional reconciliation fields:
 

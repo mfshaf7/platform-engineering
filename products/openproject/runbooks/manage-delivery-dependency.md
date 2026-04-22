@@ -5,6 +5,12 @@
 Record or remove one explicit execution dependency between two delivery work
 items inside `Workspace Delivery ART` through the supported operator surface.
 
+This command is broker-backed. The OpenProject product surface keeps the
+operator command and runbook, but the dependency workflow executes through the
+internal broker route:
+
+- `POST /v1/delivery-work-items/{work_item_id}/dependency`
+
 Use this when:
 
 - one delivery item cannot start or complete until another item finishes
@@ -87,6 +93,15 @@ make openproject-show-delivery-execution TARGET_EPIC_ID=38
 ```
 
 Confirm the target item shows the expected dependency and unresolved state.
+
+## Backend Boundary
+
+Ownership split:
+
+- broker route, request validation, audit, and OpenProject relation adapter:
+  `operator-orchestration-service`
+- operator command and OpenProject runbook surface:
+  `platform-engineering`
 
 ## Related References
 

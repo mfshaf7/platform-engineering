@@ -68,7 +68,7 @@ Optional fields:
 
 - `INCLUDE_DONE=true|false`
 - `INCLUDE_INACTIVE=true|false`
-- `INCLUDE_PARKED=true|false` as a backward-compatible alias
+  `INCLUDE_INACTIVE` now controls `retired` visibility only.
 
 Examples:
 
@@ -116,9 +116,10 @@ when you already know the active initiative.
 Default visibility:
 
 - `INCLUDE_DONE=true` shows completed initiatives
-- `INCLUDE_INACTIVE=false` keeps inactive descendant details (`parked` and
-  `retired`) out of the per-initiative detail by default while still reporting
-  inactive counts
+- `parked` descendants remain visible by default because they are deferred open work
+- `INCLUDE_INACTIVE=false` keeps only `retired` initiative or descendant
+  details out of the per-initiative detail by default while still reporting
+  retired counts
 
 ## Verification
 

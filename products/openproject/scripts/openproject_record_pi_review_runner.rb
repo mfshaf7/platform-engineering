@@ -3,6 +3,7 @@
 require "date"
 require "json"
 require "set"
+require_relative "openproject_delivery_art_custom_field_support"
 
 reviews_path = ARGV.fetch(0)
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
@@ -74,11 +75,7 @@ raise "Missing PI review custom fields: #{missing_fields.join(', ')}" if missing
 review_outcome_field = custom_fields.fetch("PI Objective Review Outcome")
 actual_business_value_field = custom_fields.fetch("Actual Business Value")
 possible_review_outcomes =
-  if review_outcome_field.respond_to?(:custom_options)
-    review_outcome_field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-  else
-    Array(review_outcome_field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-  end
+  OpenprojectDeliveryArtCustomFieldSupport.list_allowed_values(review_outcome_field)
 
 work_packages = WorkPackage.where(project_id: project.id).to_a
 by_id = work_packages.index_by(&:id)
@@ -142,20 +139,16 @@ reviews_payload["reviews"].each do |review|
     changes = {}
 
     actual_value = Integer(review.fetch("actual_business_value")).to_s
-    current_actual_value = objective.custom_value_for(actual_business_value_field)&.value.to_s.strip.presence
+    current_actual_value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: objective, field: actual_business_value_field)
     if current_actual_value != actual_value
       changes[:actual_business_value] = { from: current_actual_value, to: actual_value }
-      custom_value = objective.custom_value_for(actual_business_value_field)
-      custom_value = objective.custom_values.build(custom_field: actual_business_value_field) if custom_value.nil?
-      custom_value.value = actual_value
+      OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: objective, field: actual_business_value_field, value: actual_value, kind: :int)
     end
 
-    current_review_outcome = objective.custom_value_for(review_outcome_field)&.value.to_s.strip.presence
+    current_review_outcome = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: objective, field: review_outcome_field)
     if current_review_outcome != review_outcome
       changes[:review_outcome] = { from: current_review_outcome, to: review_outcome }
-      custom_value = objective.custom_value_for(review_outcome_field)
-      custom_value = objective.custom_values.build(custom_field: review_outcome_field) if custom_value.nil?
-      custom_value.value = review_outcome
+      OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: objective, field: review_outcome_field, value: review_outcome, kind: :list)
     end
 
     review_note = review["review_note"]&.strip&.presence
@@ -181,8 +174,8 @@ reviews_payload["reviews"].each do |review|
         subject: objective.subject,
         status: objective.status&.name,
         target_pi: work_package_version_name.call(objective),
-        review_outcome: objective.custom_value_for(review_outcome_field)&.value,
-        actual_business_value: objective.custom_value_for(actual_business_value_field)&.value
+        review_outcome: OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: objective, field: review_outcome_field),
+        actual_business_value: OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: objective, field: actual_business_value_field)
       },
       changes: changes,
       review_note_recorded: note_applied

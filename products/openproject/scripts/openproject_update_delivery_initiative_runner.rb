@@ -2,6 +2,7 @@
 
 require "json"
 require "date"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 delivery_project_identifier = ENV.fetch(
@@ -42,38 +43,8 @@ custom_fields = project.work_package_custom_fields.where(name: field_names).inde
 missing_fields = field_names.reject { |name| custom_fields.key?(name) }
 raise "Missing delivery-art custom fields: #{missing_fields.join(', ')}" if missing_fields.any?
 
-def normalize_custom_value!(field:, value:, kind:)
-  return nil if value.nil?
-
-  case kind
-  when :list
-    possible_values =
-      if field.respond_to?(:custom_options)
-        field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-      elsif field.respond_to?(:possible_values)
-        Array(field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-      else
-        []
-      end
-    raise "Invalid #{field.name.inspect} value #{value.inspect}" if possible_values.any? && !possible_values.include?(value)
-
-    value
-  when :date
-    Date.iso8601(value).iso8601
-  else
-    value
-  end
-end
-
 pm2_field = custom_fields.fetch("PM² Phase")
-pm2_values =
-  if pm2_field.respond_to?(:custom_options)
-    pm2_field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-  elsif pm2_field.respond_to?(:possible_values)
-    Array(pm2_field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-  else
-    []
-  end
+pm2_values = OpenprojectDeliveryArtCustomFieldSupport.list_allowed_values(pm2_field)
 
 if pm2_phase && pm2_values.any? && !pm2_values.include?(pm2_phase)
   raise "Unknown PM² phase #{pm2_phase.inspect}"
@@ -103,14 +74,22 @@ if target_pi && !target_pi.empty?
 end
 
 updates = {
-  "PM² Phase" => normalize_custom_value!(field: custom_fields.fetch("PM² Phase"), value: pm2_phase, kind: :list),
+  "PM² Phase" => OpenprojectDeliveryArtCustomFieldSupport.normalize_input_value!(
+    field: custom_fields.fetch("PM² Phase"),
+    value: pm2_phase,
+    kind: :list
+  ),
   "Target PI" => target_pi,
   "Sponsor" => sponsor,
   "Business Objective" => business_objective,
   "Success Criteria" => success_criteria,
   "System Demo Evidence" => system_demo_evidence,
   "Inspect & Adapt Actions" => inspect_and_adapt_actions,
-  "NFR Category" => normalize_custom_value!(field: custom_fields.fetch("NFR Category"), value: nfr_category, kind: :list)
+  "NFR Category" => OpenprojectDeliveryArtCustomFieldSupport.normalize_input_value!(
+    field: custom_fields.fetch("NFR Category"),
+    value: nfr_category,
+    kind: :list
+  )
 }.compact
 
 updates.each do |field_name, value|
@@ -118,9 +97,7 @@ updates.each do |field_name, value|
   unless field.types.include?(epic.type)
     raise "Custom field #{field_name.inspect} is not available for work package type #{epic.type&.name.inspect}"
   end
-  custom_value = epic.custom_value_for(field)
-  custom_value = epic.custom_values.build(custom_field: field) if custom_value.nil?
-  custom_value.value = value
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: epic, field:, value:)
 end
 
 epic.save!
@@ -141,7 +118,7 @@ result = {
   },
   governance_fields: updates.keys.sort.to_h do |field_name|
     field = custom_fields.fetch(field_name)
-    [field_name, epic.custom_value_for(field)&.value]
+    [field_name, OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: epic, field: field)]
   end
 }
 

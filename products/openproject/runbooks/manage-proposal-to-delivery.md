@@ -167,9 +167,10 @@ This is the current v1 form of PM² here:
 
 - one top-level PM²-governed initiative
 - one ART execution model below it
-- board `PM² Initiative Register` as the PM² list surface
+- board `PM² Phase Board` as the PM² phase-governance surface
 - board `ART Execution Kanban` as the execution status surface
-- board `Program Increment Planning` when PI versions exist
+- board `PI Objectives` for committed-versus-stretch objective visibility
+- planning kept in supported read-model surfaces instead of a fake program board
 
 Because the current runtime is OpenProject Community Edition, these are
 implemented through basic board presets plus project versions, not the native

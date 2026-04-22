@@ -15,7 +15,9 @@ Use this when you need to inspect:
 
 This is the planning-oriented view for one initiative. Use
 [show-delivery-execution.md](show-delivery-execution.md) when you need the full
-recursive tree and dependency detail.
+recursive tree and dependency detail. This is also the supported planning
+surface now that the managed board set no longer includes a fake
+`Program Increment Planning` board.
 
 ## Command
 
@@ -30,7 +32,7 @@ Optional fields:
 
 - `INCLUDE_DONE=true|false`
 - `INCLUDE_INACTIVE=true|false`
-- `INCLUDE_PARKED=true|false` as a backward-compatible alias
+  `INCLUDE_INACTIVE` now controls `retired` visibility only.
 
 Example:
 
@@ -64,7 +66,8 @@ The command prints JSON with:
 Default visibility:
 
 - `INCLUDE_DONE=false` hides completed descendants
-- `INCLUDE_INACTIVE=false` hides inactive descendants (`parked` and `retired`)
+- `parked` descendants remain visible by default because they are deferred open work
+- `INCLUDE_INACTIVE=false` hides only `retired` descendants
 
 ## Verification
 

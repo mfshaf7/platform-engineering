@@ -7,10 +7,11 @@ OPENPROJECT_DEPLOYMENT="${OPENPROJECT_DEPLOYMENT:-openproject-web}"
 OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER:-workspace-delivery-art}"
 TARGET_EPIC_ID="${TARGET_EPIC_ID:-}"
 INCLUDE_DONE="${INCLUDE_DONE:-false}"
-INCLUDE_INACTIVE="${INCLUDE_INACTIVE:-${INCLUDE_PARKED:-false}}"
+INCLUDE_INACTIVE="${INCLUDE_INACTIVE:-false}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_show_delivery_planning_runner.rb"
+SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_custom_field_support.rb"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -41,15 +42,22 @@ if [[ ! -f "${RUNNER_SCRIPT}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${SUPPORT_SCRIPT}" ]]; then
+  echo "Missing support script: ${SUPPORT_SCRIPT}" >&2
+  exit 1
+fi
+
 echo "Showing delivery planning summary for epic ${TARGET_EPIC_ID} in ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
 
 pod_name="$(openproject_pod)"
 runner_remote="/tmp/openproject_show_delivery_planning_runner.rb"
+support_remote="/tmp/openproject_delivery_art_custom_field_support.rb"
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
+kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${SUPPORT_SCRIPT}" "${pod_name}:${support_remote}"
 
 cleanup() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" >/dev/null 2>&1 || true
+  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" "${support_remote}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 

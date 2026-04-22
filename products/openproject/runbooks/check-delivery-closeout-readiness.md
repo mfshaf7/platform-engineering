@@ -50,7 +50,8 @@ Exit behavior:
 
 - exits `0` when the delivery initiative is ready for closeout
 - exits non-zero when the initiative is not ready
-- parked or retired descendants are reported but do not block closeout by themselves
+- parked descendants still block closeout because they are deferred open work
+- retired descendants are reported but do not block closeout by themselves
 
 ## Verification
 
@@ -59,7 +60,7 @@ In the OpenProject UI:
 - open `Workspace Delivery ART`
 - open the target `Epic`
 - confirm the epic is `done`
-- confirm no descendant work items remain outside `done`, `parked`, or `retired`
+- confirm no descendant work items remain outside `done` or `retired`
 - confirm no blocker fields remain active
 - confirm each `done` descendant carries:
   - `Completion Summary`

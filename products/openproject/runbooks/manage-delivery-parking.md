@@ -5,6 +5,12 @@
 Park or resume a delivery work item through the supported OpenProject operator
 surface instead of deleting the item or leaving it as silent active scope.
 
+This command is broker-backed. The OpenProject product surface keeps the
+operator command and runbook, but the inactive-scope workflow executes through
+the internal broker route:
+
+- `POST /v1/delivery-work-items/{work_item_id}/parking`
+
 Use this when a delivery item is:
 
 - no longer needed
@@ -31,8 +37,19 @@ The operator surface must capture:
   - `cancelled`
 
 Deferred items move to status `parked`. Retired items move to status
-`retired`. Both paths clear active blocker fields so inactive items do not keep
-poisoning closeout readiness or active execution views.
+`retired`. Both paths clear active blocker fields so deferred or retired items
+do not keep stale blocker noise in execution views.
+
+`parked` is deferred open work:
+
+- it remains visible in all-open execution and portfolio views by default
+- it still blocks initiative closeout
+- it may return later through `ACTION=resume`
+
+`retired` is terminal inactive work:
+
+- it is hidden from normal open views by default
+- it does not block closeout by itself
 
 ## Park A Work Item
 
@@ -116,3 +133,12 @@ In the OpenProject UI:
 - [show-delivery-execution.md](show-delivery-execution.md)
 - [check-delivery-closeout-readiness.md](check-delivery-closeout-readiness.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
+
+## Backend Boundary
+
+Ownership split:
+
+- broker route, request validation, audit, and OpenProject parking adapter:
+  `operator-orchestration-service`
+- operator command and OpenProject runbook surface:
+  `platform-engineering`

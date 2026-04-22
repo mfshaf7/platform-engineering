@@ -23,7 +23,7 @@ more than a binary runtime toggle:
   guidance instead of ad hoc local state names
 
 The platform therefore needs a reusable lifecycle standard, not just another
-OpenClaw-only control.
+product-specific control.
 
 ## Decision
 
@@ -48,7 +48,7 @@ The lifecycle profile must declare:
 - incident reference requirements
 - resume requirements
 
-OpenClaw becomes the reference implementation of that standard.
+OpenClaw becomes the first implementation of that standard.
 
 Its current prod profile is:
 

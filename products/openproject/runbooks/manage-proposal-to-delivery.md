@@ -25,7 +25,7 @@ Use this runbook when:
   - verify the result in the OpenProject UI
 
 This is a platform-managed workflow on the local cluster. It is not a separate
-OpenClaw-style product promotion lane.
+product-governed promotion lane.
 
 ## Before You Start
 

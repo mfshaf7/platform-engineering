@@ -29,12 +29,13 @@ Those remain in their owning repos or in shared platform docs.
 
 ## Current Product Reality
 
-OpenClaw is currently the deepest-integrated product in this platform.
+OpenClaw currently has the most mature governed rollout path in this
+workspace.
 
 Its platform-specific scripts, runbooks, and operator guidance now live under
 this product directory so the shared platform layer stays product-neutral.
 
-OpenClaw is also the reference fully governed product path today:
+OpenClaw currently uses the most mature product-governed release path here:
 
 - stage candidate and rehearsal evidence are explicit Git-managed release
   objects

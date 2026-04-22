@@ -24,6 +24,13 @@ The platform-managed deployment must provide:
 - a reachable standalone PostgreSQL service for the application database
 - a first-login admin password sourced from the platform secret path, not from Git
 
+## Current Runtime Profile
+
+- web deployment replica count: `1`
+- Puma worker count: `1` via `OPENPROJECT_WEB__WORKERS`
+- background worker deployment replica count: `1`
+- GoodJob worker max threads: `10`
+
 ## Health And Readiness
 
 V1 readiness is proven through:

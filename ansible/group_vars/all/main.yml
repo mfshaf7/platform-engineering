@@ -58,8 +58,6 @@ openclaw_recovery_health_url: http://127.0.0.1:48722/healthz
 platform_vault_namespace: vault
 platform_vault_pod_names:
   - vault-0
-  - vault-1
-  - vault-2
 platform_argocd_namespace: argocd
 platform_restart_validation_applications:
   - external-secrets

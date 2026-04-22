@@ -20,6 +20,11 @@ It does not own:
 - platform rollout authority
 - governed AI policy
 
+The component now participates in governed stage and prod release control
+through release-state objects that point back to the shared deployment
+contract, even though the runtime is still one shared control-plane instance
+today.
+
 ## Current Live Shape
 
 - namespace: `operator-orchestration-service`
@@ -45,3 +50,4 @@ The current admitted model is:
 - [../../../products/openproject/idea-backlog-contract.md](../../../products/openproject/idea-backlog-contract.md)
 - [../../architecture/current-platform-topology.md](../../architecture/current-platform-topology.md)
 - [../../standards/governed-ai-access-model.md](../../standards/governed-ai-access-model.md)
+- [release-governance.md](release-governance.md)

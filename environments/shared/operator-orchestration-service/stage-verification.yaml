@@ -1,0 +1,22 @@
+schemaVersion: 1
+component: operator-orchestration-service
+environment: stage
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed stage verification is recorded yet for the current shared broker
+  candidate. Rehearse the exact candidate contract before treating the shared
+  control-plane component as stage-ready.
+candidateRef:
+  path: environments/shared/operator-orchestration-service/stage-candidate.yaml
+  status: candidate
+  imageDigest: sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a
+  sourceSha: f575ba920c1f2a478f290e3d30ce67e0c6096fc2
+  requiredChecks:
+    - runtime-start
+    - workflow-catalog
+    - openproject-adapter-readiness
+    - representative-workflow-smoke
+checks: []

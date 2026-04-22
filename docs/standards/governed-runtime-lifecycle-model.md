@@ -5,6 +5,10 @@
 This standard defines the shared vocabulary for governed runtime lifecycle
 control.
 
+For candidate, verification, readiness, and promotion governance, use
+[governed-release-control-model.md](governed-release-control-model.md). This
+document only defines runtime state after a governed contract exists.
+
 The goal is to give products and selected shared components a deterministic,
 auditable way to:
 

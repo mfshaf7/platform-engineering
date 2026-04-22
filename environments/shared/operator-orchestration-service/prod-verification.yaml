@@ -1,0 +1,19 @@
+schemaVersion: 1
+component: operator-orchestration-service
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  The broker currently runs as one shared control-plane deployment that also
+  shapes prod-facing workflows. Record fresh post-promotion verification
+  against the exact shared deployment contract whenever that contract changes
+  for governed prod use.
+environmentContractRef:
+  path: environments/shared/operator-orchestration-service/deployment.yaml
+  imageDigest: sha256:938b2cd7e63709f7b75501cf13c1fd78a8d50e83d5b4c1858c84113da92aa93a
+  sourceRefs:
+    operatorOrchestrationService: f575ba920c1f2a478f290e3d30ce67e0c6096fc2
+    platformEngineering: 9b87557ea2f2f1ff80586d0e614bc921ab585d7e
+checks: []

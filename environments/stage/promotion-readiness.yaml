@@ -5,8 +5,8 @@ requiredComponents:
 - version
 approvedAt: null
 approvedBy: null
-note: Stage Telegram overlay lane is active; promotion remains gated by the current
-  approved stage candidate and must carry the same qualified base image into prod.
+note: Stage lifecycle changed; active components now dashboards,gateway,observability,secrets,version.
+  Re-approve stage before promoting to prod.
 candidateRef:
   path: environments/stage/release-candidate.yaml
   status: candidate

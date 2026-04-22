@@ -10,6 +10,7 @@ TARGET_PI="${TARGET_PI:-}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_show_pi_objectives_runner.rb"
+SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_custom_field_support.rb"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -40,15 +41,22 @@ if [[ ! -f "${RUNNER_SCRIPT}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${SUPPORT_SCRIPT}" ]]; then
+  echo "Missing support script: ${SUPPORT_SCRIPT}" >&2
+  exit 1
+fi
+
 echo "Showing PI objectives for epic ${TARGET_EPIC_ID} in ${OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER}"
 
 pod_name="$(openproject_pod)"
 runner_remote="/tmp/openproject_show_pi_objectives_runner.rb"
+support_remote="/tmp/openproject_delivery_art_custom_field_support.rb"
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
+kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${SUPPORT_SCRIPT}" "${pod_name}:${support_remote}"
 
 cleanup() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" >/dev/null 2>&1 || true
+  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" "${support_remote}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 

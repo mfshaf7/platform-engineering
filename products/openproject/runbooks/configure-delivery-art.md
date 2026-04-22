@@ -8,12 +8,13 @@ out of `Workspace Proposals`.
 This configures:
 
 - the `workspace-delivery-art` project
+- the generated project overview content for the ART landing page
 - the delivery work package types
 - the delivery execution statuses
 - the project-scoped custom fields used for PM² governance, SAFe planning,
   origin backlinks, blocker governance, parking, WSJF, and ROAM risk tracking
 - the delivery-art board module plus the managed PM², execution, PI objective,
-  risk, and Program Increment board presets
+  and risk board presets
 
 Program Increment versions are created when you supply `PI_NAMES` or when real
 delivery records already carry `Target PI` values.
@@ -94,9 +95,9 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
 - initiative-only governance fields are hidden from child work-item forms by
   type scoping
 - the `Boards` project module is enabled
-- managed board `PM² Initiative Register` exists
+- managed board `ART Dashboard` exists
+- managed board `PM² Phase Board` exists
 - managed board `ART Execution Kanban` exists
-- managed board `Program Increment Planning` exists when PI versions are present
 - managed board `PI Objectives` exists when PI versions are present
 - managed board `ART Risk Register` exists
 

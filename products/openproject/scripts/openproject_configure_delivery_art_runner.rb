@@ -1,15 +1,14 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_home_support"
 
 RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_BEGIN__"
 RESULT_END = "__OPENPROJECT_DELIVERY_ART_END__"
 
 PROJECT_IDENTIFIER = "workspace-delivery-art"
 PROJECT_NAME = "Workspace Delivery ART"
-PROJECT_DESCRIPTION = <<~TEXT.strip
-  Canonical delivery plane for accepted ideas that have moved out of Workspace Proposals.
-TEXT
+PROJECT_DESCRIPTION = OpenprojectDeliveryArtHomeSupport.render_description
 PROJECT_MODULES = %w[work_package_tracking board_view].freeze
 
 TYPE_SPECS = [
@@ -60,7 +59,7 @@ STATUS_SPECS = [
   { name: "ready", is_closed: false, default_done_ratio: 20 },
   { name: "in-progress", is_closed: false, default_done_ratio: 50 },
   { name: "blocked", is_closed: false, default_done_ratio: 50 },
-  { name: "parked", is_closed: true, default_done_ratio: 100 },
+  { name: "parked", is_closed: false, default_done_ratio: 0 },
   { name: "retired", is_closed: true, default_done_ratio: 100 },
   { name: "done", is_closed: true, default_done_ratio: 100 }
 ].freeze

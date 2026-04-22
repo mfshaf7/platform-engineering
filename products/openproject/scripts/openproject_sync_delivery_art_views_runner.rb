@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
+require_relative "openproject_delivery_art_home_support"
 
 RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_VIEWS_BEGIN__"
 RESULT_END = "__OPENPROJECT_DELIVERY_ART_VIEWS_END__"
@@ -11,19 +13,25 @@ BOARD_MODULE = "board_view"
 PM2_TYPE_NAME = "Epic"
 PI_OBJECTIVE_TYPE_NAME = "PI Objective"
 RISK_TYPE_NAME = "Risk"
+ACTIVE_INITIATIVE_STATUS_NAMES = ["new", "ready", "in-progress", "blocked"].freeze
 EXECUTION_TYPE_NAMES = ["Feature", "Enabler", "User story", "Task", "Milestone"].freeze
-EXECUTION_STATUS_NAMES = ["new", "ready", "in-progress", "blocked", "done"].freeze
+EXECUTION_STATUS_NAMES = ["new", "ready", "in-progress", "blocked", "parked", "done"].freeze
+PM2_PHASES = ["Initiating", "Planning", "Executing", "Closing"].freeze
+PI_OBJECTIVE_COMMITMENT_TYPES = ["Committed", "Stretch"].freeze
 ROAM_STATES = ["Resolved", "Owned", "Accepted", "Mitigated"].freeze
 
-PM2_QUERY_NAME = "PM² Initiatives"
-PM2_BOARD_NAME = "PM² Initiative Register"
+ART_DASHBOARD_BOARD_NAME = "ART Dashboard"
+PM2_BOARD_NAME = "PM² Phase Board"
 EXECUTION_BOARD_NAME = "ART Execution Kanban"
-PI_BOARD_NAME = "Program Increment Planning"
 PI_OBJECTIVES_BOARD_NAME = "PI Objectives"
 RISK_BOARD_NAME = "ART Risk Register"
+LEGACY_PM2_BOARD_NAME = "PM² Initiative Register"
+LEGACY_PI_BOARD_NAME = "Program Increment Planning"
 
 MANAGED_QUERY_PREFIXES = [
-  "#{PM2_QUERY_NAME}",
+  "PM² Initiatives",
+  "ART Dashboard / ",
+  "PM² Phase / ",
   "ART Execution / ",
   "PI Planning / ",
   "PI Objectives / ",
@@ -43,6 +51,14 @@ def enable_board_module!(project)
   return if enabled_modules == project.enabled_module_names
 
   project.enabled_module_names = enabled_modules
+  project.save!
+end
+
+def refresh_project_home!(project)
+  rendered = OpenprojectDeliveryArtHomeSupport.render_description
+  return if project.description.to_s.strip == rendered.strip
+
+  project.description = rendered
   project.save!
 end
 
@@ -105,7 +121,15 @@ end
 def destroy_managed_views!(project)
   Boards::Grid.where(
     project: project,
-    name: [PM2_BOARD_NAME, EXECUTION_BOARD_NAME, PI_BOARD_NAME, PI_OBJECTIVES_BOARD_NAME, RISK_BOARD_NAME]
+    name: [
+      ART_DASHBOARD_BOARD_NAME,
+      PM2_BOARD_NAME,
+      LEGACY_PM2_BOARD_NAME,
+      EXECUTION_BOARD_NAME,
+      LEGACY_PI_BOARD_NAME,
+      PI_OBJECTIVES_BOARD_NAME,
+      RISK_BOARD_NAME
+    ]
   ).find_each(&:destroy!)
 
   Query.where(project: project)
@@ -170,10 +194,57 @@ def execution_filters(status:, execution_types:)
   ]
 end
 
-def pi_filters(version:, execution_types:, target_pi_field:)
+def ensure_custom_option_value!(field:, value:)
+  option =
+    if field.respond_to?(:custom_options)
+      field.custom_options.find { |entry| entry.value.to_s == value }
+    end
+  raise "Missing option #{value.inspect} for custom field #{field.name.inspect}" if option.nil?
+
+  option.id.to_s
+end
+
+def pm2_phase_filters(pm2_type:, pm2_phase_field:, phase_name:)
+  [
+    { type_id: { operator: "=", values: [pm2_type.id.to_s] } },
+    {
+      "cf_#{pm2_phase_field.id}": {
+        operator: "=",
+        values: [ensure_custom_option_value!(field: pm2_phase_field, value: phase_name)]
+      }
+    }
+  ]
+end
+
+def pi_objective_filters(version:, pi_objective_type:, target_pi_field:, pi_objective_type_field:, commitment_type:)
   [
     { "cf_#{target_pi_field.id}": { operator: "=", values: [version.name] } },
-    { type_id: { operator: "=", values: execution_types.map { |type| type.id.to_s } } }
+    { type_id: { operator: "=", values: [pi_objective_type.id.to_s] } },
+    {
+      "cf_#{pi_objective_type_field.id}": {
+        operator: "=",
+        values: [ensure_custom_option_value!(field: pi_objective_type_field, value: commitment_type)]
+      }
+    }
+  ]
+end
+
+def active_initiative_filters(pm2_type:, statuses:)
+  [
+    { type_id: { operator: "=", values: [pm2_type.id.to_s] } },
+    { status_id: { operator: "=", values: statuses.map { |status| status.id.to_s } } }
+  ]
+end
+
+def committed_objective_filters(pi_objective_type:, pi_objective_type_field:)
+  [
+    { type_id: { operator: "=", values: [pi_objective_type.id.to_s] } },
+    {
+      "cf_#{pi_objective_type_field.id}": {
+        operator: "=",
+        values: [ensure_custom_option_value!(field: pi_objective_type_field, value: "Committed")]
+      }
+    }
   ]
 end
 
@@ -184,15 +255,14 @@ def risk_filters(risk_type:)
 end
 
 def risk_filters_by_roam(risk_type:, roam_field:, roam_state:)
-  roam_option =
-    if roam_field.respond_to?(:custom_options)
-      roam_field.custom_options.find { |entry| entry.value.to_s == roam_state }
-    end
-  raise "Missing ROAM option #{roam_state.inspect}" if roam_option.nil?
-
   [
     { type_id: { operator: "=", values: [risk_type.id.to_s] } },
-    { "cf_#{roam_field.id}": { operator: "=", values: [roam_option.id.to_s] } }
+    {
+      "cf_#{roam_field.id}": {
+        operator: "=",
+        values: [ensure_custom_option_value!(field: roam_field, value: roam_state)]
+      }
+    }
   ]
 end
 
@@ -201,6 +271,7 @@ User.current = admin_user
 
 project = project!
 enable_board_module!(project)
+refresh_project_home!(project)
 
 pi_names = (configured_pi_names + existing_target_pi_names(project)).uniq
 versions = ensure_versions!(project, pi_names)
@@ -208,26 +279,94 @@ roam_field = project.work_package_custom_fields.find_by(name: "ROAM State")
 raise "Missing ROAM State custom field for risk views" if roam_field.nil?
 target_pi_field = project.work_package_custom_fields.find_by(name: "Target PI")
 raise "Missing Target PI custom field for PI planning views" if target_pi_field.nil?
+pm2_phase_field = project.work_package_custom_fields.find_by(name: "PM² Phase")
+raise "Missing PM² Phase custom field for PM² board views" if pm2_phase_field.nil?
+pi_objective_type_field = project.work_package_custom_fields.find_by(name: "PI Objective Type")
+raise "Missing PI Objective Type custom field for PI objective views" if pi_objective_type_field.nil?
+
+normalized_list_custom_values = OpenprojectDeliveryArtCustomFieldSupport.normalize_list_storage!(project: project)
 
 destroy_managed_views!(project)
 
-pm2_query = create_query!(
+active_initiative_statuses = Status.where(name: ACTIVE_INITIATIVE_STATUS_NAMES).index_by(&:name)
+missing_active_initiative_statuses = ACTIVE_INITIATIVE_STATUS_NAMES.reject { |name| active_initiative_statuses.key?(name) }
+raise "Missing active initiative statuses for ART dashboard: #{missing_active_initiative_statuses.join(', ')}" if missing_active_initiative_statuses.any?
+
+active_initiatives_filters = active_initiative_filters(
+  pm2_type: pm2_type!,
+  statuses: ACTIVE_INITIATIVE_STATUS_NAMES.map { |name| active_initiative_statuses.fetch(name) }
+)
+active_initiatives_query = create_query!(
   project: project,
-  name: PM2_QUERY_NAME,
-  filters: [
-    { type_id: { operator: "=", values: [pm2_type!.id.to_s] } }
+  name: "ART Dashboard / active initiatives",
+  filters: active_initiatives_filters
+)
+
+committed_objectives_filters = committed_objective_filters(
+  pi_objective_type: pi_objective_type!,
+  pi_objective_type_field: pi_objective_type_field
+)
+committed_objectives_query = create_query!(
+  project: project,
+  name: "ART Dashboard / committed objectives",
+  filters: committed_objectives_filters
+)
+
+active_execution_filters = execution_filters(status: Status.find_by!(name: "in-progress"), execution_types: execution_types!)
+active_execution_query = create_query!(
+  project: project,
+  name: "ART Dashboard / active execution",
+  filters: active_execution_filters
+)
+
+blocked_execution_filters = execution_filters(status: Status.find_by!(name: "blocked"), execution_types: execution_types!)
+blocked_execution_query = create_query!(
+  project: project,
+  name: "ART Dashboard / blocked execution",
+  filters: blocked_execution_filters
+)
+
+owned_risks_filters = risk_filters_by_roam(risk_type: risk_type!, roam_field: roam_field, roam_state: "Owned")
+owned_risks_query = create_query!(
+  project: project,
+  name: "ART Dashboard / owned risks",
+  filters: owned_risks_filters
+)
+
+parked_work_filters = execution_filters(status: Status.find_by!(name: "parked"), execution_types: execution_types!)
+parked_work_query = create_query!(
+  project: project,
+  name: "ART Dashboard / parked work",
+  filters: parked_work_filters
+)
+
+dashboard_board = create_basic_board!(
+  project: project,
+  name: ART_DASHBOARD_BOARD_NAME,
+  widgets: [
+    { query: active_initiatives_query, filters: active_initiatives_filters },
+    { query: committed_objectives_query, filters: committed_objectives_filters },
+    { query: active_execution_query, filters: active_execution_filters },
+    { query: blocked_execution_query, filters: blocked_execution_filters },
+    { query: owned_risks_query, filters: owned_risks_filters },
+    { query: parked_work_query, filters: parked_work_filters }
   ]
 )
 
+pm2_queries = []
 pm2_board = create_basic_board!(
   project: project,
   name: PM2_BOARD_NAME,
-  widgets: [
-    {
-      query: pm2_query,
-      filters: [{ type_id: { operator: "=", values: [pm2_type!.id.to_s] } }]
-    }
-  ]
+  widgets: PM2_PHASES.map do |phase_name|
+    filters = pm2_phase_filters(pm2_type: pm2_type!, pm2_phase_field: pm2_phase_field, phase_name: phase_name)
+    query = create_query!(
+      project: project,
+      name: "PM² Phase / #{phase_name}",
+      filters: filters
+    )
+    pm2_queries << query
+    { query: query, filters: filters }
+  end
 )
 
 execution_types = execution_types!
@@ -251,48 +390,26 @@ execution_board = create_basic_board!(
   widgets: execution_widgets
 )
 
-pi_board = nil
-pi_queries = []
-if versions.any?
-  pi_planning_types = execution_types + [pi_objective_type]
-  pi_widgets = versions.map do |version|
-    filters = pi_filters(
-      version: version,
-      execution_types: pi_planning_types,
-      target_pi_field: target_pi_field
-    )
-    query = create_query!(
-      project: project,
-      name: "PI Planning / #{version.name}",
-      filters: filters
-    )
-    pi_queries << query
-    { query: query, filters: filters }
-  end
-
-  pi_board = create_basic_board!(
-    project: project,
-    name: PI_BOARD_NAME,
-    widgets: pi_widgets
-  )
-end
-
 pi_objective_board = nil
 pi_objective_queries = []
 if versions.any?
-  pi_objective_widgets = versions.map do |version|
-    filters = pi_filters(
-      version: version,
-      execution_types: [pi_objective_type],
-      target_pi_field: target_pi_field
-    )
-    query = create_query!(
-      project: project,
-      name: "PI Objectives / #{version.name}",
-      filters: filters
-    )
-    pi_objective_queries << query
-    { query: query, filters: filters }
+  pi_objective_widgets = versions.flat_map do |version|
+    PI_OBJECTIVE_COMMITMENT_TYPES.map do |commitment_type|
+      filters = pi_objective_filters(
+        version: version,
+        pi_objective_type: pi_objective_type,
+        target_pi_field: target_pi_field,
+        pi_objective_type_field: pi_objective_type_field,
+        commitment_type: commitment_type
+      )
+      query = create_query!(
+        project: project,
+        name: "PI Objectives / #{version.name} / #{commitment_type.downcase}",
+        filters: filters
+      )
+      pi_objective_queries << query
+      { query: query, filters: filters }
+    end
   end
 
   pi_objective_board = create_basic_board!(
@@ -337,9 +454,9 @@ result = {
     }
   end,
   boards: [
+    dashboard_board,
     pm2_board,
     execution_board,
-    pi_board,
     pi_objective_board,
     risk_board
   ].compact.map do |board|
@@ -351,20 +468,29 @@ result = {
     }
   end,
   queries: [
-    pm2_query,
+    active_initiatives_query,
+    committed_objectives_query,
+    active_execution_query,
+    blocked_execution_query,
+    owned_risks_query,
+    parked_work_query,
+    *pm2_queries,
     *execution_widgets.map { |widget| widget[:query] },
-    *pi_queries,
     *pi_objective_queries,
     *risk_queries
   ].map do |query|
     {
-      id: query.id,
-      name: query.name
+     id: query.id,
+     name: query.name
     }
   end,
+  normalized_list_custom_values: {
+    count: normalized_list_custom_values.length,
+    fields: normalized_list_custom_values.group_by { |entry| entry.fetch(:field_name) }.transform_values(&:length).sort.to_h
+  },
   notes: if versions.empty?
            [
-             "No PI versions exist yet; PI planning and PI objective boards will appear after PI names are supplied or delivery records carry Target PI values."
+             "No PI versions exist yet; PI objective lanes will appear after PI names are supplied or delivery records carry Target PI values. Team-and-iteration planning remains a read-model surface, not a managed board."
            ]
          else
            []

@@ -63,7 +63,7 @@ In the OpenProject UI:
 
 - open `Workspace Delivery ART`
 - open the target initiative
-- review the `PI Objectives` board or objective work packages directly
+- review the `PI Objectives` board lanes or objective work packages directly
 - confirm the PI objective type, review outcome, business values, and status
   match the summary
 

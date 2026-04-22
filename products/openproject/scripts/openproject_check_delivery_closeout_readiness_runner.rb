@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 $stdout.sync = true
 
@@ -35,7 +36,7 @@ inactive_field_names = [
 ]
 
 custom_fields = project.work_package_custom_fields.where(name: blocker_field_names + inactive_field_names).index_by(&:name)
-inactive_statuses = %w[parked retired].freeze
+inactive_statuses = %w[retired].freeze
 
 work_packages = WorkPackage.where(project_id: project.id).to_a
 children_by_parent_id = Hash.new { |hash, key| hash[key] = [] }
@@ -62,7 +63,7 @@ end
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
@@ -70,7 +71,7 @@ end
 read_inactive_fields = lambda do |entry|
   inactive_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end

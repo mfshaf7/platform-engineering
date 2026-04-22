@@ -14,6 +14,12 @@ Use this when:
 
 This is the preferred startup read for active delivery work.
 
+`parked` work is intentionally hidden from this surface by default because the
+goal here is the current active front, not every open deferred item. Use
+[show-delivery-execution.md](show-delivery-execution.md) or
+[show-delivery-initiatives.md](show-delivery-initiatives.md) for all-open
+visibility.
+
 ## Command
 
 Run from `platform-engineering/`:

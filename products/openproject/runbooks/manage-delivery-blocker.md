@@ -8,6 +8,10 @@ supported OpenProject operator surface.
 Use this when a delivery item becomes blocked and the blocker must be recorded
 as more than a bare status flag.
 
+This operator surface is broker-backed. The platform command remains the
+primary operator entrypoint, but the actual blocker workflow runs through
+`operator-orchestration-service`.
+
 ## Current Truth
 
 For delivery work, `blocked` alone is not enough.
@@ -64,6 +68,15 @@ Behavior:
 - clears all blocker governance fields
 - moves the work item to `RESUME_STATUS`
 - refuses `RESUME_STATUS=blocked`
+
+## Backend Boundary
+
+The supported command now calls the bounded broker workflow:
+
+- `POST /v1/delivery-work-items/{work_item_id}/blocker`
+
+So blocker management no longer depends on a direct Rails runner at the
+operator surface.
 
 ## Dev-Integration Lane
 

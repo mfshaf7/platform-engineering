@@ -2,6 +2,7 @@
 
 require "date"
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 ITEM_FIELD_SPECS = [
   { key: "delivery_team", field: "Delivery Team", kind: :string },
@@ -250,32 +251,14 @@ end
 
 def normalize_custom_value(spec:, raw_value:, field:)
   return nil if raw_value.nil?
+  kind = spec.fetch(:kind)
+  return raw_value.to_s.strip.presence unless %i[int date list].include?(kind)
 
-  case spec.fetch(:kind)
-  when :int
-    Integer(raw_value).to_s
-  when :date
-    Date.iso8601(raw_value.to_s).iso8601
-  when :list
-    possible_values =
-      if field.respond_to?(:custom_options)
-        field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-      else
-        Array(field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-      end
-    string_value = raw_value.to_s.strip
-    raise "Invalid #{field.name.inspect} value #{raw_value.inspect}" if possible_values.any? && !possible_values.include?(string_value)
-
-    string_value
-  else
-    raw_value.to_s.strip.presence
-  end
+  OpenprojectDeliveryArtCustomFieldSupport.normalize_input_value!(field: field, value: raw_value.to_s.strip, kind: kind)
 end
 
 def custom_value_present?(work_package, field)
-  return false if field.nil?
-
-  work_package.custom_value_for(field)&.value.to_s.strip.present?
+  OpenprojectDeliveryArtCustomFieldSupport.custom_value_present?(entry: work_package, field: field)
 end
 
 plan["items"].each_with_index do |item, index|
@@ -336,10 +319,8 @@ assign_work_package_version = lambda do |work_package, version|
   end
 end
 
-assign_custom_value = lambda do |work_package, field, value|
-  custom_value = work_package.custom_value_for(field)
-  custom_value = work_package.custom_values.build(custom_field: field) if custom_value.nil?
-  custom_value.value = value
+assign_custom_value = lambda do |work_package, field, value, kind = nil|
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: field, value: value, kind: kind)
 end
 
 record_has_pending_changes = lambda do |work_package|
@@ -442,12 +423,12 @@ apply_spec_values = lambda do |work_package:, container:, specs:, changes:, fiel
     end
 
     desired_value = normalize_custom_value(spec: spec, raw_value: container[key], field: field)
-    current_value = work_package.custom_value_for(field)&.value.to_s.strip.presence
+    current_value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)
     next if current_value == desired_value
 
     changes_key = [change_prefix, key].compact.join("_").to_sym
     changes[changes_key] = { from: current_value, to: desired_value }
-    assign_custom_value.call(work_package, field, desired_value)
+    assign_custom_value.call(work_package, field, desired_value, spec[:kind])
   end
 end
 
@@ -462,7 +443,7 @@ sync_wsjf_score = lambda do |work_package:, container:, changes:, field_store:|
       raise "Custom field #{field_name.inspect} is not available for work package type #{work_package.type&.name.inspect}"
     end
 
-    value = work_package.custom_value_for(field)&.value.to_s.strip
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)
     raise "WSJF component #{field_name.inspect} must be set before computing WSJF Score" if value.empty?
 
     Integer(value)
@@ -478,11 +459,11 @@ sync_wsjf_score = lambda do |work_package:, container:, changes:, field_store:|
     raise "Custom field #{WSJF_SCORE_FIELD.inspect} is not available for work package type #{work_package.type&.name.inspect}"
   end
 
-  current_score = work_package.custom_value_for(score_field)&.value.to_s.strip.presence
+  current_score = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: score_field)
   return if current_score == wsjf_score
 
   changes[:wsjf_score] = { from: current_score, to: wsjf_score }
-  assign_custom_value.call(work_package, score_field, wsjf_score)
+  assign_custom_value.call(work_package, score_field, wsjf_score, :float)
 end
 
 validate_ready_contract = lambda do |work_package:, field_store:|
@@ -592,7 +573,7 @@ if epic_updates.is_a?(Hash)
       assign_work_package_version.call(epic, desired_version)
     end
 
-    current_custom_target_pi = epic.custom_value_for(target_pi_field)&.value.to_s.strip.presence
+    current_custom_target_pi = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: epic, field: target_pi_field)
     if current_custom_target_pi != desired_version_name
       assign_custom_value.call(epic, target_pi_field, desired_version_name)
     end
@@ -682,7 +663,7 @@ apply_items = lambda do |items, parent|
           assign_work_package_version.call(work_package, desired_version)
         end
 
-        current_custom_target_pi = work_package.custom_value_for(target_pi_field)&.value.to_s.strip.presence
+        current_custom_target_pi = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: target_pi_field)
         if current_custom_target_pi != desired_version_name
           assign_custom_value.call(work_package, target_pi_field, desired_version_name)
         end
@@ -795,17 +776,19 @@ apply_items = lambda do |items, parent|
 
     previous_status_name = child.status&.name
     child.status = target_inactive_status
-    assign_custom_value.call(child, parking_fields.fetch("Parking Decision"), reconcile_decision)
+    assign_custom_value.call(child, parking_fields.fetch("Parking Decision"), reconcile_decision, :list)
     assign_custom_value.call(child, parking_fields.fetch("Parking Reason"), reconcile_reason)
     assign_custom_value.call(
       child,
       parking_fields.fetch("Parking Review Date"),
       reconcile_decision == "defer" ? reconcile_review_date : nil,
+      :date
     )
     assign_custom_value.call(
       child,
       parking_fields.fetch("Retirement Reason"),
       reconcile_decision == "retire" ? reconcile_retirement_reason : nil,
+      :list
     )
     blocker_fields.each_value do |field|
       assign_custom_value.call(child, field, nil)

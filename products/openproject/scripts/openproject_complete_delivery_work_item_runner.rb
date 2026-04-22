@@ -2,6 +2,7 @@
 
 require "json"
 require "time"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_work_package_id = Integer(ENV.fetch("TARGET_WORK_PACKAGE_ID"))
 delivery_project_identifier = ENV.fetch(
@@ -73,7 +74,7 @@ completion_required_fields = project.work_package_custom_fields
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
     field = blocker_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
@@ -85,7 +86,8 @@ end
 
 required_field_names = COMPLETION_REQUIRED_FIELD_NAMES_BY_TYPE.fetch(work_package.type&.name, [])
 missing_field_names = required_field_names.reject do |field_name|
-  completion_required_fields[field_name] && work_package.custom_value_for(completion_required_fields[field_name])&.value.to_s.strip.present?
+  field = completion_required_fields[field_name]
+  field && OpenprojectDeliveryArtCustomFieldSupport.custom_value_present?(entry: work_package, field: field)
 end
 if missing_field_names.any?
   raise "Work package #{target_work_package_id} cannot complete while required execution fields are missing: #{missing_field_names.join(', ')}"

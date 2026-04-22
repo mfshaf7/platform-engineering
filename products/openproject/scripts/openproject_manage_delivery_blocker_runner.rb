@@ -2,6 +2,7 @@
 
 require "date"
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 action = ENV.fetch("ACTION").strip
 target_work_package_id = Integer(ENV.fetch("TARGET_WORK_PACKAGE_ID"))
@@ -34,26 +35,13 @@ missing_fields = field_names.reject { |name| custom_fields.key?(name) }
 raise "Missing delivery blocker custom fields: #{missing_fields.join(', ')}" if missing_fields.any?
 
 decision_field = custom_fields.fetch("Blocker Decision Path")
-decision_values =
-  if decision_field.respond_to?(:custom_options)
-    decision_field.custom_options.map { |entry| entry.value.to_s.strip }.reject(&:empty?)
-  elsif decision_field.respond_to?(:possible_values)
-    Array(decision_field.possible_values).map { |entry| entry.to_s.strip }.reject(&:empty?)
-  else
-    []
-  end
+decision_values = OpenprojectDeliveryArtCustomFieldSupport.list_allowed_values(decision_field)
 
 def parse_iso_date!(value, field_name)
   Date.iso8601(value)
   value
 rescue ArgumentError
   raise "#{field_name} must be an ISO date (YYYY-MM-DD)"
-end
-
-def assign_custom_value!(work_package, field, value)
-  custom_value = work_package.custom_value_for(field)
-  custom_value = work_package.custom_values.build(custom_field: field) if custom_value.nil?
-  custom_value.value = value
 end
 
 case action
@@ -97,14 +85,14 @@ when "set"
   blocked_status = Status.find_by!(name: "blocked")
   work_package.status = blocked_status
 
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Statement"), statement)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Impact"), impact)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Owner"), owner)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Discovered On"), discovered_on)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Decision Path"), decision_path)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Justification"), justification)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Follow-Up Owner"), follow_up_owner.presence)
-  assign_custom_value!(work_package, custom_fields.fetch("Blocker Review Date"), review_date.presence)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Statement"), value: statement, kind: :string)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Impact"), value: impact, kind: :string)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Owner"), value: owner, kind: :string)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Discovered On"), value: discovered_on, kind: :date)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Decision Path"), value: decision_path, kind: :list)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Justification"), value: justification, kind: :string)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Follow-Up Owner"), value: follow_up_owner.presence, kind: :string)
+  OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field: custom_fields.fetch("Blocker Review Date"), value: review_date.presence, kind: :date)
 when "clear"
   if resume_status_name.nil? || resume_status_name.empty?
     raise "RESUME_STATUS is required for ACTION=clear"
@@ -116,7 +104,7 @@ when "clear"
 
   work_package.status = resume_status
   custom_fields.each_value do |field|
-    assign_custom_value!(work_package, field, nil)
+    OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: work_package, field:, value: nil)
   end
 else
   raise "ACTION must be set or clear"
@@ -136,7 +124,7 @@ result = {
   },
   blocker_fields: field_names.to_h do |field_name|
     field = custom_fields.fetch(field_name)
-    [field_name, work_package.custom_value_for(field)&.value]
+    [field_name, OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: work_package, field: field)]
   end
 }
 

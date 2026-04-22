@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 include_done = ENV.fetch("INCLUDE_DONE", "true") == "true"
-include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
-inactive_statuses = %w[parked retired].freeze
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", "false") == "true"
+inactive_statuses = %w[retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -140,7 +141,7 @@ end
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
@@ -148,14 +149,14 @@ end
 read_inactive_fields = lambda do |entry|
   inactive_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
 
 read_custom_field_value = lambda do |entry, field_name|
   field = custom_fields[field_name]
-  field ? entry.custom_value_for(field)&.value.presence : nil
+  OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
 end
 
 ready_contract_state = lambda do |entry|
@@ -246,7 +247,7 @@ node_summary = lambda do |entry|
     required_by_work_package_ids: required_by_ids_by_source_id[entry.id].uniq.sort,
     unresolved_dependency_work_package_ids: unresolved_dependency_ids,
     blocker_fields: blocker_active ? blocker_fields : nil,
-    inactive_scope_fields: (inactive_fields_present || inactive_statuses.include?(entry.status&.name)) ? inactive_fields : nil
+    inactive_scope_fields: (inactive_fields_present || ["parked", *inactive_statuses].include?(entry.status&.name)) ? inactive_fields : nil
   }
 end
 
@@ -312,7 +313,7 @@ result = {
     total_items: descendant_nodes.length,
     parked_count: parked_items.length,
     retired_count: retired_items.length,
-    inactive_count: inactive_items.length,
+    inactive_count: retired_items.length,
     blocked_count: blocked_items.length,
     ready_without_contract_count: ready_without_contract.length,
     completed_without_evidence_count: completed_without_evidence.length,

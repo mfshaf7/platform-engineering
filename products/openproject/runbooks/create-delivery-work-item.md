@@ -106,7 +106,8 @@ make openproject-create-delivery-work-item \
 
 - the new child work item exists under the requested parent
 - the command prints the created work-item state
-- `Program Increment Planning` stays in sync when `TARGET_PI` is supplied
+- managed PI-objective lanes and planning read-model surfaces stay aligned when
+  `TARGET_PI` is supplied
 
 ## Verification
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 target_pi = ENV["TARGET_PI"]&.strip&.presence
@@ -48,7 +49,7 @@ end
 
 read_custom_field_value = lambda do |entry, field_name|
   field = custom_fields.fetch(field_name)
-  entry.custom_value_for(field)&.value.presence
+  OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
 end
 
 work_package_version_name = lambda do |entry|

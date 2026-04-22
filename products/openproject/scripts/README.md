@@ -12,8 +12,12 @@ For `Workspace Delivery ART`, these entrypoints now cover:
   `User story`, `Task`, `Milestone`, and `Risk`
 - PI views, PI-objective views, team/iteration planning summaries, explicit
   system-demo and inspect-and-adapt recording, ART-risk views, dependencies,
-  blockers, deferred-vs-retired inactive-scope handling, completion evidence,
+  blockers, deferred-vs-retired open-scope handling, completion evidence,
   closeout readiness, and ART-quality validation
+
+The initiative-governance and plan-apply entrypoints are thin wrappers over
+the broker-owned `/v1/delivery-initiatives/.../governance` and
+`/v1/delivery-initiatives/.../plan/apply` routes.
 
 ## Operator Entrypoints
 

@@ -37,7 +37,7 @@ Optional fields:
 
 - `INCLUDE_DONE=true|false`
 - `INCLUDE_INACTIVE=true|false`
-- `INCLUDE_PARKED=true|false` as a backward-compatible alias
+  `INCLUDE_INACTIVE` now controls `retired` visibility only.
 
 Examples:
 
@@ -82,9 +82,9 @@ Each item summary also reports attachment visibility through:
 Default visibility:
 
 - `INCLUDE_DONE=true` shows completed descendants
-- `INCLUDE_INACTIVE=false` hides inactive descendants (`parked` and `retired`)
-  from the tree by default while still reporting them in `parked_items` and
-  `retired_items`
+- `parked` descendants stay visible by default because they are deferred open work
+- `INCLUDE_INACTIVE=false` hides only `retired` descendants from the tree by
+  default while still reporting them in `retired_items`
 
 ## Verification
 

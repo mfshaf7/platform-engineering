@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 include_done = ENV.fetch("INCLUDE_DONE", "true") == "true"
-include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
-inactive_statuses = %w[parked retired].freeze
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", "false") == "true"
+inactive_statuses = %w[retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -123,7 +124,7 @@ end
 read_blocker_fields = lambda do |entry|
   blocker_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
@@ -131,19 +132,19 @@ end
 read_inactive_fields = lambda do |entry|
   inactive_field_names.to_h do |field_name|
     field = custom_fields[field_name]
-    value = field ? entry.custom_value_for(field)&.value.presence : nil
+    value = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
     [field_name, value]
   end
 end
 
 read_governance_field = lambda do |entry, field_name|
   field = custom_fields[field_name]
-  field ? entry.custom_value_for(field)&.value.presence : nil
+  OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
 end
 
 read_custom_field_value = lambda do |entry, field_name|
   field = custom_fields[field_name]
-  field ? entry.custom_value_for(field)&.value.presence : nil
+  OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
 end
 
 ready_contract_state = lambda do |entry|
@@ -227,7 +228,7 @@ node_summary = lambda do |entry|
     description_present: entry.description.to_s.strip.present?,
     description_headings: description_headings.call(entry),
     blocker_fields: blocker_active ? blocker_fields : nil,
-    inactive_scope_fields: (inactive_fields_present || inactive_statuses.include?(entry.status&.name)) ? inactive_fields : nil
+    inactive_scope_fields: (inactive_fields_present || ["parked", *inactive_statuses].include?(entry.status&.name)) ? inactive_fields : nil
   }
 end
 
@@ -344,7 +345,7 @@ initiatives = top_level_epics.filter_map do |epic|
       open_descendant_count: open_descendants.length,
       parked_count: parked_items.length,
       retired_count: retired_items.length,
-      inactive_count: parked_items.length + retired_items.length,
+      inactive_count: retired_items.length,
       blocked_count: blocked_items.length,
       ready_without_contract_count: ready_without_contract.length,
       completed_without_evidence_count: completed_without_evidence.length,
@@ -369,7 +370,7 @@ initiatives = top_level_epics.filter_map do |epic|
     },
     closeout_ready: closeout_ready,
     closeout_reasons: closeout_reasons,
-    parked_items: include_inactive ? parked_items : [],
+    parked_items: parked_items,
     retired_items: include_inactive ? retired_items : [],
     blocked_items: blocked_items,
     ready_without_contract: ready_without_contract,
@@ -406,7 +407,7 @@ result = {
     include_done: include_done,
     include_inactive: include_inactive,
     total_initiatives: initiatives.length,
-    active_initiatives: initiatives.count { |entry| !(["done", *inactive_statuses].include?(entry.dig(:epic, :status))) },
+    active_initiatives: initiatives.count { |entry| !(["done", "parked", *inactive_statuses].include?(entry.dig(:epic, :status))) },
     parked_initiatives: initiatives.count { |entry| entry.dig(:epic, :status) == "parked" },
     retired_initiatives: initiatives.count { |entry| entry.dig(:epic, :status) == "retired" },
     blocked_initiatives: initiatives.count { |entry| entry.dig(:execution_summary, :blocked_count).to_i.positive? },

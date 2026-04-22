@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "openproject_delivery_art_custom_field_support"
 
 target_epic_id = Integer(ENV.fetch("TARGET_EPIC_ID"))
 include_done = ENV.fetch("INCLUDE_DONE", "false") == "true"
-include_inactive = ENV.fetch("INCLUDE_INACTIVE", ENV.fetch("INCLUDE_PARKED", "false")) == "true"
-inactive_statuses = %w[parked retired].freeze
+include_inactive = ENV.fetch("INCLUDE_INACTIVE", "false") == "true"
+inactive_statuses = %w[retired].freeze
 delivery_project_identifier = ENV.fetch(
   "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER",
   "workspace-delivery-art",
@@ -61,7 +62,7 @@ end
 
 read_custom_field_value = lambda do |entry, field_name|
   field = custom_fields[field_name]
-  field ? entry.custom_value_for(field)&.value.presence : nil
+  OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(entry: entry, field: field)
 end
 
 work_package_version_name = lambda do |entry|

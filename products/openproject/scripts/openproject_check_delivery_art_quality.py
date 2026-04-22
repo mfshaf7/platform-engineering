@@ -13,7 +13,7 @@ SHOW_INITIATIVES = REPO_ROOT / "products" / "openproject" / "scripts" / "openpro
 SHOW_EXECUTION = REPO_ROOT / "products" / "openproject" / "scripts" / "openproject_show_delivery_execution.sh"
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
-INACTIVE_STATUSES = {"parked", "retired"}
+INACTIVE_STATUSES = {"retired"}
 NARRATIVE_REQUIREMENTS = {
     "Epic": ["Current PI Focus", "Scope Boundaries"],
     "PI Objective": ["Outcome Statement", "Why This PI", "Success Signal"],

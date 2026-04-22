@@ -66,10 +66,10 @@ unless it is genuinely shared platform behavior.
 - OpenProject is a supporting product or service on the platform, not the
   platform itself.
 - OpenProject is currently a `platform-integrated` product, not a
-  `fully governed` source-to-stage-to-prod workflow like OpenClaw.
+  `product-governed` source-to-stage-to-prod workflow.
 - Treat the current highest real endpoint as:
   - platform-managed runtime and operator flow on the local cluster
-  - not a distinct OpenClaw-style stage rehearsal and prod-promotion model
+  - not a distinct product-governed stage rehearsal and prod-promotion model
 - Operator access expectations, admin-password synchronization, and product
   lifecycle commands are OpenProject-specific and belong under this directory.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,
@@ -132,7 +132,7 @@ For Codex GitHub review, treat the following as `P1` when they plausibly
 misstate the OpenProject operating model:
 
 - wording or workflow changes that imply OpenProject already has an
-  OpenClaw-style governed `source -> stage -> prod` promotion path
+  product-governed `source -> stage -> prod` promotion path
 - wording or workflow changes that stop describing OpenProject as
   `platform-integrated` and instead imply a deeper governed rollout maturity
 - changes to backlog, access, backup, restore, or credential flow that do not

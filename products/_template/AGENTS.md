@@ -44,8 +44,8 @@ Examples:
 
 ## Workflow Maturity Guardrail
 
-Do not copy OpenClaw-style release guidance into another product unless that
-product really has the same stage, approval, and promotion path.
+Do not copy another product's full governed release guidance into this product
+unless it really has the same rehearsal, approval, and promotion path.
 
 If the product does not yet have a full end-to-end workflow:
 

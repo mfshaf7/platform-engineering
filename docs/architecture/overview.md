@@ -39,8 +39,7 @@ There are four control planes:
 
 ## Current Live Shape
 
-The current deployed platform is a shared multi-product stack, not an
-OpenClaw-only environment.
+The current deployed platform is a shared multi-product stack.
 
 As validated on `2026-04-19`, the live cluster currently includes:
 

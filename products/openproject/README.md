@@ -34,15 +34,16 @@ OpenProject is currently:
 
 ## Current Workflow Maturity
 
-OpenProject is currently `platform-integrated`, not `fully governed` in the
-same end-to-end sense as OpenClaw.
+OpenProject is currently `platform-integrated`, not `product-governed`
+end-to-end.
 
 That means:
 
 - product docs, access guidance, scripts, and platform-managed deployment exist
 - the product has a real operating model on the shared platform
-- but it does not currently have a distinct OpenClaw-style source-to-stage-to-
-  prod workflow with separate rehearsal and promotion gates
+- but it does not currently have its own product-governed
+  `source -> stage -> prod` workflow with separate rehearsal and promotion
+  gates
 
 The highest implemented endpoint today is the platform-managed OpenProject
 runtime on the local cluster plus its documented operator procedures.
@@ -53,7 +54,7 @@ The canonical OpenProject workflow model now has two distinct planes:
 - `Workspace Delivery ART` for accepted work that moves into tracked delivery
 
 Both remain platform-managed operator flows inside this product directory. They
-do not imply a separate OpenClaw-style governed promotion lane.
+do not imply a separate product-governed promotion lane.
 
 ## Delivery Work-State Truth
 

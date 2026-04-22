@@ -78,6 +78,42 @@ The canonical OpenProject workflow model now has two distinct planes:
 Both remain platform-managed operator flows inside this product directory. They
 do not imply a separate rollout lane.
 
+## ART Lifecycle At A Glance
+
+```mermaid
+flowchart LR
+    Proposal[Workspace Proposals]
+    Accept{Accepted for delivery?}
+    Epic[Epic and PM2 initiative]
+    PI[PI objectives, features, enablers, tasks, risks]
+    Evidence[System demo, inspect and adapt, completion evidence]
+    Closeout[Delivery closeout]
+    Implemented[Implemented proposal state]
+    Repos[Owner repos]
+    OOS[operator-orchestration-service]
+
+    Proposal --> Accept
+    Accept -->|no| Proposal
+    Accept -->|yes| Epic
+    OOS --> Proposal
+    OOS --> Epic
+    Epic --> PI
+    PI --> Repos
+    PI --> Evidence
+    Evidence --> Closeout
+    Closeout --> Implemented
+```
+
+Read this as the OpenProject workflow lifecycle:
+
+- `Workspace Proposals` is the intake and proposal-triage plane.
+- accepted work becomes a top-level `Epic` in `Workspace Delivery ART`.
+- execution happens below that initiative through PI objectives and work-item
+  hierarchy.
+- completion is not just status change; it also requires evidence and closeout.
+- owner repos still hold implementation truth while OpenProject holds
+  work-state truth.
+
 ## Delivery Work-State Truth
 
 When a serious initiative is already running inside `Workspace Delivery ART`,

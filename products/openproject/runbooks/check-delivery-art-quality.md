@@ -20,6 +20,8 @@ The supported quality check currently verifies:
 - non-done delivery work does not still carry completion-evidence sections
 - `done` delivery work carries substantive completion evidence
 - `done` delivery work does not carry weak or malformed completion attestation
+- `done` delivery work does not still have descendants outside `done` or
+  `retired`
 - active execution items do not violate the structured ready contract
 - items explicitly marked `Not committed to a PI iteration yet.` do not also
   pretend to have concrete PI assignment or scheduled dates

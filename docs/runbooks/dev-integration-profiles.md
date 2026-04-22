@@ -14,6 +14,39 @@ Do not reconstruct this flow from scattered contracts, templates, and
 standards files. Those remain supporting governance sources, not the primary
 operator path.
 
+## Operator Lanes At A Glance
+
+```mermaid
+flowchart LR
+    Request[Request or choose profile]
+    Active{Active profile exists?}
+    DevInt[dev-integration local lane]
+    Promote[Promote-check and reviewed source change]
+    Stage[Governed stage rehearsal]
+    Prod[Governed prod]
+    Proposals[Workspace Proposals]
+    ART[Workspace Delivery ART]
+
+    Request --> Active
+    Active -->|no| Proposals
+    Proposals --> Active
+    Active -->|yes| DevInt
+    DevInt --> Promote
+    Promote --> ART
+    Promote --> Stage
+    Stage --> Prod
+```
+
+Read this as lane separation, not one blended environment:
+
+- `dev-integration` is the fast local lane for changing workflow and API shape.
+- `Workspace Proposals` and `Workspace Delivery ART` remain the work-state
+  systems of record while the local lane is active.
+- `stage` is the first governed runtime rehearsal after reviewed source
+  changes exist.
+- `prod` comes only after the normal governed path, not from direct
+  `dev-integration` promotion.
+
 ## 1. Check Whether An Active Profile Already Exists
 
 The canonical registry is:

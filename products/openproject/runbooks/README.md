@@ -11,6 +11,39 @@ views, PI objectives, team/iteration planning summaries, system-demo and
 inspect-and-adapt recording, ART risks, blockers, parking, completion
 evidence, closeout, and ART-quality validation.
 
+## Runbook Lanes At A Glance
+
+```mermaid
+flowchart LR
+    Access[Access and product runtime]
+    Proposals[Proposal plane]
+    Startup[ART startup and read path]
+    Mutations[ART mutation and execution control]
+    Evidence[Review, evidence, and closeout]
+    Runtime[Runtime hygiene and production controls]
+
+    Access --> Proposals
+    Access --> Startup
+    Proposals --> Startup
+    Startup --> Mutations
+    Mutations --> Evidence
+    Evidence --> Runtime
+```
+
+Read this as operator workflow families:
+
+- `access-openproject.md` gets you to the product and admin surface.
+- `configure-idea-backlog.md` and `manage-proposal-to-delivery.md` live on the
+  proposal side.
+- `show-delivery-initiatives.md`, `show-delivery-active-front.md`, and
+  `check-delivery-art-quality.md` are the ART startup path.
+- the create, update, move, blocker, dependency, parking, and governance
+  runbooks are the execution-control lane.
+- PI review, system-demo, inspect-and-adapt, closeout readiness, and closeout
+  itself are the evidence lane.
+- backup, uninstall, identity provisioning, and clean-start guidance remain
+  runtime and hygiene controls around the workflow model.
+
 ## Runbooks
 
 - [access-openproject.md](access-openproject.md)

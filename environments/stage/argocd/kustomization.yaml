@@ -4,3 +4,5 @@ resources:
   - openclaw-gateway-app.yaml
   - platform-secrets-app.yaml
   - platform-version-app.yaml
+  - observability-app.yaml
+  - platform-dashboards-app.yaml

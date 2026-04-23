@@ -12,9 +12,9 @@ for the observability component architecture and operations entrypoint.
 
 ## Endpoints
 
-- prod Grafana: `http://127.0.0.1:32080`
-- stage Grafana: `http://127.0.0.1:32081` only when stage observability is
-  deliberately resumed
+- prod platform-baseline Grafana: `http://127.0.0.1:32080`
+- stage platform-baseline Grafana: `http://127.0.0.1:32081` only when stage
+  observability is deliberately resumed
 
 The supported human-operator path is Windows localhost through the
 `PlatformCoreHostStack` bootstrap path.
@@ -30,6 +30,11 @@ If stage observability is resumed, the stage shell-local fallback is:
 ```bash
 k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80
 ```
+
+Compatibility note:
+
+- the service names still use legacy OpenClaw-shaped identifiers during the
+  compatibility migration
 
 ## Credentials
 
@@ -49,7 +54,7 @@ actually running.
 ## Expected Dashboards
 
 - default kube-prometheus-stack dashboards
-- `Platform Overview`
+- `Platform Baseline Overview`
 
 ## Verification
 

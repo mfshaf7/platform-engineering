@@ -1,14 +1,23 @@
 schemaVersion: 1
 component: observability
+layer: platform-baseline
 environment: prod
 status: pending
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
 note: >-
-  No governed prod verification is recorded yet for the current shared
-  observability stack contract. Record fresh evidence whenever the prod
-  Grafana, Prometheus, Alertmanager, or auth-proxy contract changes.
+  No governed prod verification is recorded yet for the current platform
+  observability baseline contract. Record fresh evidence whenever the prod
+  Grafana, Prometheus, Alertmanager, or auth-proxy baseline contract changes.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+decisionSurfaces:
+  - operator-live-diagnosis
+  - environment-verification
+  - runtime-drills
+  - incident-containment-and-recovery
 environmentContractRef:
   path: environments/prod/argocd/observability-app.yaml
   chart:
@@ -17,10 +26,13 @@ environmentContractRef:
     version: 58.2.2
   runtime:
     namespace: observability
+    identity: platform-baseline
     operatorAccessUrls:
       grafana: http://127.0.0.1:32080
       prometheus: http://127.0.0.1:32090
       alertmanager: http://127.0.0.1:32093
+  compatibilityNotes:
+    - Compatibility-phase Argo and service names remain OpenClaw-shaped.
   sourceRefs:
     platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
   requiredChecks:

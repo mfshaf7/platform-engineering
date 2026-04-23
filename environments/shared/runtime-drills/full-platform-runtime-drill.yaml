@@ -59,12 +59,12 @@ scope:
       ownerRepo: platform-engineering
       lane: shared
       kind: supporting-component
-      summary: Shared observability stack and retained dashboards.
+      summary: Platform observability baseline stack for Grafana, Prometheus, Alertmanager, and the auth proxy.
     - id: platform-dashboards
       ownerRepo: platform-engineering
       lane: shared
       kind: supporting-component
-      summary: Operator dashboards and auth-proxy surface.
+      summary: Shared dashboard overlay hosted by the platform observability baseline.
     - id: host-bridge
       ownerRepo: openclaw-host-bridge
       lane: shared
@@ -117,7 +117,7 @@ verificationPack:
       acceptedStatuses:
         - passed
         - not_applicable
-      summary: Supporting components required by the scoped drill remain healthy enough for the exercise.
+      summary: Supporting components required by the scoped drill, including the platform observability baseline and dashboard overlay, remain healthy enough for the exercise.
     - id: restore-attestation
       category: restore
       requiredByDefault: true
@@ -160,8 +160,8 @@ restoreScope:
     - id: platform-postgresql
       summary: Restore shared PostgreSQL posture to the captured baseline.
     - id: observability
-      summary: Restore observability runtime posture to the captured baseline.
+      summary: Restore the platform observability baseline runtime posture to the captured baseline.
     - id: platform-dashboards
-      summary: Restore operator dashboard posture to the captured baseline.
+      summary: Restore the shared dashboard overlay posture to the captured baseline.
     - id: host-bridge
       summary: Restore required host bridge services and related control posture to the captured baseline.

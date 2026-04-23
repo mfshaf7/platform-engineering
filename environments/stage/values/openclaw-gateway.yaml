@@ -49,16 +49,17 @@ extraEnv:
     kubectl -n vault port-forward svc/vault-ui 8220:8200","credentialSource":"Operator
     username and password provisioned by bootstrap_operator_access.sh","healthChecks":["Vault
     UI/API reachable on localhost","Vault workload healthy in namespace vault"],"troubleshootingNotes":["Localhost-only
-    HTTP because the current chart uses tlsDisable=true"]},{"id":"grafana-prod","label":"Grafana
-    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32080","wslFallback":"k3s
+    HTTP because the current chart uses tlsDisable=true"]},{"id":"grafana-prod","label":"Platform
+    Grafana prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32080","wslFallback":"k3s
     kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80","credentialSource":"Vault
     path kv/platform/observability/prod/grafana-admin","healthChecks":["Grafana login
-    page reachable","Observability namespace workloads healthy"]},{"id":"prometheus-prod","label":"Prometheus
-    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32090","wslFallback":"k3s
+    page reachable","Platform observability baseline workloads healthy"],"troubleshootingNotes":["Compatibility-phase
+    service name remains openclaw-observability-grafana"]},{"id":"prometheus-prod","label":"Platform
+    Prometheus prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32090","wslFallback":"k3s
     kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090","credentialSource":"Vault
     path kv/platform/observability/prod/operator-ui-auth","healthChecks":["Query UI
-    reachable through operator auth proxy","Prometheus target health and scrape status"]},{"id":"alertmanager-prod","label":"Alertmanager
-    prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32093","wslFallback":"k3s
+    reachable through operator auth proxy","Prometheus target health and scrape status"]},{"id":"alertmanager-prod","label":"Platform
+    Alertmanager prod","category":"observability","currentState":"live","operatorUrl":"http://127.0.0.1:32093","wslFallback":"k3s
     kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093","credentialSource":"Vault
     path kv/platform/observability/prod/operator-ui-auth","healthChecks":["Alertmanager
     UI reachable through operator auth proxy","Notification pipeline and silences
@@ -74,18 +75,19 @@ extraEnv:
     /healthz","In-pod /readyz","Real Telegram reply, file send, screenshot, and host-control
     checks"],"troubleshootingNotes":["Gateway health alone is not sufficient proof
     of prod behavior","Check environments/prod/openclaw-lifecycle.yaml before assuming
-    prod OpenClaw should be live"]},{"id":"grafana-stage","label":"Grafana stage","category":"observability","currentState":"not
-    currently live","operatorUrl":"http://127.0.0.1:32081 only when stage observability
-    is resumed","wslFallback":"resume stage, then k3s kubectl -n observability-stage
-    port-forward svc/openclaw-observability-sta-grafana 3001:80","credentialSource":"Vault
-    path kv/platform/observability/stage/grafana-admin","healthChecks":["Stage observability
-    resumed explicitly","Observability-stage workloads healthy"]},{"id":"prometheus-stage","label":"Prometheus
-    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32091
+    prod OpenClaw should be live"]},{"id":"grafana-stage","label":"Platform Grafana
+    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32081
+    only when stage observability is resumed","wslFallback":"resume stage, then k3s
+    kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana
+    3001:80","credentialSource":"Vault path kv/platform/observability/stage/grafana-admin","healthChecks":["Stage
+    observability resumed explicitly","Stage platform observability baseline workloads
+    healthy"],"troubleshootingNotes":["Compatibility-phase service name remains openclaw-observability-sta-grafana"]},{"id":"prometheus-stage","label":"Platform
+    Prometheus stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32091
     only when stage observability is resumed","wslFallback":"resume stage, then k3s
     kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy
     9091:9090","credentialSource":"Vault path kv/platform/observability/stage/operator-ui-auth","healthChecks":["Stage
-    observability resumed explicitly","Prometheus target health and scrape status"]},{"id":"alertmanager-stage","label":"Alertmanager
-    stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32094
+    observability resumed explicitly","Prometheus target health and scrape status"]},{"id":"alertmanager-stage","label":"Platform
+    Alertmanager stage","category":"observability","currentState":"not currently live","operatorUrl":"http://127.0.0.1:32094
     only when stage observability is resumed","wslFallback":"resume stage, then k3s
     kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy
     9094:9093","credentialSource":"Vault path kv/platform/observability/stage/operator-ui-auth","healthChecks":["Stage

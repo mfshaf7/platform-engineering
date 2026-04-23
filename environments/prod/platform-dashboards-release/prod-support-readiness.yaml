@@ -1,18 +1,23 @@
 schemaVersion: 1
 component: platform-dashboards
+layer: shared-component-overlay
 environment: prod
 status: pending
 assessedAt: null
 assessedBy: null
 note: >-
   Prod dashboard support readiness requires matching verification against the
-  exact dashboard asset contract and the prod observability host contract.
+  exact dashboard overlay contract and the prod platform-baseline Grafana host
+  contract.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
 environmentContractRef:
   deploymentContractRefs:
     - path: environments/prod/argocd/platform-dashboards-app.yaml
   supportingContractRefs:
     - path: environments/prod/argocd/observability-app.yaml
-      role: grafana-host
+      role: platform-baseline-grafana-host
 verificationRef:
   path: environments/prod/platform-dashboards-release/prod-verification.yaml
   status: pending

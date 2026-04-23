@@ -5,7 +5,7 @@ top of the shared platform observability baseline.
 
 It does not own the shared Grafana, Prometheus, or Alertmanager stack. Those
 remain shared platform surfaces under
-[`docs/components/observability/`](../../docs/components/observability/README.md).
+[`docs/components/observability/`](../../../docs/components/observability/README.md).
 
 ## Purpose
 
@@ -35,5 +35,5 @@ The current migration is compatibility-first:
 - [../README.md](../README.md)
 - [../runtime-contract.md](../runtime-contract.md)
 - [../visibility-and-operations.md](../visibility-and-operations.md)
-- [../../docs/components/observability/README.md](../../docs/components/observability/README.md)
-- [../../docs/components/observability/model.yaml](../../docs/components/observability/model.yaml)
+- [../../../docs/components/observability/README.md](../../../docs/components/observability/README.md)
+- [../../../docs/components/observability/model.yaml](../../../docs/components/observability/model.yaml)

@@ -70,8 +70,8 @@ The current full-platform drill profile includes:
 - Vault
 - External Secrets
 - platform-postgresql
-- observability
-- platform-dashboards
+- platform observability baseline
+- platform dashboards shared overlay
 - host bridge surfaces required by OpenClaw
 
 The current restore rule is:
@@ -242,7 +242,7 @@ Examples:
   - use the supported direct broker caller path from the active devint namespace
 - supporting components:
   - use the owner commands and readiness runbooks for Vault, External Secrets,
-    dashboards, and observability
+    the platform observability baseline, and the platform dashboard overlay
 - OpenProject and OpenClaw user paths:
   - use the owning access and release-governance runbooks, then attach the
     proof as `EVIDENCE_REF`
@@ -283,7 +283,8 @@ Examples:
 - accepted-idea-delivery devint back to its captured posture
 - OpenClaw stage back to its captured component set
 - OpenClaw prod back to its captured lifecycle state
-- observability and dashboards back to their captured active or suspended posture
+- the platform observability baseline and dashboard overlay back to their
+  captured active or suspended posture
 
 When a surface cannot be restored exactly, record:
 

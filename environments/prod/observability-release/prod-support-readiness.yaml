@@ -1,13 +1,17 @@
 schemaVersion: 1
 component: observability
+layer: platform-baseline
 environment: prod
 status: pending
 assessedAt: null
 assessedBy: null
 note: >-
-  Prod support readiness for the shared observability stack requires matching
-  verification against the exact prod stack contract before operator-facing
-  monitoring health can be treated as governed-ready.
+  Prod support readiness for the platform observability baseline requires
+  matching verification against the exact prod baseline contract before
+  operator-facing monitoring health can be treated as governed-ready.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
 environmentContractRef:
   path: environments/prod/argocd/observability-app.yaml
   chartVersion: 58.2.2

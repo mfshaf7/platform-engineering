@@ -1,18 +1,22 @@
 schemaVersion: 1
 component: platform-dashboards
+layer: shared-component-overlay
 environment: stage
 status: inactive
 assessedAt: null
 assessedBy: null
 note: >-
-  Stage dashboard support readiness remains inactive while stage
-  observability is intentionally suspended.
+  Stage dashboard overlay support readiness remains inactive while the stage
+  platform observability baseline is intentionally suspended.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
 environmentContractRef:
   deploymentContractRefs:
     - path: environments/stage/argocd/platform-dashboards-app.yaml
   supportingContractRefs:
     - path: environments/stage/argocd/observability-app.yaml
-      role: grafana-host
+      role: platform-baseline-grafana-host
 verificationRef:
   path: environments/stage/platform-dashboards-release/stage-verification.yaml
   status: inactive

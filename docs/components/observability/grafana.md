@@ -3,6 +3,8 @@
 ## Purpose
 
 Grafana is the operator-facing dashboard surface for platform observability.
+In the current model it is the primary human-facing UI for the shared platform
+baseline and the platform-owned dashboard overlay.
 
 ## Access
 
@@ -14,6 +16,11 @@ k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 300
 ```
 
 - credential source: `kv/platform/observability/prod/grafana-admin`
+
+Compatibility note:
+
+- the fallback service name remains `openclaw-observability-grafana` during the
+  compatibility migration even though the surface is platform-owned
 
 ## Typical Operator Use
 

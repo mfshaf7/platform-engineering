@@ -1,14 +1,23 @@
 schemaVersion: 1
 component: observability
+layer: platform-baseline
 environment: stage
 status: inactive
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
 note: >-
-  Stage observability is intentionally suspended right now. Keep stage
-  verification inactive until the stage observability contract is resumed for
-  governed rehearsal.
+  Stage platform observability baseline is intentionally suspended right now.
+  Keep stage verification inactive until the stage baseline contract is resumed
+  for governed rehearsal.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+decisionSurfaces:
+  - operator-live-diagnosis
+  - environment-verification
+  - runtime-drills
+  - incident-containment-and-recovery
 environmentContractRef:
   path: environments/stage/argocd/observability-app.yaml
   chart:
@@ -17,6 +26,9 @@ environmentContractRef:
     version: 58.2.2
   runtime:
     namespace: observability-stage
+    identity: platform-baseline
+  compatibilityNotes:
+    - Compatibility-phase Argo and service names remain OpenClaw-shaped.
   sourceRefs:
     platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
   requiredChecks:

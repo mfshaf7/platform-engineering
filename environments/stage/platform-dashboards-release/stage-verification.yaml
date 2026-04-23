@@ -1,21 +1,29 @@
 schemaVersion: 1
 component: platform-dashboards
+layer: shared-component-overlay
 environment: stage
 status: inactive
 verifiedAt: null
 verifiedBy: null
 evidenceRef: null
 note: >-
-  Stage dashboard assets are intentionally inactive while stage observability
-  remains suspended. Keep stage verification inactive until the exact stage
-  dashboard and observability contracts are resumed together.
+  Stage dashboard overlay is intentionally inactive while the stage platform
+  observability baseline remains suspended. Keep stage verification inactive
+  until the exact stage dashboard and baseline contracts are resumed together.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+decisionSurfaces:
+  - operator-live-diagnosis
+  - environment-verification
+  - runtime-drills
 environmentContractRef:
   deploymentContractRefs:
     - path: environments/stage/argocd/platform-dashboards-app.yaml
       kind: argocd-application
   supportingContractRefs:
     - path: environments/stage/argocd/observability-app.yaml
-      role: grafana-host
+      role: platform-baseline-grafana-host
   runtime:
     namespace: observability-stage
   sourceRefs:

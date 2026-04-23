@@ -50,6 +50,7 @@ For `Workspace Delivery ART`, the remaining entrypoints here cover:
 - `openproject_check_delivery_art_quality.sh`
 - `openproject_standardize_delivery_art.sh`
 - `openproject_verify_clean_start.sh`
+- `openproject_provision_delivery_art_identities.sh`
 - `openproject_provision_operator_orchestration_identity.sh`
 - `openproject_uninstall.sh`
 
@@ -65,6 +66,7 @@ For `Workspace Delivery ART`, the remaining entrypoints here cover:
 - `make openproject-check-delivery-art-quality`
 - `make openproject-standardize-delivery-art`
 - `make openproject-verify-clean-start`
+- `make openproject-provision-delivery-art-identities`
 - `make openproject-provision-operator-orchestration-identity`
 - `make openproject-provision-operator-orchestration-delivery-access`
 - `make openproject-uninstall`

@@ -33,6 +33,8 @@ Read this as operator workflow families:
   state.
 - `configure-idea-backlog.md` and `configure-delivery-art.md` live on the
   proposal and project-bootstrap side.
+- `provision-delivery-art-identities.md` is the control that converges the
+  assignable repo-owner principals for `Workspace Delivery ART`.
 - `check-delivery-art-quality.md` and `standardize-delivery-art.md` are the
   ART repair path.
 - `standardize-delivery-art.md` is the controlled repair path when the ART
@@ -48,6 +50,7 @@ Read this as operator workflow families:
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [sync-delivery-art-views.md](sync-delivery-art-views.md)
+- [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [prepare-production-clean-start.md](prepare-production-clean-start.md)

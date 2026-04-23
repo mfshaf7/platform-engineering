@@ -1,0 +1,284 @@
+schema_version: 1
+id: full-platform-runtime-drill-evidence
+title: Governed full-platform runtime drill evidence pack
+run:
+  runId: ""
+  profileId: ""
+  title: ""
+  authorityType: ""
+  drillType: ""
+  createdAt: ""
+  createdBy: ""
+  runDir: ""
+  contractPath: ""
+  evidenceOwner: ""
+authoritativeArtifacts:
+  runManifest: run.yaml
+  baselineSnapshot: baseline.yaml
+  verificationLedger: verification.yaml
+  restoreLedger: restore.yaml
+  evidencePack: evidence.yaml
+baselineAttestation:
+  captureStatus: pending
+  sourceRepos: []
+  surfaceAttestations:
+    - id: accepted-idea-delivery-devint
+      lane: devint
+      ownerRepo: platform-engineering
+      summary: Accepted-idea-delivery devint runtime for OpenProject and broker-backed delivery work.
+      evidenceRef: ""
+      note: ""
+    - id: operator-orchestration-broker
+      lane: shared
+      ownerRepo: operator-orchestration-service
+      summary: Broker service surface used for ART reads, writes, and continuation checks.
+      evidenceRef: ""
+      note: ""
+    - id: openclaw-stage
+      lane: stage
+      ownerRepo: platform-engineering
+      summary: Governed OpenClaw stage lifecycle and component rehearsal lane.
+      evidenceRef: ""
+      note: ""
+    - id: openclaw-prod
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Bounded OpenClaw prod lifecycle drill surface.
+      evidenceRef: ""
+      note: ""
+    - id: vault
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Shared secret authority and recovery boundary.
+      evidenceRef: ""
+      note: ""
+    - id: external-secrets
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Controller secret-delivery path into runtime namespaces.
+      evidenceRef: ""
+      note: ""
+    - id: platform-postgresql
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Shared PostgreSQL service supporting OpenProject.
+      evidenceRef: ""
+      note: ""
+    - id: observability
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Shared observability stack and retained dashboards.
+      evidenceRef: ""
+      note: ""
+    - id: platform-dashboards
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Operator dashboards and auth-proxy surface.
+      evidenceRef: ""
+      note: ""
+    - id: host-bridge
+      lane: shared
+      ownerRepo: openclaw-host-bridge
+      summary: Required host bridge surfaces used by OpenClaw stage/runtime control.
+      evidenceRef: ""
+      note: ""
+activationSummary:
+  status: pending
+  records: []
+verificationResults:
+  checks:
+    - id: accepted-idea-delivery-runtime
+      category: runtime
+      summary: Devint OpenProject, worker, PostgreSQL, and broker are reachable enough for ART work.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: broker-operator-surface
+      category: operator-surface
+      summary: The broker exposes a real continuation or mutation path through the supported caller contract.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-stage-runtime
+      category: runtime
+      summary: Stage OpenClaw runtime matches the scoped rehearsal window for the drill.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-prod-lifecycle
+      category: lifecycle
+      summary: Prod OpenClaw lifecycle transitions and bounded drill exposure behave as expected.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: secrets-delivery-chain
+      category: secrets
+      summary: Vault and External Secrets still deliver the required secret material for the active drill surfaces.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: supporting-components-ready
+      category: readiness
+      summary: Supporting components required by the scoped drill remain healthy enough for the exercise.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: restore-attestation
+      category: restore
+      summary: The final restore proof shows the in-scope surfaces match the captured baseline or an approved exception.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+exceptionRegister:
+  entries: []
+supplementalRecords: []
+restoreAttestation:
+  restoreMode: exact-baseline
+  surfaces:
+    - id: accepted-idea-delivery-devint
+      summary: Restore the devint namespace, workloads, and access path to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: operator-orchestration-broker
+      summary: Restore broker runtime and caller-facing mutation surface to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-stage
+      summary: Restore stage lifecycle, child applications, and bridge posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-prod
+      summary: Restore prod lifecycle, child applications, and bounded exposure to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: vault
+      summary: Restore Vault runtime posture and secret-authority state to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: external-secrets
+      summary: Restore controller secret-delivery posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-postgresql
+      summary: Restore shared PostgreSQL posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: observability
+      summary: Restore observability runtime posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-dashboards
+      summary: Restore operator dashboard posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: host-bridge
+      summary: Restore required host bridge services and related control posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+finalAssessment:
+  outcome: pending
+  recordedAt: ""
+  recordedBy: ""
+  note: ""

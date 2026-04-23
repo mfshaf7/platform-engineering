@@ -17,6 +17,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-011-governed-runtime-lifecycle-standard.md](ADR-011-governed-runtime-lifecycle-standard.md)
 - [ADR-012-governed-ai-access-plane-and-model-profiles.md](ADR-012-governed-ai-access-plane-and-model-profiles.md)
 - [ADR-013-openproject-proposal-to-delivery-split-and-one-art-model.md](ADR-013-openproject-proposal-to-delivery-split-and-one-art-model.md)
+- [ADR-014-governed-full-platform-runtime-drill-and-restore.md](ADR-014-governed-full-platform-runtime-drill-and-restore.md)
 
 ## Rules
 

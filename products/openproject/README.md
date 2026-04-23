@@ -177,6 +177,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
 - [runbooks/sync-delivery-art-views.md](runbooks/sync-delivery-art-views.md)
+- [runbooks/provision-delivery-art-identities.md](runbooks/provision-delivery-art-identities.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
 - [runbooks/prepare-production-clean-start.md](runbooks/prepare-production-clean-start.md)
 - [scripts/README.md](scripts/README.md)

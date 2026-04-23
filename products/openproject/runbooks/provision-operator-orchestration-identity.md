@@ -2,8 +2,12 @@
 
 ## Purpose
 
-Provision the dedicated OpenProject service identity and single-purpose API
+Provision the dedicated OpenProject broker identity and single-purpose API
 token for `operator-orchestration-service`.
+
+This runbook is the broker-specific compatibility path. For the canonical
+delivery-plane identity baseline, use
+[provision-delivery-art-identities.md](provision-delivery-art-identities.md).
 
 This converges:
 

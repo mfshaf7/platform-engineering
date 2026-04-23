@@ -6,6 +6,7 @@ shared_paths:
       - bootstrap_operator_access.sh
       - bootstrap_vault.sh
       - dispatch_github_workflow_from_k3s_secret.sh
+      - platform_drill.py
       - dev_integration.py
       - migrate_k8s_secret_to_vault.py
       - validate_ai_model_profiles.py
@@ -29,6 +30,7 @@ shared_paths:
       - deploy.md
       - dev-integration-profiles.md
       - assess-environment-readiness.md
+      - full-platform-runtime-drill.md
       - host-runtime-drift-recovery.md
       - incident-hotfix.md
       - platform-naming-audit.md
@@ -49,6 +51,7 @@ governance:
       - README.md
       - enterprise-workflow-model.md
       - governed-ai-access-model.md
+      - governed-runtime-drill-model.md
       - governed-runtime-lifecycle-model.md
       - review-and-approval-model.md
       - single-host-scaling.md

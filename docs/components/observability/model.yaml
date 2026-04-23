@@ -1,0 +1,112 @@
+schema_version: 1
+model_name: platform-observability
+status: accepted
+migration_phase: compatibility
+decision_ref: ../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+
+ownership:
+  baseline_owner_repo: platform-engineering
+  shared_component_overlay_owner_repo: platform-engineering
+  product_overlay_owner_path: products/<product>/observability/
+
+scope_layers:
+  platform_baseline:
+    purpose: >
+      Whole-platform control-plane and shared-runtime health. This is the
+      default operator identity of observability.
+    components:
+      - argocd
+      - vault
+      - external-secrets
+      - platform-postgresql
+      - operator-orchestration-service
+      - observability-stack
+      - cluster-runtime
+      - shared-namespaces
+    default_dashboard_family: architecture-wide-platform-overview
+    default_alert_family: platform-baseline
+  shared_component_overlays:
+    purpose: >
+      Component-specific telemetry, alerts, and dashboards layered on top of
+      the platform baseline.
+    components:
+      - operator-orchestration-service
+      - openproject
+      - vault
+      - external-secrets
+      - platform-postgresql
+      - host-bridge
+  product_overlays:
+    purpose: >
+      Product-specific runtime and user-path monitoring layered on top of the
+      platform baseline.
+    products:
+      - openclaw
+
+classification_rules:
+  openproject: shared-component-overlay
+  operator-orchestration-service: shared-component-overlay
+  openclaw: product-overlay
+
+lane_semantics:
+  prod:
+    baseline_expectation: active-when-platform-live
+    overlay_expectation: active-for-admitted-live-lanes
+  stage:
+    baseline_expectation: explicit-active-or-inactive
+    overlay_expectation: explicit-active-or-inactive
+  dev-integration:
+    baseline_expectation: optional-evidence-only
+    overlay_expectation: optional-evidence-only
+  shared-broker-lane:
+    baseline_expectation: declared-component-even-when-inactive
+    overlay_expectation: may-be-inactive-when-devint-is-the-active-lane
+
+evidence_consumers:
+  - operator-live-diagnosis
+  - environment-verification
+  - support-readiness
+  - runtime-drills
+  - incident-containment-and-recovery
+
+telemetry_contract:
+  required_signals:
+    - health-endpoint
+    - metrics-endpoint
+    - servicemonitor-or-podmonitor-posture
+    - version-or-release-metadata
+  stable_labels:
+    - layer
+    - component
+    - product
+    - lane
+    - owner
+
+dashboard_audiences:
+  - operator-overview
+  - component-diagnosis
+  - product-runtime
+
+alert_model:
+  ownership_classes:
+    - platform-baseline
+    - shared-component-overlay
+    - product-overlay
+  severity_levels:
+    - warning
+    - critical
+
+compatibility_phase:
+  current_live_names_may_remain:
+    - openclaw-observability
+    - platform-dashboards-prod
+    - platform-dashboards-stage
+  rules:
+    - define-and-document-the-model-before-renaming-live-assets
+    - keep-current-operator-entrypoints-working-during-transition
+    - do-not-call-the-shared-stack-openclaw-owned-in-new-guidance
+
+non_goals:
+  - introduce-a-new-observability-stack
+  - redesign-logs-and-traces
+  - turn-this-into-a-generic-monitoring-overhaul

@@ -33,6 +33,7 @@ help:
 	@printf "  devint-down Stop a local-k3s dev-integration profile while keeping local state\n"
 	@printf "  devint-reset Tear down a local-k3s dev-integration profile and remove local state\n"
 	@printf "  devint-promote-check Render the local handoff report required before governed stage rehearsal\n"
+	@printf "  platform-drill Run the shared runtime-drill contract helper\n"
 	@printf "  environment-readiness Assess aggregate governed readiness for stage or prod\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -202,6 +203,11 @@ devint-reset:
 devint-promote-check:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-promote-check PROFILE=idea-workflow"; exit 1; }
 	python3 scripts/dev_integration.py promote-check --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: platform-drill
+platform-drill:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make platform-drill ACTION=plan PROFILE=full-platform-runtime-drill"; exit 1; }
+	python3 scripts/platform_drill.py $(ACTION) $(if $(PROFILE),--profile $(PROFILE),) $(if $(PROFILE_PATH),--profile-path $(PROFILE_PATH),) $(if $(RUN),--run $(RUN),) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(ACTOR),--actor $(ACTOR),) $(if $(CHECK),--check $(CHECK),) $(if $(STATUS),--status $(STATUS),) $(if $(PHASE),--phase $(PHASE),) $(if $(SURFACE),--surface $(SURFACE),) $(if $(RUN_ID),--run-id $(RUN_ID),) $(if $(NOTE),--note "$(NOTE)",) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(DECISION),--decision $(DECISION),) $(if $(JUSTIFICATION),--justification "$(JUSTIFICATION)",) $(if $(OWNER),--owner "$(OWNER)",) $(if $(REVIEW_ON),--review-on "$(REVIEW_ON)",) $(if $(OUTPUT_ROOT),--output-root $(OUTPUT_ROOT),) $(if $(FORMAT),--format $(FORMAT),)
 
 .PHONY: environment-readiness
 environment-readiness:

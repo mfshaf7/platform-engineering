@@ -195,6 +195,7 @@ product-neutral.
   - `make devint-down PROFILE=<profile>`
   - `make devint-reset PROFILE=<profile>`
   - `make devint-promote-check PROFILE=<profile>`
+  - `make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=full-platform-runtime-drill`
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
   - `make verify-platform-host`
   - `make verify-restart-survival`

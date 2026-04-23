@@ -13,6 +13,7 @@ Use it when the question is:
 - [enterprise-workflow-model.md](enterprise-workflow-model.md)
 - [dev-integration-lane.md](dev-integration-lane.md)
 - [governed-ai-access-model.md](governed-ai-access-model.md)
+- [governed-runtime-drill-model.md](governed-runtime-drill-model.md)
 - [governed-runtime-lifecycle-model.md](governed-runtime-lifecycle-model.md)
 - [review-and-approval-model.md](review-and-approval-model.md)
 - [governed-change-model.md](governed-change-model.md)

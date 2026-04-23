@@ -74,6 +74,25 @@ The correct answer is not always “carry it to prod.” The correct answer is �
 as far as the real control plane exists, and document the missing layer
 honestly.”
 
+## Runtime Drill Rule
+
+Do not treat broad runtime drills as ad hoc operator activity.
+
+When a temporary runtime exercise is needed to activate, verify, and later
+restore platform or product surfaces, classify it explicitly as a runtime drill
+and use [governed-runtime-drill-model.md](governed-runtime-drill-model.md).
+
+That standard makes these distinctions explicit:
+
+- product-only drill versus full-platform drill
+- runtime drill versus governed promotion
+- baseline snapshot versus desired Git state
+- restore-to-baseline versus durable live-state change
+
+If the operator intends to keep the resulting state instead of restoring the
+captured baseline, reclassify the work as a governed change instead of calling
+it a drill.
+
 ## Stage Outputs
 
 | Stage | Required output |

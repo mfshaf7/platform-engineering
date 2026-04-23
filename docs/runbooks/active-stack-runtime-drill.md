@@ -1,15 +1,16 @@
-# Full-Platform Runtime Drill
+# Active-Stack Runtime Drill
 
 ## Purpose
 
 This runbook is the primary shared operator surface for the governed
-`full-platform-runtime-drill` workflow.
+`active-stack-runtime-drill` workflow.
 
 Use it when you need to:
 
 - capture the exact pre-drill local and live baseline
 - bring the scoped runtime surfaces up through their existing owner commands
-- verify a full-platform drill with explicit evidence and blocker decisions
+- verify the active mixed-lane stack drill with explicit evidence and blocker
+  decisions
 - restore the exact captured baseline afterward
 
 This workflow is a temporary runtime exercise. It is not the same thing as:
@@ -23,19 +24,19 @@ This workflow is a temporary runtime exercise. It is not the same thing as:
 
 The contract and evidence model live here:
 
-- [../../environments/shared/runtime-drills/full-platform-runtime-drill.yaml](../../environments/shared/runtime-drills/full-platform-runtime-drill.yaml)
-- [../../environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml](../../environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml)
+- [../../environments/shared/runtime-drills/active-stack-runtime-drill.yaml](../../environments/shared/runtime-drills/active-stack-runtime-drill.yaml)
+- [../../environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml](../../environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml)
 
 The shared operator entrypoint is:
 
 ```bash
-make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=full-platform-runtime-drill
+make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill
 ```
 
 The entrypoint runs:
 
 ```bash
-python3 scripts/platform_drill.py <action> --profile full-platform-runtime-drill
+python3 scripts/platform_drill.py <action> --profile active-stack-runtime-drill
 ```
 
 ## What This Workflow Owns
@@ -61,7 +62,7 @@ as a hidden all-in-one orchestrator.
 
 ## Current Scope
 
-The current full-platform drill profile includes:
+The current active-stack drill profile includes:
 
 - accepted-idea-delivery devint runtime
 - broker operator surface
@@ -86,14 +87,14 @@ captured baseline or an approved recorded exception.
 Inspect the contract:
 
 ```bash
-make platform-drill ACTION=plan PROFILE=full-platform-runtime-drill
-make platform-drill ACTION=status PROFILE=full-platform-runtime-drill
+make platform-drill ACTION=plan PROFILE=active-stack-runtime-drill
+make platform-drill ACTION=status PROFILE=active-stack-runtime-drill
 ```
 
 Create a run directory and capture the baseline before any lifecycle change:
 
 ```bash
-make platform-drill ACTION=snapshot PROFILE=full-platform-runtime-drill RUN_ID=<run-id> OPERATOR=<operator> NOTE="<note>"
+make platform-drill ACTION=snapshot PROFILE=active-stack-runtime-drill RUN_ID=<run-id> OPERATOR=<operator> NOTE="<note>"
 ```
 
 Inspect a captured run:
@@ -147,7 +148,7 @@ make platform-drill ACTION=restore RUN=<run-dir> SURFACE=<surface-id> STATUS=exc
 Run:
 
 ```bash
-make platform-drill ACTION=plan PROFILE=full-platform-runtime-drill
+make platform-drill ACTION=plan PROFILE=active-stack-runtime-drill
 ```
 
 Confirm:
@@ -165,12 +166,12 @@ If the drill model itself changed, route the review through:
 Run:
 
 ```bash
-make platform-drill ACTION=snapshot PROFILE=full-platform-runtime-drill RUN_ID=<run-id> OPERATOR=<operator> NOTE="<why this drill exists>"
+make platform-drill ACTION=snapshot PROFILE=active-stack-runtime-drill RUN_ID=<run-id> OPERATOR=<operator> NOTE="<why this drill exists>"
 ```
 
 This creates a run directory under:
 
-- `.platform-drills/full-platform-runtime-drill/<run-id>/`
+- `.platform-drills/active-stack-runtime-drill/<run-id>/`
 
 The directory is the operator ledger for the drill. It contains:
 
@@ -183,6 +184,21 @@ The directory is the operator ledger for the drill. It contains:
 
 Do not activate stage or prod first and capture the baseline later. That would
 destroy the exact-baseline restore model.
+
+## Scope Boundary
+
+This workflow is not an estate-complete platform drill.
+
+It covers the current operator-critical active stack across mixed lanes. That
+means it can combine:
+
+- devint surfaces
+- shared control-plane surfaces
+- stage product surfaces
+- bounded prod surfaces
+
+Do not call this workflow `full-platform` because it does not automatically
+exercise every admitted environment or every possible product lane.
 
 ### 3. Bring Runtime Surfaces Up Through Their Owner Commands
 
@@ -345,7 +361,7 @@ Treat the drill as only partially proven when:
 ## Related Docs
 
 - [../standards/governed-runtime-drill-model.md](../standards/governed-runtime-drill-model.md)
-- [../decisions/adr/ADR-014-governed-full-platform-runtime-drill-and-restore.md](../decisions/adr/ADR-014-governed-full-platform-runtime-drill-and-restore.md)
+- [../decisions/adr/ADR-014-governed-active-stack-runtime-drill-and-restore.md](../decisions/adr/ADR-014-governed-active-stack-runtime-drill-and-restore.md)
 - [assess-environment-readiness.md](assess-environment-readiness.md)
 - [dev-integration-profiles.md](dev-integration-profiles.md)
 - [../../products/openclaw/runbooks/manage-prod-lifecycle.md](../../products/openclaw/runbooks/manage-prod-lifecycle.md)

@@ -28,7 +28,7 @@ The shared platform entrypoint docs are:
 - [../workflows/README.md](../workflows/README.md)
 - [dev-integration-profiles.md](dev-integration-profiles.md)
 - [assess-environment-readiness.md](assess-environment-readiness.md)
-- [full-platform-runtime-drill.md](full-platform-runtime-drill.md)
+- [active-stack-runtime-drill.md](active-stack-runtime-drill.md)
 - [access-platform-uis.md](access-platform-uis.md)
 - [access-grafana.md](access-grafana.md)
 

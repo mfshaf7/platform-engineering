@@ -1,8 +1,8 @@
 schema_version: 1
-id: full-platform-runtime-drill
-title: Governed full-platform runtime drill
+id: active-stack-runtime-drill
+title: Governed active-stack runtime drill
 authorityType: runtime-drill
-drillType: full-platform-runtime-drill
+drillType: active-stack-runtime-drill
 targetEnvironment: mixed-local-lanes
 targetLanes:
   - devint
@@ -131,7 +131,7 @@ exceptionHandling:
     - accept-risk
     - defer
 evidenceModel:
-  templatePath: environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml
+  templatePath: environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml
   requiredSections:
     - run
     - authoritativeArtifacts

@@ -23,8 +23,8 @@ These support shared platform operations:
 
 The default shared drill profile and evidence template live under:
 
-- `../environments/shared/runtime-drills/full-platform-runtime-drill.yaml`
-- `../environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml`
+- `../environments/shared/runtime-drills/active-stack-runtime-drill.yaml`
+- `../environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml`
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `validate_environment_readiness.py`

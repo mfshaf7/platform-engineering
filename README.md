@@ -127,7 +127,7 @@ That split is implemented under:
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/runbooks/dev-integration-profiles.md](docs/runbooks/dev-integration-profiles.md)
 - [docs/runbooks/assess-environment-readiness.md](docs/runbooks/assess-environment-readiness.md)
-- [docs/runbooks/full-platform-runtime-drill.md](docs/runbooks/full-platform-runtime-drill.md)
+- [docs/runbooks/active-stack-runtime-drill.md](docs/runbooks/active-stack-runtime-drill.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
 - [docs/standards/dev-integration-lane.md](docs/standards/dev-integration-lane.md)
@@ -196,7 +196,7 @@ product-neutral.
   - `make devint-down PROFILE=<profile>`
   - `make devint-reset PROFILE=<profile>`
   - `make devint-promote-check PROFILE=<profile>`
-  - `make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=full-platform-runtime-drill`
+  - `make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill`
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
   - `make verify-platform-host`
   - `make verify-restart-survival`

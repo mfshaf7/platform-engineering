@@ -18,6 +18,9 @@ CHECK_STATUSES = {"pending", "passed", "failed", "blocked", "not_applicable"}
 DECISIONS = {"remove", "workaround", "accept-risk", "defer"}
 RESTORE_STATUSES = {"pending", "restored", "exception"}
 PHASES = {"baseline", "activation", "verification", "restore", "general"}
+PROFILE_ALIASES = {
+    "full-platform-runtime-drill": "active-stack-runtime-drill",
+}
 
 
 def now_utc() -> str:
@@ -55,6 +58,7 @@ def resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
 
 
 def default_profile_path(repo_root: Path, profile: str) -> Path:
+    profile = PROFILE_ALIASES.get(profile, profile)
     return repo_root / "environments" / "shared" / "runtime-drills" / f"{profile}.yaml"
 
 
@@ -300,7 +304,7 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_profile_args(command_parser: argparse.ArgumentParser) -> None:
-        command_parser.add_argument("--profile", default="full-platform-runtime-drill")
+        command_parser.add_argument("--profile", default="active-stack-runtime-drill")
         command_parser.add_argument("--profile-path", default="", help="optional explicit contract path")
 
     plan = subparsers.add_parser("plan")

@@ -9,7 +9,7 @@ mistaken for a governed promotion or a durable live-state change.
 Use it when the question is:
 
 - what kind of runtime drill is being performed
-- whether the drill is product-only or full-platform
+- whether the drill is product-only, active-stack, or environment-complete
 - which runtime and support surfaces must be included
 - what must be captured before activation
 - what it means to restore the environment correctly afterward
@@ -65,18 +65,22 @@ Use these drill types when the workflow is a `runtime-drill`.
 | Drill type | Meaning |
 | --- | --- |
 | `product-runtime-drill` | exercises one product plus the minimum required supporting surfaces |
-| `full-platform-runtime-drill` | exercises the full operator-critical platform stack for the target lane |
+| `active-stack-runtime-drill` | exercises the current operator-critical mixed-lane stack without claiming estate-complete environment coverage |
+| `environment-complete-runtime-drill` | exercises every admitted lane and product environment declared in scope for that environment class |
 | `lifecycle-control-drill` | exercises runtime state transitions and bounded control behavior without claiming full functional verification |
 
-Do not call an OpenClaw-only drill a full-platform drill just because it
+Do not call an OpenClaw-only drill an active-stack drill just because it
 touches prod.
 
 Do not call a lifecycle-only exercise a product verification pass when it only
 proved state transitions.
 
-## Current Full-Platform Scope
+Reserve the phrase `full platform` for an environment-complete drill or a
+clearly declared estate-complete scope.
 
-The initial `full-platform-runtime-drill` scope for this workspace is:
+## Current Active-Stack Scope
+
+The initial `active-stack-runtime-drill` scope for this workspace is:
 
 - `OpenClaw`
 - `OpenProject`
@@ -88,8 +92,9 @@ The initial `full-platform-runtime-drill` scope for this workspace is:
 - `platform-dashboards`
 - required host bridge surfaces
 
-This is the minimum current scope for a real full-platform drill. A narrower
-exercise is a different drill type and should be labeled that way.
+This is the minimum current scope for the active operator-critical mixed-lane
+stack. A narrower or broader exercise is a different drill type and should be
+labeled that way.
 
 The machine-readable profile that enumerates the exact participating surfaces
 belongs to the implementation layer. This standard defines the minimum semantic
@@ -217,7 +222,7 @@ replace the primary operator instruction surface.
 
 These are control failures:
 
-- treating a product-only drill as a full-platform drill
+- treating a product-only drill as an active-stack or environment-complete drill
 - treating a runtime drill as if it were governed promotion
 - starting activation without a baseline snapshot
 - restoring only to today's Git `main` instead of the captured live baseline

@@ -1,6 +1,6 @@
 schema_version: 1
-id: full-platform-runtime-drill-evidence
-title: Governed full-platform runtime drill evidence pack
+id: active-stack-runtime-drill-evidence
+title: Governed active-stack runtime drill evidence pack
 run:
   runId: ""
   profileId: ""
@@ -67,13 +67,13 @@ baselineAttestation:
     - id: observability
       lane: shared
       ownerRepo: platform-engineering
-      summary: Shared observability stack and retained dashboards.
+      summary: Platform observability baseline stack for Grafana, Prometheus, Alertmanager, and the auth proxy.
       evidenceRef: ""
       note: ""
     - id: platform-dashboards
       lane: shared
       ownerRepo: platform-engineering
-      summary: Operator dashboards and auth-proxy surface.
+      summary: Shared dashboard overlay hosted by the platform observability baseline.
       evidenceRef: ""
       note: ""
     - id: host-bridge
@@ -149,7 +149,7 @@ verificationResults:
       updatedBy: ""
     - id: supporting-components-ready
       category: readiness
-      summary: Supporting components required by the scoped drill remain healthy enough for the exercise.
+      summary: Supporting components required by the scoped drill, including the platform observability baseline and dashboard overlay, remain healthy enough for the exercise.
       status: pending
       decision: null
       justification: ""

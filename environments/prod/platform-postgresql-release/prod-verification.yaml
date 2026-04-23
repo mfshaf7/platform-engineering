@@ -1,0 +1,33 @@
+schemaVersion: 1
+component: platform-postgresql
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed prod verification is recorded yet for the current shared
+  PostgreSQL contract. Record fresh evidence whenever the database or its
+  secret-delivery contract changes for governed prod use.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/platform-postgresql-app.yaml
+      kind: argocd-application
+    - path: environments/prod/argocd/platform-postgresql-secrets-app.yaml
+      kind: argocd-application
+  chart:
+    repository: https://charts.bitnami.com/bitnami
+    name: postgresql
+    version: 18.5.16
+  runtime:
+    namespace: platform-postgresql
+    architecture: standalone
+    primaryReplicas: 1
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - credentials-delivery
+    - database-readiness
+    - openproject-connectivity
+checks: []

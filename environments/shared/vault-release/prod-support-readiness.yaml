@@ -1,0 +1,17 @@
+schemaVersion: 1
+component: vault
+environment: prod
+status: pending
+assessedAt: null
+assessedBy: null
+note: >-
+  Prod support readiness for the shared Vault contract requires matching
+  verification against the exact shared deployment contract before stage or
+  prod health can be treated as trustworthy.
+environmentContractRef:
+  path: environments/shared/argocd/vault-app.yaml
+  chartVersion: 0.32.0
+verificationRef:
+  path: environments/shared/vault-release/prod-verification.yaml
+  status: pending
+  verifiedAt: null

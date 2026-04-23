@@ -1,0 +1,19 @@
+schemaVersion: 1
+component: platform-postgresql
+environment: stage
+status: pending
+assessedAt: null
+assessedBy: null
+note: >-
+  Stage support readiness for the shared PostgreSQL contract requires
+  matching verification against the exact prod-managed database and secret
+  contract that stage-facing workflows still rely on.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/platform-postgresql-app.yaml
+    - path: environments/prod/argocd/platform-postgresql-secrets-app.yaml
+  chartVersion: 18.5.16
+verificationRef:
+  path: environments/prod/platform-postgresql-release/stage-verification.yaml
+  status: pending
+  verifiedAt: null

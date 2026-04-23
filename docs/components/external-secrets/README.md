@@ -10,6 +10,7 @@ secrets.
 - [architecture.md](architecture.md)
 - [access.md](access.md)
 - [operations.md](operations.md)
+- [release-governance.md](release-governance.md)
 
 ## Current Live Footprint
 

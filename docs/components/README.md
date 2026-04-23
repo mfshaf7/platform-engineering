@@ -34,6 +34,10 @@ Each shared component directory should keep the same file contract:
 - `access.md`
 - `operations.md`
 
+Components that participate in governed release control should also publish:
+
+- `release-governance.md`
+
 Use [_template/](_template/README.md) when adding a new shared component doc
 set.
 

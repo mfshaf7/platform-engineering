@@ -1,0 +1,27 @@
+schemaVersion: 1
+component: observability
+environment: stage
+status: inactive
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  Stage observability is intentionally suspended right now. Keep stage
+  verification inactive until the stage observability contract is resumed for
+  governed rehearsal.
+environmentContractRef:
+  path: environments/stage/argocd/observability-app.yaml
+  chart:
+    repository: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    name: kube-prometheus-stack
+    version: 58.2.2
+  runtime:
+    namespace: observability-stage
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - grafana-path
+    - prometheus-path
+    - alertmanager-path
+checks: []

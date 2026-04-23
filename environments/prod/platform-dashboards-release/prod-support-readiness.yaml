@@ -1,0 +1,19 @@
+schemaVersion: 1
+component: platform-dashboards
+environment: prod
+status: pending
+assessedAt: null
+assessedBy: null
+note: >-
+  Prod dashboard support readiness requires matching verification against the
+  exact dashboard asset contract and the prod observability host contract.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/platform-dashboards-app.yaml
+  supportingContractRefs:
+    - path: environments/prod/argocd/observability-app.yaml
+      role: grafana-host
+verificationRef:
+  path: environments/prod/platform-dashboards-release/prod-verification.yaml
+  status: pending
+  verifiedAt: null

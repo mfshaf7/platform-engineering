@@ -1,0 +1,17 @@
+schemaVersion: 1
+component: external-secrets
+environment: stage
+status: pending
+assessedAt: null
+assessedBy: null
+note: >-
+  Stage support readiness for the shared External Secrets contract requires
+  matching verification against the exact shared deployment contract because
+  both stage and prod workloads depend on the same secret-delivery bridge.
+environmentContractRef:
+  path: environments/shared/argocd/external-secrets-app.yaml
+  chartVersion: 0.10.5
+verificationRef:
+  path: environments/shared/external-secrets-release/stage-verification.yaml
+  status: pending
+  verifiedAt: null

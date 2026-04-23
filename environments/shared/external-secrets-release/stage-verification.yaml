@@ -1,0 +1,27 @@
+schemaVersion: 1
+component: external-secrets
+environment: stage
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed stage verification is recorded yet for the shared External
+  Secrets contract. Do not treat healthy controller pods or one successful
+  sync alone as stage support readiness for shared secret delivery.
+environmentContractRef:
+  path: environments/shared/argocd/external-secrets-app.yaml
+  chart:
+    repository: https://charts.external-secrets.io
+    name: external-secrets
+    version: 0.10.5
+  runtime:
+    namespace: external-secrets
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - controller-health
+    - representative-secret-sync
+    - vault-upstream-connectivity
+checks: []

@@ -1,0 +1,43 @@
+schemaVersion: 1
+environment: prod
+requirements:
+  - id: openclaw
+    kind: openclaw-prod-verification
+    acceptedStatuses:
+      - inactive
+      - recorded
+  - id: operator-orchestration-service
+    kind: prod-verification-record
+    path: environments/shared/operator-orchestration-service/prod-verification.yaml
+    acceptedStatuses:
+      - recorded
+  - id: openproject
+    kind: prod-verification-record
+    path: environments/prod/openproject-release/prod-verification.yaml
+    acceptedStatuses:
+      - recorded
+  - id: vault
+    kind: support-readiness-record
+    path: environments/shared/vault-release/prod-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: external-secrets
+    kind: support-readiness-record
+    path: environments/shared/external-secrets-release/prod-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: platform-postgresql
+    kind: support-readiness-record
+    path: environments/prod/platform-postgresql-release/prod-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: observability
+    kind: support-readiness-record
+    path: environments/prod/observability-release/prod-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: platform-dashboards
+    kind: support-readiness-record
+    path: environments/prod/platform-dashboards-release/prod-support-readiness.yaml
+    acceptedStatuses:
+      - approved

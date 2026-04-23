@@ -253,6 +253,34 @@ Every governed prod lane should follow this order:
 6. fail prod readiness or completion closed if the deployed contract and the
    prod verification state diverge
 
+## Aggregate Environment Readiness
+
+Environment readiness is an aggregate control over the workload-specific
+release records that participate in that lane.
+
+That aggregate control must:
+
+- consume the exact governed candidate, verification, readiness, or
+  support-readiness objects for each required workload
+- fail closed if any required workload record is missing, stale, incomplete, or
+  still in a non-acceptable status
+- allow `inactive` only when the workload contract explicitly says that
+  `inactive` is the correct current posture for that lane
+- report which workload blocked readiness instead of collapsing everything into
+  a vague health summary
+
+The shared platform operator surface for this control is:
+
+- `make environment-readiness ACTION=status ENVIRONMENT=stage`
+- `make environment-readiness ACTION=validate ENVIRONMENT=stage`
+- `make environment-readiness ACTION=status ENVIRONMENT=prod`
+- `make environment-readiness ACTION=validate ENVIRONMENT=prod`
+
+The current aggregate environment-readiness contracts are:
+
+- `environments/stage/environment-readiness.yaml`
+- `environments/prod/environment-readiness.yaml`
+
 ## Runtime Lifecycle Relationship
 
 Runtime lifecycle and release governance are separate controls.

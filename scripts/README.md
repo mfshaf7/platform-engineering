@@ -16,6 +16,7 @@ These support shared platform operations:
     workspace contract registry
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
+- `validate_environment_readiness.py`
 - `validate_governance_docs.py`
 - `validate_operational_docs.py`
 - `validate_repo_structure.py`
@@ -30,6 +31,19 @@ These support shared platform operations:
 profile registry under `../security/governed-ai-model-profiles.yaml`, including
 cross-repo references to `security-architecture` review artifacts and
 `workspace-governance` output-schema contracts.
+
+`validate_environment_readiness.py` evaluates the aggregate governed readiness
+surface for `stage` or `prod` from the exact release-governance records under:
+
+- `../environments/stage/environment-readiness.yaml`
+- `../environments/prod/environment-readiness.yaml`
+
+Use:
+
+- `python3 scripts/validate_environment_readiness.py status stage`
+- `python3 scripts/validate_environment_readiness.py validate stage`
+- `python3 scripts/validate_environment_readiness.py status prod`
+- `python3 scripts/validate_environment_readiness.py validate prod`
 
 `validate_governance_docs.py` checks ADR and change-record structure, and the
 shared PR governance template that routes future changes into the right

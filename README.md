@@ -126,6 +126,7 @@ That split is implemented under:
 - [docs/workflows/README.md](docs/workflows/README.md)
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/runbooks/dev-integration-profiles.md](docs/runbooks/dev-integration-profiles.md)
+- [docs/runbooks/assess-environment-readiness.md](docs/runbooks/assess-environment-readiness.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
 - [docs/standards/dev-integration-lane.md](docs/standards/dev-integration-lane.md)
@@ -194,6 +195,7 @@ product-neutral.
   - `make devint-down PROFILE=<profile>`
   - `make devint-reset PROFILE=<profile>`
   - `make devint-promote-check PROFILE=<profile>`
+  - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
   - `make verify-platform-host`
   - `make verify-restart-survival`
   - `make render-windows-bootstrap`
@@ -251,7 +253,8 @@ the product-local script indexes:
 `make validate` now includes the shared structure guard
 `scripts/validate_repo_structure.py` so product-specific files cannot drift back
 into shared `docs/runbooks/` or `scripts/` unnoticed. It also validates the
-governance documentation, workflow docs, and review surface.
+governance documentation, workflow docs, review surface, and the aggregate
+stage/prod environment-readiness contracts in non-failing `status` mode.
 
 `dev-integration` is the shared fast-iteration lane. It runs on local `k3s`,
 allows local branch or worktree inputs without PRs, and requires a governed

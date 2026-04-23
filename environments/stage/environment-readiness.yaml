@@ -1,0 +1,44 @@
+schemaVersion: 1
+environment: stage
+requirements:
+  - id: openclaw
+    kind: openclaw-stage-readiness
+    acceptedStatuses:
+      - approved
+  - id: operator-orchestration-service
+    kind: stage-readiness-record
+    path: environments/shared/operator-orchestration-service/stage-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: openproject
+    kind: stage-readiness-record
+    path: environments/prod/openproject-release/stage-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: vault
+    kind: support-readiness-record
+    path: environments/shared/vault-release/stage-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: external-secrets
+    kind: support-readiness-record
+    path: environments/shared/external-secrets-release/stage-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: platform-postgresql
+    kind: support-readiness-record
+    path: environments/prod/platform-postgresql-release/stage-support-readiness.yaml
+    acceptedStatuses:
+      - approved
+  - id: observability
+    kind: support-readiness-record
+    path: environments/stage/observability-release/stage-support-readiness.yaml
+    acceptedStatuses:
+      - inactive
+      - approved
+  - id: platform-dashboards
+    kind: support-readiness-record
+    path: environments/stage/platform-dashboards-release/stage-support-readiness.yaml
+    acceptedStatuses:
+      - inactive
+      - approved

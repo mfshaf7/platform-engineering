@@ -61,6 +61,12 @@ Telegram-only fixes on a platform-qualified base line:
 - prod promotion only when the overlay is bound to the same qualified base
   image as the approved stage candidate
 
+## Current Runtime Profile
+
+- stage gateway replica count: `1` when stage is resumed
+- prod gateway replica count: `1`
+- no recorded scaling exemption currently exists for the gateway runtime
+
 ## Health And Readiness
 
 Minimum platform-level readiness for OpenClaw is:

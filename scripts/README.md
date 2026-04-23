@@ -21,6 +21,10 @@ These support shared platform operations:
 - `validate_repo_structure.py`
   - enforces the shared-vs-product repo boundary from
     `../repo-structure-manifest.yaml`
+- `validate_single_host_scaling.py`
+  - enforces the single-host default that new shared components and product
+    runtimes stay at replica count `1` unless an explicit exemption is recorded
+    in `../environments/shared/single-host-scaling-policy.yaml`
 
 `validate_ai_model_profiles.py` checks the platform-owned governed AI model
 profile registry under `../security/governed-ai-model-profiles.yaml`, including
@@ -39,6 +43,11 @@ contract, the shared-vs-product operator-runbook boundary, and the
 operator-surface split between current platform procedures and legacy migration
 materials. It also checks that the shared component indexes in the repo root
 and `docs/components/README.md` cover every governed shared component.
+
+`validate_single_host_scaling.py` checks the Git-managed platform runtime
+surfaces under `environments/`, `products/`, and chart values files so new
+components or products cannot quietly land with multi-replica runtime defaults
+on the current single-host platform.
 
 When you need to refresh the current platform topology doc against the live
 local cluster, run:

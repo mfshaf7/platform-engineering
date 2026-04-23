@@ -7,6 +7,7 @@ This is the shared observability stack for the platform.
 ## Start Here
 
 - [model.yaml](model.yaml)
+- [validation-policy.yaml](validation-policy.yaml)
 - [architecture.md](architecture.md)
 - [access.md](access.md)
 - [operations.md](operations.md)
@@ -32,6 +33,9 @@ This is the shared observability stack for the platform.
   - [../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md](../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md)
 - machine-readable scope model:
   - [model.yaml](model.yaml)
+- fail-closed taxonomy validation:
+  - [validation-policy.yaml](validation-policy.yaml)
+  - [../../../scripts/validate_observability_taxonomy.py](../../../scripts/validate_observability_taxonomy.py)
 
 ## Overlay Ownership
 

@@ -3,6 +3,7 @@ model_name: platform-observability
 status: accepted
 migration_phase: compatibility
 decision_ref: ../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+validation_policy_ref: validation-policy.yaml
 
 ownership:
   baseline_owner_repo: platform-engineering
@@ -17,12 +18,10 @@ scope_layers:
     components:
       - argocd
       - vault
-      - external-secrets
-      - platform-postgresql
-      - operator-orchestration-service
-      - observability-stack
+      - platform-secrets
+      - observability
+      - platform-dashboards
       - cluster-runtime
-      - shared-namespaces
     default_dashboard_family: architecture-wide-platform-overview
     default_alert_family: platform-baseline
   shared_component_overlays:

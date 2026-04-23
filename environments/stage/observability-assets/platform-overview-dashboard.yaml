@@ -8,7 +8,7 @@ data:
   platform-overview.json: |
     {
       "title": "Platform Baseline Overview",
-      "tags": ["platform-engineering", "platform-baseline", "observability"],
+      "tags": ["platform-engineering", "platform-baseline", "observability", "owner:platform-engineering", "product:shared"],
       "uid": "platform-overview",
       "timezone": "browser",
       "schemaVersion": 39,

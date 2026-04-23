@@ -313,6 +313,7 @@ validate:
 	python3 scripts/validate_environment_readiness.py status stage
 	python3 scripts/validate_environment_readiness.py status prod
 	python3 scripts/validate_single_host_scaling.py
+	python3 scripts/validate_observability_taxonomy.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

@@ -14,7 +14,8 @@ environments.
 5. rehearse the current candidate on `stage` and record structured evidence in
    `environments/stage/verification.yaml`
 6. run `.github/workflows/confirm-stage-promotion-readiness.yaml` to approve
-   the exact verified candidate
+   the exact verified candidate and record the standardized stage readiness
+   decision in OpenClaw's retained `environments/stage/promotion-readiness.yaml`
 7. run `.github/workflows/promote-environment.yaml`
 8. approve the protected `prod` promotion job and review the generated PR
 9. merge the production promotion change
@@ -33,6 +34,9 @@ environments.
   `environments/stage/release-candidate.yaml` and
   `environments/stage/verification.yaml`; changing either invalidates
   readiness until the next approval is recorded.
+- OpenClaw deliberately retains `environments/stage/promotion-readiness.yaml`
+  as the product-local filename for the standardized stage readiness decision
+  because that same record is also the explicit promotion gate.
 - the promotion workflow must reset `environments/prod/verification.yaml` to a
   pending or inactive state bound to the newly promoted prod contract and
   current prod lifecycle.
@@ -56,6 +60,7 @@ environments.
 - [../../../environments/prod/versions.yaml](../../../environments/prod/versions.yaml)
 - [../../../.github/workflows/promote-environment.yaml](../../../.github/workflows/promote-environment.yaml)
 - [../scripts/gateway_release.py](../scripts/gateway_release.py)
+- [release-governance.md](release-governance.md)
 
 ## Stage Behavior Gate
 

@@ -1,0 +1,17 @@
+schemaVersion: 1
+component: observability
+environment: prod
+status: pending
+assessedAt: null
+assessedBy: null
+note: >-
+  Prod support readiness for the shared observability stack requires matching
+  verification against the exact prod stack contract before operator-facing
+  monitoring health can be treated as governed-ready.
+environmentContractRef:
+  path: environments/prod/argocd/observability-app.yaml
+  chartVersion: 58.2.2
+verificationRef:
+  path: environments/prod/observability-release/prod-verification.yaml
+  status: pending
+  verifiedAt: null

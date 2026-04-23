@@ -1,0 +1,31 @@
+schemaVersion: 1
+component: observability
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed prod verification is recorded yet for the current shared
+  observability stack contract. Record fresh evidence whenever the prod
+  Grafana, Prometheus, Alertmanager, or auth-proxy contract changes.
+environmentContractRef:
+  path: environments/prod/argocd/observability-app.yaml
+  chart:
+    repository: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    name: kube-prometheus-stack
+    version: 58.2.2
+  runtime:
+    namespace: observability
+    operatorAccessUrls:
+      grafana: http://127.0.0.1:32080
+      prometheus: http://127.0.0.1:32090
+      alertmanager: http://127.0.0.1:32093
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - grafana-path
+    - prometheus-path
+    - alertmanager-path
+checks: []

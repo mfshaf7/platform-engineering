@@ -9,6 +9,7 @@ This is the shared observability stack for the platform.
 - [architecture.md](architecture.md)
 - [access.md](access.md)
 - [operations.md](operations.md)
+- [release-governance.md](release-governance.md)
 - [grafana.md](grafana.md)
 - [prometheus.md](prometheus.md)
 - [alertmanager.md](alertmanager.md)

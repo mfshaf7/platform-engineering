@@ -1,0 +1,17 @@
+schemaVersion: 1
+component: observability
+environment: stage
+status: inactive
+assessedAt: null
+assessedBy: null
+note: >-
+  Stage observability remains intentionally suspended, so stage support
+  readiness stays inactive until the exact stage observability contract is
+  deliberately resumed.
+environmentContractRef:
+  path: environments/stage/argocd/observability-app.yaml
+  chartVersion: 58.2.2
+verificationRef:
+  path: environments/stage/observability-release/stage-verification.yaml
+  status: inactive
+  verifiedAt: null

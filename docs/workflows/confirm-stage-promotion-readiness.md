@@ -8,6 +8,10 @@ current stage candidate for later prod promotion.
 It does not promote anything by itself. It writes the approval state that prod
 promotion requires.
 
+For OpenClaw, the workflow still writes
+`environments/stage/promotion-readiness.yaml`. That retained filename is the
+product-local label for the standardized stage readiness decision.
+
 ## Trigger
 
 - manual `workflow_dispatch`
@@ -37,7 +41,8 @@ candidate.
 - readiness branch when approval changed Git state
 - compare URL in the workflow summary
 - updated `environments/stage/verification.yaml`
-- updated `environments/stage/promotion-readiness.yaml`
+- updated the standardized stage readiness decision in retained
+  `environments/stage/promotion-readiness.yaml`
 
 ## Operator Evidence
 

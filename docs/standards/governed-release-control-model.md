@@ -194,11 +194,8 @@ Current shared rule:
 
 - stage-readiness catalogs use `acceptedReadinessStatuses`
 - post-promotion catalogs use `acceptedCompletionStatuses`
-
-OpenClaw still carries a temporary legacy field name
-`defaultRequiredForPromotion` for stage catalogs. That is allowed only as a
-compatibility alias until the workload rollout task reconciles it to the
-standardized naming.
+- catalogs must identify which checks are required by default in that context
+  with the standardized `requiredByDefault` field
 
 ## Evidence Reference Contract
 
@@ -238,6 +235,8 @@ The strongest current implementation of this pattern is OpenClaw:
 - `environments/stage/release-candidate.yaml`
 - `environments/stage/verification.yaml`
 - `environments/stage/promotion-readiness.yaml`
+  - retained OpenClaw product-local filename for the standardized stage
+    readiness decision because that same record is the explicit promotion gate
 
 That is the reference pattern, not the only allowed file layout.
 
@@ -252,6 +251,34 @@ Every governed prod lane should follow this order:
 5. record post-promotion verification once the target runtime is actually live
 6. fail prod readiness or completion closed if the deployed contract and the
    prod verification state diverge
+
+## Aggregate Environment Readiness
+
+Environment readiness is an aggregate control over the workload-specific
+release records that participate in that lane.
+
+That aggregate control must:
+
+- consume the exact governed candidate, verification, readiness, or
+  support-readiness objects for each required workload
+- fail closed if any required workload record is missing, stale, incomplete, or
+  still in a non-acceptable status
+- allow `inactive` only when the workload contract explicitly says that
+  `inactive` is the correct current posture for that lane
+- report which workload blocked readiness instead of collapsing everything into
+  a vague health summary
+
+The shared platform operator surface for this control is:
+
+- `make environment-readiness ACTION=status ENVIRONMENT=stage`
+- `make environment-readiness ACTION=validate ENVIRONMENT=stage`
+- `make environment-readiness ACTION=status ENVIRONMENT=prod`
+- `make environment-readiness ACTION=validate ENVIRONMENT=prod`
+
+The current aggregate environment-readiness contracts are:
+
+- `environments/stage/environment-readiness.yaml`
+- `environments/prod/environment-readiness.yaml`
 
 ## Runtime Lifecycle Relationship
 

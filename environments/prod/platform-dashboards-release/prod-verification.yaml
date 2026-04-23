@@ -1,0 +1,26 @@
+schemaVersion: 1
+component: platform-dashboards
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed prod verification is recorded yet for the current platform
+  dashboard asset contract that overlays the prod observability stack.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/platform-dashboards-app.yaml
+      kind: argocd-application
+  supportingContractRefs:
+    - path: environments/prod/argocd/observability-app.yaml
+      role: grafana-host
+  runtime:
+    namespace: observability
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - dashboard-assets-sync
+    - home-dashboard-registration
+checks: []

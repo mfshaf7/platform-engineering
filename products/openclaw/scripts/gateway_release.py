@@ -209,7 +209,7 @@ def parse_args() -> argparse.Namespace:
 
     readiness_parser = subparsers.add_parser(
         "readiness",
-        help="Manage or validate stage promotion readiness.",
+        help="Manage or validate the OpenClaw stage readiness decision.",
     )
     readiness_parser.add_argument("action", choices=("status", "reset", "approve", "validate"))
     add_repo_root_arg(readiness_parser)

@@ -61,7 +61,7 @@ unless it is genuinely shared platform behavior.
   `products/openclaw/scripts/set_stage_environment_state.py`, which owns the
   on-demand stage bridge lifecycle as well as the stage Argo kustomization.
 - The stage bridge should not be left running while stage is suspended.
-- Any stage lifecycle change resets promotion readiness.
+- Any stage lifecycle change resets the recorded stage readiness decision.
 - Candidate recording, verification, and approval are separate governed stages.
 - `record stage` materializes `environments/stage/release-candidate.yaml`.
 - Stage rehearsal must be written into `environments/stage/verification.yaml`

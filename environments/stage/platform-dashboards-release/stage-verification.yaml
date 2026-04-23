@@ -1,0 +1,27 @@
+schemaVersion: 1
+component: platform-dashboards
+environment: stage
+status: inactive
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  Stage dashboard assets are intentionally inactive while stage observability
+  remains suspended. Keep stage verification inactive until the exact stage
+  dashboard and observability contracts are resumed together.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/stage/argocd/platform-dashboards-app.yaml
+      kind: argocd-application
+  supportingContractRefs:
+    - path: environments/stage/argocd/observability-app.yaml
+      role: grafana-host
+  runtime:
+    namespace: observability-stage
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - dashboard-assets-sync
+    - home-dashboard-registration
+checks: []

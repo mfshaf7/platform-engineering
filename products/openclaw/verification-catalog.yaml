@@ -5,7 +5,7 @@ checks:
     description: Gateway starts cleanly and the runtime reaches healthy ready state.
     capabilityTags:
       - runtime
-    defaultRequiredForPromotion: true
+    requiredByDefault: true
     acceptedReadinessStatuses:
       - passed
   primary-user-path:
@@ -13,7 +13,7 @@ checks:
     description: The primary user-facing interaction path responds correctly for the candidate.
     capabilityTags:
       - telegram-channel
-    defaultRequiredForPromotion: true
+    requiredByDefault: true
     acceptedReadinessStatuses:
       - passed
   artifact-delivery:
@@ -21,7 +21,7 @@ checks:
     description: Artifact or file delivery works end to end for the candidate.
     capabilityTags:
       - artifact-delivery
-    defaultRequiredForPromotion: true
+    requiredByDefault: true
     acceptedReadinessStatuses:
       - passed
   screenshot-delivery:
@@ -29,7 +29,7 @@ checks:
     description: Screenshot or equivalent visual capture delivery works end to end when the capability exists.
     capabilityTags:
       - screenshot-delivery
-    defaultRequiredForPromotion: true
+    requiredByDefault: true
     acceptedReadinessStatuses:
       - passed
       - not_applicable
@@ -39,7 +39,7 @@ checks:
     capabilityTags:
       - host-control
       - privileged-control
-    defaultRequiredForPromotion: true
+    requiredByDefault: true
     acceptedReadinessStatuses:
       - passed
       - not_applicable

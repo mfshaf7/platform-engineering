@@ -78,6 +78,8 @@ Relevant evidence surfaces:
 - `environments/stage/release-candidate.yaml`
 - `environments/stage/verification.yaml`
 - `environments/stage/promotion-readiness.yaml`
+  - retained OpenClaw product-local filename for the standardized stage
+    readiness decision
 - `environments/prod/openclaw-lifecycle.yaml`
 - `environments/prod/verification.yaml`
 

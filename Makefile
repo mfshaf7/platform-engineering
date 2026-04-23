@@ -32,6 +32,7 @@ help:
 	@printf "  devint-down Stop a local-k3s dev-integration profile while keeping local state\n"
 	@printf "  devint-reset Tear down a local-k3s dev-integration profile and remove local state\n"
 	@printf "  devint-promote-check Render the local handoff report required before governed stage rehearsal\n"
+	@printf "  environment-readiness Assess aggregate governed readiness for stage or prod\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -42,7 +43,7 @@ help:
 	@printf "  openclaw-gateway-verification Record or validate OpenClaw stage verification evidence\n"
 	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
 	@printf "  openclaw-gateway-prod-verification Record or validate post-promotion OpenClaw prod smoke evidence\n"
-	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
+	@printf "  openclaw-gateway-readiness Manage the OpenClaw stage readiness decision\n"
 	@printf "  openclaw-telegram-overlay-status Show the current Telegram overlay lane state\n"
 	@printf "  openclaw-telegram-overlay-pin Pin a stage Telegram overlay source commit from local repos\n"
 	@printf "  openclaw-telegram-overlay-validate Validate the Telegram overlay lane contract\n"
@@ -197,6 +198,12 @@ devint-promote-check:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-promote-check PROFILE=idea-workflow"; exit 1; }
 	python3 scripts/dev_integration.py promote-check --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
+.PHONY: environment-readiness
+environment-readiness:
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make environment-readiness ACTION=validate ENVIRONMENT=stage"; exit 1; }
+	@test -n "$(ENVIRONMENT)" || { echo "ENVIRONMENT is required, for example: make environment-readiness ACTION=validate ENVIRONMENT=stage"; exit 1; }
+	python3 scripts/validate_environment_readiness.py $(ACTION) $(ENVIRONMENT)
+
 .PHONY: verify-platform-host
 verify-platform-host:
 	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/verify-platform-host.yml $(ANSIBLE_EXTRA_VARS_ARG)
@@ -292,6 +299,8 @@ validate:
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py
 	python3 scripts/validate_operational_docs.py
+	python3 scripts/validate_environment_readiness.py status stage
+	python3 scripts/validate_environment_readiness.py status prod
 	python3 scripts/validate_single_host_scaling.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version

@@ -1,0 +1,30 @@
+schemaVersion: 1
+component: vault
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed prod verification is recorded yet for the shared Vault
+  contract relied on by prod secret delivery. Record fresh evidence against
+  the exact shared contract whenever the shared Vault runtime changes for
+  governed prod use.
+environmentContractRef:
+  path: environments/shared/argocd/vault-app.yaml
+  chart:
+    repository: https://helm.releases.hashicorp.com
+    name: vault
+    version: 0.32.0
+  runtime:
+    namespace: vault
+    topology: single-node-raft
+    operatorAccessUrl: http://127.0.0.1:32200
+  sourceRefs:
+    platformEngineering: 4dab00cdf00f9490b7e3496051a241904ec5630e
+  requiredChecks:
+    - argo-contract-state
+    - seal-state
+    - api-health
+    - external-secrets-dependency
+checks: []

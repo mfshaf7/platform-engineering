@@ -105,6 +105,10 @@ The pin step must update both:
   packager and Dockerfile used by the workflow
 - the qualified OpenClaw base image already pinned in the stage contract
 
+See [../runbooks/release-governance.md](../runbooks/release-governance.md) for
+the standardized OpenClaw release-governance flow and the explicit retained
+`promotion-readiness.yaml` naming difference.
+
 ## Stage Release-State Objects
 
 - `environments/stage/release-candidate.yaml`
@@ -112,7 +116,8 @@ The pin step must update both:
 - `environments/stage/verification.yaml`
   - structured stage rehearsal evidence for that candidate
 - `environments/stage/promotion-readiness.yaml`
-  - approval decision against that exact candidate and verification record
+  - OpenClaw's retained product-local filename for the standardized stage
+    readiness decision against that exact candidate and verification record
 - `environments/prod/verification.yaml`
   - structured post-promotion prod smoke or UAT evidence for the current prod
     contract

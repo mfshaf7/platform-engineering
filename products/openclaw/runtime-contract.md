@@ -48,6 +48,8 @@ The platform-managed deployment must provide:
   - `environments/stage/release-candidate.yaml`
   - `environments/stage/verification.yaml`
   - `environments/stage/promotion-readiness.yaml`
+    - OpenClaw's retained product-local filename for the standardized stage
+      readiness decision because that same record is the promotion gate
   - `environments/prod/verification.yaml` for post-promotion prod smoke or UAT
 
 OpenClaw may also use a separate Telegram overlay artifact lane for small

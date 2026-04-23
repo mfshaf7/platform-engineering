@@ -194,11 +194,8 @@ Current shared rule:
 
 - stage-readiness catalogs use `acceptedReadinessStatuses`
 - post-promotion catalogs use `acceptedCompletionStatuses`
-
-OpenClaw still carries a temporary legacy field name
-`defaultRequiredForPromotion` for stage catalogs. That is allowed only as a
-compatibility alias until the workload rollout task reconciles it to the
-standardized naming.
+- catalogs must identify which checks are required by default in that context
+  with the standardized `requiredByDefault` field
 
 ## Evidence Reference Contract
 
@@ -238,6 +235,8 @@ The strongest current implementation of this pattern is OpenClaw:
 - `environments/stage/release-candidate.yaml`
 - `environments/stage/verification.yaml`
 - `environments/stage/promotion-readiness.yaml`
+  - retained OpenClaw product-local filename for the standardized stage
+    readiness decision because that same record is the explicit promotion gate
 
 That is the reference pattern, not the only allowed file layout.
 

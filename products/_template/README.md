@@ -59,7 +59,7 @@ state objects over helper-script memory alone:
 
 - `release-candidate.yaml`
 - `verification.yaml`
-- `promotion-readiness.yaml`
+- `stage-readiness.yaml`
 
 When the product also exposes a real prod user or operator surface, add a
 post-promotion prod smoke or UAT object too:

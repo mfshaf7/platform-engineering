@@ -117,7 +117,8 @@ def default_required_check_ids(catalog: dict) -> list[str]:
     return sorted(
         check_id
         for check_id, payload in checks.items()
-        if payload.get("defaultRequiredForPromotion") is True
+        if payload.get("requiredByDefault") is True
+        or payload.get("defaultRequiredForPromotion") is True
     )
 
 
@@ -295,6 +296,9 @@ def default_readiness(
     note: str = "",
 ) -> dict:
     return {
+        "schemaVersion": 1,
+        "product": "openclaw",
+        "environment": "stage",
         "status": status,
         "requiredComponents": list(DEFAULT_REQUIRED_STAGE_COMPONENTS),
         "approvedAt": None,
@@ -446,11 +450,11 @@ def require_promotable_stage_contract(repo_root: Path) -> None:
     overlay = telegram_overlay_state(versions)
     if overlay["status"] == "pending-build":
         raise SystemExit(
-            "stage Telegram overlay lane is pinned but not recorded; build and record the overlay artifact before approving or validating promotion readiness"
+            "stage Telegram overlay lane is pinned but not recorded; build and record the overlay artifact before approving or validating the stage readiness decision"
         )
     if overlay["status"] == "candidate" and overlay.get("qualifiedBaseImage") != versions["gateway"]["build"]["baseImage"]:
         raise SystemExit(
-            "stage Telegram overlay lane is qualified for a different OpenClaw base image; re-pin or disable the overlay lane before approving or validating promotion readiness"
+            "stage Telegram overlay lane is qualified for a different OpenClaw base image; re-pin or disable the overlay lane before approving or validating the stage readiness decision"
         )
 
 
@@ -510,7 +514,7 @@ def validate_stage_verification(repo_root: Path) -> dict:
         accepted = set(catalog["checks"][check_id].get("acceptedReadinessStatuses") or ["passed"])
         if status not in accepted:
             raise SystemExit(
-                f"stage verification is not promotion-ready; check {check_id} is {status!r}, expected one of {', '.join(sorted(accepted))}"
+                f"stage verification is not stage-ready; check {check_id} is {status!r}, expected one of {', '.join(sorted(accepted))}"
             )
 
     return verification
@@ -524,7 +528,7 @@ def approve_stage_promotion_readiness(repo_root: Path, approved_by: str, note: s
     missing = sorted(expected_components - components)
     if missing:
         raise SystemExit(
-            "stage is not promotion-ready; missing required active components: " + ", ".join(missing)
+            "stage is not ready for approval; missing required active components: " + ", ".join(missing)
         )
 
     candidate_document = require_stage_candidate(repo_root)
@@ -550,33 +554,33 @@ def validate_stage_promotion_readiness(repo_root: Path) -> dict:
     status = data.get("status")
     if status != "approved":
         raise SystemExit(
-            f"stage promotion readiness is {status or 'unset'}; approval is required before promoting to prod"
+            f"stage readiness decision is {status or 'unset'}; approval is required before promoting to prod"
         )
 
     components = current_stage_components(repo_root)
     missing = sorted(set(required_components(data)) - components)
     if missing:
         raise SystemExit(
-            "stage promotion readiness is stale; required active components missing: " + ", ".join(missing)
+            "stage readiness decision is stale; required active components missing: " + ", ".join(missing)
         )
 
     candidate_document = require_stage_candidate(repo_root)
     verification_document = validate_stage_verification(repo_root)
     if (data.get("candidateRef") or {}) != candidate_ref_for(candidate_document):
         raise SystemExit(
-            "stage promotion readiness is stale; the approved candidate reference no longer matches the current stage release candidate"
+            "stage readiness decision is stale; the approved candidate reference no longer matches the current stage release candidate"
         )
     if (data.get("verificationRef") or {}) != verification_ref_for(verification_document):
         raise SystemExit(
-            "stage promotion readiness is stale; the approved verification reference no longer matches the current stage verification record"
+            "stage readiness decision is stale; the approved verification reference no longer matches the current stage verification record"
         )
     if (data.get("approvedCandidate") or {}) != candidate_document["candidate"]:
         raise SystemExit(
-            "stage promotion readiness is stale; the approved candidate snapshot no longer matches environments/stage/release-candidate.yaml"
+            "stage readiness decision is stale; the approved candidate snapshot no longer matches environments/stage/release-candidate.yaml"
         )
     if (data.get("approvedVerification") or {}) != verification_document:
         raise SystemExit(
-            "stage promotion readiness is stale; the approved verification snapshot no longer matches environments/stage/verification.yaml"
+            "stage readiness decision is stale; the approved verification snapshot no longer matches environments/stage/verification.yaml"
         )
     return data
 

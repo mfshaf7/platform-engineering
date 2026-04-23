@@ -11,6 +11,7 @@ are not shared platform procedures.
 - [build-gateway-artifact.md](build-gateway-artifact.md)
 - [host-stack-rollout.md](host-stack-rollout.md)
 - [manage-prod-lifecycle.md](manage-prod-lifecycle.md)
+- [release-governance.md](release-governance.md)
 - [record-gateway-image.md](record-gateway-image.md)
 - [rebuild-and-promote-gateway.md](rebuild-and-promote-gateway.md)
 - [promote-stage-to-prod.md](promote-stage-to-prod.md)

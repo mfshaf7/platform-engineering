@@ -43,7 +43,7 @@ help:
 	@printf "  openclaw-gateway-verification Record or validate OpenClaw stage verification evidence\n"
 	@printf "  openclaw-gateway-promote Promote one validated OpenClaw environment candidate into another\n"
 	@printf "  openclaw-gateway-prod-verification Record or validate post-promotion OpenClaw prod smoke evidence\n"
-	@printf "  openclaw-gateway-readiness Manage OpenClaw stage promotion readiness\n"
+	@printf "  openclaw-gateway-readiness Manage the OpenClaw stage readiness decision\n"
 	@printf "  openclaw-telegram-overlay-status Show the current Telegram overlay lane state\n"
 	@printf "  openclaw-telegram-overlay-pin Pin a stage Telegram overlay source commit from local repos\n"
 	@printf "  openclaw-telegram-overlay-validate Validate the Telegram overlay lane contract\n"

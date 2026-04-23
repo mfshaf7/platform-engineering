@@ -42,8 +42,10 @@ stage digest also updates the candidate-first release-state objects:
 - `environments/stage/promotion-readiness.yaml`
 
 The stage record step materializes the current release candidate, then resets
-verification and approval so rehearsal evidence and readiness approval always
-match the exact candidate being promoted later.
+verification and the stage readiness decision so rehearsal evidence and
+approval always match the exact candidate being promoted later. OpenClaw
+retains `promotion-readiness.yaml` as the product-local filename for that
+standardized stage readiness object.
 
 For `prod`, the record step now resets `environments/prod/verification.yaml` to
 `pending` for the current prod contract. That prevents an older prod smoke or

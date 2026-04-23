@@ -52,7 +52,7 @@ environment.
 
 Current stage inputs:
 
-- OpenClaw stage promotion readiness
+- OpenClaw stage readiness decision
 - `operator-orchestration-service` stage readiness
 - OpenProject stage readiness
 - supporting-component stage support-readiness for:

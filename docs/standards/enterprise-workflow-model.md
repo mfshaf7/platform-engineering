@@ -238,7 +238,7 @@ candidate-first release model:
 - desired source pins in the environment contract
 - recorded `release-candidate.yaml` for the built artifact
 - recorded `verification.yaml` for rehearsal evidence
-- recorded `promotion-readiness.yaml` for the approval decision
+- recorded `stage-readiness.yaml` for the approval decision
 - recorded `prod/verification.yaml` for post-promotion smoke or UAT when the
   product exposes a real prod user or operator surface
 - promotion that consumes the approved candidate instead of rebuilding a second

@@ -33,7 +33,11 @@ work.
 
 - lifecycle branch when desired state changed
 - compare URL in the workflow summary
-- updated stage kustomization, verification, and promotion-readiness files
+- updated stage kustomization, verification, and stage readiness decision
+  files
+
+For OpenClaw, the retained stage readiness decision file is
+`environments/stage/promotion-readiness.yaml`.
 
 The GitHub workflow changes only the Git-managed stage lifecycle intent. It
 does not start or stop the local stage bridge service on the operator host.

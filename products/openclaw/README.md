@@ -57,6 +57,10 @@ Today that maturity shows up as:
 
 - stage candidate and rehearsal evidence are explicit Git-managed release
   objects
+- the standardized stage readiness decision is explicit, but OpenClaw
+  deliberately retains the product-local file name
+  `environments/stage/promotion-readiness.yaml` because that same decision is
+  the promotion gate for the approved stage candidate
 - prod promotion reuses the approved stage digest instead of rebuilding
 - post-promotion prod smoke or UAT is recorded separately from stage approval
 - prod runtime now follows the shared governed lifecycle vocabulary:
@@ -81,6 +85,7 @@ candidate on the same qualified base image.
 - [runtime-contract.md](runtime-contract.md)
 - [dependencies.md](dependencies.md)
 - [host-integration.md](host-integration.md)
+- [runbooks/release-governance.md](runbooks/release-governance.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
 - [runbooks/host-stack-rollout.md](runbooks/host-stack-rollout.md)

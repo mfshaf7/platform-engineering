@@ -188,6 +188,200 @@ def add_narrative_finding(
     )
 
 
+def evaluate_execution_summary(
+    *,
+    initiative_id: int,
+    epic: dict[str, object],
+    root: dict[str, object],
+    issues: list[dict[str, object]],
+    narrative_findings: list[dict[str, object]],
+) -> None:
+    all_nodes = flatten_tree(root)
+    descendants = all_nodes[1:]
+
+    for node in descendants:
+        status = node.get("status")
+        completion_present = bool(node.get("completion_evidence_present"))
+        completion_formatting_valid = bool(node.get("completion_evidence_formatting_valid", True))
+        completion_issues = node.get("completion_evidence_issues") or []
+        done_narrative_applicable = bool(node.get("done_narrative_contract_applicable"))
+        done_narrative_satisfied = bool(node.get("done_narrative_contract_satisfied", True))
+        done_narrative_issues = node.get("done_narrative_contract_issues") or []
+        present_headings = set(node.get("description_headings") or [])
+        duplicated_structured_headings = sorted(
+            present_headings & FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS
+        )
+        if status == "done" and not completion_present:
+            add_issue(
+                issues,
+                issue_type="done_item_missing_completion_evidence",
+                initiative_id=initiative_id,
+                target=node,
+                detail="done work item is missing substantive completion evidence",
+            )
+        if status == "done" and completion_present and not completion_formatting_valid:
+            add_issue(
+                issues,
+                issue_type="done_item_has_weak_completion_evidence",
+                initiative_id=initiative_id,
+                target=node,
+                detail=f"done work item completion evidence does not meet the closeout standard: {'; '.join(completion_issues)}",
+            )
+        if status == "done" and done_narrative_applicable and not done_narrative_satisfied:
+            add_issue(
+                issues,
+                issue_type="done_item_has_weak_done_narrative_contract",
+                initiative_id=initiative_id,
+                target=node,
+                detail=f"done work item narrative does not meet the closeout standard: {'; '.join(done_narrative_issues)}",
+            )
+        if status != "done" and completion_present:
+            add_issue(
+                issues,
+                issue_type="non_done_item_has_completion_evidence",
+                initiative_id=initiative_id,
+                target=node,
+                detail="non-done work item still carries completion evidence sections",
+            )
+        if duplicated_structured_headings:
+            add_issue(
+                issues,
+                issue_type="description_duplicates_structured_execution_fields",
+                initiative_id=initiative_id,
+                target=node,
+                detail=(
+                    "description duplicates structured execution fields as markdown headings: "
+                    + ", ".join(duplicated_structured_headings)
+                ),
+            )
+        if not node.get("description_starts_with_heading", False) and node.get("description_present"):
+            add_issue(
+                issues,
+                issue_type="description_does_not_start_with_heading",
+                initiative_id=initiative_id,
+                target=node,
+                detail="description must start with a markdown heading instead of loose prose",
+            )
+        if status in ACTIVE_STATUSES and node.get("ready_contract_applicable") and not node.get("ready_contract_satisfied"):
+            missing = node.get("ready_contract_missing_fields") or []
+            add_issue(
+                issues,
+                issue_type="active_item_missing_execution_contract",
+                initiative_id=initiative_id,
+                target=node,
+                detail=f"active work item is missing required execution fields: {', '.join(missing)}",
+            )
+        if status == "done":
+            missing_done_ownership: list[str] = []
+            if not node.get("assignee_login"):
+                missing_done_ownership.append("Assignee")
+            if not node.get("responsible_login"):
+                missing_done_ownership.append("Responsible")
+            if not node.get("owner_repo"):
+                missing_done_ownership.append("Owner Repo")
+            if missing_done_ownership:
+                add_issue(
+                    issues,
+                    issue_type="done_item_missing_ownership_contract",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail=f"done work item is missing required ownership fields: {', '.join(missing_done_ownership)}",
+                )
+
+        if node.get("iteration") == BACKLOG_ITERATION_LABEL:
+            if node.get("target_pi"):
+                add_issue(
+                    issues,
+                    issue_type="backlog_item_has_target_pi",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail="backlog item marked as not committed to a PI iteration still has Target PI assigned",
+                )
+            if node.get("start_date") or node.get("due_date"):
+                add_issue(
+                    issues,
+                    issue_type="backlog_item_has_schedule",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail="backlog item marked as not committed to a PI iteration still has concrete schedule dates",
+                )
+
+    for node in all_nodes:
+        if node.get("status") != "done":
+            continue
+
+        blocking_descendants = [
+            descendant
+            for descendant in flatten_tree(node)[1:]
+            if descendant.get("status") not in DONE_TREE_TERMINAL_STATUSES
+        ]
+        if not blocking_descendants:
+            continue
+
+        rendered_descendants = ", ".join(
+            f"#{descendant.get('id')} ({descendant.get('status')})"
+            for descendant in blocking_descendants[:5]
+        )
+        overflow_note = (
+            f" and {len(blocking_descendants) - 5} more"
+            if len(blocking_descendants) > 5
+            else ""
+        )
+        add_issue(
+            issues,
+            issue_type="done_item_has_open_descendants",
+            initiative_id=initiative_id,
+            target=node,
+            detail=(
+                "done work item still has descendants outside done or retired: "
+                f"{rendered_descendants}{overflow_note}"
+            ),
+        )
+
+    narrative_targets = [
+        epic,
+        *[
+            node
+            for node in descendants
+            if node.get("status") not in {"done", *INACTIVE_STATUSES}
+        ],
+    ]
+    for node in narrative_targets:
+        node_type = node.get("type")
+        required_headings = NARRATIVE_REQUIREMENTS.get(str(node_type), [])
+        if not required_headings:
+            continue
+
+        present_headings = set(node.get("description_headings") or [])
+        missing_headings = [heading for heading in required_headings if heading not in present_headings]
+        if not missing_headings:
+            continue
+
+        status = str(node.get("status"))
+        target_pi = node.get("target_pi")
+        iteration = node.get("iteration")
+        if status in {"in-progress", "blocked"} or node_type == "Epic":
+            attention_scope = "active"
+            severity = "rewrite-required" if len(missing_headings) == len(required_headings) else "discussion-required"
+        elif status == "ready" or (target_pi and iteration != BACKLOG_ITERATION_LABEL):
+            attention_scope = "next-up"
+            severity = "discussion-required"
+        else:
+            attention_scope = "backlog"
+            severity = "polish"
+
+        add_narrative_finding(
+            narrative_findings,
+            finding_type="missing_required_narrative_headings",
+            initiative_id=initiative_id,
+            target=node,
+            severity=severity,
+            attention_scope=attention_scope,
+            missing_headings=missing_headings,
+            detail=f"{node_type} is missing required narrative headings: {', '.join(missing_headings)}",
+        )
+
+
 def main() -> int:
     env = os.environ.copy()
     include_done = env.get("INCLUDE_DONE", "true")
@@ -273,179 +467,13 @@ def main() -> int:
         root = execution_summary.get("execution_tree")
         if not isinstance(epic, dict) or not isinstance(root, dict):
             raise RuntimeError(f"unexpected execution payload shape for initiative {initiative_id}")
-        all_nodes = flatten_tree(root)
-        descendants = all_nodes[1:]
-
-        for node in descendants:
-            status = node.get("status")
-            completion_present = bool(node.get("completion_evidence_present"))
-            completion_formatting_valid = bool(node.get("completion_evidence_formatting_valid", True))
-            completion_issues = node.get("completion_evidence_issues") or []
-            present_headings = set(node.get("description_headings") or [])
-            duplicated_structured_headings = sorted(
-                present_headings & FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS
-            )
-            if status == "done" and not completion_present:
-                add_issue(
-                    issues,
-                    issue_type="done_item_missing_completion_evidence",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail="done work item is missing substantive completion evidence",
-                )
-            if status == "done" and completion_present and not completion_formatting_valid:
-                add_issue(
-                    issues,
-                    issue_type="done_item_has_weak_completion_evidence",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail=f"done work item completion evidence does not meet the closeout standard: {'; '.join(completion_issues)}",
-                )
-            if status != "done" and completion_present:
-                add_issue(
-                    issues,
-                    issue_type="non_done_item_has_completion_evidence",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail="non-done work item still carries completion evidence sections",
-                )
-            if duplicated_structured_headings:
-                add_issue(
-                    issues,
-                    issue_type="description_duplicates_structured_execution_fields",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail=(
-                        "description duplicates structured execution fields as markdown headings: "
-                        + ", ".join(duplicated_structured_headings)
-                    ),
-                )
-            if not node.get("description_starts_with_heading", False) and node.get("description_present"):
-                add_issue(
-                    issues,
-                    issue_type="description_does_not_start_with_heading",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail="description must start with a markdown heading instead of loose prose",
-                )
-            if status in ACTIVE_STATUSES and node.get("ready_contract_applicable") and not node.get("ready_contract_satisfied"):
-                missing = node.get("ready_contract_missing_fields") or []
-                add_issue(
-                    issues,
-                    issue_type="active_item_missing_execution_contract",
-                    initiative_id=initiative_id,
-                    target=node,
-                    detail=f"active work item is missing required execution fields: {', '.join(missing)}",
-                )
-            if status == "done":
-                missing_done_ownership: list[str] = []
-                if not node.get("assignee_login"):
-                    missing_done_ownership.append("Assignee")
-                if not node.get("responsible_login"):
-                    missing_done_ownership.append("Responsible")
-                if not node.get("owner_repo"):
-                    missing_done_ownership.append("Owner Repo")
-                if missing_done_ownership:
-                    add_issue(
-                        issues,
-                        issue_type="done_item_missing_ownership_contract",
-                        initiative_id=initiative_id,
-                        target=node,
-                        detail=f"done work item is missing required ownership fields: {', '.join(missing_done_ownership)}",
-                    )
-
-            if node.get("iteration") == BACKLOG_ITERATION_LABEL:
-                if node.get("target_pi"):
-                    add_issue(
-                        issues,
-                        issue_type="backlog_item_has_target_pi",
-                        initiative_id=initiative_id,
-                        target=node,
-                        detail="backlog item marked as not committed to a PI iteration still has Target PI assigned",
-                    )
-                if node.get("start_date") or node.get("due_date"):
-                    add_issue(
-                        issues,
-                        issue_type="backlog_item_has_schedule",
-                        initiative_id=initiative_id,
-                        target=node,
-                        detail="backlog item marked as not committed to a PI iteration still has concrete schedule dates",
-                    )
-
-        for node in all_nodes:
-            if node.get("status") != "done":
-                continue
-
-            blocking_descendants = [
-                descendant
-                for descendant in flatten_tree(node)[1:]
-                if descendant.get("status") not in DONE_TREE_TERMINAL_STATUSES
-            ]
-            if not blocking_descendants:
-                continue
-
-            rendered_descendants = ", ".join(
-                f"#{descendant.get('id')} ({descendant.get('status')})"
-                for descendant in blocking_descendants[:5]
-            )
-            overflow_note = (
-                f" and {len(blocking_descendants) - 5} more"
-                if len(blocking_descendants) > 5
-                else ""
-            )
-            add_issue(
-                issues,
-                issue_type="done_item_has_open_descendants",
-                initiative_id=initiative_id,
-                target=node,
-                detail=(
-                    "done work item still has descendants outside done or retired: "
-                    f"{rendered_descendants}{overflow_note}"
-                ),
-            )
-
-        narrative_targets = [
-            epic,
-            *[
-                node
-                for node in descendants
-                if node.get("status") not in {"done", *INACTIVE_STATUSES}
-            ],
-        ]
-        for node in narrative_targets:
-            node_type = node.get("type")
-            required_headings = NARRATIVE_REQUIREMENTS.get(str(node_type), [])
-            if not required_headings:
-                continue
-
-            present_headings = set(node.get("description_headings") or [])
-            missing_headings = [heading for heading in required_headings if heading not in present_headings]
-            if not missing_headings:
-                continue
-
-            status = str(node.get("status"))
-            target_pi = node.get("target_pi")
-            iteration = node.get("iteration")
-            if status in {"in-progress", "blocked"} or node_type == "Epic":
-                attention_scope = "active"
-                severity = "rewrite-required" if len(missing_headings) == len(required_headings) else "discussion-required"
-            elif status == "ready" or (target_pi and iteration != BACKLOG_ITERATION_LABEL):
-                attention_scope = "next-up"
-                severity = "discussion-required"
-            else:
-                attention_scope = "backlog"
-                severity = "polish"
-
-            add_narrative_finding(
-                narrative_findings,
-                finding_type="missing_required_narrative_headings",
-                initiative_id=initiative_id,
-                target=node,
-                severity=severity,
-                attention_scope=attention_scope,
-                missing_headings=missing_headings,
-                detail=f"{node_type} is missing required narrative headings: {', '.join(missing_headings)}",
-            )
+        evaluate_execution_summary(
+            initiative_id=initiative_id,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
 
     result = {
         "project": initiatives_payload.get("project"),

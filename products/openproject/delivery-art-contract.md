@@ -62,8 +62,8 @@ Use a two-layer model:
   - narrative weakness that is deterministic enough to flag, but still needs
     operator judgment before rewrite
 
-Narrative findings do not automatically fail the ART-quality check. They are
-advisory findings with explicit severity:
+Narrative findings do not automatically fail the ART-quality check for active
+or not-yet-done work. They are advisory findings with explicit severity:
 
 - `rewrite-required`
   - too weak to operate safely on the active slice
@@ -76,6 +76,10 @@ advisory findings with explicit severity:
 When an active or next-up item carries `rewrite-required` or
 `discussion-required`, the operator workflow should raise that finding
 explicitly before continuing the item.
+
+Once an item is `done`, the same narrative standard stops being advisory. Weak
+done-state narrative becomes a hard ART-quality failure because the closeout
+record is now evidence, not just planning prose.
 
 ## Narrative Rubric
 
@@ -130,6 +134,20 @@ Description rules:
   in custom fields only
 - use `Execution Context` for the fast human-readable bridge to repo, review,
   runtime, or operator surfaces
+
+Done-state narrative rules:
+
+- completed items must still satisfy the required narrative headings for their
+  type
+- required done-state narrative sections must not be empty
+- `Execution Context` must stay a flat bullet list
+- `Execution Context` must preserve the stored:
+  - `Owner repo`
+  - `Parent item` when the work item has a parent
+  - `Delivery team` when that field is set
+  - `Iteration` when that field is set
+- the broker and ART quality checker now fail closed when that done-state
+  narrative contract drifts
 
 ## Canonical Delivery Project
 
@@ -591,6 +609,8 @@ Initiative closeout readiness should treat missing completion evidence on
 `done` descendants as a failure, not just missing documentation. Weakly
 formatted completion evidence should also fail closeout readiness and ART
 quality checks when it no longer reads like a disciplined delivery attestation.
+The same is now true for weak done-state narrative structure, especially a
+broken `Execution Context`.
 
 ## Dependency Governance
 

@@ -25,6 +25,8 @@ Primary evidence surfaces:
 - Kubernetes pod logs
 - namespace workload status
 - localhost operator access path
+- governed release-state records under
+  `environments/prod/openproject-release/`
 
 Use the access runbook for the current direct access model and shell-local
 fallback:
@@ -38,6 +40,7 @@ Operators should be able to identify:
 - upstream chart version
 - upstream application version
 - dependency versions recorded in this product directory
+- current governed stage candidate and prod verification state
 
 ## Functional Checks
 
@@ -47,6 +50,12 @@ Minimum meaningful checks:
 - admin password sync completed
 - PostgreSQL dependency reachable
 - application pod stable after reconciliation
+
+The current governed release catalogs publish those checks in machine-readable
+form:
+
+- [verification-catalog.yaml](verification-catalog.yaml)
+- [prod-verification-catalog.yaml](prod-verification-catalog.yaml)
 
 Before activating a real production proposal-to-delivery workflow, also run:
 

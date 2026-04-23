@@ -10,6 +10,7 @@ declared, operated, and verified on this platform.
 
 - `README.md`
 - `runtime-contract.md`
+- `runbooks/release-governance.md`
 - `idea-backlog-contract.md`
 - `delivery-art-contract.md`
 - `dependencies.md`
@@ -50,6 +51,9 @@ unless it is genuinely shared platform behavior.
 - Treat the current highest real endpoint as:
   - platform-managed runtime and operator flow on the local cluster
   - not a distinct product-governed stage rehearsal and prod-promotion model
+- OpenProject now has governed release-state records for the platform-owned
+  deployment contract, but that still does not make it a separate
+  product-governed rollout train.
 - Operator access expectations, admin-password synchronization, and product
   lifecycle commands are OpenProject-specific and belong under this directory.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,
@@ -130,6 +134,13 @@ When OpenProject access, exposure, or admin credential flow changes, update:
 - `idea-backlog-contract.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
+
+When OpenProject release-governance state or verification expectations change,
+also update:
+
+- `runbooks/release-governance.md`
+- `runtime-contract.md`
+- `visibility-and-operations.md`
 
 When OpenProject backup, restore, or recovery workflow changes, also update:
 

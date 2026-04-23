@@ -1,0 +1,19 @@
+schemaVersion: 1
+product: openproject
+environment: stage
+status: pending
+approvedAt: null
+approvedBy: null
+note: >-
+  Stage readiness approval is required for the exact platform-owned OpenProject
+  candidate. OpenProject is still platform-integrated, but the governed stage
+  gate now fails closed until matching verification evidence exists.
+candidateRef:
+  path: environments/prod/openproject-release/stage-candidate.yaml
+  status: candidate
+  chartVersion: 13.4.4
+  applicationImage: docker.io/openproject/openproject:17.2.3-slim
+verificationRef:
+  path: environments/prod/openproject-release/stage-verification.yaml
+  status: pending
+  verifiedAt: null

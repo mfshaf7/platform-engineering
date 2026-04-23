@@ -67,6 +67,11 @@ rehearsal and promotion gates.
 The highest implemented endpoint today is the platform-managed OpenProject
 runtime on the local cluster plus its documented operator procedures.
 
+OpenProject now also has governed release-state records for that exact
+platform-owned contract. Those records fail closed when verification or
+readiness evidence is missing, but they still do not create a separate
+OpenProject-owned `source -> stage -> prod` rollout rail.
+
 The canonical OpenProject workflow model now has two distinct planes:
 
 - [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
@@ -163,6 +168,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 
 - [AGENTS.md](AGENTS.md)
 - [runtime-contract.md](runtime-contract.md)
+- [runbooks/release-governance.md](runbooks/release-governance.md)
 - [idea-backlog-contract.md](idea-backlog-contract.md)
 - [delivery-art-contract.md](delivery-art-contract.md)
 - [dependencies.md](dependencies.md)

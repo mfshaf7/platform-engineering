@@ -28,6 +28,9 @@ flowchart LR
 Read this as operator workflow families:
 
 - `access-openproject.md` gets you to the product and admin surface.
+- `release-governance.md` defines how the current platform-owned OpenProject
+  contract records candidate, verification, readiness, and prod verification
+  state.
 - `configure-idea-backlog.md` and `configure-delivery-art.md` live on the
   proposal and project-bootstrap side.
 - `check-delivery-art-quality.md` and `standardize-delivery-art.md` are the
@@ -40,6 +43,7 @@ Read this as operator workflow families:
 ## Runbooks
 
 - [access-openproject.md](access-openproject.md)
+- [release-governance.md](release-governance.md)
 - [bootstrap-openproject.md](bootstrap-openproject.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)

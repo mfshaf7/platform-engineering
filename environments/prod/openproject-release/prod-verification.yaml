@@ -1,0 +1,28 @@
+schemaVersion: 1
+product: openproject
+environment: prod
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed prod post-promotion verification is recorded yet for the current
+  OpenProject deployment contract. Record fresh evidence whenever the
+  platform-owned OpenProject app or secret contract changes for governed prod
+  use.
+environmentContractRef:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/openproject-app.yaml
+    - path: environments/prod/argocd/openproject-secrets-app.yaml
+  supportingContractRefs:
+    - path: environments/prod/argocd/platform-postgresql-app.yaml
+      role: external-database
+  chartVersion: 13.4.4
+  applicationImage: docker.io/openproject/openproject:17.2.3-slim
+  sourceRefs:
+    platformEngineering: a97d8715eb7b0b00d3a63ea66c59d40fde1af41a
+  requiredChecks:
+    - reconciliation-state
+    - operator-access-path-smoke
+    - delivery-art-quality-smoke
+checks: []

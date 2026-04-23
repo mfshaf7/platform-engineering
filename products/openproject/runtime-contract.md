@@ -23,6 +23,11 @@ The platform-managed deployment must provide:
 - persistent application storage for `/var/openproject/assets`
 - a reachable standalone PostgreSQL service for the application database
 - a first-login admin password sourced from the platform secret path, not from Git
+- governed release-state evidence for the current platform-owned contract under:
+  - `environments/prod/openproject-release/stage-candidate.yaml`
+  - `environments/prod/openproject-release/stage-verification.yaml`
+  - `environments/prod/openproject-release/stage-readiness.yaml`
+  - `environments/prod/openproject-release/prod-verification.yaml`
 
 ## Current Runtime Profile
 
@@ -40,6 +45,11 @@ V1 readiness is proven through:
 - Argo CD health status: `Healthy`
 - Kubernetes pod readiness in namespace `openproject`
 - HTTP reachability of `/login`
+
+Governed release readiness is stricter than runtime readiness. OpenProject is
+not governed stage-ready or prod-verified from those signals alone; the
+matching release-state objects still need current evidence for the exact
+contract.
 
 V1 does not add a dedicated Prometheus or version-metadata contract for
 OpenProject yet.

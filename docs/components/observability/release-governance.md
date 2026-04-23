@@ -2,15 +2,15 @@
 
 ## Purpose
 
-The shared observability stack and the platform-owned dashboard assets are
+The observability baseline and the platform-owned dashboard overlay are shared
 `supporting components`. They do not use a standalone product promotion lane,
 but stage and prod still require explicit verification and support-readiness
 truth for the exact contracts that expose Grafana, Prometheus, Alertmanager,
-and the platform dashboard assets.
+the operator auth proxy, and the platform dashboard assets.
 
 ## Current Governance Shape
 
-### Observability Stack Contracts
+### Platform Observability Baseline Contracts
 
 - stage contract:
   - [../../../environments/stage/argocd/observability-app.yaml](../../../environments/stage/argocd/observability-app.yaml)
@@ -24,7 +24,10 @@ Current release records:
 - [../../../environments/prod/observability-release/prod-verification.yaml](../../../environments/prod/observability-release/prod-verification.yaml)
 - [../../../environments/prod/observability-release/prod-support-readiness.yaml](../../../environments/prod/observability-release/prod-support-readiness.yaml)
 
-### Platform Dashboard Asset Contracts
+These records describe the shared platform baseline only. They do not prove any
+product-specific overlay in isolation.
+
+### Platform Dashboard Overlay Contracts
 
 - stage contract:
   - [../../../environments/stage/argocd/platform-dashboards-app.yaml](../../../environments/stage/argocd/platform-dashboards-app.yaml)
@@ -38,19 +41,19 @@ Current release records:
 - [../../../environments/prod/platform-dashboards-release/prod-verification.yaml](../../../environments/prod/platform-dashboards-release/prod-verification.yaml)
 - [../../../environments/prod/platform-dashboards-release/prod-support-readiness.yaml](../../../environments/prod/platform-dashboards-release/prod-support-readiness.yaml)
 
-Stage observability is currently suspended. The stage verification and
-support-readiness records should stay `inactive` until the stage contracts are
+Stage observability is currently suspended. The stage baseline and stage
+dashboard overlay records should stay `inactive` until the stage contracts are
 deliberately resumed.
 
 ## Operator Flow
 
 ### 1. Update Or Confirm The Environment Contract
 
-When the stack or asset overlay changes, update the exact environment contract
-first:
+When the baseline or dashboard overlay changes, update the exact environment
+contract first:
 
-- `observability-app.yaml` for the stack itself
-- `platform-dashboards-app.yaml` for the Grafana asset overlay
+- `observability-app.yaml` for the platform baseline itself
+- `platform-dashboards-app.yaml` for the shared Grafana dashboard overlay
 
 ### 2. Reset The Dependent Records When The Contract Changes
 
@@ -65,12 +68,12 @@ Refresh the affected verification and support-readiness files under:
 
 Use the current operator surfaces to prove, for the exact contract under test:
 
-- Argo still matches the expected stack or asset contract
+- Argo still matches the expected baseline or overlay contract
 - the supported Grafana, Prometheus, and Alertmanager paths behave as expected
 - the auth proxy, datasource, and dashboard assets still match the intended
   environment
-- dashboard overlays still register correctly against the Grafana host for the
-  environment
+- platform dashboard overlays still register correctly against the baseline
+  Grafana host for the environment
 
 ### 4. Record Verification
 
@@ -88,8 +91,21 @@ verification record exists for the same contract.
 ## Evidence Rule
 
 One healthy pod set, one working UI, or one rendered dashboard alone does not
-make the observability surface ready. The record must tie the exact contract
-to reviewable proof and the exact verification result for the environment.
+make the observability baseline or its shared overlay ready. The record must
+tie the exact contract to reviewable proof and the exact verification result
+for the environment.
+
+## Overlay Boundary
+
+The shared release records in this directory family cover:
+
+- the platform observability baseline
+- the platform-owned dashboard overlay
+
+They do not replace product-local overlay ownership. OpenClaw-specific overlay
+content belongs under:
+
+- [../../../products/openclaw/observability/README.md](../../../products/openclaw/observability/README.md)
 
 ## Related Components
 

@@ -1,19 +1,75 @@
 groups:
   - name: platform-engineering
     rules:
-      - alert: ArgoApplicationOutOfSync
-        expr: argocd_app_info{sync_status!="Synced"} == 1
+      - alert: ArgoApplicationsOutOfSync
+        expr: platform:argocd_apps_out_of_sync:count > 0
         for: 10m
         labels:
           severity: warning
+          layer: platform-baseline
+          component: argocd
+          owner: platform-engineering
+          product: shared
         annotations:
-          summary: Argo CD application is out of sync
-          description: One or more Argo CD applications have remained out of sync for 10 minutes.
-      - alert: OpenClawGatewayUnavailable
-        expr: up{job="openclaw-gateway"} == 0
+          summary: Platform baseline applications are out of sync
+          description: One or more platform baseline applications have remained out of sync for 10 minutes.
+      - alert: ArgoApplicationsUnhealthy
+        expr: platform:argocd_apps_unhealthy:count > 0
         for: 5m
         labels:
           severity: critical
+          layer: platform-baseline
+          component: argocd
+          owner: platform-engineering
+          product: shared
         annotations:
-          summary: OpenClaw gateway metrics endpoint is unavailable
-          description: Prometheus cannot scrape the OpenClaw gateway endpoint.
+          summary: Platform baseline applications are unhealthy
+          description: One or more platform baseline applications are reporting unhealthy state.
+      - alert: VaultClusterUnavailable
+        expr: kube_statefulset_status_replicas_ready{namespace="vault",statefulset="vault"} < kube_statefulset_replicas{namespace="vault",statefulset="vault"}
+        for: 5m
+        labels:
+          severity: critical
+          layer: platform-baseline
+          component: vault
+          owner: platform-engineering
+          product: shared
+        annotations:
+          summary: Vault cluster has unavailable replicas
+          description: One or more Vault replicas are not ready.
+      - alert: PlatformSecretsDeliveryUnhealthy
+        expr: platform:platform_secrets_unhealthy:count > 0
+        for: 5m
+        labels:
+          severity: critical
+          layer: platform-baseline
+          component: platform-secrets
+          owner: platform-engineering
+          product: shared
+        annotations:
+          summary: Platform secret delivery is unhealthy
+          description: One or more platform secret delivery applications are unhealthy.
+      - alert: ObservabilityBaselineUnhealthy
+        expr: platform:observability_apps_unhealthy:count > 0
+        for: 5m
+        labels:
+          severity: critical
+          layer: platform-baseline
+          component: observability
+          owner: platform-engineering
+          product: shared
+        annotations:
+          summary: Platform observability baseline is unhealthy
+          description: One or more observability baseline applications are unhealthy.
+      - alert: PlatformDashboardsOutOfSync
+        expr: platform:platform_dashboards_out_of_sync:count > 0
+        for: 10m
+        labels:
+          severity: warning
+          layer: platform-baseline
+          component: platform-dashboards
+          owner: platform-engineering
+          product: shared
+        annotations:
+          summary: Platform dashboard assets are out of sync
+          description: One or more platform dashboard asset applications have remained out of sync for 10 minutes.

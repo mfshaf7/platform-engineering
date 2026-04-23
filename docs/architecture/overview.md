@@ -175,6 +175,17 @@ Prometheus and Grafana provide:
 - release verification dashboards
 - operational evidence for demonstrations and incident review
 
+The target observability model is platform-centric:
+
+- a shared platform baseline for whole-architecture health
+- shared-component overlays for services such as Vault, broker, OpenProject,
+  External Secrets, and PostgreSQL
+- product overlays for product-specific runtime and user-path monitoring
+
+Current live names may remain in a compatibility phase, but the architecture
+should no longer treat OpenClaw as the identity of the shared observability
+stack.
+
 ### Ansible
 
 Ansible remains the right tool for:

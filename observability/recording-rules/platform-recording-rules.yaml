@@ -3,5 +3,57 @@ groups:
     rules:
       - record: platform:argocd_apps_out_of_sync:count
         expr: count(argocd_app_info{sync_status!="Synced"})
-      - record: platform:openclaw_gateway_up:ratio
-        expr: avg(up{job="openclaw-gateway"})
+        labels:
+          layer: platform-baseline
+          component: argocd
+          owner: platform-engineering
+          product: shared
+      - record: platform:argocd_apps_unhealthy:count
+        expr: count(argocd_app_info{health_status!="Healthy"})
+        labels:
+          layer: platform-baseline
+          component: argocd
+          owner: platform-engineering
+          product: shared
+      - record: platform:vault_ready_replicas:count
+        expr: kube_statefulset_status_replicas_ready{namespace="vault",statefulset="vault"}
+        labels:
+          layer: platform-baseline
+          component: vault
+          owner: platform-engineering
+          product: shared
+      - record: platform:platform_secrets_unhealthy:count
+        expr: count(argocd_app_info{name=~"platform-secrets-stage|platform-secrets-prod",health_status!="Healthy"})
+        labels:
+          layer: platform-baseline
+          component: platform-secrets
+          owner: platform-engineering
+          product: shared
+      - record: platform:observability_apps_unhealthy:count
+        expr: count(argocd_app_info{name=~"openclaw-observability|openclaw-observability-stage",health_status!="Healthy"})
+        labels:
+          layer: platform-baseline
+          component: observability
+          owner: platform-engineering
+          product: shared
+      - record: platform:platform_dashboards_out_of_sync:count
+        expr: count(argocd_app_info{name=~"platform-dashboards-prod|platform-dashboards-stage",sync_status!="Synced"})
+        labels:
+          layer: platform-baseline
+          component: platform-dashboards
+          owner: platform-engineering
+          product: shared
+      - record: platform:healthy_scrape_targets:ratio
+        expr: avg(up == 1)
+        labels:
+          layer: platform-baseline
+          component: observability
+          owner: platform-engineering
+          product: shared
+      - record: platform:running_cluster_pods:count
+        expr: count(kube_pod_status_phase{phase="Running"} == 1)
+        labels:
+          layer: platform-baseline
+          component: cluster-runtime
+          owner: platform-engineering
+          product: shared

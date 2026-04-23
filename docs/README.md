@@ -41,7 +41,7 @@ use the target-architecture documents to claim what is running today.
   - change records and governed rollout evidence
 - `runbooks/`
   - shared platform operations and platform-level procedures
-  - includes the shared full-platform runtime drill and exact-baseline restore surface
+  - includes the shared active-stack runtime drill and exact-baseline restore surface
   - `runbooks/legacy/`
     - retired or historical migration material that is intentionally separated
       from the current operator surface

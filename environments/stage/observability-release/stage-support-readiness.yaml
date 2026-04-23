@@ -1,13 +1,17 @@
 schemaVersion: 1
 component: observability
+layer: platform-baseline
 environment: stage
 status: inactive
 assessedAt: null
 assessedBy: null
 note: >-
-  Stage observability remains intentionally suspended, so stage support
-  readiness stays inactive until the exact stage observability contract is
-  deliberately resumed.
+  Stage platform observability baseline remains intentionally suspended, so
+  stage support readiness stays inactive until the exact stage baseline
+  contract is deliberately resumed.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
 environmentContractRef:
   path: environments/stage/argocd/observability-app.yaml
   chartVersion: 58.2.2

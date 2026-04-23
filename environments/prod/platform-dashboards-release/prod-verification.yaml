@@ -1,5 +1,6 @@
 schemaVersion: 1
 component: platform-dashboards
+layer: shared-component-overlay
 environment: prod
 status: pending
 verifiedAt: null
@@ -7,14 +8,22 @@ verifiedBy: null
 evidenceRef: null
 note: >-
   No governed prod verification is recorded yet for the current platform
-  dashboard asset contract that overlays the prod observability stack.
+  dashboard overlay contract that sits on top of the prod platform
+  observability baseline.
+modelRefs:
+  - path: docs/components/observability/model.yaml
+  - path: docs/decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md
+decisionSurfaces:
+  - operator-live-diagnosis
+  - environment-verification
+  - runtime-drills
 environmentContractRef:
   deploymentContractRefs:
     - path: environments/prod/argocd/platform-dashboards-app.yaml
       kind: argocd-application
   supportingContractRefs:
     - path: environments/prod/argocd/observability-app.yaml
-      role: grafana-host
+      role: platform-baseline-grafana-host
   runtime:
     namespace: observability
   sourceRefs:

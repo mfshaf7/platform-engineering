@@ -2,7 +2,7 @@
 
 ## Grafana
 
-- prod Windows/operator URL: `http://127.0.0.1:32080`
+- prod Windows/operator URL for the platform baseline: `http://127.0.0.1:32080`
 - prod WSL fallback:
 
 ```bash
@@ -13,7 +13,7 @@ k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 300
 
 ## Prometheus
 
-- prod Windows/operator URL: `http://127.0.0.1:32090`
+- prod Windows/operator URL for the platform baseline: `http://127.0.0.1:32090`
 - prod WSL fallback:
 
 ```bash
@@ -24,7 +24,7 @@ k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 90
 
 ## Alertmanager
 
-- prod Windows/operator URL: `http://127.0.0.1:32093`
+- prod Windows/operator URL for the platform baseline: `http://127.0.0.1:32093`
 - prod WSL fallback:
 
 ```bash
@@ -37,6 +37,11 @@ k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 90
 
 Stage observability endpoints are configured in source, but they are only valid
 when stage is deliberately resumed.
+
+Compatibility note:
+
+- the current fallback service names still use legacy OpenClaw-shaped service
+  identifiers during migration
 
 Use:
 

@@ -36,6 +36,7 @@ model without becoming the source repo itself.
 - OpenClaw platform-side architecture and owner model
 - product dependencies
 - host integration shape
+- product-scoped observability overlay assets
 - product visibility and operating checks
 
 ## What It Does Not Cover
@@ -85,6 +86,7 @@ candidate on the same qualified base image.
 - [runtime-contract.md](runtime-contract.md)
 - [dependencies.md](dependencies.md)
 - [host-integration.md](host-integration.md)
+- [observability/README.md](observability/README.md)
 - [runbooks/release-governance.md](runbooks/release-governance.md)
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openclaw.md](runbooks/access-openclaw.md)

@@ -7,43 +7,87 @@ metadata:
 data:
   platform-overview.json: |
     {
-      "title": "Platform Overview",
-      "tags": ["platform-engineering", "openclaw"],
+      "title": "Platform Baseline Overview",
+      "tags": ["platform-engineering", "platform-baseline", "observability", "owner:platform-engineering", "product:shared"],
       "uid": "platform-overview",
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 2,
+      "version": 3,
       "refresh": "30s",
       "panels": [
         {
           "type": "stat",
+          "title": "Argo Apps Out of Sync",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "expr": "platform:argocd_apps_out_of_sync:count",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Argo Apps Unhealthy",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+          "targets": [
+            {
+              "expr": "platform:argocd_apps_unhealthy:count",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "stat",
           "title": "Vault Ready Replicas",
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
           "targets": [
             {
-              "expr": "kube_statefulset_status_replicas_ready{namespace=\"vault\",statefulset=\"vault\"}",
+              "expr": "platform:vault_ready_replicas:count",
               "refId": "A"
             }
           ]
         },
         {
           "type": "stat",
-          "title": "Gateway Pods Running",
-          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "title": "Platform Secrets Unhealthy",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
           "targets": [
             {
-              "expr": "sum(kube_pod_status_phase{namespace=~\"openclaw|openclaw-stage\",pod=~\"openclaw-gateway-.*\",phase=\"Running\"})",
+              "expr": "platform:platform_secrets_unhealthy:count",
               "refId": "A"
             }
           ]
         },
         {
           "type": "stat",
-          "title": "Healthy Scrape Targets",
-          "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+          "title": "Observability Apps Unhealthy",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 5 },
           "targets": [
             {
-              "expr": "count(up == 1)",
+              "expr": "platform:observability_apps_unhealthy:count",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Dashboards Out of Sync",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 5 },
+          "targets": [
+            {
+              "expr": "platform:platform_dashboards_out_of_sync:count",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Healthy Scrape Target Ratio",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 5 },
+          "targets": [
+            {
+              "expr": "platform:healthy_scrape_targets:ratio",
               "refId": "A"
             }
           ]
@@ -51,10 +95,10 @@ data:
         {
           "type": "stat",
           "title": "Running Cluster Pods",
-          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 },
           "targets": [
             {
-              "expr": "count(kube_pod_status_phase{phase=\"Running\"} == 1)",
+              "expr": "platform:running_cluster_pods:count",
               "refId": "A"
             }
           ]

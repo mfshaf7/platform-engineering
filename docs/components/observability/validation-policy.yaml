@@ -1,0 +1,86 @@
+schema_version: 1
+model_ref: model.yaml
+
+shared_product_asset_roots:
+  - observability/alerts
+  - observability/recording-rules
+  - observability/dashboards
+  - observability/service-monitors
+
+rules:
+  - id: platform-baseline-alert-source
+    kind: prometheus-rule-groups
+    paths:
+      - observability/alerts/*.yaml
+    expected_labels:
+      layer: platform-baseline
+      owner: platform-engineering
+      product: shared
+    allowed_components_from_model: scope_layers.platform_baseline.components
+
+  - id: platform-baseline-recording-rule-source
+    kind: prometheus-rule-groups
+    paths:
+      - observability/recording-rules/*.yaml
+    expected_labels:
+      layer: platform-baseline
+      owner: platform-engineering
+      product: shared
+    allowed_components_from_model: scope_layers.platform_baseline.components
+
+  - id: platform-baseline-dashboard-source
+    kind: grafana-dashboard-json
+    paths:
+      - observability/dashboards/*.json
+    required_tags:
+      - platform-baseline
+      - owner:platform-engineering
+      - product:shared
+
+  - id: platform-baseline-embedded-runtime-rules
+    kind: argo-embedded-prometheus-rules
+    paths:
+      - environments/prod/argocd/observability-app.yaml
+      - environments/stage/argocd/observability-app.yaml
+    expected_labels:
+      layer: platform-baseline
+      owner: platform-engineering
+      product: shared
+    allowed_components_from_model: scope_layers.platform_baseline.components
+    expect_lane_from_path: true
+
+  - id: platform-baseline-runtime-dashboard-copies
+    kind: grafana-dashboard-configmap
+    paths:
+      - environments/prod/observability-assets/platform-overview-dashboard.yaml
+      - environments/stage/observability-assets/platform-overview-dashboard.yaml
+    data_key: platform-overview.json
+    required_tags:
+      - platform-baseline
+      - owner:platform-engineering
+      - product:shared
+
+  - id: observability-release-records
+    kind: yaml-fields
+    paths:
+      - environments/prod/observability-release/*.yaml
+      - environments/stage/observability-release/*.yaml
+    expected_fields:
+      layer: platform-baseline
+      component: observability
+
+  - id: platform-dashboards-overlay-release-records
+    kind: yaml-fields
+    paths:
+      - environments/prod/platform-dashboards-release/*.yaml
+      - environments/stage/platform-dashboards-release/*.yaml
+    expected_fields:
+      layer: shared-component-overlay
+      component: platform-dashboards
+
+  - id: product-overlay-catalogs
+    kind: product-overlay-catalog
+    paths:
+      - products/*/observability/overlay-assets.yaml
+    expected_owner_repo: platform-engineering
+    allowed_products_from_model: scope_layers.product_overlays.products

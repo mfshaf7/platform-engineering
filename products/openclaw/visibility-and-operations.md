@@ -31,6 +31,8 @@ Health alone is not enough for OpenClaw.
   deliberately resumed
 - the product does not currently expose a browser application or dashboard of
   its own
+- product-specific observability overlay assets live under:
+  [observability/README.md](observability/README.md)
 - direct operator inspection should use the product access runbook:
   [runbooks/access-openclaw.md](runbooks/access-openclaw.md)
 - shared dashboards and control-plane UIs are documented in:

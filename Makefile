@@ -206,7 +206,7 @@ devint-promote-check:
 
 .PHONY: platform-drill
 platform-drill:
-	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make platform-drill ACTION=plan PROFILE=full-platform-runtime-drill"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make platform-drill ACTION=plan PROFILE=active-stack-runtime-drill"; exit 1; }
 	python3 scripts/platform_drill.py $(ACTION) $(if $(PROFILE),--profile $(PROFILE),) $(if $(PROFILE_PATH),--profile-path $(PROFILE_PATH),) $(if $(RUN),--run $(RUN),) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(ACTOR),--actor $(ACTOR),) $(if $(CHECK),--check $(CHECK),) $(if $(STATUS),--status $(STATUS),) $(if $(PHASE),--phase $(PHASE),) $(if $(SURFACE),--surface $(SURFACE),) $(if $(RUN_ID),--run-id $(RUN_ID),) $(if $(NOTE),--note "$(NOTE)",) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(DECISION),--decision $(DECISION),) $(if $(JUSTIFICATION),--justification "$(JUSTIFICATION)",) $(if $(OWNER),--owner "$(OWNER)",) $(if $(REVIEW_ON),--review-on "$(REVIEW_ON)",) $(if $(OUTPUT_ROOT),--output-root $(OUTPUT_ROOT),) $(if $(FORMAT),--format $(FORMAT),)
 
 .PHONY: environment-readiness
@@ -313,6 +313,7 @@ validate:
 	python3 scripts/validate_environment_readiness.py status stage
 	python3 scripts/validate_environment_readiness.py status prod
 	python3 scripts/validate_single_host_scaling.py
+	python3 scripts/validate_observability_taxonomy.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

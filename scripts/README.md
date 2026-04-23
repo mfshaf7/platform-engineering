@@ -23,13 +23,14 @@ These support shared platform operations:
 
 The default shared drill profile and evidence template live under:
 
-- `../environments/shared/runtime-drills/full-platform-runtime-drill.yaml`
-- `../environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml`
+- `../environments/shared/runtime-drills/active-stack-runtime-drill.yaml`
+- `../environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml`
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `validate_environment_readiness.py`
 - `validate_governance_docs.py`
 - `validate_operational_docs.py`
+- `validate_observability_taxonomy.py`
 - `validate_repo_structure.py`
   - enforces the shared-vs-product repo boundary from
     `../repo-structure-manifest.yaml`
@@ -68,6 +69,12 @@ contract, the shared-vs-product operator-runbook boundary, and the
 operator-surface split between current platform procedures and legacy migration
 materials. It also checks that the shared component indexes in the repo root
 and `docs/components/README.md` cover every governed shared component.
+
+`validate_observability_taxonomy.py` fail-closes the platform observability
+baseline and overlay model so alerts, recording rules, dashboards, release
+records, and product overlay catalogs cannot drift away from the agreed
+platform-baseline / shared-component-overlay / product-overlay split without
+being caught in validation.
 
 `validate_single_host_scaling.py` checks the Git-managed platform runtime
 surfaces under `environments/`, `products/`, and chart values files so new

@@ -13,6 +13,7 @@ shared_paths:
       - validate_environment_readiness.py
       - validate_governance_docs.py
       - validate_operational_docs.py
+      - validate_observability_taxonomy.py
       - validate_repo_structure.py
       - validate_single_host_scaling.py
   docs/runbooks:
@@ -30,7 +31,7 @@ shared_paths:
       - deploy.md
       - dev-integration-profiles.md
       - assess-environment-readiness.md
-      - full-platform-runtime-drill.md
+      - active-stack-runtime-drill.md
       - host-runtime-drift-recovery.md
       - incident-hotfix.md
       - platform-naming-audit.md
@@ -97,6 +98,8 @@ components:
         - architecture.md
         - access.md
         - operations.md
+        - model.yaml
+        - validation-policy.yaml
     external-secrets:
       required_files:
         - README.md

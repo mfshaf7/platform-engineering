@@ -1,4 +1,4 @@
-# ADR-014: Governed Full-Platform Runtime Drill And Restore Workflow
+# ADR-014: Governed Active-Stack Runtime Drill And Restore Workflow
 
 ## Status
 
@@ -14,11 +14,12 @@ runtime exercise was needed:
 
 - OpenClaw became the de facto drill path because it was the only mature
   product-specific workflow
-- the operator intent was broader than OpenClaw and actually meant a full
-  platform exercise
+- the operator intent was broader than OpenClaw and actually meant the current
+  active operator-critical stack
 - there was no explicit distinction between:
   - product-only drill
-  - full-platform drill
+  - active-stack drill
+  - environment-complete drill
   - lifecycle-control drill
   - governed promotion or rehearsal
 - there was no platform-owned rule that restore means the exact pre-drill live
@@ -27,7 +28,8 @@ runtime exercise was needed:
 That gap creates real control risk:
 
 - drill scope can be under-declared
-- operators can claim a full rehearsal when only one product path was tested
+- operators can overstate scope when only the active mixed-lane stack was
+  tested
 - temporary drill activation can drift into untracked live-state change
 - later operators cannot tell whether the environment was actually restored
 
@@ -47,9 +49,10 @@ That model makes these decisions explicit:
   - scoped local source or runtime activation path
 - the shared runtime drill types are:
   - `product-runtime-drill`
-  - `full-platform-runtime-drill`
+  - `active-stack-runtime-drill`
+  - `environment-complete-runtime-drill`
   - `lifecycle-control-drill`
-- the initial full-platform drill scope for this workspace includes:
+- the initial active-stack drill scope for this workspace includes:
   - `OpenClaw`
   - `OpenProject`
   - `operator-orchestration-service`
@@ -77,8 +80,8 @@ security delta review are follow-on implementation work.
 
 - the platform now has an explicit control boundary between runtime drill and
   governed promotion
-- a full-platform drill can no longer silently collapse into an OpenClaw-only
-  path
+- an active-stack drill can no longer silently collapse into an OpenClaw-only
+  path or overstate itself as an estate-complete platform exercise
 - restore semantics are now deterministic and reviewable
 - future scripts and runbooks can implement one shared model instead of
   embedding local operator assumptions

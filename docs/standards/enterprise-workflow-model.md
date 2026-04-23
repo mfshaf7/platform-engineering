@@ -84,7 +84,7 @@ and use [governed-runtime-drill-model.md](governed-runtime-drill-model.md).
 
 That standard makes these distinctions explicit:
 
-- product-only drill versus full-platform drill
+- product-only drill versus active-stack drill versus environment-complete drill
 - runtime drill versus governed promotion
 - baseline snapshot versus desired Git state
 - restore-to-baseline versus durable live-state change

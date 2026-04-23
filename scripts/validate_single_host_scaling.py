@@ -18,6 +18,7 @@ YAML_GLOBS = (
     "charts/**/*.yaml",
 )
 LITERAL_SCALE_RE = re.compile(r"^\s*(replicas|replicaCount|minReplicas):\s*([2-9]\d*)\s*$")
+EMBEDDED_HELM_VALUES_SUFFIX = ".helm.values"
 
 
 def load_policy(policy_path: Path) -> dict[str, Any]:
@@ -72,6 +73,22 @@ def is_exempt(policy: dict[str, Any], rel_path: str, yaml_path: str, value: int)
     return False
 
 
+def parse_embedded_yaml(value: Any) -> Any | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        documents = [document for document in yaml.safe_load_all(value) if document is not None]
+    except yaml.YAMLError:
+        return None
+    if not documents:
+        return None
+    if len(documents) == 1 and isinstance(documents[0], (dict, list)):
+        return documents[0]
+    if all(isinstance(document, (dict, list)) for document in documents):
+        return documents
+    return None
+
+
 def walk_yaml(
     errors: list[str],
     policy: dict[str, Any],
@@ -90,6 +107,11 @@ def walk_yaml(
                             f"{rel_path}: {key_path}={replica_value} exceeds default_max_replicas="
                             f"{policy['default_max_replicas']}"
                         )
+            if key_path.endswith(EMBEDDED_HELM_VALUES_SUFFIX):
+                embedded_yaml = parse_embedded_yaml(value)
+                if embedded_yaml is not None:
+                    walk_yaml(errors, policy, rel_path, embedded_yaml, key_path)
+                    continue
             walk_yaml(errors, policy, rel_path, value, key_path)
         return
 

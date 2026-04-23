@@ -1,0 +1,29 @@
+schemaVersion: 1
+checks:
+  reconciliation-state:
+    category: deployment-state
+    description: Argo reconciliation, the chart contract, and the live OpenProject runtime all match the recorded prod contract.
+    capabilityTags:
+      - runtime
+      - deployment-state
+    requiredByDefault: true
+    acceptedCompletionStatuses:
+      - passed
+  operator-access-path-smoke:
+    category: operator-path
+    description: The supported Windows or WSL OpenProject access path reaches the login surface for the promoted prod contract.
+    capabilityTags:
+      - operator-ui
+      - runtime
+    requiredByDefault: true
+    acceptedCompletionStatuses:
+      - passed
+  delivery-art-quality-smoke:
+    category: workflow-plane
+    description: The governed delivery ART quality check still passes after the prod contract change.
+    capabilityTags:
+      - delivery-art
+      - operator-workflow
+    requiredByDefault: true
+    acceptedCompletionStatuses:
+      - passed

@@ -1,0 +1,23 @@
+schemaVersion: 1
+product: openproject
+environment: stage
+status: pending
+verifiedAt: null
+verifiedBy: null
+evidenceRef: null
+note: >-
+  No governed stage verification is recorded yet for the current
+  platform-owned OpenProject candidate. Do not treat localhost reachability,
+  Argo health, or secret sync as stage readiness by themselves.
+candidateRef:
+  path: environments/prod/openproject-release/stage-candidate.yaml
+  status: candidate
+  chartVersion: 13.4.4
+  applicationImage: docker.io/openproject/openproject:17.2.3-slim
+  requiredChecks:
+    - operator-access-path
+    - admin-password-sync
+    - postgresql-dependency
+    - application-stability
+    - delivery-art-quality
+checks: []

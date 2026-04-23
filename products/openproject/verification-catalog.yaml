@@ -1,0 +1,46 @@
+schemaVersion: 1
+checks:
+  operator-access-path:
+    category: operator-path
+    description: The supported OpenProject operator access path reaches the login surface for the exact candidate.
+    capabilityTags:
+      - operator-ui
+      - runtime
+    requiredByDefault: true
+    acceptedReadinessStatuses:
+      - passed
+  admin-password-sync:
+    category: secrets
+    description: The Vault-backed admin secret is synchronized and the documented admin-password reconciliation path succeeds when needed.
+    capabilityTags:
+      - vault-backed-secrets
+      - operator-ui
+    requiredByDefault: true
+    acceptedReadinessStatuses:
+      - passed
+  postgresql-dependency:
+    category: dependency
+    description: The OpenProject runtime can reach the platform-managed PostgreSQL dependency for the exact candidate.
+    capabilityTags:
+      - database
+      - runtime
+    requiredByDefault: true
+    acceptedReadinessStatuses:
+      - passed
+  application-stability:
+    category: runtime
+    description: The OpenProject web and worker workloads stay stable after reconciliation for the exact candidate contract.
+    capabilityTags:
+      - runtime
+    requiredByDefault: true
+    acceptedReadinessStatuses:
+      - passed
+  delivery-art-quality:
+    category: workflow-plane
+    description: The current Workspace Delivery ART quality check still passes against the OpenProject product plane used for governed delivery work.
+    capabilityTags:
+      - delivery-art
+      - operator-workflow
+    requiredByDefault: true
+    acceptedReadinessStatuses:
+      - passed

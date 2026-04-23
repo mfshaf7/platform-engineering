@@ -1,0 +1,48 @@
+schemaVersion: 1
+product: openproject
+environment: stage
+tier: platform_integrated_product
+status: candidate
+recordedAt: '2026-04-23T00:42:06Z'
+recordedBy: Dev Integration Admin
+recordedPlatformEngineeringCommit: a97d8715eb7b0b00d3a63ea66c59d40fde1af41a
+note: >-
+  Initial governed stage candidate recorded from the current platform-owned
+  OpenProject deployment contract. OpenProject remains platform-integrated, so
+  this candidate snapshots the exact prod-managed contract that future governed
+  rehearsal and readiness approval must reference.
+candidate:
+  deploymentContractRefs:
+    - path: environments/prod/argocd/openproject-app.yaml
+      kind: argocd-application
+    - path: environments/prod/argocd/openproject-secrets-app.yaml
+      kind: argocd-application
+  supportingContractRefs:
+    - path: environments/prod/argocd/platform-postgresql-app.yaml
+      role: external-database
+  chart:
+    repository: https://charts.openproject.org
+    name: openproject
+    version: 13.4.4
+  runtime:
+    namespace: openproject
+    applicationImage: docker.io/openproject/openproject:17.2.3-slim
+    operatorAccessUrl: http://127.0.0.1:32083/login
+    webReplicas: 1
+    workerReplicas: 1
+    webWorkers: 1
+    goodJobMaxThreads: 10
+  sourceRefs:
+    platformEngineering: a97d8715eb7b0b00d3a63ea66c59d40fde1af41a
+  requiredChecks:
+    - operator-access-path
+    - admin-password-sync
+    - postgresql-dependency
+    - application-stability
+    - delivery-art-quality
+  capabilities:
+    - delivery-art
+    - idea-backlog
+    - operator-ui
+    - runtime
+    - vault-backed-secrets

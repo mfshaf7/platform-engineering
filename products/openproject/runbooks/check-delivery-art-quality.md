@@ -20,6 +20,8 @@ The supported quality check currently verifies:
 - non-done delivery work does not still carry completion-evidence sections
 - `done` delivery work carries substantive completion evidence
 - `done` delivery work does not carry weak or malformed completion attestation
+- `done` delivery work does not carry weak done-state narrative structure,
+  especially a broken `Execution Context`
 - `done` delivery work does not still have descendants outside `done` or
   `retired`
 - active execution items do not violate the structured ready contract
@@ -75,8 +77,18 @@ That includes done-state attestation drift such as:
   `NOT APPLICABLE:` / `Attached artifact:` prefixes
 - `Validation Evidence` bullets missing the required `PASS:` / `FAIL:` /
   `CHECK:` / `NOT APPLICABLE:` / `Attached artifact:` prefixes
+- broker-reported `done_narrative_contract_*` drift on done items, including:
+  - missing required done-state narrative headings
+  - empty required narrative sections
+  - `Execution Context` that is not a flat bullet list
+  - `Execution Context` that no longer matches stored owner, parent, delivery
+    team, or iteration values
 
-Narrative findings are advisory, but they still matter:
+Narrative findings are advisory only for epic and non-done execution work. Once
+an item is `done`, narrative-quality drift is a hard failure through the
+broker-reported done-state contract.
+
+Advisory narrative findings still matter for non-done work:
 
 - `rewrite-required`
   - too weak to operate safely on the active slice

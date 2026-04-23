@@ -322,6 +322,46 @@ def validate_rule(
                         )
             continue
 
+        if kind == "shared-component-overlay-catalog":
+            document = load_yaml_mapping(path)
+            component = document.get("component")
+            overlay_type = document.get("overlay_type")
+            owner_repo = document.get("owner_repo")
+            allowed_components = resolve_model_value(model, rule["allowed_components_from_model"])
+            if overlay_type != "shared-component-overlay":
+                errors.append(
+                    f"{rel_path}: overlay_type must be 'shared-component-overlay', found {overlay_type!r}"
+                )
+            if component not in allowed_components:
+                errors.append(
+                    f"{rel_path}: component {component!r} is not allowed; "
+                    f"expected one of {', '.join(allowed_components)}"
+                )
+            expected_owner_repo = rule.get("expected_owner_repo")
+            if owner_repo != expected_owner_repo:
+                errors.append(f"{rel_path}: owner_repo must be {expected_owner_repo!r}, found {owner_repo!r}")
+            model_ref = document.get("model_ref")
+            if not isinstance(model_ref, str) or not model_ref:
+                errors.append(f"{rel_path}: model_ref is required")
+            else:
+                resolved_model_ref = resolve_relative_path(path.parent, model_ref)
+                if resolved_model_ref != resolve_relative_path(policy_root, "model.yaml"):
+                    errors.append(
+                        f"{rel_path}: model_ref must resolve to docs/components/observability/model.yaml"
+                    )
+            for asset in document.get("owned_assets", []) or []:
+                if not isinstance(asset, dict):
+                    errors.append(f"{rel_path}: owned_assets entries must be mappings")
+                    continue
+                raw_asset_path = asset.get("path")
+                if not isinstance(raw_asset_path, str) or not raw_asset_path:
+                    errors.append(f"{rel_path}: owned_assets path is required")
+                    continue
+                resolved_asset = (repo_root / raw_asset_path).resolve()
+                if not resolved_asset.exists():
+                    errors.append(f"{rel_path}: owned asset {raw_asset_path!r} does not exist")
+            continue
+
         raise SystemExit(f"{POLICY_PATH}: unsupported rule kind {kind!r}")
 
     return scanned

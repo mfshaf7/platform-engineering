@@ -3,16 +3,9 @@
 ## Primary Checks
 
 ```bash
-k3s kubectl -n argocd get application openclaw-observability platform-dashboards-prod
+k3s kubectl -n argocd get application platform-observability-prod platform-dashboards-prod
 k3s kubectl -n observability get all
 ```
-
-Compatibility note:
-
-- `openclaw-observability` is still the implementation-time Argo application
-  name for the shared platform baseline during migration
-- `platform-dashboards-prod` is the shared dashboard overlay on top of that
-  baseline
 
 ## Common Failure Signals
 
@@ -36,13 +29,13 @@ Compatibility note:
 ## Useful Live Checks
 
 ```bash
-k3s kubectl -n observability get svc openclaw-observability-grafana platform-operator-ui-auth-proxy
+k3s kubectl -n observability get svc platform-observability-prod-grafana platform-operator-ui-auth-proxy
 k3s kubectl -n observability get pods
 ```
 
 ## Recovery Sequence
 
-1. verify the platform baseline Argo app `openclaw-observability` and the
+1. verify the platform baseline Argo app `platform-observability-prod` and the
    dashboard overlay app `platform-dashboards-prod`
 2. verify service and pod state in `observability`
 3. isolate whether the failure is in:

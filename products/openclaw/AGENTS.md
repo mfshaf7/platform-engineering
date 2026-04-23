@@ -92,7 +92,7 @@ unless it is genuinely shared platform behavior.
 - `quarantined` must require an incident reference and block prod promotion.
 - Returning prod to `live` requires fresh prod smoke/UAT before treating prod
   as operationally complete.
-- `products/openclaw/platform-operator-catalog.yaml` is the platform-owned
+- `../../docs/runbooks/platform-operator-catalog.yaml` is the platform-owned
   source of truth for the read-only Telegram `/platform` operator surface.
 - the Telegram overlay artifact lane is allowed only as an explicit contract
   tied to a qualified OpenClaw base image.

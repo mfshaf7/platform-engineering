@@ -22,19 +22,14 @@ The supported human-operator path is Windows localhost through the
 For a WSL shell-local fallback, use:
 
 ```bash
-k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80
+k3s kubectl -n observability port-forward svc/platform-observability-prod-grafana 3000:80
 ```
 
 If stage observability is resumed, the stage shell-local fallback is:
 
 ```bash
-k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80
+k3s kubectl -n observability-stage port-forward svc/platform-observability-stage-grafana 3001:80
 ```
-
-Compatibility note:
-
-- the service names still use legacy OpenClaw-shaped identifiers during the
-  compatibility migration
 
 ## Credentials
 

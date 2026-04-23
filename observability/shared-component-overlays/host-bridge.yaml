@@ -1,0 +1,19 @@
+schema_version: 1
+component: host-bridge
+overlay_type: shared-component-overlay
+status: compatibility-phase
+owner_repo: platform-engineering
+model_ref: ../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: products/openclaw/visibility-and-operations.md
+    kind: product-operations-surface
+    purpose: current platform-side operator evidence for the host bridge boundary
+    lifecycle: active
+  - path: docs/architecture/current-platform-topology.md
+    kind: live-topology
+    purpose: current live topology reference for host-connected runtime surfaces
+    lifecycle: active
+
+notes:
+  - The canonical host-control implementation remains in openclaw-host-bridge; this catalog records the platform-side overlay surfaces only.

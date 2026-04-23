@@ -68,8 +68,8 @@ platform_restart_validation_applications:
   - platform-secrets-stage
   - platform-secrets-prod
   - openclaw-gateway
-  - openclaw-observability
-  - openclaw-observability-stage
+  - platform-observability-prod
+  - platform-observability-stage
 platform_argocd_reconciliation_timeout_seconds: 180
 platform_argocd_reconciliation_poll_interval_seconds: 5
 platform_windows_localhost_forward_ports:

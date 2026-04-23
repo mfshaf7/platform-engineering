@@ -1,0 +1,23 @@
+schema_version: 1
+component: operator-orchestration-service
+overlay_type: shared-component-overlay
+status: active
+owner_repo: platform-engineering
+model_ref: ../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: docs/components/operator-orchestration-service/README.md
+    kind: component-readme
+    purpose: component observability and ownership entrypoint
+    lifecycle: active
+  - path: docs/components/operator-orchestration-service/access.md
+    kind: access-surface
+    purpose: operator access expectations for the broker component
+    lifecycle: active
+  - path: docs/components/operator-orchestration-service/operations.md
+    kind: operations-surface
+    purpose: live broker diagnosis and operating checks
+    lifecycle: active
+
+notes:
+  - The broker remains a shared-component overlay even when the active ART lane runs from devint.

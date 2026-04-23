@@ -1,7 +1,8 @@
 schemaVersion: 1
-catalogId: openclaw-platform-operator
-title: Platform operator catalog
-lastReviewed: "2026-04-17"
+catalogId: platform-operator-ui
+title: Shared platform operator UI catalog
+ownerRepo: platform-engineering
+lastReviewed: "2026-04-24"
 surfaces:
   - id: argo-cd
     label: Argo CD
@@ -33,13 +34,11 @@ surfaces:
     category: observability
     currentState: live
     operatorUrl: http://127.0.0.1:32080
-    wslFallback: k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80
+    wslFallback: k3s kubectl -n observability port-forward svc/platform-observability-prod-grafana 3000:80
     credentialSource: Vault path kv/platform/observability/prod/grafana-admin
     healthChecks:
       - Grafana login page reachable
       - Platform observability baseline workloads healthy
-    troubleshootingNotes:
-      - Compatibility-phase service name remains openclaw-observability-grafana
   - id: prometheus-prod
     label: Platform Prometheus prod
     category: observability
@@ -89,13 +88,11 @@ surfaces:
     category: observability
     currentState: not currently live
     operatorUrl: http://127.0.0.1:32081 only when stage observability is resumed
-    wslFallback: resume stage, then k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80
+    wslFallback: resume stage, then k3s kubectl -n observability-stage port-forward svc/platform-observability-stage-grafana 3001:80
     credentialSource: Vault path kv/platform/observability/stage/grafana-admin
     healthChecks:
       - Stage observability resumed explicitly
       - Stage platform observability baseline workloads healthy
-    troubleshootingNotes:
-      - Compatibility-phase service name remains openclaw-observability-sta-grafana
   - id: prometheus-stage
     label: Platform Prometheus stage
     category: observability

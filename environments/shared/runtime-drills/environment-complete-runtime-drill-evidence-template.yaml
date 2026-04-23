@@ -1,0 +1,368 @@
+schema_version: 1
+id: environment-complete-runtime-drill-evidence
+title: Governed environment-complete runtime drill evidence pack
+run:
+  runId: ""
+  profileId: ""
+  title: ""
+  authorityType: ""
+  drillType: ""
+  createdAt: ""
+  createdBy: ""
+  runDir: ""
+  contractPath: ""
+  evidenceOwner: ""
+authoritativeArtifacts:
+  runManifest: run.yaml
+  baselineSnapshot: baseline.yaml
+  verificationLedger: verification.yaml
+  restoreLedger: restore.yaml
+  evidencePack: evidence.yaml
+baselineAttestation:
+  captureStatus: pending
+  sourceRepos: []
+  surfaceAttestations:
+    - id: accepted-idea-delivery-devint
+      lane: devint
+      ownerRepo: platform-engineering
+      summary: Accepted-idea-delivery devint runtime for OpenProject and broker-backed delivery work.
+      evidenceRef: ""
+      note: ""
+    - id: operator-orchestration-service-shared
+      lane: shared
+      ownerRepo: operator-orchestration-service
+      summary: Shared non-devint broker lane outside the accepted-idea-delivery devint profile.
+      evidenceRef: ""
+      note: ""
+    - id: openproject-prod
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Governed prod OpenProject runtime and supporting service slice.
+      evidenceRef: ""
+      note: ""
+    - id: openclaw-stage
+      lane: stage
+      ownerRepo: platform-engineering
+      summary: Governed OpenClaw stage lifecycle and component rehearsal lane.
+      evidenceRef: ""
+      note: ""
+    - id: openclaw-prod
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Bounded OpenClaw prod lifecycle drill surface.
+      evidenceRef: ""
+      note: ""
+    - id: vault
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Shared secret authority and recovery boundary.
+      evidenceRef: ""
+      note: ""
+    - id: external-secrets
+      lane: shared
+      ownerRepo: platform-engineering
+      summary: Controller secret-delivery path into runtime namespaces.
+      evidenceRef: ""
+      note: ""
+    - id: platform-postgresql
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Shared PostgreSQL service supporting OpenProject.
+      evidenceRef: ""
+      note: ""
+    - id: platform-observability-prod
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Prod platform observability baseline stack and auth-proxy exposure.
+      evidenceRef: ""
+      note: ""
+    - id: platform-observability-stage
+      lane: stage
+      ownerRepo: platform-engineering
+      summary: Stage platform observability baseline stack and auth-proxy exposure.
+      evidenceRef: ""
+      note: ""
+    - id: platform-dashboards-prod
+      lane: prod
+      ownerRepo: platform-engineering
+      summary: Prod shared dashboard overlay hosted on the platform observability baseline.
+      evidenceRef: ""
+      note: ""
+    - id: platform-dashboards-stage
+      lane: stage
+      ownerRepo: platform-engineering
+      summary: Stage shared dashboard overlay hosted on the platform observability baseline.
+      evidenceRef: ""
+      note: ""
+    - id: host-bridge
+      lane: shared
+      ownerRepo: openclaw-host-bridge
+      summary: Required host bridge surfaces used by OpenClaw stage/runtime control.
+      evidenceRef: ""
+      note: ""
+activationSummary:
+  status: pending
+  records: []
+verificationResults:
+  checks:
+    - id: accepted-idea-delivery-runtime
+      category: runtime
+      summary: Devint OpenProject, worker, PostgreSQL, and broker are reachable enough for ART work.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: shared-broker-runtime
+      category: runtime
+      summary: The shared non-devint broker lane is intentionally exercised or explicitly acknowledged as inactive with evidence.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openproject-prod-runtime
+      category: runtime
+      summary: The prod OpenProject runtime is exercised or explicitly acknowledged when the admitted prod lane is intentionally absent.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-stage-runtime
+      category: runtime
+      summary: Stage OpenClaw runtime matches the scoped rehearsal window for the drill.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-prod-lifecycle
+      category: lifecycle
+      summary: Prod OpenClaw lifecycle transitions and bounded drill exposure behave as expected.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: secrets-delivery-chain
+      category: secrets
+      summary: Vault and External Secrets still deliver the required secret material for the estate-complete drill surfaces.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: supporting-components-ready
+      category: readiness
+      summary: Shared supporting components outside observability remain healthy enough for the exercise.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: observability-prod-runtime
+      category: observability
+      summary: The prod platform observability baseline and dashboard overlay are exercised as part of estate-complete coverage.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: observability-stage-runtime
+      category: observability
+      summary: The stage platform observability baseline and dashboard overlay are exercised as part of estate-complete coverage.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: restore-attestation
+      category: restore
+      summary: The final restore proof shows the in-scope surfaces match the captured baseline or an approved exception.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+exceptionRegister:
+  entries: []
+supplementalRecords: []
+restoreAttestation:
+  restoreMode: exact-baseline
+  surfaces:
+    - id: accepted-idea-delivery-devint
+      summary: Restore the devint namespace, workloads, and access path to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: operator-orchestration-service-shared
+      summary: Restore the shared broker lane and caller-facing mutation surface to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openproject-prod
+      summary: Restore the prod OpenProject runtime and support slice to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-stage
+      summary: Restore stage lifecycle, child applications, and bridge posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: openclaw-prod
+      summary: Restore prod lifecycle, child applications, and bounded exposure to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: vault
+      summary: Restore Vault runtime posture and secret-authority state to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: external-secrets
+      summary: Restore controller secret-delivery posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-postgresql
+      summary: Restore shared PostgreSQL posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-observability-prod
+      summary: Restore prod observability runtime posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-observability-stage
+      summary: Restore stage observability runtime posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-dashboards-prod
+      summary: Restore prod dashboard overlay posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: platform-dashboards-stage
+      summary: Restore stage dashboard overlay posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: host-bridge
+      summary: Restore required host bridge services and related control posture to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+finalAssessment:
+  outcome: pending
+  summary: ""
+  completedAt: ""
+  completedBy: ""

@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openclaw-observability
+  name: platform-observability-prod
   namespace: argocd
 spec:
   project: platform-core
@@ -11,6 +11,7 @@ spec:
     targetRevision: 58.2.2
     helm:
       values: |
+        fullnameOverride: platform-observability-prod
         grafana:
           enabled: true
           defaultDashboardsEnabled: true
@@ -65,7 +66,7 @@ spec:
                       lane: prod
                       product: shared
                   - record: platform:observability_apps_unhealthy:count
-                    expr: count(argocd_app_info{name=~"openclaw-observability|openclaw-observability-stage",health_status!="Healthy"})
+                    expr: count(argocd_app_info{name=~"platform-observability-prod|platform-observability-stage",health_status!="Healthy"})
                     labels:
                       layer: platform-baseline
                       component: observability
@@ -97,7 +98,7 @@ spec:
                       lane: prod
                       product: shared
                   - alert: PlatformBaselineApplicationsOutOfSync
-                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-prod|vault|platform-secrets-prod|openclaw-observability|platform-dashboards-prod",sync_status!="Synced"}) > 0
+                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-prod|vault|platform-secrets-prod|platform-observability-prod|platform-dashboards-prod",sync_status!="Synced"}) > 0
                     for: 10m
                     labels:
                       severity: warning
@@ -110,7 +111,7 @@ spec:
                       summary: Production platform baseline applications are out of sync
                       description: One or more production baseline applications have remained out of sync for 10 minutes.
                   - alert: PlatformBaselineApplicationsUnhealthy
-                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-prod|vault|platform-secrets-prod|openclaw-observability|platform-dashboards-prod",health_status!="Healthy"}) > 0
+                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-prod|vault|platform-secrets-prod|platform-observability-prod|platform-dashboards-prod",health_status!="Healthy"}) > 0
                     for: 5m
                     labels:
                       severity: critical
@@ -149,7 +150,7 @@ spec:
                       summary: Production platform secret delivery is unhealthy
                       description: The production platform secrets application is unhealthy, indicating ESO sync or store issues.
                   - alert: ObservabilityBaselineUnhealthy
-                    expr: count(argocd_app_info{name="openclaw-observability",health_status!="Healthy"}) > 0
+                    expr: count(argocd_app_info{name="platform-observability-prod",health_status!="Healthy"}) > 0
                     for: 5m
                     labels:
                       severity: critical

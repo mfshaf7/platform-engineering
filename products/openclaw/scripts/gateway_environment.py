@@ -126,7 +126,7 @@ def _remove_pod_annotation(gateway_values: dict, key: str) -> None:
 
 
 def load_platform_operator_catalog(repo_root: Path) -> dict:
-    return load_yaml(repo_root / "products" / "openclaw" / "platform-operator-catalog.yaml")
+    return load_yaml(repo_root / "docs" / "runbooks" / "platform-operator-catalog.yaml")
 
 
 def is_placeholder(value: str | None) -> bool:

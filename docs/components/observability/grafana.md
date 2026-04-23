@@ -12,15 +12,10 @@ baseline and the platform-owned dashboard overlay.
 - WSL fallback:
 
 ```bash
-k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80
+k3s kubectl -n observability port-forward svc/platform-observability-prod-grafana 3000:80
 ```
 
 - credential source: `kv/platform/observability/prod/grafana-admin`
-
-Compatibility note:
-
-- the fallback service name remains `openclaw-observability-grafana` during the
-  compatibility migration even though the surface is platform-owned
 
 ## Typical Operator Use
 

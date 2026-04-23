@@ -130,6 +130,18 @@ exceptionHandling:
     - workaround
     - accept-risk
     - defer
+evidenceModel:
+  templatePath: environments/shared/runtime-drills/full-platform-runtime-drill-evidence-template.yaml
+  requiredSections:
+    - run
+    - authoritativeArtifacts
+    - baselineAttestation
+    - activationSummary
+    - verificationResults
+    - exceptionRegister
+    - supplementalRecords
+    - restoreAttestation
+    - finalAssessment
 restoreMode: exact-baseline
 restoreScope:
   surfaces:

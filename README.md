@@ -127,6 +127,7 @@ That split is implemented under:
 - [docs/runbooks/access-platform-uis.md](docs/runbooks/access-platform-uis.md)
 - [docs/runbooks/dev-integration-profiles.md](docs/runbooks/dev-integration-profiles.md)
 - [docs/runbooks/assess-environment-readiness.md](docs/runbooks/assess-environment-readiness.md)
+- [docs/runbooks/full-platform-runtime-drill.md](docs/runbooks/full-platform-runtime-drill.md)
 - [docs/standards/README.md](docs/standards/README.md)
 - [docs/standards/enterprise-workflow-model.md](docs/standards/enterprise-workflow-model.md)
 - [docs/standards/dev-integration-lane.md](docs/standards/dev-integration-lane.md)

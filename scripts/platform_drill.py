@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 from typing import Any
 
 import yaml
@@ -47,13 +47,20 @@ def dump_yaml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
+def resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
+    candidate = Path(raw_path).expanduser()
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (repo_root / candidate).resolve()
+
+
 def default_profile_path(repo_root: Path, profile: str) -> Path:
     return repo_root / "environments" / "shared" / "runtime-drills" / f"{profile}.yaml"
 
 
 def resolve_profile(repo_root: Path, profile: str, profile_path: str | None) -> Path:
     if profile_path:
-      return Path(profile_path).expanduser().resolve()
+        return Path(profile_path).expanduser().resolve()
     return default_profile_path(repo_root, profile)
 
 
@@ -101,6 +108,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         "preconditions",
         "verificationPack",
         "exceptionHandling",
+        "evidenceModel",
         "restoreMode",
         "restoreScope",
         "evidenceOwner",
@@ -166,6 +174,16 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             f"{path} exceptionHandling.decisions must exactly be: {', '.join(sorted(DECISIONS))}"
         )
 
+    evidence_model = payload.get("evidenceModel") or {}
+    if not isinstance(evidence_model, dict):
+        raise SystemExit(f"{path} evidenceModel must be an object")
+    template_path = str(evidence_model.get("templatePath") or "").strip()
+    if not template_path:
+        raise SystemExit(f"{path} evidenceModel.templatePath is required")
+    required_sections = evidence_model.get("requiredSections") or []
+    if not isinstance(required_sections, list) or not required_sections:
+        raise SystemExit(f"{path} evidenceModel.requiredSections must be a non-empty list")
+
     if payload.get("restoreMode") != "exact-baseline":
         raise SystemExit(f"{path} restoreMode must be 'exact-baseline'")
 
@@ -180,6 +198,94 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         raise SystemExit(
             f"{path} restoreScope is missing surfaces declared in scope: {', '.join(sorted(missing_restore))}"
         )
+    return payload
+
+
+def validate_evidence_template(path: Path, payload: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
+    required_top_level = {
+        "schema_version",
+        "id",
+        "title",
+        "run",
+        "authoritativeArtifacts",
+        "baselineAttestation",
+        "activationSummary",
+        "verificationResults",
+        "exceptionRegister",
+        "supplementalRecords",
+        "restoreAttestation",
+        "finalAssessment",
+    }
+    missing = sorted(required_top_level - payload.keys())
+    if missing:
+        raise SystemExit(f"{path} is missing required keys: {', '.join(missing)}")
+
+    required_sections = set((contract.get("evidenceModel") or {}).get("requiredSections") or [])
+    if not required_sections.issubset(payload.keys()):
+        missing_sections = sorted(required_sections - set(payload.keys()))
+        raise SystemExit(
+            f"{path} is missing required evidence sections from contract: {', '.join(missing_sections)}"
+        )
+
+    artifacts = payload.get("authoritativeArtifacts") or {}
+    expected_artifacts = {
+        "runManifest": "run.yaml",
+        "baselineSnapshot": "baseline.yaml",
+        "verificationLedger": "verification.yaml",
+        "restoreLedger": "restore.yaml",
+        "evidencePack": "evidence.yaml",
+    }
+    if artifacts != expected_artifacts:
+        raise SystemExit(
+            f"{path} authoritativeArtifacts must exactly match the shared drill run files"
+        )
+
+    baseline = payload.get("baselineAttestation") or {}
+    if str(baseline.get("captureStatus") or "").strip() != "pending":
+        raise SystemExit(f"{path} baselineAttestation.captureStatus must start as pending")
+    surface_attestations = baseline.get("surfaceAttestations") or []
+    expected_surface_ids = {surface["id"] for surface in contract["scope"]["surfaces"]}
+    actual_surface_ids = {str(surface.get("id") or "").strip() for surface in surface_attestations}
+    if actual_surface_ids != expected_surface_ids:
+        raise SystemExit(
+            f"{path} baselineAttestation.surfaceAttestations must match the contract surfaces exactly"
+        )
+
+    activation = payload.get("activationSummary") or {}
+    if str(activation.get("status") or "").strip() != "pending":
+        raise SystemExit(f"{path} activationSummary.status must start as pending")
+    if not isinstance(activation.get("records") or [], list):
+        raise SystemExit(f"{path} activationSummary.records must be a list")
+
+    verification = payload.get("verificationResults") or {}
+    checks = verification.get("checks") or []
+    expected_check_ids = {check["id"] for check in contract["verificationPack"]["checks"]}
+    actual_check_ids = {str(check.get("id") or "").strip() for check in checks}
+    if actual_check_ids != expected_check_ids:
+        raise SystemExit(
+            f"{path} verificationResults.checks must match the contract verification checks exactly"
+        )
+
+    restore = payload.get("restoreAttestation") or {}
+    if restore.get("restoreMode") != contract["restoreMode"]:
+        raise SystemExit(f"{path} restoreAttestation.restoreMode must match the contract restoreMode")
+    restore_surfaces = restore.get("surfaces") or []
+    actual_restore_ids = {str(surface.get("id") or "").strip() for surface in restore_surfaces}
+    expected_restore_ids = {surface["id"] for surface in contract["restoreScope"]["surfaces"]}
+    if actual_restore_ids != expected_restore_ids:
+        raise SystemExit(
+            f"{path} restoreAttestation.surfaces must match the contract restore surfaces exactly"
+        )
+
+    exception_register = payload.get("exceptionRegister") or {}
+    if not isinstance(exception_register.get("entries") or [], list):
+        raise SystemExit(f"{path} exceptionRegister.entries must be a list")
+    if not isinstance(payload.get("supplementalRecords") or [], list):
+        raise SystemExit(f"{path} supplementalRecords must be a list")
+
+    final_assessment = payload.get("finalAssessment") or {}
+    if str(final_assessment.get("outcome") or "").strip() != "pending":
+        raise SystemExit(f"{path} finalAssessment.outcome must start as pending")
     return payload
 
 
@@ -266,6 +372,15 @@ def profile_payload(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
     return path, payload
 
 
+def evidence_template_payload(
+    repo_root: Path, profile_path: Path, contract: dict[str, Any]
+) -> tuple[Path, dict[str, Any]]:
+    raw_template_path = str((contract.get("evidenceModel") or {}).get("templatePath") or "").strip()
+    template_path = resolve_repo_path(repo_root, raw_template_path)
+    payload = validate_evidence_template(template_path, load_yaml(template_path), contract)
+    return template_path, payload
+
+
 def output_root(repo_root: Path, raw: str) -> Path:
     return Path(raw).expanduser().resolve() if raw else (repo_root / ".platform-drills").resolve()
 
@@ -282,6 +397,7 @@ def run_paths(run_dir: Path) -> dict[str, Path]:
         "baseline": run_dir / "baseline.yaml",
         "verification": run_dir / "verification.yaml",
         "restore": run_dir / "restore.yaml",
+        "evidence": run_dir / "evidence.yaml",
     }
 
 
@@ -371,8 +487,96 @@ def build_restore(contract: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_evidence(
+    contract: dict[str, Any],
+    template_payload: dict[str, Any],
+    run_manifest: dict[str, Any],
+    run_dir: Path,
+    baseline_payload: dict[str, Any],
+) -> dict[str, Any]:
+    evidence = copy.deepcopy(template_payload)
+    evidence["run"] = {
+        "runId": run_manifest["run_id"],
+        "profileId": run_manifest["profile_id"],
+        "title": run_manifest["title"],
+        "authorityType": run_manifest["authorityType"],
+        "drillType": run_manifest["drillType"],
+        "createdAt": run_manifest["createdAt"],
+        "createdBy": run_manifest["createdBy"],
+        "runDir": str(run_dir),
+        "contractPath": "contract.yaml",
+        "evidenceOwner": contract["evidenceOwner"],
+    }
+    evidence["baselineAttestation"]["captureStatus"] = "captured"
+    evidence["baselineAttestation"]["sourceRepos"] = [
+        {
+            "repo": repo_name,
+            "branch": state["branch"],
+            "headSha": state["head_sha"],
+            "dirty": bool(state["dirty"]),
+            "upstream": state["upstream"],
+        }
+        for repo_name, state in sorted((baseline_payload.get("sourceRepos") or {}).items())
+    ]
+    return evidence
+
+
+def remove_exception_entry(evidence: dict[str, Any], *, scope_type: str, scope_id: str) -> None:
+    entries = (evidence.get("exceptionRegister") or {}).get("entries") or []
+    evidence["exceptionRegister"]["entries"] = [
+        entry
+        for entry in entries
+        if not (
+            str(entry.get("scopeType")) == scope_type
+            and str(entry.get("scopeId")) == scope_id
+        )
+    ]
+
+
+def upsert_exception_entry(
+    evidence: dict[str, Any],
+    *,
+    scope_type: str,
+    scope_id: str,
+    status: str,
+    decision: str,
+    justification: str,
+    owner: str,
+    review_on: str,
+    actor: str,
+    note: str,
+) -> None:
+    entries = (evidence.get("exceptionRegister") or {}).get("entries") or []
+    updated_at = now_utc()
+    entry = next(
+        (
+            current
+            for current in entries
+            if str(current.get("scopeType")) == scope_type
+            and str(current.get("scopeId")) == scope_id
+        ),
+        None,
+    )
+    if entry is None:
+        entry = {
+            "scopeType": scope_type,
+            "scopeId": scope_id,
+        }
+        entries.append(entry)
+    entry["status"] = status
+    entry["decision"] = decision
+    entry["justification"] = justification
+    entry["owner"] = owner
+    entry["reviewOn"] = review_on
+    entry["updatedAt"] = updated_at
+    entry["updatedBy"] = actor
+    entry["note"] = note
+    evidence["exceptionRegister"]["entries"] = entries
+
+
 def cmd_plan(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    evidence_template_path_value, _ = evidence_template_payload(args.repo_root, profile_path, contract)
     summary = {
         "profile": contract["id"],
         "title": contract["title"],
@@ -386,6 +590,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
         "checkCount": len(contract["verificationPack"]["checks"]),
         "restoreMode": contract["restoreMode"],
         "profilePath": str(profile_path),
+        "evidenceTemplatePath": str(evidence_template_path_value),
     }
     if args.format == "json":
         print(json.dumps(summary, indent=2))
@@ -402,6 +607,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"surface_count={summary['surfaceCount']} check_count={summary['checkCount']}")
     print(f"restore_mode={summary['restoreMode']} evidence_owner={summary['evidenceOwner']}")
     print(f"profile_path={summary['profilePath']}")
+    print(f"evidence_template_path={summary['evidenceTemplatePath']}")
     print("preconditions:")
     for item in contract["preconditions"]:
         print(f"- {item['id']}: {item['summary']}")
@@ -424,6 +630,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    evidence_template_path_value, evidence_template = evidence_template_payload(
+        args.repo_root, profile_path, contract
+    )
     run_id = args.run_id.strip() or default_run_id(contract["id"])
     run_dir = output_root(args.repo_root, args.output_root) / contract["id"] / run_id
     if run_dir.exists():
@@ -445,6 +654,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         "createdBy": args.operator.strip() or "unknown",
         "note": args.note.strip(),
         "profilePath": str(profile_path),
+        "evidenceTemplatePath": str(evidence_template_path_value),
         "phaseStatus": {
             "baseline": "captured",
             "activation": "pending",
@@ -453,52 +663,94 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         },
         "evidenceRecords": [],
     }
+    baseline_payload = build_baseline(contract, args.repo_root)
     dump_yaml(paths["run"], manifest)
-    dump_yaml(paths["baseline"], build_baseline(contract, args.repo_root))
+    dump_yaml(paths["baseline"], baseline_payload)
     dump_yaml(paths["verification"], build_verification(contract))
     dump_yaml(paths["restore"], build_restore(contract))
+    dump_yaml(
+        paths["evidence"],
+        build_evidence(contract, evidence_template, manifest, run_dir, baseline_payload),
+    )
     print(f"run_id={run_id}")
     print(f"run_dir={run_dir}")
     print(f"profile={contract['id']}")
+    print(f"evidence_file={paths['evidence']}")
     return 0
 
 
-def load_run(run_dir: str) -> tuple[Path, dict[str, Path], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+def load_run(
+    run_dir: str,
+) -> tuple[
+    Path,
+    dict[str, Path],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+]:
     directory = Path(run_dir).expanduser().resolve()
     paths = ensure_run_dir(directory)
     run_payload = load_yaml(paths["run"])
     baseline = load_yaml(paths["baseline"])
     verification = load_yaml(paths["verification"])
     restore = load_yaml(paths["restore"])
-    return directory, paths, run_payload, baseline, verification, restore
+    evidence = load_yaml(paths["evidence"])
+    return directory, paths, run_payload, baseline, verification, restore, evidence
 
 
-def write_run(paths: dict[str, Path], run_payload: dict[str, Any], verification: dict[str, Any] | None = None, restore: dict[str, Any] | None = None) -> None:
+def write_run(
+    paths: dict[str, Path],
+    run_payload: dict[str, Any],
+    verification: dict[str, Any] | None = None,
+    restore: dict[str, Any] | None = None,
+    evidence: dict[str, Any] | None = None,
+) -> None:
     dump_yaml(paths["run"], run_payload)
     if verification is not None:
         dump_yaml(paths["verification"], verification)
     if restore is not None:
         dump_yaml(paths["restore"], restore)
+    if evidence is not None:
+        dump_yaml(paths["evidence"], evidence)
 
 
 def cmd_activate(args: argparse.Namespace) -> int:
-    _, paths, run_payload, _, _, _ = load_run(args.run)
+    _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    scoped_surfaces = args.surface or [
+        str(surface.get("id"))
+        for surface in (baseline.get("runtimeSurfaces") or [])
+        if str(surface.get("id") or "").strip()
+    ]
     run_payload.setdefault("activation", {})
     run_payload["activation"] = {
         "status": "recorded",
         "actor": args.actor.strip(),
-        "surfaces": args.surface or [],
+        "surfaces": scoped_surfaces,
         "note": args.note.strip(),
         "recordedAt": now_utc(),
     }
     run_payload["phaseStatus"]["activation"] = "recorded"
-    write_run(paths, run_payload)
+    activation_summary = evidence.get("activationSummary") or {}
+    activation_summary["status"] = "recorded"
+    activation_summary.setdefault("records", [])
+    activation_summary["records"].append(
+        {
+            "actor": args.actor.strip(),
+            "surfaces": scoped_surfaces,
+            "note": args.note.strip(),
+            "recordedAt": now_utc(),
+        }
+    )
+    evidence["activationSummary"] = activation_summary
+    write_run(paths, run_payload, evidence=evidence)
     print(f"run_id={run_payload['run_id']} activation=recorded")
     return 0
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    _, paths, run_payload, _, verification, _ = load_run(args.run)
+    _, paths, run_payload, _, verification, _, evidence = load_run(args.run)
     checks = verification.get("checks") or []
     target = next((check for check in checks if check.get("id") == args.check), None)
     if target is None:
@@ -521,34 +773,63 @@ def cmd_verify(args: argparse.Namespace) -> int:
     target["note"] = args.note.strip()
     target["updatedAt"] = now_utc()
     target["updatedBy"] = args.actor.strip()
+    evidence_checks = (evidence.get("verificationResults") or {}).get("checks") or []
+    evidence_target = next((check for check in evidence_checks if check.get("id") == args.check), None)
+    if evidence_target is None:
+        raise SystemExit(f"evidence file is missing verification check {args.check!r}")
+    evidence_target["status"] = args.status
+    evidence_target["decision"] = args.decision or None
+    evidence_target["justification"] = args.justification.strip()
+    evidence_target["owner"] = args.owner.strip()
+    evidence_target["reviewOn"] = args.review_on.strip()
+    evidence_target["evidenceRef"] = args.evidence_ref.strip()
+    evidence_target["note"] = args.note.strip()
+    evidence_target["updatedAt"] = target["updatedAt"]
+    evidence_target["updatedBy"] = args.actor.strip()
+    if args.status == "blocked":
+        upsert_exception_entry(
+            evidence,
+            scope_type="verification-check",
+            scope_id=args.check,
+            status=args.status,
+            decision=args.decision,
+            justification=args.justification.strip(),
+            owner=args.owner.strip(),
+            review_on=args.review_on.strip(),
+            actor=args.actor.strip(),
+            note=args.note.strip(),
+        )
+    else:
+        remove_exception_entry(evidence, scope_type="verification-check", scope_id=args.check)
     if all(str(check.get("status")) != "pending" for check in checks):
         run_payload["phaseStatus"]["verification"] = "recorded"
     else:
         run_payload["phaseStatus"]["verification"] = "in-progress"
-    write_run(paths, run_payload, verification=verification)
+    write_run(paths, run_payload, verification=verification, evidence=evidence)
     print(f"run_id={run_payload['run_id']} check={args.check} status={args.status}")
     return 0
 
 
 def cmd_record(args: argparse.Namespace) -> int:
-    _, paths, run_payload, _, _, _ = load_run(args.run)
+    _, paths, run_payload, _, _, _, evidence = load_run(args.run)
     run_payload.setdefault("evidenceRecords", [])
-    run_payload["evidenceRecords"].append(
-        {
-            "phase": args.phase,
-            "actor": args.actor.strip(),
-            "evidenceRef": args.evidence_ref.strip(),
-            "note": args.note.strip(),
-            "recordedAt": now_utc(),
-        }
-    )
-    write_run(paths, run_payload)
+    record = {
+        "phase": args.phase,
+        "actor": args.actor.strip(),
+        "evidenceRef": args.evidence_ref.strip(),
+        "note": args.note.strip(),
+        "recordedAt": now_utc(),
+    }
+    run_payload["evidenceRecords"].append(record)
+    evidence.setdefault("supplementalRecords", [])
+    evidence["supplementalRecords"].append(record)
+    write_run(paths, run_payload, evidence=evidence)
     print(f"run_id={run_payload['run_id']} evidence_recorded={args.phase}")
     return 0
 
 
 def cmd_restore(args: argparse.Namespace) -> int:
-    _, paths, run_payload, _, _, restore = load_run(args.run)
+    _, paths, run_payload, _, _, restore, evidence = load_run(args.run)
     surfaces = restore.get("surfaces") or []
     target = next((surface for surface in surfaces if surface.get("id") == args.surface), None)
     if target is None:
@@ -570,18 +851,45 @@ def cmd_restore(args: argparse.Namespace) -> int:
     target["note"] = args.note.strip()
     target["updatedAt"] = now_utc()
     target["updatedBy"] = args.actor.strip()
+    evidence_surfaces = (evidence.get("restoreAttestation") or {}).get("surfaces") or []
+    evidence_target = next((surface for surface in evidence_surfaces if surface.get("id") == args.surface), None)
+    if evidence_target is None:
+        raise SystemExit(f"evidence file is missing restore surface {args.surface!r}")
+    evidence_target["status"] = args.status
+    evidence_target["decision"] = args.decision or None
+    evidence_target["justification"] = args.justification.strip()
+    evidence_target["owner"] = args.owner.strip()
+    evidence_target["reviewOn"] = args.review_on.strip()
+    evidence_target["note"] = args.note.strip()
+    evidence_target["updatedAt"] = target["updatedAt"]
+    evidence_target["updatedBy"] = args.actor.strip()
+    if args.status == "exception":
+        upsert_exception_entry(
+            evidence,
+            scope_type="restore-surface",
+            scope_id=args.surface,
+            status=args.status,
+            decision=args.decision,
+            justification=args.justification.strip(),
+            owner=args.owner.strip(),
+            review_on=args.review_on.strip(),
+            actor=args.actor.strip(),
+            note=args.note.strip(),
+        )
+    else:
+        remove_exception_entry(evidence, scope_type="restore-surface", scope_id=args.surface)
     if all(str(surface.get("status")) != "pending" for surface in surfaces):
         run_payload["phaseStatus"]["restore"] = "recorded"
     else:
         run_payload["phaseStatus"]["restore"] = "in-progress"
-    write_run(paths, run_payload, restore=restore)
+    write_run(paths, run_payload, restore=restore, evidence=evidence)
     print(f"run_id={run_payload['run_id']} restore_surface={args.surface} status={args.status}")
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
     if args.run:
-        run_dir, _, run_payload, baseline, verification, restore = load_run(args.run)
+        run_dir, _, run_payload, baseline, verification, restore, evidence = load_run(args.run)
         pending_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "pending")
         blocked_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "blocked")
         pending_restore = sum(1 for surface in restore.get("surfaces", []) if surface.get("status") == "pending")
@@ -596,12 +904,15 @@ def cmd_status(args: argparse.Namespace) -> int:
             "blockedCheckCount": blocked_checks,
             "pendingRestoreCount": pending_restore,
             "evidenceRecordCount": len(run_payload.get("evidenceRecords") or []),
+            "exceptionCount": len(((evidence.get("exceptionRegister") or {}).get("entries") or [])),
+            "evidenceFile": str(run_paths(run_dir)["evidence"]),
         }
         if args.format == "json":
             print(json.dumps(summary, indent=2))
             return 0
         print(f"run_id={summary['run_id']} profile={summary['profile_id']}")
         print(f"run_dir={summary['run_dir']}")
+        print(f"evidence_file={summary['evidenceFile']}")
         print(
             f"baseline={summary['phaseStatus'].get('baseline')} "
             f"activation={summary['phaseStatus'].get('activation')} "
@@ -611,15 +922,18 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(
             f"source_repos={summary['sourceRepoCount']} runtime_surfaces={summary['runtimeSurfaceCount']} "
             f"pending_checks={summary['pendingCheckCount']} blocked_checks={summary['blockedCheckCount']} "
-            f"pending_restore={summary['pendingRestoreCount']} evidence_records={summary['evidenceRecordCount']}"
+            f"pending_restore={summary['pendingRestoreCount']} evidence_records={summary['evidenceRecordCount']} "
+            f"exceptions={summary['exceptionCount']}"
         )
         return 0
 
     profile_path, contract = profile_payload(args)
+    evidence_template_path_value, _ = evidence_template_payload(args.repo_root, profile_path, contract)
     summary = {
         "profile": contract["id"],
         "title": contract["title"],
         "profilePath": str(profile_path),
+        "evidenceTemplatePath": str(evidence_template_path_value),
         "surfaceCount": len(contract["scope"]["surfaces"]),
         "checkCount": len(contract["verificationPack"]["checks"]),
         "restoreSurfaceCount": len(contract["restoreScope"]["surfaces"]),
@@ -630,6 +944,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 0
     print(f"profile={summary['profile']} title={summary['title']}")
     print(f"profile_path={summary['profilePath']}")
+    print(f"evidence_template_path={summary['evidenceTemplatePath']}")
     print(
         f"surfaces={summary['surfaceCount']} checks={summary['checkCount']} "
         f"restore_surfaces={summary['restoreSurfaceCount']} restore_mode={summary['restoreMode']}"

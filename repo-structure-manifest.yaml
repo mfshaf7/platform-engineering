@@ -30,6 +30,7 @@ shared_paths:
       - deploy.md
       - dev-integration-profiles.md
       - assess-environment-readiness.md
+      - full-platform-runtime-drill.md
       - host-runtime-drift-recovery.md
       - incident-hotfix.md
       - platform-naming-audit.md

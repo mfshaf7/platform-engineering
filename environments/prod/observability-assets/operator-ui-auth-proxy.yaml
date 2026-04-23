@@ -16,11 +16,11 @@ data:
       access_log /dev/stdout;
 
       upstream prometheus_upstream {
-        server openclaw-observability-kub-prometheus.observability.svc.cluster.local:9090;
+        server platform-observability-prod-prometheus.observability.svc.cluster.local:9090;
       }
 
       upstream alertmanager_upstream {
-        server openclaw-observability-kub-alertmanager.observability.svc.cluster.local:9093;
+        server platform-observability-prod-alertmanager.observability.svc.cluster.local:9093;
       }
 
       server {

@@ -40,10 +40,10 @@ As of `2026-04-19`, the cluster reports these live Argo applications:
 
 - `external-secrets`
 - `openclaw-gateway-stage`
-- `openclaw-observability`
 - `openproject`
 - `openproject-secrets`
 - `operator-orchestration-service`
+- `platform-observability-prod`
 - `platform-dashboards-prod`
 - `platform-postgresql`
 - `platform-postgresql-secrets`
@@ -92,9 +92,9 @@ These are the current direct operator-facing surfaces:
 | --- | --- | --- | --- | --- |
 | Argo CD | `argocd` | shared control plane | NodePort plus Windows localhost proxy | Live |
 | Vault UI and API | `vault` | `vault` | NodePort plus Windows localhost proxy | Live |
-| Grafana (prod) | `observability` | `openclaw-observability` plus `platform-dashboards-prod` | NodePort plus Windows localhost proxy | Live |
-| Prometheus (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
-| Alertmanager (prod) | `observability` | `openclaw-observability` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
+| Grafana (prod) | `observability` | `platform-observability-prod` plus `platform-dashboards-prod` | NodePort plus Windows localhost proxy | Live |
+| Prometheus (prod) | `observability` | `platform-observability-prod` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
+| Alertmanager (prod) | `observability` | `platform-observability-prod` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | OpenProject | `openproject` | `openproject` | NodePort plus Windows localhost proxy | Live |
 | OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Currently suspended through the governed prod lifecycle |
 | OpenClaw stage gateway | `openclaw-stage` | `openclaw-gateway-stage` | ClusterIP only; primary user surface is Telegram | Live for the current stage stabilization window |

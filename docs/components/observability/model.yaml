@@ -97,7 +97,6 @@ alert_model:
 
 compatibility_phase:
   current_live_names_may_remain:
-    - openclaw-observability
     - platform-dashboards-prod
     - platform-dashboards-stage
   rules:

@@ -5,8 +5,8 @@
 This is the shared observability stack for the platform.
 
 The target model is a platform baseline with explicit shared-component and
-product overlays. The current live asset names remain in a compatibility phase
-until the baseline and overlay split is implemented.
+product overlays. The baseline and overlay split is implemented, and the
+shared runtime identities now use platform-owned names.
 
 It currently covers:
 
@@ -20,7 +20,7 @@ It currently covers:
 
 - prod namespace: `observability`
 - prod Argo applications:
-  - `openclaw-observability`
+  - `platform-observability-prod`
   - `platform-dashboards-prod`
 - stage namespace: `observability-stage`
 - stage source exists, but stage observability is not currently deployed while

@@ -84,3 +84,10 @@ rules:
       - products/*/observability/overlay-assets.yaml
     expected_owner_repo: platform-engineering
     allowed_products_from_model: scope_layers.product_overlays.products
+
+  - id: shared-component-overlay-catalogs
+    kind: shared-component-overlay-catalog
+    paths:
+      - observability/shared-component-overlays/*.yaml
+    expected_owner_repo: platform-engineering
+    allowed_components_from_model: scope_layers.shared_component_overlays.components

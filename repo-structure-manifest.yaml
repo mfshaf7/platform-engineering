@@ -21,6 +21,7 @@ shared_paths:
       - README.md
       - access-grafana.md
       - access-platform-uis.md
+      - platform-operator-catalog.yaml
       - bootstrap-k3s.md
       - bootstrap-transit-vault-temporary-trust.md
       - bootstrap-transit-vault.md
@@ -32,6 +33,7 @@ shared_paths:
       - dev-integration-profiles.md
       - assess-environment-readiness.md
       - active-stack-runtime-drill.md
+      - environment-complete-runtime-drill.md
       - host-runtime-drift-recovery.md
       - incident-hotfix.md
       - platform-naming-audit.md

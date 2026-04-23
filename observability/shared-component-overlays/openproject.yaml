@@ -1,0 +1,23 @@
+schema_version: 1
+component: openproject
+overlay_type: shared-component-overlay
+status: active
+owner_repo: platform-engineering
+model_ref: ../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: products/openproject/README.md
+    kind: product-integration-readme
+    purpose: platform-integrated service owner boundary and operating context
+    lifecycle: active
+  - path: products/openproject/runtime-contract.md
+    kind: runtime-contract
+    purpose: governed runtime contract for the platform-integrated OpenProject service
+    lifecycle: active
+  - path: products/openproject/runbooks/access-openproject.md
+    kind: access-surface
+    purpose: current operator access path for the OpenProject runtime
+    lifecycle: active
+
+notes:
+  - OpenProject remains a shared-component overlay until it gains its own governed product rollout lane.

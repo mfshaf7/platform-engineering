@@ -31,12 +31,12 @@ Important clarification:
 | --- | --- | --- | --- | --- |
 | Argo CD | Live | `https://127.0.0.1:32443` | `k3s kubectl -n argocd port-forward svc/argocd-server 8443:443` | Operator account provisioned by [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh) |
 | Vault UI and API | Live | `http://127.0.0.1:32200` | `k3s kubectl -n vault port-forward svc/vault-ui 8220:8200` | Same operator username/password model provisioned by [bootstrap_operator_access.sh](../../scripts/bootstrap_operator_access.sh) |
-| Platform Grafana prod | Live | `http://127.0.0.1:32080` | `k3s kubectl -n observability port-forward svc/openclaw-observability-grafana 3000:80` | Vault path `kv/platform/observability/prod/grafana-admin` |
+| Platform Grafana prod | Live | `http://127.0.0.1:32080` | `k3s kubectl -n observability port-forward svc/platform-observability-prod-grafana 3000:80` | Vault path `kv/platform/observability/prod/grafana-admin` |
 | Platform Prometheus prod | Live | `http://127.0.0.1:32090` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | Platform Alertmanager prod | Live | `http://127.0.0.1:32093` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | OpenProject | Live | `http://127.0.0.1:32083` | `k3s kubectl -n openproject port-forward svc/openproject 8080:8080` | Vault path `kv/products/openproject/prod/admin` |
 | OpenClaw prod | Suspended by the governed prod lifecycle | no browser UI while suspended | return prod to `live`, then use `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
-| Platform Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/openclaw-observability-sta-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
+| Platform Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-observability-stage-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
 | Platform Prometheus stage | Not currently live | `http://127.0.0.1:32091` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9091:9090` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
 | Platform Alertmanager stage | Not currently live | `http://127.0.0.1:32094` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9094:9093` | Vault path `kv/platform/observability/stage/operator-ui-auth` |
 | OpenClaw stage | Live for the current stabilization window | no browser UI; primary live user path is Telegram | `k3s kubectl -n openclaw-stage port-forward svc/openclaw-gateway 28789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
@@ -57,9 +57,10 @@ These are intentionally not documented as direct operator UIs:
 ## Observability Identity Note
 
 Grafana, Prometheus, and Alertmanager in this matrix are shared platform
-baseline surfaces. During the current compatibility phase, the underlying
-Argo application and Grafana service names still use legacy OpenClaw-shaped
-identifiers such as `openclaw-observability`.
+baseline surfaces. Their runtime identities are now platform-owned as:
+
+- `platform-observability-prod`
+- `platform-observability-stage`
 
 ## Credential Notes
 
@@ -121,8 +122,8 @@ Use the product-local runbooks for product details:
 
 OpenClaw also exposes a read-only Telegram operator surface for this shared
 inventory through `/platform`. That command is driven by
-`products/openclaw/platform-operator-catalog.yaml` and should stay aligned with
-this runbook.
+[`platform-operator-catalog.yaml`](platform-operator-catalog.yaml) and should
+stay aligned with this runbook.
 
 ## Notes
 

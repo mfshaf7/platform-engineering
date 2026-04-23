@@ -1,0 +1,27 @@
+schema_version: 1
+component: platform-postgresql
+overlay_type: shared-component-overlay
+status: active
+owner_repo: platform-engineering
+model_ref: ../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: docs/components/platform-postgresql/README.md
+    kind: component-readme
+    purpose: platform PostgreSQL overlay entrypoint
+    lifecycle: active
+  - path: docs/components/platform-postgresql/access.md
+    kind: access-surface
+    purpose: operator inspection path for the shared PostgreSQL service
+    lifecycle: active
+  - path: docs/components/platform-postgresql/operations.md
+    kind: operations-surface
+    purpose: PostgreSQL diagnosis and runtime checks
+    lifecycle: active
+  - path: docs/components/platform-postgresql/release-governance.md
+    kind: release-governance
+    purpose: governed release and support-readiness evidence for platform PostgreSQL
+    lifecycle: active
+
+notes:
+  - Platform PostgreSQL is a shared supporting component even when OpenProject is the current primary consumer.

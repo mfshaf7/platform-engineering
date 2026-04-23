@@ -30,7 +30,7 @@ groups:
           owner: platform-engineering
           product: shared
       - record: platform:observability_apps_unhealthy:count
-        expr: count(argocd_app_info{name=~"openclaw-observability|openclaw-observability-stage",health_status!="Healthy"})
+        expr: count(argocd_app_info{name=~"platform-observability-prod|platform-observability-stage",health_status!="Healthy"})
         labels:
           layer: platform-baseline
           component: observability

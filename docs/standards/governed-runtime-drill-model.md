@@ -100,6 +100,19 @@ The machine-readable profile that enumerates the exact participating surfaces
 belongs to the implementation layer. This standard defines the minimum semantic
 scope, not the final script payload.
 
+## Current Environment-Complete Scope
+
+The initial `environment-complete-runtime-drill` scope for this workspace is:
+
+- the entire active-stack scope
+- prod OpenProject
+- the shared non-devint broker lane
+- prod platform observability baseline and dashboard overlay
+- stage platform observability baseline and dashboard overlay
+
+This is the smallest honest scope that can claim estate-complete coverage for
+the currently admitted lanes and product environments.
+
 ## Minimum Drill Contract
 
 Every repeatable runtime drill profile should declare at least:

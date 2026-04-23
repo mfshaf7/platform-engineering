@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openclaw-observability-stage
+  name: platform-observability-stage
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -13,6 +13,7 @@ spec:
     targetRevision: 58.2.2
     helm:
       values: |
+        fullnameOverride: platform-observability-stage
         grafana:
           enabled: true
           defaultDashboardsEnabled: true
@@ -67,7 +68,7 @@ spec:
                       lane: stage
                       product: shared
                   - record: platform:observability_apps_unhealthy:count
-                    expr: count(argocd_app_info{name=~"openclaw-observability|openclaw-observability-stage",health_status!="Healthy"})
+                    expr: count(argocd_app_info{name=~"platform-observability-prod|platform-observability-stage",health_status!="Healthy"})
                     labels:
                       layer: platform-baseline
                       component: observability
@@ -99,7 +100,7 @@ spec:
                       lane: stage
                       product: shared
                   - alert: PlatformBaselineApplicationsOutOfSync
-                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-stage|vault|platform-secrets-stage|openclaw-observability-stage|platform-dashboards-stage",sync_status!="Synced"}) > 0
+                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-stage|vault|platform-secrets-stage|platform-observability-stage|platform-dashboards-stage",sync_status!="Synced"}) > 0
                     for: 10m
                     labels:
                       severity: warning
@@ -112,7 +113,7 @@ spec:
                       summary: Stage platform baseline applications are out of sync
                       description: One or more stage baseline applications have remained out of sync for 10 minutes.
                   - alert: PlatformBaselineApplicationsUnhealthy
-                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-stage|vault|platform-secrets-stage|openclaw-observability-stage|platform-dashboards-stage",health_status!="Healthy"}) > 0
+                    expr: count(argocd_app_info{name=~"platform-root-shared|platform-root-stage|vault|platform-secrets-stage|platform-observability-stage|platform-dashboards-stage",health_status!="Healthy"}) > 0
                     for: 5m
                     labels:
                       severity: critical
@@ -151,7 +152,7 @@ spec:
                       summary: Stage platform secret delivery is unhealthy
                       description: The stage platform secrets application is unhealthy, indicating ESO sync or store issues.
                   - alert: ObservabilityBaselineUnhealthy
-                    expr: count(argocd_app_info{name="openclaw-observability-stage",health_status!="Healthy"}) > 0
+                    expr: count(argocd_app_info{name="platform-observability-stage",health_status!="Healthy"}) > 0
                     for: 5m
                     labels:
                       severity: critical

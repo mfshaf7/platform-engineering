@@ -1,0 +1,23 @@
+schema_version: 1
+component: vault
+overlay_type: shared-component-overlay
+status: active
+owner_repo: platform-engineering
+model_ref: ../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: docs/components/vault/README.md
+    kind: component-readme
+    purpose: Vault observability and operator entrypoint
+    lifecycle: active
+  - path: docs/components/vault/access.md
+    kind: access-surface
+    purpose: current operator access model for Vault
+    lifecycle: active
+  - path: docs/components/vault/operations.md
+    kind: operations-surface
+    purpose: live Vault diagnosis and runtime checks
+    lifecycle: active
+
+notes:
+  - Vault alerting remains part of the shared platform baseline, with this overlay catalog tracking the component-specific evidence surfaces.

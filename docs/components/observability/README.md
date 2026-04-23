@@ -46,5 +46,7 @@ This is the shared observability stack for the platform.
   - External Secrets
   - platform PostgreSQL
   - host bridge
+- the machine-readable shared-component overlay catalogs live under:
+  - [../../../observability/shared-component-overlays/README.md](../../../observability/shared-component-overlays/README.md)
 - the OpenClaw product overlay now has its product-local home at:
   - [../../../products/openclaw/observability/README.md](../../../products/openclaw/observability/README.md)

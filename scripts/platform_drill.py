@@ -19,7 +19,7 @@ DECISIONS = {"remove", "workaround", "accept-risk", "defer"}
 RESTORE_STATUSES = {"pending", "restored", "exception"}
 PHASES = {"baseline", "activation", "verification", "restore", "general"}
 PROFILE_ALIASES = {
-    "full-platform-runtime-drill": "active-stack-runtime-drill",
+    "full-platform-runtime-drill": "environment-complete-runtime-drill",
 }
 
 

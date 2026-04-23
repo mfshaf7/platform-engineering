@@ -17,8 +17,8 @@ tree.
 
 The current migration is compatibility-first:
 
-- shared Argo application names such as `openclaw-observability` remain
-  unchanged for now
+- shared baseline runtime identities are now platform-owned, for example
+  `platform-observability-prod`
 - shared platform UIs remain platform-owned
 - the product overlay owns OpenClaw-specific signals and monitor posture on top
   of the shared baseline

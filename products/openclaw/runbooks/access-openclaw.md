@@ -54,7 +54,7 @@ Read-only Telegram operator inventory:
 - use `/platform endpoints`, `/platform health`, `/platform govern`, or
   `/platform <component>`
 - this surface is catalog-driven from
-  `products/openclaw/platform-operator-catalog.yaml`
+  `../../../docs/runbooks/platform-operator-catalog.yaml`
 
 ## Operator Access To Stage
 

@@ -28,6 +28,7 @@ Use it when the question is:
 - [restart-survival.md](restart-survival.md)
 - [secrets.md](secrets.md)
 - [service-contracts.md](service-contracts.md)
+- [single-host-scaling.md](single-host-scaling.md)
 - [source-repo-contracts.md](source-repo-contracts.md)
 - [version-attestation.md](version-attestation.md)
 

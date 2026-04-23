@@ -292,6 +292,7 @@ validate:
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py
 	python3 scripts/validate_operational_docs.py
+	python3 scripts/validate_single_host_scaling.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

@@ -30,6 +30,7 @@ The platform-managed deployment must provide:
 - Puma worker count: `1` via `OPENPROJECT_WEB__WORKERS`
 - background worker deployment replica count: `1`
 - GoodJob worker max threads: `10`
+- no recorded scaling exemption currently exists for the OpenProject runtime
 
 ## Health And Readiness
 

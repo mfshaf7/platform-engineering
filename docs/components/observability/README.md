@@ -32,3 +32,15 @@ This is the shared observability stack for the platform.
   - [../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md](../../decisions/adr/ADR-015-platform-observability-baseline-and-overlay-model.md)
 - machine-readable scope model:
   - [model.yaml](model.yaml)
+
+## Overlay Ownership
+
+- shared-component overlays remain platform-owned and currently include:
+  - broker
+  - OpenProject
+  - Vault
+  - External Secrets
+  - platform PostgreSQL
+  - host bridge
+- the OpenClaw product overlay now has its product-local home at:
+  - [../../../products/openclaw/observability/README.md](../../../products/openclaw/observability/README.md)

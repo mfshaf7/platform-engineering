@@ -1,0 +1,17 @@
+schema_version: 1
+product: openclaw
+overlay_type: product-overlay
+status: compatibility-phase
+owner_repo: platform-engineering
+model_ref: ../../../docs/components/observability/model.yaml
+
+owned_assets:
+  - path: charts/openclaw-gateway/templates/servicemonitor.yaml
+    kind: ServiceMonitor
+    purpose: OpenClaw gateway scrape posture
+    lifecycle: active
+
+compatibility_notes:
+  - Shared observability Argo application names remain unchanged during migration.
+  - Shared Grafana, Prometheus, and Alertmanager stay platform-owned operator surfaces.
+  - OpenClaw-specific telemetry ownership should move here instead of back into observability/service-monitors or other shared paths.

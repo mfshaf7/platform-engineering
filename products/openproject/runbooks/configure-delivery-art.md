@@ -125,12 +125,12 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 ## Next Step
 
-Once the delivery ART exists, grant the broker service identity access to both
-the proposal and delivery projects:
+Once the delivery ART exists, converge the assignable repo-owner identities for
+the canonical delivery plane:
 
 ```bash
 export VAULT_TOKEN='...'
-make openproject-provision-operator-orchestration-delivery-access
+make openproject-provision-delivery-art-identities
 ```
 
 To refresh the delivery views later without reprovisioning the whole project:

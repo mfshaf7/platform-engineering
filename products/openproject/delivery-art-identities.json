@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "project_identifier": "workspace-delivery-art",
+  "identities": [
+    {
+      "login": "operator-orchestration-service",
+      "firstname": "Operator",
+      "lastname": "Orchestration Service",
+      "mail": "operator-orchestration-service@local.invalid",
+      "project_identifiers": [
+        "workspace-proposals",
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package creator",
+        "Work package editor",
+        "Work package structure editor"
+      ],
+      "issue_api_token": true,
+      "token_name": "openproject-workspace-proposals-v1",
+      "vault_secret_path": "kv/components/operator-orchestration-service/prod/openproject"
+    },
+    {
+      "login": "platform-engineering",
+      "firstname": "Platform",
+      "lastname": "Engineering",
+      "mail": "platform-engineering@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
+      "login": "workspace-governance",
+      "firstname": "Workspace",
+      "lastname": "Governance",
+      "mail": "workspace-governance@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
+      "login": "security-architecture",
+      "firstname": "Security",
+      "lastname": "Architecture",
+      "mail": "security-architecture@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
+      "login": "openclaw-runtime-distribution",
+      "firstname": "OpenClaw Runtime",
+      "lastname": "Distribution",
+      "mail": "openclaw-runtime-distribution@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
+      "login": "openclaw-telegram-enhanced",
+      "firstname": "OpenClaw Telegram",
+      "lastname": "Enhanced",
+      "mail": "openclaw-telegram-enhanced@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
+      "login": "openclaw-host-bridge",
+      "firstname": "OpenClaw Host",
+      "lastname": "Bridge",
+      "mail": "openclaw-host-bridge@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    }
+  ]
+}

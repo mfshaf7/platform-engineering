@@ -3,14 +3,14 @@
 require "json"
 require "securerandom"
 
-RESULT_BEGIN = "__OPENPROJECT_OPERATOR_ORCHESTRATION_IDENTITY_BEGIN__"
-RESULT_END = "__OPENPROJECT_OPERATOR_ORCHESTRATION_IDENTITY_END__"
+RESULT_BEGIN = "__OPENPROJECT_IDENTITY_PROVISION_BEGIN__"
+RESULT_END = "__OPENPROJECT_IDENTITY_PROVISION_END__"
 
-TARGET_LOGIN = ENV.fetch("TARGET_LOGIN", "operator-orchestration-service")
-TARGET_FIRSTNAME = ENV.fetch("TARGET_FIRSTNAME", "Operator")
-TARGET_LASTNAME = ENV.fetch("TARGET_LASTNAME", "Orchestration Service")
-TARGET_MAIL = ENV.fetch("TARGET_MAIL", "operator-orchestration-service@local.invalid")
-TARGET_PROJECT_IDENTIFIER = ENV.fetch("TARGET_PROJECT_IDENTIFIER", "workspace-proposals")
+TARGET_LOGIN = ENV.fetch("TARGET_LOGIN")
+TARGET_FIRSTNAME = ENV.fetch("TARGET_FIRSTNAME")
+TARGET_LASTNAME = ENV.fetch("TARGET_LASTNAME")
+TARGET_MAIL = ENV.fetch("TARGET_MAIL")
+TARGET_PROJECT_IDENTIFIER = ENV.fetch("TARGET_PROJECT_IDENTIFIER", "workspace-delivery-art")
 TARGET_PROJECT_IDENTIFIERS = begin
   raw = ENV["TARGET_PROJECT_IDENTIFIERS_JSON"]
   parsed = raw ? JSON.parse(raw) : nil
@@ -22,14 +22,15 @@ TARGET_PROJECT_IDENTIFIERS = begin
 rescue JSON::ParserError
   [TARGET_PROJECT_IDENTIFIER]
 end
-TARGET_TOKEN_NAME = ENV.fetch("TARGET_TOKEN_NAME", "openproject-workspace-proposals-v1")
+TARGET_TOKEN_NAME = ENV.fetch("TARGET_TOKEN_NAME", "openproject-#{TARGET_LOGIN}-v1")
 TARGET_LANGUAGE = ENV.fetch("TARGET_LANGUAGE", Setting.default_language.presence || "en")
 ROTATE_API_TOKEN = ENV.fetch("ROTATE_API_TOKEN", "false") == "true"
+ISSUE_API_TOKEN = ENV.fetch("ISSUE_API_TOKEN", "false") == "true"
 
 ROLE_NAMES = JSON.parse(
   ENV.fetch(
     "TARGET_ROLE_NAMES_JSON",
-    '["Reader","Work package creator","Work package editor","Work package structure editor"]'
+    '["Reader"]'
   )
 )
 CUSTOM_ROLE_PERMISSIONS = {
@@ -90,6 +91,16 @@ def ensure_role!(name)
 end
 
 def ensure_api_token!(user:)
+  return {
+    enabled: false,
+    token_id: nil,
+    token_name: nil,
+    created: false,
+    rotated: false,
+    repaired_duplicates: false,
+    plaintext_value: nil
+  } unless ISSUE_API_TOKEN
+
   existing_tokens = user.api_tokens.where("data ->> 'token_name' = ?", TARGET_TOKEN_NAME).order(:id).to_a
   repaired_duplicates = existing_tokens.length > 1
 
@@ -101,6 +112,7 @@ def ensure_api_token!(user:)
   if existing_tokens.one?
     token = existing_tokens.first
     return {
+      enabled: true,
       token_id: token.id,
       token_name: token.token_name,
       created: false,
@@ -113,6 +125,7 @@ def ensure_api_token!(user:)
   token = user.api_tokens.create!(token_name: TARGET_TOKEN_NAME)
 
   {
+    enabled: true,
     token_id: token.id,
     token_name: token.token_name,
     created: !ROTATE_API_TOKEN && !repaired_duplicates,
@@ -149,6 +162,7 @@ result = {
   role_names: primary_membership[:role_names],
   memberships: memberships,
   api_token: {
+    enabled: token_result[:enabled],
     token_name: token_result[:token_name],
     token_id: token_result[:token_id],
     created: token_result[:created],

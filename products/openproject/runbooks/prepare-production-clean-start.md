@@ -136,8 +136,8 @@ Do not relabel rehearsal data as production history.
    - `make openproject-configure-idea-backlog`
 3. Provision the canonical delivery plane:
    - `make openproject-configure-delivery-art`
-4. Provision broker delivery-plane access:
-   - `make openproject-provision-operator-orchestration-delivery-access`
+4. Provision the canonical delivery-plane identities:
+   - `make openproject-provision-delivery-art-identities`
 5. Verify production activation hygiene:
    - `make openproject-verify-clean-start`
    - optionally require an empty first activation:
@@ -150,6 +150,7 @@ Do not relabel rehearsal data as production history.
 - [bootstrap-openproject.md](bootstrap-openproject.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
+- [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [idea-backlog-contract.md](../idea-backlog-contract.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

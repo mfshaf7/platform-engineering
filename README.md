@@ -230,6 +230,7 @@ product-neutral.
   - `make openproject-check-delivery-art-quality`
   - `make openproject-standardize-delivery-art`
   - `make openproject-verify-clean-start`
+  - `make openproject-provision-delivery-art-identities`
   - `make openproject-provision-operator-orchestration-identity`
   - `make openproject-provision-operator-orchestration-delivery-access`
   - `make openproject-uninstall`

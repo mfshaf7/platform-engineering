@@ -21,6 +21,7 @@ help:
 	@printf "  openproject-check-delivery-art-quality Check whether the current delivery ART records are clean enough to use as primary work-state truth\n"
 	@printf "  openproject-standardize-delivery-art Normalize the live delivery ART records to the current field and narrative standard\n"
 	@printf "  openproject-verify-clean-start Report production-activation hygiene and optionally enforce the stricter empty-plane gate\n"
+	@printf "  openproject-provision-delivery-art-identities Create or converge assignable repo-owner identities for Workspace Delivery ART\n"
 	@printf "  openproject-provision-operator-orchestration-identity Create or converge the OpenProject service identity for operator-orchestration-service\n"
 	@printf "  openproject-provision-operator-orchestration-delivery-access Grant the broker service identity access to both proposal and delivery projects\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
@@ -149,6 +150,10 @@ openproject-standardize-delivery-art:
 .PHONY: openproject-verify-clean-start
 openproject-verify-clean-start:
 	REQUIRE_EMPTY="$(REQUIRE_EMPTY)" ./products/openproject/scripts/openproject_verify_clean_start.sh
+
+.PHONY: openproject-provision-delivery-art-identities
+openproject-provision-delivery-art-identities:
+	./products/openproject/scripts/openproject_provision_delivery_art_identities.sh
 
 .PHONY: openproject-provision-operator-orchestration-identity
 openproject-provision-operator-orchestration-identity:

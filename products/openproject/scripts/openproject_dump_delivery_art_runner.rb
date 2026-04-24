@@ -28,6 +28,8 @@ payload = {
       type: entry.type&.name,
       status: entry.status&.name,
       parent_id: entry.parent_id,
+      version_id: entry.version&.id,
+      version_name: entry.version&.name,
       target_pi: OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(
         entry: entry,
         field: custom_fields["Target PI"]

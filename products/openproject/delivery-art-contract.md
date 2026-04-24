@@ -12,6 +12,21 @@ This contract is intentionally separate from:
 The proposal backlog remains the intake plane. This contract defines the
 delivery plane.
 
+`Target PI` is the canonical writable PI-placement field. OpenProject
+`version` is a required derived projection used for roadmap compatibility.
+
+Projection rules:
+
+- when `Target PI` is populated, `version` must match that PI exactly
+- when `Target PI` is blank, `version` must project to the derived backlog
+  bucket `Not yet committed to a PI`
+- the derived backlog bucket is only for uncommitted backlog posture; non-`Epic`
+  work must carry `Target PI` before it moves to `ready`, `in-progress`, or
+  `blocked`
+
+That keeps the OpenProject roadmap page truthful to the whole ART instead of
+only the subset that already carries PI assignment.
+
 ## Work-State Authority
 
 Once work is already tracked inside `Workspace Delivery ART`, the delivery ART
@@ -194,7 +209,8 @@ the operator-visible board surface supported by the current runtime. Program
 Increment versions should be created from explicit PI operator input or from
 real delivery records that already carry `Target PI`. The writable placement
 signal for delivery work items is `Target PI`; versions exist to declare the PI
-set and back the managed board/view structure.
+set, back the managed board/view structure, and expose one derived backlog
+bucket for work that is not yet committed to any PI.
 
 ## One-ART Shape
 
@@ -205,7 +221,8 @@ SAFe-aligned mapping in OpenProject:
 - project:
   - one ART
 - versions:
-  - Program Increments
+  - Program Increments plus one derived roadmap bucket for work that is not
+    yet committed to a PI
 - work package hierarchy:
   - `Epic`
   - `PI Objective`

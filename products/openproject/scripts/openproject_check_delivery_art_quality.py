@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
+ROADMAP_UNASSIGNED_VERSION_NAME = "Not yet committed to a PI"
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
 INACTIVE_STATUSES = {"retired"}
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
@@ -683,6 +684,49 @@ def evaluate_live_project_taxonomy(
                 initiative_id=None,
                 target=entry,
                 detail=f"{CLASSIFICATION_FIELD_NAME} is not allowed on {type_name}",
+            )
+
+        target_pi = entry.get("target_pi")
+        version_name = entry.get("version_name")
+        if target_pi and version_name != target_pi:
+            add_issue(
+                issues,
+                issue_type="target_pi_version_drift",
+                initiative_id=None,
+                target=entry,
+                detail=f"Target PI {target_pi!r} must project to matching version, not {version_name!r}",
+            )
+        elif not target_pi and version_name != ROADMAP_UNASSIGNED_VERSION_NAME:
+            issue_type = (
+                "roadmap_unassigned_bucket_missing"
+                if not version_name
+                else "version_without_target_pi"
+            )
+            add_issue(
+                issues,
+                issue_type=issue_type,
+                initiative_id=None,
+                target=entry,
+                detail=(
+                    f"work without canonical Target PI must project to derived roadmap bucket "
+                    f"{ROADMAP_UNASSIGNED_VERSION_NAME!r}, not {version_name!r}"
+                ),
+            )
+
+        if (
+            type_name != "Epic"
+            and status in {"ready", "in-progress", "blocked"}
+            and not target_pi
+        ):
+            add_issue(
+                issues,
+                issue_type="active_item_missing_target_pi_commitment",
+                initiative_id=None,
+                target=entry,
+                detail=(
+                    "non-epic work in ready, in-progress, or blocked must carry canonical "
+                    "Target PI instead of remaining in the unassigned backlog bucket"
+                ),
             )
 
         expected_prefix = derived_subject_prefix(type_name, classification)

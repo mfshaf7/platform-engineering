@@ -56,6 +56,10 @@ The command:
 - creates or reuses project versions for the supplied PI names
 - also reuses any PI names already present through actual `Target PI` values on
   delivery work items
+- reconciles each ART work package so `version` matches the canonical
+  `Target PI` value
+- assigns the derived backlog roadmap bucket `Not yet committed to a PI` when
+  a work package does not yet carry `Target PI`
 - refreshes the generated project overview content for the ART home
 - normalizes managed ART list custom-field storage to the current OpenProject
   custom-option id form before rebuilding managed queries and boards
@@ -88,6 +92,14 @@ The managed query set also exists for:
 
 The managed execution board includes a dedicated `parked` lane so deferred open
 work stays visible in the OpenProject UI alongside the active execution flow.
+
+The OpenProject roadmap page is only truthful when this version projection
+matches the canonical `Target PI` field and still carries the explicit backlog
+bucket for ART work that is not yet committed to a PI. This workflow is the
+supported repair and reconciliation path for that projection. It does not make
+the backlog bucket a substitute for PI commitment: non-`Epic` work still needs
+canonical `Target PI` before it can move into `ready`, `in-progress`, or
+`blocked`.
 
 ## Verification
 

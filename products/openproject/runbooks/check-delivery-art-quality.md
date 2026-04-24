@@ -27,6 +27,9 @@ The supported quality check currently verifies:
 - active execution items do not violate the structured ready contract
 - items explicitly marked `Not committed to a PI iteration yet.` do not also
   pretend to have concrete PI assignment or scheduled dates
+- `Target PI` and roadmap `version` do not diverge
+- work with blank `Target PI` still projects to the derived roadmap bucket
+  `Not yet committed to a PI`
 - advisory narrative quality findings by work-item type:
   - `Epic`
     - `What This Initiative Achieves`
@@ -154,6 +157,14 @@ Quality modes:
   - `TARGET_EPIC_ID=<epic-id>`
   - validates execution hygiene and narrative quality for the active initiative
   - preferred for routine session startup when the active `Epic` is already known
+
+The quality check also verifies PI-commitment hygiene:
+
+- PI-assigned work must project into the matching roadmap `version`
+- work without `Target PI` must project into the derived roadmap bucket
+  `Not yet committed to a PI`
+- non-`Epic` work in `ready`, `in-progress`, or `blocked` must not stay in
+  that unassigned backlog bucket
 
 Typical fields include:
 

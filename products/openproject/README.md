@@ -72,6 +72,11 @@ platform-owned contract. Those records fail closed when verification or
 readiness evidence is missing, but they still do not create a separate
 OpenProject-owned `source -> stage -> prod` rollout rail.
 
+The delivery ART roadmap now treats OpenProject `version` as a derived
+projection of canonical `Target PI`, with one explicit backlog bucket:
+`Not yet committed to a PI`. That bucket keeps the roadmap truthful, but it is
+not a substitute for PI commitment on active non-`Epic` work.
+
 The canonical OpenProject workflow model now has two distinct planes:
 
 - [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
@@ -155,6 +160,7 @@ Inside `Workspace Delivery ART`, the current operator model is PM²-governed at
 the initiative layer and SAFe-aligned at the execution layer. That includes:
 
 - PI versions
+- a derived roadmap bucket for work not yet committed to a PI
 - `PI Objective`, `Feature`, `User story`, `Defect`, `Task`, `Milestone`, and
   `Risk` structural work-item types
 - `Execution Classification` on `Feature` and `User story` for:

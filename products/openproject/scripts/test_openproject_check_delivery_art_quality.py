@@ -81,6 +81,275 @@ class DeliveryArtQualityTest(unittest.TestCase):
             )
         )
 
+    def test_target_pi_version_drift_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 257,
+                    "record_ref": "openproject://work_packages/257",
+                    "subject": "Project ART Target PI into roadmap-compatible OpenProject versions and backfill existing drift",
+                    "type": "Feature",
+                    "status": "in-progress",
+                    "parent_id": 256,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": None,
+                },
+                {
+                    "id": 256,
+                    "record_ref": "openproject://work_packages/256",
+                    "subject": "Keep the OpenProject roadmap view truthful to ART PI placement",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": None,
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={256, 257},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "target_pi_version_drift"
+                and issue["work_package_id"] == 257
+                for issue in issues
+            )
+        )
+
+    def test_version_without_target_pi_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 300,
+                    "record_ref": "openproject://work_packages/300",
+                    "subject": "Defect: Repair stale roadmap projection",
+                    "type": "Defect",
+                    "status": "ready",
+                    "parent_id": 257,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Corrects",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "PI-2026-02",
+                },
+                {
+                    "id": 257,
+                    "record_ref": "openproject://work_packages/257",
+                    "subject": "Project ART Target PI into roadmap-compatible OpenProject versions and backfill existing drift",
+                    "type": "Feature",
+                    "status": "in-progress",
+                    "parent_id": 256,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": "PI-2026-02",
+                },
+                {
+                    "id": 256,
+                    "record_ref": "openproject://work_packages/256",
+                    "subject": "Keep the OpenProject roadmap view truthful to ART PI placement",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": "PI-2026-02",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={256, 257, 300},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "version_without_target_pi"
+                and issue["work_package_id"] == 300
+                for issue in issues
+            )
+        )
+
+    def test_missing_unassigned_roadmap_bucket_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 301,
+                    "record_ref": "openproject://work_packages/301",
+                    "subject": "Clarify future runtime extraction gate",
+                    "type": "User story",
+                    "status": "new",
+                    "parent_id": 257,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": None,
+                },
+                {
+                    "id": 257,
+                    "record_ref": "openproject://work_packages/257",
+                    "subject": "Project ART Target PI into roadmap-compatible OpenProject versions and backfill existing drift",
+                    "type": "Feature",
+                    "status": "in-progress",
+                    "parent_id": 256,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": "PI-2026-02",
+                },
+                {
+                    "id": 256,
+                    "record_ref": "openproject://work_packages/256",
+                    "subject": "Keep the OpenProject roadmap view truthful to ART PI placement",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-02",
+                    "version_name": "PI-2026-02",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={256, 257, 301},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "roadmap_unassigned_bucket_missing"
+                and issue["work_package_id"] == 301
+                for issue in issues
+            )
+        )
+
+    def test_active_item_without_target_pi_commitment_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 400,
+                    "record_ref": "openproject://work_packages/400",
+                    "subject": "Risk: Shared platform control validation may outrun PI commitment",
+                    "type": "Risk",
+                    "status": "in-progress",
+                    "parent_id": 87,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "Risk Event",
+                        "Impact",
+                        "Current Handling",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Not yet committed to a PI",
+                },
+                {
+                    "id": 87,
+                    "record_ref": "openproject://work_packages/87",
+                    "subject": "Establish the governed enterprise cybersecurity control baseline, assurance, and compliance operating model",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Not yet committed to a PI",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={87, 400},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "active_item_missing_target_pi_commitment"
+                and issue["work_package_id"] == 400
+                for issue in issues
+            )
+        )
+        self.assertFalse(
+            any(
+                issue["issue_type"] == "active_item_missing_target_pi_commitment"
+                and issue["work_package_id"] == 87
+                for issue in issues
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

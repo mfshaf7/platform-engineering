@@ -95,6 +95,7 @@ field_names = [
   "Sponsor",
   "Delivery Team",
   "Iteration",
+  "Target PI",
   EXECUTION_CLASSIFICATION_FIELD_NAME,
   "Acceptance Criteria",
   "Definition of Ready",
@@ -232,12 +233,11 @@ def top_epic_for(entry, by_id)
   current if current&.type&.name == "Epic"
 end
 
-def current_target_pi(entry)
-  if entry.respond_to?(:version)
-    entry.version&.name
-  elsif entry.respond_to?(:fixed_version)
-    entry.fixed_version&.name
-  end
+def current_target_pi(entry, custom_fields)
+  field = custom_fields["Target PI"]
+  return nil if field.nil?
+
+  field_value(entry, field)
 end
 
 def field_value(entry, field)
@@ -269,8 +269,8 @@ def default_delivery_team(owner_repo)
   }.fetch(owner_repo, "Platform Engineering")
 end
 
-def default_iteration(entry)
-  target_pi = current_target_pi(entry)
+def default_iteration(entry, custom_fields)
+  target_pi = current_target_pi(entry, custom_fields)
   target_pi.present? ? "#{target_pi} / Iteration 1" : BACKLOG_ITERATION
 end
 
@@ -328,7 +328,7 @@ def default_risk_handling
   "The ART keeps this risk visible and expects the owning repo to reduce, mitigate, or explicitly accept it through later delivery work."
 end
 
-def execution_context_body(entry, owner_repo, top_epic, field_team, field_iteration)
+def execution_context_body(entry, owner_repo, top_epic, field_team, field_iteration, custom_fields)
   lines = []
   lines << "- Owner repo: `#{owner_repo}`"
   lines << "- Work package: `##{entry.id}` #{entry.subject}"
@@ -339,7 +339,7 @@ def execution_context_body(entry, owner_repo, top_epic, field_team, field_iterat
     parent = entry.parent
     lines << "- Parent item: `##{parent.id}` #{parent.subject}" if parent
   end
-  target_pi = current_target_pi(entry)
+  target_pi = current_target_pi(entry, custom_fields)
   lines << "- Target PI: `#{target_pi}`" if target_pi.present?
   lines << "- Delivery team: `#{field_team}`" if field_team.present?
   lines << "- Iteration: `#{field_iteration}`" if field_iteration.present?
@@ -399,7 +399,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "PI Objective"
@@ -418,7 +418,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "Risk"
@@ -437,7 +437,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "Feature"
@@ -457,7 +457,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "User story"
@@ -477,7 +477,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "Defect"
@@ -496,7 +496,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "Milestone"
@@ -507,7 +507,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     when "Task"
@@ -526,7 +526,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
         ]
       ]
     else
@@ -656,7 +656,7 @@ work_packages.each do |entry|
     end
 
     if iteration_field&.types&.include?(entry.type) && current_iteration.blank?
-      desired_iteration = default_iteration(entry)
+      desired_iteration = default_iteration(entry, custom_fields)
       set_field!(entry, iteration_field, desired_iteration)
       current_iteration = desired_iteration
       changed[:iteration] = { from: nil, to: desired_iteration }

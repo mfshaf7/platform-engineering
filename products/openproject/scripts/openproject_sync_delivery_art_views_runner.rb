@@ -19,6 +19,7 @@ EXECUTION_STATUS_NAMES = ["new", "ready", "in-progress", "blocked", "parked", "d
 PM2_PHASES = ["Initiating", "Planning", "Executing", "Closing"].freeze
 PI_OBJECTIVE_COMMITMENT_TYPES = ["Committed", "Stretch"].freeze
 ROAM_STATES = ["Resolved", "Owned", "Accepted", "Mitigated"].freeze
+ROADMAP_UNASSIGNED_VERSION_NAME = "Not yet committed to a PI".freeze
 
 ART_DASHBOARD_BOARD_NAME = "ART Dashboard"
 PM2_BOARD_NAME = "PM² Phase Board"
@@ -108,6 +109,17 @@ def existing_target_pi_names(project)
              .uniq
 end
 
+def contains_unassigned_target_pi?(project, target_pi_field:)
+  WorkPackage.where(project: project)
+             .find_each
+             .any? do |work_package|
+               OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(
+                 entry: work_package,
+                 field: target_pi_field
+               ).blank?
+             end
+end
+
 def ensure_versions!(project, names)
   names.uniq.sort.map do |name|
     version = project.versions.find_or_initialize_by(name: name)
@@ -116,6 +128,58 @@ def ensure_versions!(project, names)
     version.save!
     version
   end
+end
+
+def version_name_for(work_package)
+  if work_package.respond_to?(:version)
+    work_package.version&.name
+  elsif work_package.respond_to?(:fixed_version)
+    work_package.fixed_version&.name
+  end
+end
+
+def assign_version!(work_package, version)
+  if work_package.respond_to?(:version=)
+    work_package.version = version
+  elsif work_package.respond_to?(:fixed_version=)
+    work_package.fixed_version = version
+  else
+    raise "Work package #{work_package.id} does not support version assignment"
+  end
+end
+
+def reconcile_target_pi_versions!(project:, target_pi_field:, versions:)
+  versions_by_name = versions.index_by(&:name)
+  changes = []
+
+  WorkPackage.where(project: project).includes(:version).reorder(:id).find_each do |work_package|
+    target_pi = OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(
+      entry: work_package,
+      field: target_pi_field
+    )
+    desired_version_name =
+      if target_pi.present?
+        target_pi
+      else
+        ROADMAP_UNASSIGNED_VERSION_NAME
+      end
+    desired_version = versions_by_name[desired_version_name]
+    current_version_name = version_name_for(work_package)
+    desired_version_name = desired_version&.name
+    next if current_version_name == desired_version_name
+
+    assign_version!(work_package, desired_version)
+    work_package.save!
+    changes << {
+      id: work_package.id,
+      subject: work_package.subject,
+      from_version: current_version_name,
+      to_version: desired_version_name,
+      target_pi: target_pi
+    }
+  end
+
+  changes
 end
 
 def destroy_managed_views!(project)
@@ -272,9 +336,6 @@ User.current = admin_user
 project = project!
 enable_board_module!(project)
 refresh_project_home!(project)
-
-pi_names = (configured_pi_names + existing_target_pi_names(project)).uniq
-versions = ensure_versions!(project, pi_names)
 roam_field = project.work_package_custom_fields.find_by(name: "ROAM State")
 raise "Missing ROAM State custom field for risk views" if roam_field.nil?
 target_pi_field = project.work_package_custom_fields.find_by(name: "Target PI")
@@ -284,7 +345,17 @@ raise "Missing PM² Phase custom field for PM² board views" if pm2_phase_field.
 pi_objective_type_field = project.work_package_custom_fields.find_by(name: "PI Objective Type")
 raise "Missing PI Objective Type custom field for PI objective views" if pi_objective_type_field.nil?
 
+pi_names = (configured_pi_names + existing_target_pi_names(project)).uniq
+pi_names << ROADMAP_UNASSIGNED_VERSION_NAME if contains_unassigned_target_pi?(project, target_pi_field: target_pi_field)
+versions = ensure_versions!(project, pi_names)
+pi_versions = versions.reject { |version| version.name == ROADMAP_UNASSIGNED_VERSION_NAME }
+
 normalized_list_custom_values = OpenprojectDeliveryArtCustomFieldSupport.normalize_list_storage!(project: project)
+version_projection_changes = reconcile_target_pi_versions!(
+  project: project,
+  target_pi_field: target_pi_field,
+  versions: versions
+)
 
 destroy_managed_views!(project)
 
@@ -392,8 +463,8 @@ execution_board = create_basic_board!(
 
 pi_objective_board = nil
 pi_objective_queries = []
-if versions.any?
-  pi_objective_widgets = versions.flat_map do |version|
+if pi_versions.any?
+  pi_objective_widgets = pi_versions.flat_map do |version|
     PI_OBJECTIVE_COMMITMENT_TYPES.map do |commitment_type|
       filters = pi_objective_filters(
         version: version,
@@ -487,6 +558,11 @@ result = {
   normalized_list_custom_values: {
     count: normalized_list_custom_values.length,
     fields: normalized_list_custom_values.group_by { |entry| entry.fetch(:field_name) }.transform_values(&:length).sort.to_h
+  },
+  version_projection: {
+    count: version_projection_changes.length,
+    by_target_pi: version_projection_changes.group_by { |entry| entry.fetch(:target_pi) || "_none_" }.transform_values(&:length).sort.to_h,
+    sample: version_projection_changes.first(20)
   },
   notes: if versions.empty?
            [

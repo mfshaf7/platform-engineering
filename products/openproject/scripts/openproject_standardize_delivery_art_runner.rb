@@ -346,6 +346,43 @@ def execution_context_body(entry, owner_repo, top_epic, field_team, field_iterat
   lines.join("\n")
 end
 
+def execution_context_complete?(body, entry:, owner_repo:, field_team:, field_iteration:)
+  rendered = body.to_s
+  return false if rendered.strip.empty?
+
+  expectations = {
+    "owner repo" => owner_repo
+  }
+  expectations["parent item"] = "##{entry.parent_id}" if entry.parent_id
+  expectations["delivery team"] = field_team if field_team.present?
+  expectations["iteration"] = field_iteration if field_iteration.present?
+
+  expectations.all? do |label, expected_value|
+    line = rendered.lines.find { |candidate| candidate.strip.downcase.start_with?("- #{label}:") }
+    next false if line.nil?
+
+    value = line.split(":", 2).last.to_s.gsub("`", "").strip
+    if label == "parent item"
+      value.start_with?(expected_value)
+    else
+      value == expected_value
+    end
+  end
+end
+
+def normalized_execution_context(sections, entry:, owner_repo:, top_epic:, field_team:, field_iteration:, custom_fields:)
+  existing = first_body(sections, "Execution Context")
+  return existing if execution_context_complete?(
+    existing,
+    entry: entry,
+    owner_repo: owner_repo,
+    field_team: field_team,
+    field_iteration: field_iteration
+  )
+
+  execution_context_body(entry, owner_repo, top_epic, field_team, field_iteration, custom_fields)
+end
+
 def render_sections(sections)
   sections.filter_map do |heading, body|
     rendered = body.to_s.strip
@@ -399,7 +436,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "PI Objective"
@@ -418,7 +455,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "Risk"
@@ -437,7 +474,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "Feature"
@@ -457,7 +494,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "User story"
@@ -477,7 +514,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "Defect"
@@ -496,7 +533,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "Milestone"
@@ -507,7 +544,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ],
         [
           "Execution Context",
-          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration, custom_fields)
+          normalized_execution_context(sections, entry: entry, owner_repo: owner_repo, top_epic: top_epic, field_team: delivery_team, field_iteration: iteration, custom_fields: custom_fields)
         ]
       ]
     when "Task"

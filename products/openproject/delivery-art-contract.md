@@ -241,6 +241,87 @@ SAFe-aligned mapping in OpenProject:
 
 Multiple ARTs are deferred until the single-ART model is proven useful.
 
+## Consume-To-PI-Planning Workflow
+
+Use one governed planning path for newly accepted work:
+
+1. Consume
+   - accepted work enters `Workspace Delivery ART` as one top-level `Epic`
+   - the consume step creates the initiative shell only
+   - do not auto-create PI objectives, user stories, tasks, or deep execution
+     trees during consume
+2. Initiative framing
+   - define the initiative narrative, scope boundaries, and owner path on the
+     `Epic`
+   - add only backlog-shaped child work while the initiative is still
+     uncommitted:
+     - `Feature`
+     - `Risk`
+     - `Defect` only when it is explicitly being held as uncommitted backlog
+       correction work
+3. PI planning
+   - assign `Target PI` to the initiative once the current PI focus is real
+   - create `PI Objective` items for that PI
+   - create only the committed `Feature` and `Risk` slices for that PI
+   - committed non-`Epic` work must carry:
+     - `Target PI`
+     - non-backlog `Iteration`
+     - owner and assignment fields
+4. Rolling-wave elaboration
+   - create `User story` work only for committed features
+   - create `Task` work only under active `User story` or `Defect` items
+   - do not pre-expand backlog features into story forests before PI
+     commitment
+5. Execution
+   - treat the active child `User story`, `Defect`, or `Task` as the real
+     execution front
+   - do not present a `Feature` or `PI Objective` shell as the executable next
+     item when it still has open child work
+6. PI review, carryover, and decommit
+   - explicitly close completed PI objectives and work items with evidence
+   - re-target true carryover work to the next PI instead of leaving stale PI
+     placement behind
+   - move decommitted work back to backlog posture instead of leaving it
+     looking committed
+
+This keeps consume, planning, execution, and the roadmap projection aligned to
+one deliberate workflow instead of relying on later cleanup.
+
+## Planning Gates
+
+Use these commitment rules as the canonical machine model:
+
+- `Epic`
+  - may exist without `Target PI`
+  - is the only allowed root work-item type
+- `Feature`
+  - may exist without `Target PI` while it stays backlog-shaped
+  - backlog features must not carry `User story` children before PI
+    commitment
+- `Risk`
+  - may exist without `Target PI`
+- `Defect`
+  - may exist without `Target PI` only while it remains backlog correction work
+    in `new` posture
+- `PI Objective`
+  - must always carry `Target PI`
+- `User story`
+  - must always carry `Target PI`
+- `Task`
+  - must always carry `Target PI`
+- `Milestone`
+  - must always carry `Target PI`
+
+Committed non-`Epic` work must also carry a non-backlog `Iteration`.
+
+Derived roadmap rules stay unchanged:
+
+- `Target PI` is canonical planning truth
+- OpenProject `version` is a derived roadmap projection
+- blank `Target PI` projects to `Not yet committed to a PI`
+- the unassigned roadmap bucket is for backlog posture only, not active
+  execution
+
 ## PM² Governance Overlay
 
 Each consumed accepted idea should create one top-level delivery initiative in

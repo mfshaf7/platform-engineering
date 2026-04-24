@@ -33,6 +33,8 @@ Read this as operator workflow families:
   state.
 - `configure-idea-backlog.md` and `configure-delivery-art.md` live on the
   proposal and project-bootstrap side.
+- `plan-delivery-art.md` is the primary operator surface for consume, framing,
+  PI planning, rolling-wave elaboration, and PI carryover discipline.
 - `provision-delivery-art-identities.md` is the control that converges the
   assignable repo-owner principals for `Workspace Delivery ART`.
 - `check-delivery-art-quality.md` and `standardize-delivery-art.md` are the
@@ -49,6 +51,7 @@ Read this as operator workflow families:
 - [bootstrap-openproject.md](bootstrap-openproject.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
+- [plan-delivery-art.md](plan-delivery-art.md)
 - [sync-delivery-art-views.md](sync-delivery-art-views.md)
 - [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)

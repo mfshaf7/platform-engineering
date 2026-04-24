@@ -86,10 +86,15 @@ Profiles must declare one of these runtime state models in `profile.yaml`:
   - `devint-down` must preserve project data and act as suspend, not wipe
   - `devint-up` must resume or reconcile the preserved runtime state
   - `devint-reset` remains the only destructive rebuild path
+  - shared `devint-smoke` must stay read-only on the persistent working lane
 
 Persistent profiles are still local-only and ungoverned. They do not become a
 replacement for `stage`, but they do avoid forcing large in-flight project
 trees to rebuild on every stop/start cycle.
+
+If a workflow still needs mutating smoke, admit and use a separate disposable
+companion profile instead of writing test artifacts into the persistent
+working lane.
 
 When a new profile requests `persistent` state, the admission record must make
 these operator commitments explicit:
@@ -201,6 +206,11 @@ Active profiles must carry a concrete stage-handoff contract:
 
 Source landing is not closure when the documented handoff still requires
 governed `stage` evidence.
+
+If a persistent profile and a disposable companion profile split the workflow,
+the handoff obligations should stay attached to the profile that actually proves
+the mutating behavior instead of pretending the persistent workbench still
+owns that proof.
 
 That keeps fast local iteration separate from governed rollout.
 

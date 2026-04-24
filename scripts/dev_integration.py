@@ -167,6 +167,10 @@ def compute_namespace(profile: dict, profile_id: str, operator: str) -> str:
     return slugify(rendered)[:63]
 
 
+def smoke_testing(profile: dict) -> dict:
+    return ((profile.get("testing") or {}).get("smoke") or {})
+
+
 def session_paths(workspace_root: Path, profile_id: str, operator: str) -> dict[str, Path]:
     base_root = workspace_root / ".dev-integration"
     state_root = base_root / profile_id / operator
@@ -308,6 +312,21 @@ def main() -> int:
         profile_id=args.profile,
         repo_overrides=repo_overrides,
     )
+    if ACTIONS[args.action] == "smoke":
+        state_model = (profile.get("runtime") or {}).get("state_model")
+        mutation_mode = smoke_testing(profile).get("mutation_mode")
+        companion_profile = smoke_testing(profile).get("companion_profile_id")
+        if state_model == "persistent" and mutation_mode != "read-only":
+            guidance = ""
+            if companion_profile:
+                guidance = (
+                    f" Use the disposable companion profile instead: "
+                    f"make devint-smoke PROFILE={companion_profile}."
+                )
+            raise SystemExit(
+                f"Persistent dev-integration profile {args.profile!r} cannot run mutating smoke "
+                f"against its working lane.{guidance}"
+            )
     paths = session_paths(workspace_root, args.profile, operator)
     namespace = compute_namespace(profile, args.profile, operator)
 

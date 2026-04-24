@@ -69,6 +69,12 @@ Current active profiles:
   - owner repo: `operator-orchestration-service`
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery/profile.yaml)
+  - role: persistent operator workbench for the local delivery ART lane
+- `accepted-idea-delivery-mutation-smoke`
+  - owner repo: `operator-orchestration-service`
+  - profile path:
+    [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml)
+  - role: disposable mutating smoke companion for accepted-idea consume and backlink rehearsal
 
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
@@ -116,6 +122,9 @@ State-model rule:
   - `devint-up` resumes or reconciles the preserved runtime
   - use `devint-reset` only when you intentionally want to destroy the local
     project history and rebuild from scratch
+  - shared `devint-smoke` must stay read-only on the persistent working lane
+  - if a workflow still needs mutating smoke, run that proof through a
+    separate disposable companion profile instead
 
 Important boundaries:
 
@@ -126,6 +135,16 @@ Important boundaries:
 - it still requires a governed handoff before `stage`
 - the active profile README and `stage_handoff.required_checks` are part of
   that handoff contract, not optional notes
+- persistent profiles are reserved working lanes, not mutation-smoke targets
+- if a test would create or mutate local work-tracking artifacts, it belongs in
+  a disposable companion profile rather than the persistent lane
+
+Port-forward note for persistent OpenProject lanes:
+
+- if the normal UI access session is already holding the profile's default
+  OpenProject port, run smoke on an alternate local port while keeping the
+  canonical host header, for example:
+  - `DEVINT_OPENPROJECT_LOCAL_PORT=28183 DEVINT_OPENPROJECT_HOST_HEADER=localhost:18183 DEVINT_BROKER_LOCAL_PORT=28180 make devint-smoke PROFILE=accepted-idea-delivery`
 
 ## 3. Request A New Profile When None Fits
 
@@ -176,6 +195,10 @@ Additional required request content for `persistent` profiles:
 - what `devint-reset` is allowed to destroy
 - cutover plan when upgrading an existing disposable profile into a
   persistent project-backed lane
+- smoke mutation mode
+  - persistent profiles must keep shared `devint-smoke` read-only
+- disposable companion profile, when the workflow still needs mutating smoke
+  - do not point mutating smoke at the persistent working lane
 
 Supporting template:
 

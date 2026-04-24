@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "classification_field": {
+    "name": "Execution Classification",
+    "required_for_types": [
+      "Feature",
+      "User story"
+    ],
+    "values": [
+      "Business",
+      "Enabler",
+      "Improvement"
+    ]
+  },
+  "legacy_subject_prefixes": [
+    "Feature",
+    "Task",
+    "User story",
+    "PI Objective",
+    "Milestone"
+  ],
+  "structural_types": {
+    "Epic": {
+      "allowed_parent_types": [],
+      "derived_subject_prefix": null,
+      "narrative_headings": [
+        "What This Initiative Achieves",
+        "Current PI Focus",
+        "Scope Boundaries",
+        "Execution Context"
+      ]
+    },
+    "PI Objective": {
+      "allowed_parent_types": [
+        "Epic"
+      ],
+      "derived_subject_prefix": null,
+      "narrative_headings": [
+        "Outcome",
+        "Why This PI",
+        "Success Signal",
+        "Execution Context"
+      ]
+    },
+    "Feature": {
+      "allowed_parent_types": [
+        "Epic"
+      ],
+      "derived_subject_prefix_by_classification": {
+        "Enabler": "Enabler",
+        "Improvement": "Improvement"
+      },
+      "narrative_headings": {
+        "default": [
+          "What This Achieves",
+          "Benefit Hypothesis",
+          "Scope Boundaries",
+          "Execution Context"
+        ],
+        "Enabler": [
+          "What This Enables",
+          "Benefit Hypothesis",
+          "Scope Boundaries",
+          "Execution Context"
+        ]
+      }
+    },
+    "User story": {
+      "allowed_parent_types": [
+        "Feature"
+      ],
+      "derived_subject_prefix_by_classification": {
+        "Enabler": "Enabler",
+        "Improvement": "Improvement"
+      },
+      "narrative_headings": {
+        "default": [
+          "What This Achieves",
+          "Why This Matters Now",
+          "Evidence Expectation",
+          "Execution Context"
+        ],
+        "Enabler": [
+          "What This Enables",
+          "Why This Matters Now",
+          "Evidence Expectation",
+          "Execution Context"
+        ]
+      }
+    },
+    "Defect": {
+      "allowed_parent_types": [
+        "Epic",
+        "Feature",
+        "User story"
+      ],
+      "derived_subject_prefix": "Defect",
+      "narrative_headings": [
+        "What This Corrects",
+        "Why This Matters Now",
+        "Evidence Expectation",
+        "Execution Context"
+      ]
+    },
+    "Task": {
+      "allowed_parent_types": [
+        "User story",
+        "Defect"
+      ],
+      "derived_subject_prefix": null,
+      "narrative_headings": [
+        "What This Achieves",
+        "Why This Matters Now",
+        "Evidence Expectation",
+        "Execution Context"
+      ]
+    },
+    "Milestone": {
+      "allowed_parent_types": [
+        "Epic"
+      ],
+      "derived_subject_prefix": null,
+      "narrative_headings": [
+        "Exit Condition",
+        "Execution Context"
+      ]
+    },
+    "Risk": {
+      "allowed_parent_types": [
+        "Epic"
+      ],
+      "derived_subject_prefix": "Risk",
+      "narrative_headings": [
+        "Risk Event",
+        "Impact",
+        "Current Handling",
+        "Execution Context"
+      ]
+    }
+  }
+}

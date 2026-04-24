@@ -29,7 +29,8 @@ module OpenprojectDeliveryArtHomeSupport
         - initiative-of-record
         - PM² governance lives here
       - child work items
-        - SAFe-aligned execution records for `PI Objective`, `Feature`, `Enabler`, `User story`, `Task`, `Milestone`, and `Risk`
+        - SAFe-aligned execution records for `PI Objective`, `Feature`, `User story`, `Defect`, `Task`, `Milestone`, and `Risk`
+        - `Enabler` and `Improvement` now live as `Execution Classification` on `Feature` or `User story`, not as structural types
       - boards
         - operator-facing orientation and live execution surfaces
 

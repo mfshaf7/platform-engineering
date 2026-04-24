@@ -4,9 +4,14 @@ require "json"
 require "set"
 
 require_relative "openproject_delivery_art_custom_field_support"
+require_relative "openproject_delivery_art_taxonomy_support"
 
 PROJECT_IDENTIFIER = ENV.fetch("OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER", "workspace-delivery-art")
-TARGET_EPIC_ID = ENV["TARGET_EPIC_ID"]&.strip&.then { |value| Integer(value) }
+TARGET_EPIC_ID = ENV["TARGET_EPIC_ID"]&.strip&.yield_self do |value|
+  next nil if value.nil? || value.empty?
+
+  Integer(value)
+end
 
 PLATFORM_ENGINEERING_IDS = Set[
   68, 74, 82, 83, 84, 85, 86,
@@ -41,6 +46,43 @@ LEGACY_COMPLETION_HEADING_MAP = {
   "Verification" => "Validation Evidence",
   "Result" => "Completion Summary"
 }.freeze
+EXECUTION_CLASSIFICATION_FIELD_NAME = OpenprojectDeliveryArtTaxonomySupport.classification_field_name
+EXECUTION_CLASSIFICATION_REQUIRED_TYPES = Set[
+  *OpenprojectDeliveryArtTaxonomySupport.classification_required_types
+].freeze
+STRUCTURAL_TYPE_NAMES = Set[
+  *OpenprojectDeliveryArtTaxonomySupport.structural_type_names
+].freeze
+LEGACY_ENABLER_TYPE_NAME = "Enabler"
+ROOT_PARENT_OVERRIDE_IDS = {
+  69 => 61,
+  73 => 61,
+  193 => 190
+}.freeze
+PARENT_OVERRIDE_IDS = {
+  187 => 181
+}.freeze
+TYPE_OVERRIDE_IDS = {
+  69 => "User story",
+  73 => "User story",
+  86 => "Feature",
+  187 => "User story",
+  188 => "Feature",
+  190 => "User story",
+  193 => "Task",
+  212 => "Feature",
+  217 => "Defect",
+  221 => "Defect"
+}.freeze
+CLASSIFICATION_OVERRIDE_IDS = {
+  69 => "Business",
+  73 => "Improvement",
+  86 => "Improvement",
+  187 => "Business",
+  188 => "Business",
+  190 => "Enabler",
+  212 => "Improvement"
+}.freeze
 
 project = Project.find_by!(identifier: PROJECT_IDENTIFIER)
 author = User.find_by(login: "admin") || User.admin.active.first || User.active.first
@@ -53,6 +95,7 @@ field_names = [
   "Sponsor",
   "Delivery Team",
   "Iteration",
+  EXECUTION_CLASSIFICATION_FIELD_NAME,
   "Acceptance Criteria",
   "Definition of Ready",
   "Definition of Done"
@@ -61,6 +104,7 @@ custom_fields = project.work_package_custom_fields.where(name: field_names).inde
 
 all_work_packages = WorkPackage.where(project_id: project.id).includes(:type, :status, :version, :parent).order(:id).to_a
 by_id = all_work_packages.index_by(&:id)
+types_by_name = Type.where(name: STRUCTURAL_TYPE_NAMES.to_a + [LEGACY_ENABLER_TYPE_NAME]).index_by(&:name)
 
 def section_pairs(markdown)
   markdown.to_s.scan(/^## ([^\n]+)\n(.*?)(?=^## |\z)/m).map do |heading, body|
@@ -90,7 +134,92 @@ def execution_context_owner_repo(entry)
 end
 
 def clean_subject(subject)
-  subject.to_s.sub(/\A(?:Enabler|Feature|Task|User story|Risk|Improvement|Defect|Milestone|PI Objective):\s*/i, "")
+  OpenprojectDeliveryArtTaxonomySupport.strip_known_subject_prefix(subject)
+end
+
+def detected_subject_prefix(subject)
+  OpenprojectDeliveryArtTaxonomySupport.detected_subject_prefix(subject)
+end
+
+def classification_field(custom_fields)
+  custom_fields[EXECUTION_CLASSIFICATION_FIELD_NAME]
+end
+
+def current_execution_classification(entry, custom_fields)
+  field = classification_field(custom_fields)
+  return nil if field.nil?
+
+  field_value(entry, field)
+end
+
+def desired_execution_classification(entry, custom_fields:, target_type:, parent_target_type:)
+  explicit_override = CLASSIFICATION_OVERRIDE_IDS[entry.id]
+  return explicit_override if explicit_override
+
+  prefix = detected_subject_prefix(entry.subject)
+  return "Enabler" if prefix == "Enabler"
+  return "Improvement" if prefix == "Improvement"
+
+  return nil unless EXECUTION_CLASSIFICATION_REQUIRED_TYPES.include?(target_type)
+
+  if target_type == "Feature" && parent_target_type.nil?
+    return "Business"
+  end
+
+  "Business"
+end
+
+def parent_entry_for(entry, by_id)
+  parent_id = PARENT_OVERRIDE_IDS.fetch(entry.id, ROOT_PARENT_OVERRIDE_IDS.fetch(entry.id, entry.parent_id))
+  return nil if parent_id.nil?
+
+  by_id[parent_id]
+end
+
+def desired_parent_id(entry)
+  PARENT_OVERRIDE_IDS.fetch(entry.id, ROOT_PARENT_OVERRIDE_IDS.fetch(entry.id, entry.parent_id))
+end
+
+def desired_type_name(entry, by_id)
+  explicit_override = TYPE_OVERRIDE_IDS[entry.id]
+  return explicit_override if explicit_override
+
+  current_type = entry.type&.name.to_s
+  parent = parent_entry_for(entry, by_id)
+  parent_type = parent&.type&.name
+  parent_target_type =
+    if parent
+      TYPE_OVERRIDE_IDS.fetch(parent.id, parent_type)
+    end
+  prefix = detected_subject_prefix(entry.subject)
+
+  case current_type
+  when LEGACY_ENABLER_TYPE_NAME
+    return "Feature" if parent_target_type == "Epic"
+    return "User story" if parent_target_type == "Feature"
+  when "Feature"
+    return "Feature"
+  when "Task"
+    return "Defect" if prefix == "Defect"
+    if ["Feature", LEGACY_ENABLER_TYPE_NAME, "PI Objective"].include?(parent_target_type)
+      return "User story"
+    end
+    return "Task" if ["Task", "User story", "Defect"].include?(parent_target_type)
+    return "Feature" if parent_target_type == "Epic"
+    return "Task"
+  else
+    return current_type
+  end
+
+  current_type
+end
+
+def render_subject(entry, target_type:, classification:)
+  OpenprojectDeliveryArtTaxonomySupport.render_subject(
+    base_subject: entry.subject,
+    type_name: target_type,
+    classification:
+  )
 end
 
 def top_epic_for(entry, by_id)
@@ -246,11 +375,12 @@ def preserved_sections_for(entry, preserve_done_sections)
   preserved
 end
 
-def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iteration:, preserve_done_sections:)
+def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iteration:, preserve_done_sections:, custom_fields:)
   sections = section_pairs(entry.description).to_h
   preserved = preserved_sections_for(entry, preserve_done_sections)
 
   type_name = entry.type&.name
+  classification = current_execution_classification(entry, custom_fields)
   normalized_sections =
     case type_name
     when "Epic"
@@ -311,10 +441,11 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
         ]
       ]
     when "Feature"
+      heading = classification == "Enabler" ? "What This Enables" : "What This Achieves"
       [
         [
-          "What This Achieves",
-          first_body(sections, "What This Achieves", "Delivery Outcome", "Feature Outcome", "Purpose") || clean_subject(entry.subject)
+          heading,
+          first_body(sections, heading, "What This Achieves", "What This Enables", "Delivery Outcome", "Feature Outcome", "Purpose") || clean_subject(entry.subject)
         ],
         [
           "Benefit Hypothesis",
@@ -329,19 +460,39 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
           first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
         ]
       ]
-    when "Enabler"
+    when "User story"
+      heading = classification == "Enabler" ? "What This Enables" : "What This Achieves"
       [
         [
-          "What This Enables",
-          first_body(sections, "What This Enables", "Delivery Outcome", "Purpose") || clean_subject(entry.subject)
+          heading,
+          first_body(sections, heading, "What This Achieves", "What This Enables", "Concrete Output", "Expected Output", "Purpose") || clean_subject(entry.subject)
         ],
         [
-          "Benefit Hypothesis",
-          first_body(sections, "Benefit Hypothesis", "Runway Need", "Current Purpose") || default_benefit(entry, top_epic)
+          "Why This Matters Now",
+          first_body(sections, "Why This Matters Now", "Current Purpose", "Ready Condition") || default_why_now(entry, top_epic)
         ],
         [
-          "Scope Boundaries",
-          first_body(sections, "Scope Boundaries", "Scope") || default_scope_boundaries(entry)
+          "Evidence Expectation",
+          first_body(sections, "Evidence Expectation", "Exit Condition") || default_evidence_expectation(entry, top_epic)
+        ],
+        [
+          "Execution Context",
+          first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
+        ]
+      ]
+    when "Defect"
+      [
+        [
+          "What This Corrects",
+          first_body(sections, "What This Corrects", "What This Achieves", "Concrete Output", "Expected Output", "Purpose") || clean_subject(entry.subject)
+        ],
+        [
+          "Why This Matters Now",
+          first_body(sections, "Why This Matters Now", "Current Purpose", "Ready Condition") || default_why_now(entry, top_epic)
+        ],
+        [
+          "Evidence Expectation",
+          first_body(sections, "Evidence Expectation", "Exit Condition") || default_evidence_expectation(entry, top_epic)
         ],
         [
           "Execution Context",
@@ -359,7 +510,7 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
           first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
         ]
       ]
-    else
+    when "Task"
       [
         [
           "What This Achieves",
@@ -378,6 +529,8 @@ def normalize_description(entry, owner_repo:, top_epic:, delivery_team:, iterati
           first_body(sections, "Execution Context") || execution_context_body(entry, owner_repo, top_epic, delivery_team, iteration)
         ]
       ]
+    else
+      []
     end
 
   render_sections(normalized_sections + preserved)
@@ -386,28 +539,75 @@ end
 work_packages = all_work_packages.select do |entry|
   next true if TARGET_EPIC_ID.nil?
 
-  top_epic = top_epic_for(entry, by_id)
+  top_epic = top_epic_for(parent_entry_for(entry, by_id) || entry, by_id)
   entry.id == TARGET_EPIC_ID || top_epic&.id == TARGET_EPIC_ID
 end
 
 changes = []
 
 work_packages.each do |entry|
-  top_epic = top_epic_for(entry, by_id)
+  top_epic = top_epic_for(parent_entry_for(entry, by_id) || entry, by_id)
   owner_repo = owner_repo_for(entry, top_epic)
   owner_repo_field = custom_fields.fetch("Owner Repo")
   current_owner_repo = field_value(entry, owner_repo_field)
 
   delivery_team_field = custom_fields["Delivery Team"]
   iteration_field = custom_fields["Iteration"]
+  execution_classification_field = classification_field(custom_fields)
   acceptance_field = custom_fields["Acceptance Criteria"]
   dor_field = custom_fields["Definition of Ready"]
   dod_field = custom_fields["Definition of Done"]
 
   current_delivery_team = delivery_team_field ? field_value(entry, delivery_team_field) : nil
   current_iteration = iteration_field ? field_value(entry, iteration_field) : nil
+  current_classification = current_execution_classification(entry, custom_fields)
+  desired_type_name = desired_type_name(entry, by_id)
+  desired_parent_id = desired_parent_id(entry)
+  desired_parent = desired_parent_id ? by_id[desired_parent_id] : nil
+  desired_parent_type = desired_parent ? TYPE_OVERRIDE_IDS.fetch(desired_parent.id, desired_parent.type&.name) : nil
+  desired_classification = desired_execution_classification(
+    entry,
+    custom_fields:,
+    target_type: desired_type_name,
+    parent_target_type: desired_parent_type
+  )
 
   changed = {}
+
+  if desired_type_name != entry.type&.name
+    target_type = types_by_name.fetch(desired_type_name)
+    changed[:type] = { from: entry.type&.name, to: desired_type_name }
+    entry.type = target_type
+  end
+
+  if desired_parent_id != entry.parent_id
+    previous_parent_id = entry.parent_id
+    entry.parent = desired_parent
+    changed[:parent] = { from: previous_parent_id, to: desired_parent_id }
+  end
+
+  if execution_classification_field
+    if EXECUTION_CLASSIFICATION_REQUIRED_TYPES.include?(desired_type_name)
+      desired_classification ||= OpenprojectDeliveryArtTaxonomySupport.canonical_business_classification
+      if current_classification != desired_classification
+        previous_classification = current_classification
+        set_field!(entry, execution_classification_field, desired_classification, kind: :list)
+        current_classification = desired_classification
+        changed[:execution_classification] = { from: previous_classification, to: desired_classification }
+      end
+    elsif current_classification.present?
+      previous_classification = current_classification
+      set_field!(entry, execution_classification_field, nil, kind: :list)
+      changed[:execution_classification] = { from: previous_classification, to: nil }
+      current_classification = nil
+    end
+  end
+
+  desired_subject = render_subject(entry, target_type: desired_type_name, classification: current_classification)
+  if desired_subject != entry.subject
+    changed[:subject] = { from: entry.subject, to: desired_subject }
+    entry.subject = desired_subject
+  end
 
   if owner_repo_field.types.include?(entry.type) && current_owner_repo != owner_repo
     set_field!(entry, owner_repo_field, owner_repo)
@@ -488,7 +688,8 @@ work_packages.each do |entry|
     top_epic: top_epic,
     delivery_team: current_delivery_team,
     iteration: current_iteration,
-    preserve_done_sections: entry.status&.name == DONE_STATUS
+    preserve_done_sections: entry.status&.name == DONE_STATUS,
+    custom_fields:
   )
 
   current_description = entry.description.to_s.strip
@@ -504,11 +705,52 @@ work_packages.each do |entry|
 
   entry.save!
   entry.reload
+  persisted_classification = current_execution_classification(entry, custom_fields)
+  if execution_classification_field && EXECUTION_CLASSIFICATION_REQUIRED_TYPES.include?(entry.type&.name)
+    remediation_classification = desired_classification || OpenprojectDeliveryArtTaxonomySupport.canonical_business_classification
+    if persisted_classification != remediation_classification
+      previous_classification = persisted_classification
+      set_field!(entry, execution_classification_field, remediation_classification, kind: :list)
+      persisted_classification = remediation_classification
+      changed[:execution_classification] = { from: previous_classification, to: remediation_classification }
+    end
+  end
+
+  remediation_subject = render_subject(entry, target_type: entry.type&.name, classification: persisted_classification)
+  if remediation_subject != entry.subject
+    changed[:subject] ||= { from: entry.subject, to: remediation_subject }
+    entry.subject = remediation_subject
+  end
+
+  current_headings = OpenprojectDeliveryArtCustomFieldSupport.description_headings(entry: entry)
+  remediation_description = normalize_description(
+    entry,
+    owner_repo: owner_repo,
+    top_epic: top_epic,
+    delivery_team: current_delivery_team,
+    iteration: current_iteration,
+    preserve_done_sections: entry.status&.name == DONE_STATUS,
+    custom_fields:
+  )
+  if remediation_description.present? && entry.description.to_s.strip != remediation_description
+    entry.description = remediation_description
+    changed[:description] = {
+      from_headings: current_headings,
+      to_headings: section_pairs(remediation_description).map(&:first)
+    }
+  end
+
+  if entry.changed? || entry.custom_values.any?(&:changed?)
+    entry.save!
+    entry.reload
+  end
   changes << {
     id: entry.id,
     subject: entry.subject,
     status: entry.status&.name,
     owner_repo: field_value(entry, owner_repo_field),
+    execution_classification: current_execution_classification(entry, custom_fields),
+    type: entry.type&.name,
     description_headings: OpenprojectDeliveryArtCustomFieldSupport.description_headings(entry: entry),
     changed: changed.keys.sort
   }

@@ -2,59 +2,13 @@
 
 require "date"
 require "set"
+require_relative "openproject_delivery_art_taxonomy_support"
 
 module OpenprojectDeliveryArtCustomFieldSupport
   module_function
 
   ACTIVE_EXECUTION_CONTRACT_STATUSES = %w[ready in-progress blocked].freeze
-  NARRATIVE_REQUIREMENTS = {
-    "Epic" => [
-      "What This Initiative Achieves",
-      "Current PI Focus",
-      "Scope Boundaries",
-      "Execution Context"
-    ],
-    "PI Objective" => [
-      "Outcome",
-      "Why This PI",
-      "Success Signal",
-      "Execution Context"
-    ],
-    "Risk" => [
-      "Risk Event",
-      "Impact",
-      "Current Handling",
-      "Execution Context"
-    ],
-    "Feature" => [
-      "What This Achieves",
-      "Benefit Hypothesis",
-      "Scope Boundaries",
-      "Execution Context"
-    ],
-    "Enabler" => [
-      "What This Enables",
-      "Benefit Hypothesis",
-      "Scope Boundaries",
-      "Execution Context"
-    ],
-    "User story" => [
-      "What This Achieves",
-      "Why This Matters Now",
-      "Evidence Expectation",
-      "Execution Context"
-    ],
-    "Task" => [
-      "What This Achieves",
-      "Why This Matters Now",
-      "Evidence Expectation",
-      "Execution Context"
-    ],
-    "Milestone" => [
-      "Exit Condition",
-      "Execution Context"
-    ]
-  }.freeze
+  EXECUTION_CLASSIFICATION_FIELD_NAME = OpenprojectDeliveryArtTaxonomySupport.classification_field_name
   FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = [
     "Acceptance Criteria",
     "Definition of Ready",
@@ -171,12 +125,30 @@ module OpenprojectDeliveryArtCustomFieldSupport
     entry.description.to_s.lstrip.start_with?("## ")
   end
 
-  def required_narrative_headings(entry:)
-    NARRATIVE_REQUIREMENTS.fetch(entry.type&.name.to_s, [])
+  def execution_classification(entry:, custom_fields: nil)
+    field =
+      if custom_fields
+        custom_fields[EXECUTION_CLASSIFICATION_FIELD_NAME]
+      else
+        entry.project&.work_package_custom_fields&.find_by(name: EXECUTION_CLASSIFICATION_FIELD_NAME)
+      end
+    return nil if field.nil?
+
+    rendered_custom_value(entry:, field:, kind: :list)
   end
 
-  def missing_required_narrative_headings(entry:)
-    required_narrative_headings(entry:).reject do |heading|
+  def required_narrative_headings(entry:, custom_fields: nil)
+    type_name = entry.type&.name.to_s
+    return [] if type_name.empty?
+
+    OpenprojectDeliveryArtTaxonomySupport.required_narrative_headings(
+      type_name: type_name,
+      classification: execution_classification(entry:, custom_fields:)
+    )
+  end
+
+  def missing_required_narrative_headings(entry:, custom_fields: nil)
+    required_narrative_headings(entry:, custom_fields:).reject do |heading|
       description_headings(entry:).include?(heading)
     end
   end

@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 
 SCRIPT_PATH = pathlib.Path(__file__).resolve().parent / "openproject_check_delivery_art_quality.py"
@@ -13,6 +14,32 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DeliveryArtQualityTest(unittest.TestCase):
+    def test_blank_env_values_fall_back_to_defaults(self) -> None:
+        self.assertEqual(
+            MODULE.resolve_openproject_namespace({"OPENPROJECT_NAMESPACE": ""}),
+            "openproject",
+        )
+        self.assertEqual(
+            MODULE.resolve_delivery_project_identifier(
+                {"OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER": ""}
+            ),
+            "workspace-delivery-art",
+        )
+        self.assertEqual(
+            MODULE.env_value({"BROKER_PORT": ""}, "BROKER_PORT", "8080"),
+            "8080",
+        )
+
+    def test_openproject_deployment_resolves_from_profile_namespace(self) -> None:
+        completed = mock.Mock(stdout="devint-accepted-idea-delivery-openproject-web")
+        with mock.patch.object(MODULE.subprocess, "run", return_value=completed) as run_mock:
+            deployment = MODULE.resolve_openproject_deployment(
+                {"OPENPROJECT_NAMESPACE": "devint-accepted-idea-delivery-mfshaf7"}
+            )
+
+        self.assertEqual(deployment, "devint-accepted-idea-delivery-openproject-web")
+        run_mock.assert_called_once()
+
     def test_done_state_narrative_drift_is_a_hard_failure(self) -> None:
         issues = []
         narrative_findings = []
@@ -346,6 +373,215 @@ class DeliveryArtQualityTest(unittest.TestCase):
             any(
                 issue["issue_type"] == "active_item_missing_target_pi_commitment"
                 and issue["work_package_id"] == 87
+                for issue in issues
+            )
+        )
+
+    def test_pi_objective_without_target_pi_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 500,
+                    "record_ref": "openproject://work_packages/500",
+                    "subject": "Prove the governed consume-to-PI-planning workflow in PI-2026-03",
+                    "type": "PI Objective",
+                    "status": "new",
+                    "parent_id": 277,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "Outcome",
+                        "Why This PI",
+                        "Success Signal",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Not yet committed to a PI",
+                    "iteration": "Program-wide / planning",
+                },
+                {
+                    "id": 277,
+                    "record_ref": "openproject://work_packages/277",
+                    "subject": "Establish the governed consume-to-PI-planning workflow for Workspace Delivery ART",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Not yet committed to a PI",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={277, 500},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "target_pi_required_type_missing_commitment"
+                and issue["work_package_id"] == 500
+                for issue in issues
+            )
+        )
+
+    def test_committed_item_without_iteration_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 501,
+                    "record_ref": "openproject://work_packages/501",
+                    "subject": "Improvement: Align roadmap, boards, contracts, and operator surfaces to the canonical planning workflow",
+                    "type": "Feature",
+                    "status": "ready",
+                    "parent_id": 277,
+                    "execution_classification": "Improvement",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "iteration": None,
+                },
+                {
+                    "id": 277,
+                    "record_ref": "openproject://work_packages/277",
+                    "subject": "Establish the governed consume-to-PI-planning workflow for Workspace Delivery ART",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={277, 501},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "committed_item_missing_iteration"
+                and issue["work_package_id"] == 501
+                for issue in issues
+            )
+        )
+
+    def test_backlog_feature_with_story_children_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        epic = {
+            "id": 277,
+            "record_ref": "openproject://work_packages/277",
+            "status": "in-progress",
+            "subject": "Establish the governed consume-to-PI-planning workflow for Workspace Delivery ART",
+            "type": "Epic",
+            "description_headings": [
+                "What This Initiative Achieves",
+                "Current PI Focus",
+                "Scope Boundaries",
+                "Execution Context",
+            ],
+        }
+        root = {
+            "id": 277,
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [],
+                            "completion_evidence_formatting_valid": False,
+                            "completion_evidence_issues": [],
+                            "completion_evidence_present": False,
+                            "description_headings": [
+                                "What This Achieves",
+                                "Why This Matters Now",
+                                "Evidence Expectation",
+                                "Execution Context",
+                            ],
+                            "description_present": True,
+                            "description_starts_with_heading": True,
+                            "done_narrative_contract_applicable": False,
+                            "done_narrative_contract_issues": [],
+                            "done_narrative_contract_satisfied": True,
+                            "id": 530,
+                            "iteration": None,
+                            "owner_repo": "platform-engineering",
+                            "parent_id": 520,
+                            "record_ref": "openproject://work_packages/530",
+                            "responsible_login": "Platform Engineering",
+                            "status": "new",
+                            "subject": "Improvement: Define the PI planning shape, commitment rules, and rolling-wave decomposition depth",
+                            "target_pi": None,
+                            "type": "User story",
+                        }
+                    ],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 520,
+                    "iteration": None,
+                    "owner_repo": "platform-engineering",
+                    "parent_id": 277,
+                    "record_ref": "openproject://work_packages/520",
+                    "responsible_login": "Platform Engineering",
+                    "status": "new",
+                    "subject": "Improvement: Define the consume, frame, PI-plan, elaborate, execute, and review workflow with hard gates",
+                    "target_pi": None,
+                    "type": "Feature",
+                }
+            ],
+        }
+
+        MODULE.evaluate_execution_summary(
+            initiative_id=277,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "backlog_feature_has_story_children"
+                and issue["work_package_id"] == 520
                 for issue in issues
             )
         )

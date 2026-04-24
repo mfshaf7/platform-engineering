@@ -30,6 +30,10 @@ The supported quality check currently verifies:
 - `Target PI` and roadmap `version` do not diverge
 - work with blank `Target PI` still projects to the derived roadmap bucket
   `Not yet committed to a PI`
+- `PI Objective`, `User story`, `Task`, and `Milestone` records do not exist
+  without PI commitment
+- backlog `Feature` work does not already carry story-level execution children
+- PI-committed non-`Epic` work carries a non-backlog `Iteration`
 - advisory narrative quality findings by work-item type:
   - `Epic`
     - `What This Initiative Achieves`
@@ -138,6 +142,10 @@ make openproject-check-delivery-art-quality \
   OPENPROJECT_NAMESPACE=devint-accepted-idea-delivery-mfshaf7
 ```
 
+The checker now resolves the profile-scoped OpenProject web deployment and the
+canonical `workspace-delivery-art` project identifier automatically when those
+values are left blank.
+
 ## Expected Outcome
 
 The command prints a JSON quality report and exits:
@@ -165,6 +173,10 @@ The quality check also verifies PI-commitment hygiene:
   `Not yet committed to a PI`
 - non-`Epic` work in `ready`, `in-progress`, or `blocked` must not stay in
   that unassigned backlog bucket
+- `PI Objective`, `User story`, `Task`, and `Milestone` work must not stay
+  uncommitted even in `new`
+- backlog `Feature` work must stay backlog-shaped until PI commitment
+- PI-committed non-`Epic` work must also carry a non-backlog `Iteration`
 
 Typical fields include:
 
@@ -178,5 +190,6 @@ Typical fields include:
 ## Related References
 
 - [standardize-delivery-art.md](standardize-delivery-art.md)
+- [plan-delivery-art.md](plan-delivery-art.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

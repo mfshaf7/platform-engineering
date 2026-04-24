@@ -16,6 +16,17 @@ ROADMAP_UNASSIGNED_VERSION_NAME = "Not yet committed to a PI"
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
 INACTIVE_STATUSES = {"retired"}
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
+TARGET_PI_REQUIRED_TYPES = {"PI Objective", "User story", "Task", "Milestone"}
+COMMITTED_ITERATION_REQUIRED_TYPES = {
+    "PI Objective",
+    "Feature",
+    "User story",
+    "Defect",
+    "Task",
+    "Milestone",
+    "Risk",
+}
+BACKLOG_FEATURE_CHILD_TYPES = {"User story"}
 FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
     "Acceptance Criteria",
     "Definition of Ready",
@@ -92,11 +103,57 @@ def run_json(
     return json.loads(payload)
 
 
+def env_value(env: dict[str, str], key: str, default: str) -> str:
+    value = (env.get(key) or "").strip()
+    return value or default
+
+
+def resolve_openproject_namespace(env: dict[str, str]) -> str:
+    return env_value(env, "OPENPROJECT_NAMESPACE", "openproject")
+
+
+def resolve_openproject_deployment(env: dict[str, str]) -> str:
+    explicit = (env.get("OPENPROJECT_DEPLOYMENT") or "").strip()
+    if explicit:
+        return explicit
+
+    namespace = resolve_openproject_namespace(env)
+    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
+    try:
+        completed = subprocess.run(
+            [
+                *kubectl,
+                "-n",
+                namespace,
+                "get",
+                "deploy",
+                "-l",
+                "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject",
+                "-o",
+                "jsonpath={.items[0].metadata.name}",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        resolved = completed.stdout.strip()
+        if resolved:
+            return resolved
+    except subprocess.CalledProcessError:
+        pass
+    return "openproject-web"
+
+
+def resolve_delivery_project_identifier(env: dict[str, str]) -> str:
+    return env_value(env, "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER", "workspace-delivery-art")
+
+
 def resolve_broker_namespace(env: dict[str, str]) -> str:
     broker_namespace = (env.get("BROKER_NAMESPACE") or "").strip()
     if broker_namespace:
         return broker_namespace
-    openproject_namespace = (env.get("OPENPROJECT_NAMESPACE") or "openproject").strip() or "openproject"
+    openproject_namespace = resolve_openproject_namespace(env)
     if openproject_namespace == "openproject":
         return "operator-orchestration-service"
     return openproject_namespace
@@ -112,8 +169,8 @@ def normalize_delivery_id(raw_id: str) -> str:
 def run_broker_json(path: str, *, env: dict[str, str]) -> dict[str, object]:
     kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
     broker_namespace = resolve_broker_namespace(env)
-    broker_deployment = env.get("BROKER_DEPLOYMENT", "operator-orchestration-service")
-    broker_port = env.get("BROKER_PORT", "8080")
+    broker_deployment = env_value(env, "BROKER_DEPLOYMENT", "operator-orchestration-service")
+    broker_port = env_value(env, "BROKER_PORT", "8080")
     node_script = """
 const brokerPath = process.env.BROKER_PATH || "/";
 const brokerPort = process.env.BROKER_PORT || "8080";
@@ -202,8 +259,9 @@ def push_remote_file(
 
 def run_openproject_project_json(*, env: dict[str, str]) -> dict[str, object]:
     kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
-    namespace = (env.get("OPENPROJECT_NAMESPACE") or "openproject").strip() or "openproject"
-    deployment = (env.get("OPENPROJECT_DEPLOYMENT") or "openproject-web").strip() or "openproject-web"
+    namespace = resolve_openproject_namespace(env)
+    deployment = resolve_openproject_deployment(env)
+    project_identifier = resolve_delivery_project_identifier(env)
     remote_runner = "/tmp/openproject_dump_delivery_art_runner.rb"
     remote_custom_field_support = "/tmp/openproject_delivery_art_custom_field_support.rb"
     remote_taxonomy_support = "/tmp/openproject_delivery_art_taxonomy_support.rb"
@@ -255,7 +313,7 @@ def run_openproject_project_json(*, env: dict[str, str]) -> dict[str, object]:
                     "bundle exec rails runner \"$2\""
                 ),
                 "sh",
-                env.get("OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER", "workspace-delivery-art"),
+                project_identifier,
                 remote_runner,
             ],
             env=env,
@@ -506,6 +564,45 @@ def evaluate_execution_summary(
                     target=node,
                     detail="backlog item marked as not committed to a PI iteration still has concrete schedule dates",
                 )
+        if (
+            node.get("type") in COMMITTED_ITERATION_REQUIRED_TYPES
+            and node.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            and node.get("target_pi")
+            and not node.get("iteration")
+        ):
+            add_issue(
+                issues,
+                issue_type="committed_item_missing_iteration",
+                initiative_id=initiative_id,
+                target=node,
+                detail="PI-committed non-Epic work must carry a non-backlog Iteration",
+            )
+
+        if (
+            node.get("type") == "Feature"
+            and not node.get("target_pi")
+            and any(
+                child.get("type") in BACKLOG_FEATURE_CHILD_TYPES
+                for child in (node.get("children") or [])
+                if child.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            )
+        ):
+            child_ids = ", ".join(
+                f"#{child.get('id')}"
+                for child in (node.get("children") or [])
+                if child.get("type") in BACKLOG_FEATURE_CHILD_TYPES
+                and child.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            )
+            add_issue(
+                issues,
+                issue_type="backlog_feature_has_story_children",
+                initiative_id=initiative_id,
+                target=node,
+                detail=(
+                    "backlog Feature must stay umbrella-shaped until PI commitment; "
+                    f"open story children: {child_ids}"
+                ),
+            )
 
     for node in all_nodes:
         if node.get("status") != "done":
@@ -727,6 +824,44 @@ def evaluate_live_project_taxonomy(
                     "non-epic work in ready, in-progress, or blocked must carry canonical "
                     "Target PI instead of remaining in the unassigned backlog bucket"
                 ),
+            )
+
+        if type_name in TARGET_PI_REQUIRED_TYPES and not target_pi:
+            add_issue(
+                issues,
+                issue_type="target_pi_required_type_missing_commitment",
+                initiative_id=None,
+                target=entry,
+                detail=f"{type_name} must carry canonical Target PI before it exists in ART",
+            )
+
+        if (
+            type_name == "Defect"
+            and not target_pi
+            and status != "new"
+        ):
+            add_issue(
+                issues,
+                issue_type="backlog_defect_not_new",
+                initiative_id=None,
+                target=entry,
+                detail="Defect without Target PI must stay in new backlog posture until committed",
+            )
+
+        iteration = entry.get("iteration")
+        if (
+            type_name in COMMITTED_ITERATION_REQUIRED_TYPES
+            and type_name != "Epic"
+            and status not in DONE_TREE_TERMINAL_STATUSES
+            and target_pi
+            and not iteration
+        ):
+            add_issue(
+                issues,
+                issue_type="committed_item_missing_iteration",
+                initiative_id=None,
+                target=entry,
+                detail="PI-committed non-Epic work must carry a non-backlog Iteration",
             )
 
         expected_prefix = derived_subject_prefix(type_name, classification)

@@ -77,6 +77,15 @@ projection of canonical `Target PI`, with one explicit backlog bucket:
 `Not yet committed to a PI`. That bucket keeps the roadmap truthful, but it is
 not a substitute for PI commitment on active non-`Epic` work.
 
+The canonical planning path is now explicit as well:
+
+- consume accepted work into one `Epic` shell
+- frame the initiative while it stays backlog-shaped
+- commit PI objectives and features during PI planning
+- elaborate user stories only for committed features
+- execute from child stories, defects, or tasks instead of umbrella shells
+- review carryover and decommit work deliberately at PI boundaries
+
 The canonical OpenProject workflow model now has two distinct planes:
 
 - [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
@@ -186,6 +195,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [visibility-and-operations.md](visibility-and-operations.md)
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
+- [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)
 - [runbooks/sync-delivery-art-views.md](runbooks/sync-delivery-art-views.md)
 - [runbooks/provision-delivery-art-identities.md](runbooks/provision-delivery-art-identities.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

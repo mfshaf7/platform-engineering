@@ -14,6 +14,7 @@ PM2_TYPE_NAME = "Epic"
 PI_OBJECTIVE_TYPE_NAME = "PI Objective"
 RISK_TYPE_NAME = "Risk"
 ACTIVE_INITIATIVE_STATUS_NAMES = ["new", "ready", "in-progress", "blocked"].freeze
+RETIRED_INITIATIVE_STATUS_NAME = "retired"
 EXECUTION_TYPE_NAMES = ["Feature", "User story", "Defect", "Task", "Milestone"].freeze
 EXECUTION_STATUS_NAMES = ["new", "ready", "in-progress", "blocked", "parked", "done"].freeze
 PM2_PHASES = ["Initiating", "Planning", "Executing", "Closing"].freeze
@@ -280,6 +281,13 @@ def pm2_phase_filters(pm2_type:, pm2_phase_field:, phase_name:)
   ]
 end
 
+def retired_initiative_filters(pm2_type:, retired_status:)
+  [
+    { type_id: { operator: "=", values: [pm2_type.id.to_s] } },
+    { status_id: { operator: "=", values: [retired_status.id.to_s] } }
+  ]
+end
+
 def pi_objective_filters(version:, pi_objective_type:, target_pi_field:, pi_objective_type_field:, commitment_type:)
   [
     { "cf_#{target_pi_field.id}": { operator: "=", values: [version.name] } },
@@ -425,19 +433,35 @@ dashboard_board = create_basic_board!(
 )
 
 pm2_queries = []
+retired_initiative_status = Status.find_by!(name: RETIRED_INITIATIVE_STATUS_NAME)
 pm2_board = create_basic_board!(
   project: project,
   name: PM2_BOARD_NAME,
-  widgets: PM2_PHASES.map do |phase_name|
-    filters = pm2_phase_filters(pm2_type: pm2_type!, pm2_phase_field: pm2_phase_field, phase_name: phase_name)
-    query = create_query!(
-      project: project,
-      name: "PM² Phase / #{phase_name}",
-      filters: filters
-    )
-    pm2_queries << query
-    { query: query, filters: filters }
-  end
+  widgets: [
+    *PM2_PHASES.map do |phase_name|
+      filters = pm2_phase_filters(pm2_type: pm2_type!, pm2_phase_field: pm2_phase_field, phase_name: phase_name)
+      query = create_query!(
+        project: project,
+        name: "PM² Phase / #{phase_name}",
+        filters: filters
+      )
+      pm2_queries << query
+      { query: query, filters: filters }
+    end,
+    begin
+      filters = retired_initiative_filters(
+        pm2_type: pm2_type!,
+        retired_status: retired_initiative_status
+      )
+      query = create_query!(
+        project: project,
+        name: "PM² Phase / Retired",
+        filters: filters
+      )
+      pm2_queries << query
+      { query: query, filters: filters }
+    end
+  ]
 )
 
 execution_types = execution_types!

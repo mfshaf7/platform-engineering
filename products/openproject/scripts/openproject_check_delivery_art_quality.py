@@ -15,6 +15,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PRODUCT_DIR = SCRIPT_DIR.parent
 PLANNING_WORKFLOW_PATH = PRODUCT_DIR / "delivery-art-planning-workflow.json"
 PLANNING_WORKFLOW = json.loads(PLANNING_WORKFLOW_PATH.read_text(encoding="utf-8"))
+INITIATIVE_REVIEW_WORKFLOW_PATH = (
+    PRODUCT_DIR / "delivery-art-initiative-review-workflow.json"
+)
+INITIATIVE_REVIEW_WORKFLOW = json.loads(
+    INITIATIVE_REVIEW_WORKFLOW_PATH.read_text(encoding="utf-8")
+)
 
 BACKLOG_ITERATION_LABEL = PLANNING_WORKFLOW["backlog_iteration_label"]
 ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_name"]
@@ -40,6 +46,84 @@ OPENPROJECT_DUMP_RUNNER_PATH = SCRIPT_DIR / "openproject_dump_delivery_art_runne
 OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_custom_field_support.rb"
 OPENPROJECT_TAXONOMY_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_taxonomy_support.rb"
 OPENPROJECT_TAXONOMY_JSON_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
+PM2_CLOSING_PHASE = INITIATIVE_REVIEW_WORKFLOW["closing_transition"]["to_phase"]
+INITIATIVE_CLOSING_REQUIRED_GATE_IDS = tuple(
+    INITIATIVE_REVIEW_WORKFLOW["closing_transition"]["control_gate_ids"]
+)
+INITIATIVE_DONE_REQUIRED_GATE_IDS = tuple(
+    INITIATIVE_REVIEW_WORKFLOW["completion_transition"]["control_gate_ids"]
+)
+INITIATIVE_RETIRED_REQUIRED_GATE_IDS = tuple(
+    INITIATIVE_REVIEW_WORKFLOW["retirement_transition"]["control_gate_ids"]
+)
+
+INITIATIVE_REVIEW_REASON_DETAILS = {
+    "system_demo_missing": {
+        "issue_type_closing": "closing_initiative_missing_system_demo",
+        "issue_type_done": "done_initiative_missing_system_demo",
+        "detail": "System Demo Evidence must be recorded on the initiative Epic.",
+        "gate_id": "initiative-closing-requires-system-demo",
+    },
+    "open_descendants_present": {
+        "issue_type_closing": "closing_initiative_has_open_descendants",
+        "issue_type_done": "done_initiative_has_open_descendants",
+        "issue_type_retired": "retired_initiative_has_open_descendants",
+        "detail": "Initiative still has descendants outside done or retired.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+        "gate_id_retired": "initiative-retired-requires-terminal-descendants",
+    },
+    "pm2_phase_not_cleared_for_retired": {
+        "issue_type_retired": "retired_initiative_retains_pm2_phase",
+        "detail": "Retired initiative must not retain a PM² Phase value.",
+        "gate_id": "initiative-retired-clears-pm2-phase",
+    },
+    "blocked_items_present": {
+        "issue_type_closing": "closing_initiative_has_blocked_items",
+        "issue_type_done": "done_initiative_has_blocked_items",
+        "detail": "Initiative still has blocked descendant work.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "completion_evidence_missing": {
+        "issue_type_closing": "closing_initiative_missing_descendant_completion_evidence",
+        "issue_type_done": "done_initiative_missing_descendant_completion_evidence",
+        "detail": "Done descendants are still missing completion evidence.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "completion_evidence_weak": {
+        "issue_type_closing": "closing_initiative_has_weak_descendant_completion_evidence",
+        "issue_type_done": "done_initiative_has_weak_descendant_completion_evidence",
+        "detail": "Done descendants still have weak completion evidence.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "completed_items_missing_ownership": {
+        "issue_type_closing": "closing_initiative_has_descendants_missing_ownership",
+        "issue_type_done": "done_initiative_has_descendants_missing_ownership",
+        "detail": "Done descendants are still missing Owner Repo, Assignee, or Responsible.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "done_narrative_weak": {
+        "issue_type_closing": "closing_initiative_has_weak_done_narrative",
+        "issue_type_done": "done_initiative_has_weak_done_narrative",
+        "detail": "Done descendants still have weak done-state narrative evidence.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "unresolved_dependencies_present": {
+        "issue_type_closing": "closing_initiative_has_unresolved_dependencies",
+        "issue_type_done": "done_initiative_has_unresolved_dependencies",
+        "detail": "Initiative still has unresolved dependency relations.",
+        "gate_id": "initiative-closing-requires-clean-execution-state",
+    },
+    "pm2_phase_not_closing": {
+        "issue_type_done": "done_initiative_not_in_closing_phase",
+        "detail": "Done initiative must remain in PM² Closing.",
+        "gate_id": "initiative-done-requires-closing-phase",
+    },
+    "inspect_and_adapt_missing": {
+        "issue_type_done": "done_initiative_missing_inspect_and_adapt",
+        "detail": "Inspect & Adapt Actions must be recorded before initiative closeout.",
+        "gate_id": "initiative-done-requires-inspect-and-adapt",
+    },
+}
 
 
 def load_taxonomy() -> dict[str, object]:
@@ -424,6 +508,79 @@ def add_narrative_finding(
             "detail": detail,
         }
     )
+
+
+def add_initiative_review_issue(
+    issues: list[dict[str, object]],
+    *,
+    epic: dict[str, object],
+    initiative_id: int,
+    reason_id: str,
+    transition: str,
+) -> None:
+    reason_detail = INITIATIVE_REVIEW_REASON_DETAILS.get(reason_id)
+    if not reason_detail:
+        return
+
+    issue_key = f"issue_type_{transition}"
+    issue_type = reason_detail.get(issue_key)
+    if not issue_type:
+        return
+    gate_id = reason_detail.get(f"gate_id_{transition}", reason_detail["gate_id"])
+
+    add_issue(
+        issues,
+        issue_type=issue_type,
+        initiative_id=initiative_id,
+        target=epic,
+        detail=reason_detail["detail"],
+        gate_id=gate_id,
+    )
+
+
+def evaluate_initiative_review_state(
+    *,
+    epic: dict[str, object],
+    summary: dict[str, object],
+) -> dict[str, object]:
+    closing_reasons: list[str] = []
+    if not epic.get("system_demo_evidence_present"):
+        closing_reasons.append("system_demo_missing")
+    if summary.get("open_descendant_count", 0) > 0:
+        closing_reasons.append("open_descendants_present")
+    if summary.get("blocked_count", 0) > 0:
+        closing_reasons.append("blocked_items_present")
+    if summary.get("completed_without_evidence_count", 0) > 0:
+        closing_reasons.append("completion_evidence_missing")
+    if summary.get("completed_with_weak_evidence_count", 0) > 0:
+        closing_reasons.append("completion_evidence_weak")
+    if summary.get("completed_with_weak_done_narrative_count", 0) > 0:
+        closing_reasons.append("done_narrative_weak")
+    if summary.get("completed_without_owner_count", 0) > 0:
+        closing_reasons.append("completed_items_missing_ownership")
+    if summary.get("unresolved_dependency_count", 0) > 0:
+        closing_reasons.append("unresolved_dependencies_present")
+
+    completion_reasons = list(closing_reasons)
+    if epic.get("pm2_phase") != PM2_CLOSING_PHASE:
+        completion_reasons.append("pm2_phase_not_closing")
+    if not epic.get("inspect_and_adapt_actions_present"):
+        completion_reasons.append("inspect_and_adapt_missing")
+
+    retirement_reasons: list[str] = []
+    if summary.get("open_descendant_count", 0) > 0:
+        retirement_reasons.append("open_descendants_present")
+    if epic.get("status") == "retired" and epic.get("pm2_phase"):
+        retirement_reasons.append("pm2_phase_not_cleared_for_retired")
+
+    return {
+        "closing_transition_ready": len(closing_reasons) == 0,
+        "closing_transition_reasons": closing_reasons,
+        "completion_transition_ready": len(completion_reasons) == 0,
+        "completion_transition_reasons": completion_reasons,
+        "retirement_transition_ready": len(retirement_reasons) == 0,
+        "retirement_transition_reasons": retirement_reasons,
+    }
 
 
 def detect_subject_prefix(subject: str | None) -> str | None:
@@ -981,7 +1138,7 @@ def main() -> int:
         ]
     else:
         initiatives_payload = run_broker_json(
-            f"/v1/delivery-initiatives?include_done={include_done_param}&include_inactive=false",
+            f"/v1/delivery-initiatives?include_done={include_done_param}&include_inactive=true",
             env=env,
         )
         initiatives = initiatives_payload.get("initiatives", [])
@@ -1052,6 +1209,37 @@ def main() -> int:
             issues=issues,
             narrative_findings=narrative_findings,
         )
+        initiative_review = evaluate_initiative_review_state(
+            epic=epic,
+            summary=execution_summary.get("summary") or {},
+        )
+        if epic.get("pm2_phase") == PM2_CLOSING_PHASE:
+            for reason_id in initiative_review["closing_transition_reasons"]:
+                add_initiative_review_issue(
+                    issues,
+                    epic=epic,
+                    initiative_id=initiative_id,
+                    reason_id=reason_id,
+                    transition="closing",
+                )
+        if epic.get("status") == "done":
+            for reason_id in initiative_review["completion_transition_reasons"]:
+                add_initiative_review_issue(
+                    issues,
+                    epic=epic,
+                    initiative_id=initiative_id,
+                    reason_id=reason_id,
+                    transition="done",
+                )
+        if epic.get("status") == "retired":
+            for reason_id in initiative_review["retirement_transition_reasons"]:
+                add_initiative_review_issue(
+                    issues,
+                    epic=epic,
+                    initiative_id=initiative_id,
+                    reason_id=reason_id,
+                    transition="retired",
+                )
 
     project_taxonomy_summary = evaluate_live_project_taxonomy(
         project_payload=full_project_payload,

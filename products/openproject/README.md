@@ -86,6 +86,15 @@ The canonical planning path is now explicit as well:
 - execute from child stories, defects, or tasks instead of umbrella shells
 - review carryover and decommit work deliberately at PI boundaries
 
+Initiative closeout is explicit too:
+
+- record initiative-level `System Demo Evidence`
+- move the initiative into PM² `Closing` only after the execution tree is clean
+- record initiative-level `Inspect & Adapt Actions`
+- mark the initiative `done` only from `Closing`
+- use initiative `retired` as the separate non-success terminal path only after
+  all descendants are already `done` or `retired`
+
 The canonical OpenProject workflow model now has two distinct planes:
 
 - [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
@@ -196,6 +205,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
 - [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)
+- [runbooks/review-delivery-initiative.md](runbooks/review-delivery-initiative.md)
 - [runbooks/sync-delivery-art-views.md](runbooks/sync-delivery-art-views.md)
 - [runbooks/provision-delivery-art-identities.md](runbooks/provision-delivery-art-identities.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

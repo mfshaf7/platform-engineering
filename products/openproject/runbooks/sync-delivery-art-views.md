@@ -86,6 +86,7 @@ Planning remains a supported read-model/report surface through:
 The managed query set also exists for:
 
 - `PM² Phase / <phase>`
+- `PM² Phase / Retired`
 - `ART Execution / <status>`
 - `PI Objectives / <version> / <committed-or-stretch>`
 - `ART Risks / <roam-state>`
@@ -110,6 +111,7 @@ In the OpenProject UI:
 - confirm the `Boards` menu is present
 - confirm board `ART Dashboard` exists
 - confirm board `PM² Phase Board` exists
+- confirm the `PM² Phase Board` includes a dedicated `Retired` terminal lane
 - confirm board `ART Execution Kanban` exists
 - if PI versions exist, confirm board `PI Objectives` exists
 - confirm board `ART Risk Register` exists

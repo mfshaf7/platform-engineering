@@ -97,7 +97,7 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
   type scoping
 - the `Boards` project module is enabled
 - managed board `ART Dashboard` exists
-- managed board `PM² Phase Board` exists
+- managed board `PM² Phase Board` exists with a dedicated `Retired` terminal lane
 - managed board `ART Execution Kanban` exists
 - managed board `PI Objectives` exists when PI versions are present
 - managed board `ART Risk Register` exists

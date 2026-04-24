@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "workflow_id": "delivery-art-initiative-review-workflow",
+  "pm2_phase_field": "PM² Phase",
+  "pm2_phases": [
+    "Initiating",
+    "Planning",
+    "Executing",
+    "Closing"
+  ],
+  "retired_status": "retired",
+  "initiative_review_fields": {
+    "required_active_epic_fields": [
+      "PM² Phase",
+      "Sponsor",
+      "Business Objective",
+      "Success Criteria"
+    ],
+    "system_demo_field": "System Demo Evidence",
+    "inspect_and_adapt_field": "Inspect & Adapt Actions"
+  },
+  "terminal_descendant_statuses": [
+    "done",
+    "retired"
+  ],
+  "review_steps": [
+    {
+      "id": "system-demo",
+      "order": 1,
+      "display_name": "System Demo",
+      "objective": "Record initiative-level evidence that the delivered slice was demonstrated before final closeout review starts.",
+      "required_fields": [
+        "System Demo Evidence"
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/system-demo",
+        "platform-engineering/products/openproject/runbooks/review-delivery-initiative.md"
+      ]
+    },
+    {
+      "id": "closing-review",
+      "order": 2,
+      "display_name": "Closing Review Entry",
+      "objective": "Move the initiative into PM² Closing only after execution work is clean enough for formal closeout review.",
+      "required_fields": [
+        "PM² Phase",
+        "System Demo Evidence"
+      ],
+      "required_summary_conditions": [
+        "no_open_descendants",
+        "no_blocked_items",
+        "no_completed_without_evidence",
+        "no_completed_with_weak_evidence",
+        "no_done_narrative_drift",
+        "no_completed_without_owner",
+        "no_unresolved_dependencies"
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/governance",
+        "GET /v1/delivery-initiatives/{delivery_id}/closeout-readiness"
+      ],
+      "control_gate_ids": [
+        "initiative-closing-requires-system-demo",
+        "initiative-closing-requires-clean-execution-state"
+      ]
+    },
+    {
+      "id": "inspect-and-adapt",
+      "order": 3,
+      "display_name": "Inspect And Adapt",
+      "objective": "Record final initiative-level review actions before the initiative is marked done.",
+      "required_fields": [
+        "Inspect & Adapt Actions"
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/inspect-and-adapt",
+        "platform-engineering/products/openproject/runbooks/review-delivery-initiative.md"
+      ]
+    },
+    {
+      "id": "final-closeout",
+      "order": 4,
+      "display_name": "Final Closeout",
+      "objective": "Mark the initiative done only after Closing-state evidence and the inspect-and-adapt review are both present.",
+      "required_fields": [
+        "PM² Phase",
+        "System Demo Evidence",
+        "Inspect & Adapt Actions"
+      ],
+      "required_summary_conditions": [
+        "no_open_descendants",
+        "no_blocked_items",
+        "no_completed_without_evidence",
+        "no_completed_with_weak_evidence",
+        "no_done_narrative_drift",
+        "no_completed_without_owner",
+        "no_unresolved_dependencies"
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/governance",
+        "GET /v1/delivery-initiatives/{delivery_id}/closeout-readiness"
+      ],
+      "control_gate_ids": [
+        "initiative-done-requires-closing-phase",
+        "initiative-done-requires-system-demo",
+        "initiative-done-requires-inspect-and-adapt",
+        "initiative-done-requires-final-closeout-readiness"
+      ]
+    }
+  ],
+  "closing_transition": {
+    "from_phases": [
+      "Executing"
+    ],
+    "to_phase": "Closing",
+    "required_fields": [
+      "System Demo Evidence"
+    ],
+    "required_summary_conditions": [
+      "no_open_descendants",
+      "no_blocked_items",
+      "no_completed_without_evidence",
+      "no_completed_with_weak_evidence",
+      "no_done_narrative_drift",
+      "no_completed_without_owner",
+      "no_unresolved_dependencies"
+    ],
+    "control_gate_ids": [
+      "initiative-closing-requires-system-demo",
+      "initiative-closing-requires-clean-execution-state"
+    ]
+  },
+  "completion_transition": {
+    "required_phase": "Closing",
+    "to_status": "done",
+    "required_fields": [
+      "System Demo Evidence",
+      "Inspect & Adapt Actions"
+    ],
+    "required_summary_conditions": [
+      "no_open_descendants",
+      "no_blocked_items",
+      "no_completed_without_evidence",
+      "no_completed_with_weak_evidence",
+      "no_done_narrative_drift",
+      "no_completed_without_owner",
+      "no_unresolved_dependencies"
+    ],
+    "control_gate_ids": [
+      "initiative-done-requires-closing-phase",
+      "initiative-done-requires-system-demo",
+      "initiative-done-requires-inspect-and-adapt",
+      "initiative-done-requires-final-closeout-readiness"
+    ]
+  },
+  "retirement_transition": {
+    "to_status": "retired",
+    "cleared_fields": [
+      "PM² Phase"
+    ],
+    "required_summary_conditions": [
+      "no_open_descendants"
+    ],
+    "control_gate_ids": [
+      "initiative-retired-requires-terminal-descendants",
+      "initiative-retired-clears-pm2-phase"
+    ]
+  },
+  "gate_definitions": [
+    {
+      "id": "initiative-closing-requires-system-demo",
+      "type": "machine",
+      "description": "An initiative may enter PM² Closing only after System Demo Evidence is recorded."
+    },
+    {
+      "id": "initiative-closing-requires-clean-execution-state",
+      "type": "machine",
+      "description": "An initiative may enter PM² Closing only when the execution tree is clean for closeout review."
+    },
+    {
+      "id": "initiative-done-requires-closing-phase",
+      "type": "machine",
+      "description": "A done initiative must stay in PM² Closing."
+    },
+    {
+      "id": "initiative-done-requires-system-demo",
+      "type": "machine",
+      "description": "A done initiative must retain System Demo Evidence."
+    },
+    {
+      "id": "initiative-done-requires-inspect-and-adapt",
+      "type": "machine",
+      "description": "A done initiative must retain Inspect & Adapt Actions."
+    },
+    {
+      "id": "initiative-done-requires-final-closeout-readiness",
+      "type": "machine",
+      "description": "A done initiative must still satisfy the final closeout readiness summary."
+    },
+    {
+      "id": "initiative-retired-requires-terminal-descendants",
+      "type": "machine",
+      "description": "A retired initiative must not leave descendants outside done or retired."
+    },
+    {
+      "id": "initiative-retired-clears-pm2-phase",
+      "type": "machine",
+      "description": "A retired initiative must not retain a PM² Phase value."
+    }
+  ]
+}

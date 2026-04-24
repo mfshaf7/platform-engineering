@@ -243,6 +243,17 @@ Multiple ARTs are deferred until the single-ART model is proven useful.
 
 ## Consume-To-PI-Planning Workflow
 
+Canonical machine-readable workflow contract:
+
+- `products/openproject/delivery-art-planning-workflow.json`
+
+That contract is the phase-and-gate source for:
+
+- `runbooks/plan-delivery-art.md`
+- `scripts/openproject_check_delivery_art_quality.py`
+- broker-side planning metadata in `operator-orchestration-service`
+- workspace-level cross-repo drift validation in `workspace-governance`
+
 Use one governed planning path for newly accepted work:
 
 1. Consume
@@ -286,6 +297,19 @@ Use one governed planning path for newly accepted work:
 
 This keeps consume, planning, execution, and the roadmap projection aligned to
 one deliberate workflow instead of relying on later cleanup.
+
+### Phase Checklist And Gate Rule
+
+Every phase must stay explicit in two forms:
+
+- operator checklist
+  - what the operator is allowed to create, update, or defer in that phase
+- control gate
+  - the machine or operator checkpoint that blocks drift from that phase
+
+The runbook is the primary operator surface. The JSON contract is the
+machine-readable phase and gate inventory. Do not let either side drift or
+exist on its own.
 
 ## Planning Gates
 

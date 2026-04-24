@@ -362,6 +362,9 @@ That top-level item should carry a `PM² Phase` field with these values:
 - `Executing`
 - `Closing`
 
+`retired` is not a PM² phase. It is a terminal initiative status that sits
+beside the PM² success path.
+
 Recommended additional governance fields on the top-level initiative:
 
 - `Origin Idea Ref`
@@ -422,7 +425,66 @@ In the current v1 UI, `PM²` appears as:
 
 There is no separate PM² plugin package here. The governance overlay is carried
 by the delivery record shape itself plus the managed `PM² Phase Board`
-view.
+view, which now includes a dedicated `Retired` terminal lane.
+
+## PM² Initiative Review And Closing Workflow
+
+Canonical initiative-review workflow contract:
+
+- [delivery-art-initiative-review-workflow.json](delivery-art-initiative-review-workflow.json)
+
+Primary operator surface:
+
+- [runbooks/review-delivery-initiative.md](runbooks/review-delivery-initiative.md)
+
+The PM² phase field is only trustworthy when it also carries governed
+transition semantics.
+
+Supported meaning:
+
+- `Initiating`
+  - initiative shell exists and intake-to-delivery admission is still being established
+- `Planning`
+  - initiative framing and PI commitment are still being shaped
+- `Executing`
+  - committed delivery work is still active beneath the initiative
+- `Closing`
+  - implementation work is execution-complete enough for formal closeout review
+
+`Closing` is not just a visual bucket. It now has entry criteria.
+
+The initiative may enter `Closing` only when:
+
+- `System Demo Evidence` is recorded on the top-level `Epic`
+- the execution tree has no descendants outside `done` or `retired`
+- no blocked items remain
+- no unresolved dependency relations remain
+- no done descendants are missing completion evidence
+- no done descendants still have weak completion evidence
+- no done descendants still have weak done-state narrative evidence
+- no done descendants are missing `Owner Repo`, `Assignee`, or `Responsible`
+
+The initiative may move to final `done` only when:
+
+- `PM² Phase = Closing`
+- `System Demo Evidence` is still present
+- `Inspect & Adapt Actions` is recorded
+- the final closeout-readiness summary is still clean
+
+The initiative may move to terminal `retired` only when:
+
+- all descendants are already `done` or `retired`
+- no open child scope is left behind under the retired initiative
+- the operator uses the initiative governance route rather than treating
+  retirement as a PM² phase change
+- the stored `PM² Phase` value is cleared as part of the retirement transition
+
+That means the PM² board and the closeout workflow now line up:
+
+- `Closing` means formal initiative closeout review is under way
+- `done` means the initiative-review evidence and execution closeout are both complete
+- `retired` means the initiative ended without successful closeout and now lives
+  in the separate retired terminal lane on the PM² board
 
 ## Runtime Board Boundary
 
@@ -467,6 +529,17 @@ The supported operator surface should also expose:
   initiative record
 - an ART-quality check that can verify initiative and work-item hygiene before
   the operator treats the ART as current truth
+
+The managed `PM² Phase Board` is therefore:
+
+- `Initiating`
+- `Planning`
+- `Executing`
+- `Closing`
+- `Retired`
+
+The first four lanes are PM² phases. `Retired` is a separate terminal
+initiative-status lane.
 
 ## Execution Status Model
 

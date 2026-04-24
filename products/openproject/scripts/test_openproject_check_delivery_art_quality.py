@@ -23,6 +23,21 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertIn("PI Objective", MODULE.TARGET_PI_REQUIRED_TYPES)
         self.assertIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
 
+    def test_initiative_review_workflow_contract_constants_are_loaded(self) -> None:
+        self.assertEqual(MODULE.PM2_CLOSING_PHASE, "Closing")
+        self.assertIn(
+            "initiative-closing-requires-system-demo",
+            MODULE.INITIATIVE_CLOSING_REQUIRED_GATE_IDS,
+        )
+        self.assertIn(
+            "initiative-done-requires-inspect-and-adapt",
+            MODULE.INITIATIVE_DONE_REQUIRED_GATE_IDS,
+        )
+        self.assertIn(
+            "initiative-retired-requires-terminal-descendants",
+            MODULE.INITIATIVE_RETIRED_REQUIRED_GATE_IDS,
+        )
+
     def test_blank_env_values_fall_back_to_defaults(self) -> None:
         self.assertEqual(
             MODULE.resolve_openproject_namespace({"OPENPROJECT_NAMESPACE": ""}),
@@ -136,6 +151,31 @@ class DeliveryArtQualityTest(unittest.TestCase):
                 and "Parent item" in issue["detail"]
                 for issue in issues
             )
+        )
+
+    def test_retired_initiative_requires_terminal_descendants(self) -> None:
+        result = MODULE.evaluate_initiative_review_state(
+            epic={
+                "inspect_and_adapt_actions_present": False,
+                "pm2_phase": "Executing",
+                "status": "retired",
+                "system_demo_evidence_present": False,
+            },
+            summary={
+                "blocked_count": 0,
+                "completed_with_weak_done_narrative_count": 0,
+                "completed_with_weak_evidence_count": 0,
+                "completed_without_evidence_count": 0,
+                "completed_without_owner_count": 0,
+                "open_descendant_count": 1,
+                "unresolved_dependency_count": 0,
+            },
+        )
+
+        self.assertFalse(result["retirement_transition_ready"])
+        self.assertEqual(
+            result["retirement_transition_reasons"],
+            ["open_descendants_present", "pm2_phase_not_cleared_for_retired"],
         )
 
     def test_target_pi_version_drift_is_reported(self) -> None:
@@ -406,6 +446,83 @@ class DeliveryArtQualityTest(unittest.TestCase):
                 for issue in issues
             )
         )
+
+    def test_initiative_review_state_requires_system_demo_and_clean_execution_for_closing(self) -> None:
+        result = MODULE.evaluate_initiative_review_state(
+            epic={
+                "pm2_phase": "Executing",
+                "system_demo_evidence_present": False,
+                "inspect_and_adapt_actions_present": False,
+            },
+            summary={
+                "blocked_count": 1,
+                "completed_with_weak_done_narrative_count": 0,
+                "completed_with_weak_evidence_count": 0,
+                "completed_without_evidence_count": 0,
+                "completed_without_owner_count": 0,
+                "open_descendant_count": 2,
+                "unresolved_dependency_count": 0,
+            },
+        )
+
+        self.assertFalse(result["closing_transition_ready"])
+        self.assertEqual(
+            result["closing_transition_reasons"],
+            [
+                "system_demo_missing",
+                "open_descendants_present",
+                "blocked_items_present",
+            ],
+        )
+
+    def test_initiative_review_state_requires_closing_and_inspect_and_adapt_for_done(self) -> None:
+        result = MODULE.evaluate_initiative_review_state(
+            epic={
+                "pm2_phase": "Executing",
+                "system_demo_evidence_present": True,
+                "inspect_and_adapt_actions_present": False,
+            },
+            summary={
+                "blocked_count": 0,
+                "completed_with_weak_done_narrative_count": 0,
+                "completed_with_weak_evidence_count": 0,
+                "completed_without_evidence_count": 0,
+                "completed_without_owner_count": 0,
+                "open_descendant_count": 0,
+                "unresolved_dependency_count": 0,
+            },
+        )
+
+        self.assertFalse(result["completion_transition_ready"])
+        self.assertEqual(
+            result["completion_transition_reasons"],
+            [
+                "pm2_phase_not_closing",
+                "inspect_and_adapt_missing",
+            ],
+        )
+
+    def test_initiative_review_state_treats_done_narrative_drift_as_closeout_blocker(self) -> None:
+        result = MODULE.evaluate_initiative_review_state(
+            epic={
+                "pm2_phase": "Closing",
+                "system_demo_evidence_present": True,
+                "inspect_and_adapt_actions_present": True,
+            },
+            summary={
+                "blocked_count": 0,
+                "completed_with_weak_done_narrative_count": 1,
+                "completed_with_weak_evidence_count": 0,
+                "completed_without_evidence_count": 0,
+                "completed_without_owner_count": 0,
+                "open_descendant_count": 0,
+                "unresolved_dependency_count": 0,
+            },
+        )
+
+        self.assertFalse(result["closing_transition_ready"])
+        self.assertFalse(result["completion_transition_ready"])
+        self.assertIn("done_narrative_weak", result["closing_transition_reasons"])
 
     def test_pi_objective_without_target_pi_is_reported(self) -> None:
         issues = []

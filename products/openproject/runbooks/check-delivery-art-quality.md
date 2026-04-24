@@ -12,6 +12,10 @@ Canonical machine-readable planning workflow contract:
 
 - [delivery-art-planning-workflow.json](../delivery-art-planning-workflow.json)
 
+Canonical machine-readable initiative-review workflow contract:
+
+- [delivery-art-initiative-review-workflow.json](../delivery-art-initiative-review-workflow.json)
+
 When this quality check reports planning drift, read the matching gate id from
 that contract before deciding whether the fix belongs in broker mutation
 surfaces, roadmap projection, or operator procedure.
@@ -28,6 +32,14 @@ The supported quality check currently verifies:
   - `Sponsor`
   - `Business Objective`
   - `Success Criteria`
+- initiatives in PM² `Closing` already carry `System Demo Evidence`
+- initiatives in PM² `Closing` already satisfy the clean execution-state gate
+- `done` initiatives remain in PM² `Closing`
+- `done` initiatives retain `System Demo Evidence`
+- `done` initiatives retain `Inspect & Adapt Actions`
+- `done` initiatives still satisfy final closeout readiness
+- `done` initiatives do not hide weak done-state narrative drift inside descendants
+- `retired` initiatives do not hide open descendants outside `done` or `retired`
 - non-done delivery work does not still carry completion-evidence sections
 - `done` delivery work carries substantive completion evidence
 - `done` delivery work does not carry weak or malformed completion attestation
@@ -202,5 +214,6 @@ Typical fields include:
 
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [plan-delivery-art.md](plan-delivery-art.md)
+- [review-delivery-initiative.md](review-delivery-initiative.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

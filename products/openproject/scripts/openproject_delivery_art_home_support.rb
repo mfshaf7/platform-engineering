@@ -15,7 +15,7 @@ module OpenprojectDeliveryArtHomeSupport
       - `ART Dashboard`
         - at-a-glance view of active initiatives, committed objectives, active execution, blockers, owned risks, and deferred open work
       - `PM² Phase Board`
-        - top-level initiative governance by `PM² Phase`
+        - top-level initiative governance by `PM² Phase`, plus a separate `Retired` terminal lane
       - `ART Execution Kanban`
         - day-to-day execution flow for open delivery work
       - `PI Objectives`

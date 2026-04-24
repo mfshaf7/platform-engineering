@@ -14,6 +14,15 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DeliveryArtQualityTest(unittest.TestCase):
+    def test_planning_workflow_contract_constants_are_loaded(self) -> None:
+        self.assertEqual(
+            MODULE.BACKLOG_ITERATION_LABEL,
+            "Not committed to a PI iteration yet.",
+        )
+        self.assertIn("ready", MODULE.ACTIVE_STATUSES)
+        self.assertIn("PI Objective", MODULE.TARGET_PI_REQUIRED_TYPES)
+        self.assertIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
+
     def test_blank_env_values_fall_back_to_defaults(self) -> None:
         self.assertEqual(
             MODULE.resolve_openproject_namespace({"OPENPROJECT_NAMESPACE": ""}),

@@ -8,6 +8,17 @@ used as the primary work-state truth for a serious delivery session.
 Use this as a scoped hygiene gate for the active initiative, and reserve the
 full portfolio sweep for replanning, portfolio review, or governance cleanup.
 
+Canonical machine-readable planning workflow contract:
+
+- [delivery-art-planning-workflow.json](../delivery-art-planning-workflow.json)
+
+When this quality check reports planning drift, read the matching gate id from
+that contract before deciding whether the fix belongs in broker mutation
+surfaces, roadmap projection, or operator procedure.
+
+Planning-drift findings now include `gate_id` for the gates that map directly
+to the machine-readable planning workflow contract.
+
 ## What It Checks
 
 The supported quality check currently verifies:

@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "workflow_id": "delivery-art-planning-workflow",
+  "art_project_identifier": "workspace-delivery-art",
+  "backlog_iteration_label": "Not committed to a PI iteration yet.",
+  "roadmap_unassigned_version_name": "Not yet committed to a PI",
+  "statuses": {
+    "backlog_default": "new",
+    "active": [
+      "ready",
+      "in-progress",
+      "blocked"
+    ],
+    "done": [
+      "done"
+    ],
+    "inactive": [
+      "retired"
+    ]
+  },
+  "planning_sets": {
+    "target_pi_required_types": [
+      "PI Objective",
+      "User story",
+      "Task",
+      "Milestone"
+    ],
+    "iteration_required_when_target_pi_types": [
+      "PI Objective",
+      "Feature",
+      "User story",
+      "Defect",
+      "Task",
+      "Milestone",
+      "Risk"
+    ],
+    "backlog_feature_forbidden_child_types": [
+      "User story"
+    ],
+    "committed_parent_required_child_types": [
+      "User story",
+      "Task"
+    ]
+  },
+  "phases": [
+    {
+      "id": "consume",
+      "order": 1,
+      "display_name": "Consume",
+      "objective": "Create one top-level Epic shell from accepted work without pre-expanding the execution tree.",
+      "allowed_new_types": [
+        "Epic"
+      ],
+      "required_fields_by_type": {
+        "Epic": [
+          "Owner Repo",
+          "PM² Phase"
+        ]
+      },
+      "forbidden_actions": [
+        "Create PI Objective, User story, Task, or Milestone work during consume.",
+        "Use the generic delivery work-item create surface to create a top-level initiative."
+      ],
+      "exit_criteria": [
+        "One top-level Epic exists in Workspace Delivery ART.",
+        "The roadmap projects the initiative into the uncommitted PI bucket when Target PI is blank."
+      ],
+      "primary_surfaces": [
+        "POST /v1/ideas/{idea_id}/consume",
+        "platform-engineering/products/openproject/runbooks/plan-delivery-art.md"
+      ],
+      "verification_commands": [
+        "GET /v1/delivery-initiatives/{delivery_id}/planning"
+      ],
+      "control_gate_ids": [
+        "consume-top-level-shell-only",
+        "consume-must-use-proposal-handoff"
+      ]
+    },
+    {
+      "id": "frame",
+      "order": 2,
+      "display_name": "Initiative Framing",
+      "objective": "Shape backlog work while it stays umbrella-sized and uncommitted.",
+      "allowed_new_types": [
+        "Feature",
+        "Risk",
+        "Defect"
+      ],
+      "required_fields_by_type": {
+        "Feature": [
+          "Owner Repo",
+          "Execution Classification"
+        ],
+        "Risk": [
+          "Owner Repo"
+        ],
+        "Defect": [
+          "Owner Repo"
+        ]
+      },
+      "forbidden_actions": [
+        "Leave backlog Features with User story children.",
+        "Move non-Epic work into ready, in-progress, or blocked without PI commitment."
+      ],
+      "exit_criteria": [
+        "Backlog work stays new unless it is explicitly PI committed.",
+        "Backlog Features remain umbrella-shaped."
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update"
+      ],
+      "verification_commands": [
+        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+      ],
+      "control_gate_ids": [
+        "backlog-feature-must-stay-umbrella-shaped",
+        "active-non-epic-must-not-stay-uncommitted"
+      ]
+    },
+    {
+      "id": "pi-plan",
+      "order": 3,
+      "display_name": "PI Planning",
+      "objective": "Commit the near-term execution slice with explicit PI placement, iteration, and ownership.",
+      "allowed_new_types": [
+        "PI Objective",
+        "Feature",
+        "Risk",
+        "Defect"
+      ],
+      "required_fields_by_type": {
+        "PI Objective": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible"
+        ],
+        "Feature": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible",
+          "Execution Classification"
+        ],
+        "Risk": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo"
+        ],
+        "Defect": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo"
+        ]
+      },
+      "forbidden_actions": [
+        "Use the backlog iteration label on PI-committed work.",
+        "Treat roadmap version as the canonical PI planning field."
+      ],
+      "exit_criteria": [
+        "Committed work carries Target PI and non-backlog Iteration.",
+        "Roadmap version projection matches canonical Target PI."
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/governance",
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update"
+      ],
+      "verification_commands": [
+        "GET /v1/delivery-initiatives/{delivery_id}/planning",
+        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+      ],
+      "control_gate_ids": [
+        "target-pi-required-on-committed-leaf-types",
+        "committed-non-epic-must-carry-non-backlog-iteration",
+        "roadmap-version-must-match-target-pi-projection"
+      ]
+    },
+    {
+      "id": "elaborate",
+      "order": 4,
+      "display_name": "Rolling-Wave Elaboration",
+      "objective": "Create stories and tasks only for the committed slice that is close enough to execute.",
+      "allowed_new_types": [
+        "User story",
+        "Task",
+        "Defect"
+      ],
+      "required_fields_by_type": {
+        "User story": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible",
+          "Execution Classification"
+        ],
+        "Task": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible"
+        ],
+        "Defect": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo"
+        ]
+      },
+      "forbidden_actions": [
+        "Create User story or Task work beneath an uncommitted parent.",
+        "Pre-expand backlog Features into story forests."
+      ],
+      "exit_criteria": [
+        "Story and task work exists only for committed features or active defects.",
+        "Active leaf work keeps PI commitment and non-backlog iteration."
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/move",
+        "POST /v1/delivery-work-items/bulk-update"
+      ],
+      "verification_commands": [
+        "GET /v1/delivery-work-items/{work_item_id}/continuation-context",
+        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+      ],
+      "control_gate_ids": [
+        "story-and-task-parent-must-be-committed",
+        "target-pi-required-on-committed-leaf-types",
+        "committed-non-epic-must-carry-non-backlog-iteration"
+      ]
+    },
+    {
+      "id": "execute",
+      "order": 5,
+      "display_name": "Execution",
+      "objective": "Execute from the real leaf front instead of the umbrella planning shell.",
+      "allowed_new_types": [
+        "Task",
+        "Defect"
+      ],
+      "required_fields_by_type": {
+        "User story": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible"
+        ],
+        "Task": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo",
+          "Assignee",
+          "Responsible"
+        ],
+        "Defect": [
+          "Target PI",
+          "Iteration",
+          "Owner Repo"
+        ]
+      },
+      "forbidden_actions": [
+        "Treat a ready umbrella item as the executable front without checking its continuation context.",
+        "Leave active non-Epic work uncommitted."
+      ],
+      "exit_criteria": [
+        "The operator can name the leaf story, defect, or task that is the true next front.",
+        "Execution status changes stay on PI-committed work."
+      ],
+      "primary_surfaces": [
+        "GET /v1/delivery-work-items/{work_item_id}/continuation-context",
+        "GET /v1/delivery-initiatives/{delivery_id}/planning",
+        "POST /v1/delivery-work-items/{work_item_id}/update"
+      ],
+      "verification_commands": [
+        "GET /v1/delivery-work-items/{work_item_id}/continuation-context"
+      ],
+      "control_gate_ids": [
+        "active-non-epic-must-not-stay-uncommitted",
+        "execute-from-leaf-front"
+      ]
+    },
+    {
+      "id": "review-carryover",
+      "order": 6,
+      "display_name": "Review, Carryover, and Decommit",
+      "objective": "Close completed work, retarget real carryover, and decommit the rest explicitly.",
+      "allowed_new_types": [],
+      "required_fields_by_type": {
+        "PI Objective": [
+          "PI Objective Review Outcome",
+          "Actual Business Value"
+        ]
+      },
+      "forbidden_actions": [
+        "Leave open work pointing at the prior PI when it is no longer committed.",
+        "Treat PI review as complete without review outcome and actual business value evidence."
+      ],
+      "exit_criteria": [
+        "Completed work is closed with evidence.",
+        "Open carryover is re-targeted or returned to backlog posture deliberately."
+      ],
+      "primary_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/pi-review",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "POST /v1/delivery-work-items/{work_item_id}/complete"
+      ],
+      "verification_commands": [
+        "GET /v1/delivery-initiatives/{delivery_id}/pi-objectives",
+        "GET /v1/delivery-initiatives/{delivery_id}/closeout-readiness",
+        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id> INCLUDE_DONE=true"
+      ],
+      "control_gate_ids": [
+        "pi-review-must-carry-review-outcome-and-actual-value",
+        "carryover-must-be-retargeted-or-decommitted"
+      ]
+    }
+  ],
+  "control_gates": [
+    {
+      "id": "consume-top-level-shell-only",
+      "control_type": "machine",
+      "rule": "Consume creates one Epic shell only; top-level execution trees are not created during idea handoff.",
+      "enforcement_surfaces": [
+        "POST /v1/ideas/{idea_id}/consume"
+      ]
+    },
+    {
+      "id": "consume-must-use-proposal-handoff",
+      "control_type": "machine",
+      "rule": "Top-level delivery initiatives must be created through proposal consume, not through the generic work-item create surface.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items"
+      ]
+    },
+    {
+      "id": "backlog-feature-must-stay-umbrella-shaped",
+      "control_type": "machine",
+      "rule": "Backlog Features must not own User story children before PI commitment.",
+      "enforcement_surfaces": [
+        "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
+      "id": "target-pi-required-on-committed-leaf-types",
+      "control_type": "machine",
+      "rule": "PI Objective, User story, Task, and Milestone work must carry Target PI.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "POST /v1/delivery-work-items/{work_item_id}/move",
+        "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
+      "id": "active-non-epic-must-not-stay-uncommitted",
+      "control_type": "machine",
+      "rule": "Non-Epic work in ready, in-progress, or blocked must carry Target PI.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
+      "id": "committed-non-epic-must-carry-non-backlog-iteration",
+      "control_type": "machine",
+      "rule": "PI-committed non-Epic work must carry a non-backlog Iteration and may not keep the backlog iteration label.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
+      "id": "story-and-task-parent-must-be-committed",
+      "control_type": "machine",
+      "rule": "User story and Task work may only be created or moved under PI-committed parents.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/move"
+      ]
+    },
+    {
+      "id": "roadmap-version-must-match-target-pi-projection",
+      "control_type": "machine",
+      "rule": "OpenProject roadmap version must project exactly from canonical Target PI, or to the explicit unassigned bucket when Target PI is blank.",
+      "enforcement_surfaces": [
+        "openproject_check_delivery_art_quality.py",
+        "openproject_sync_delivery_art_views_runner.rb"
+      ]
+    },
+    {
+      "id": "execute-from-leaf-front",
+      "control_type": "operator",
+      "rule": "Operators confirm continuation context before treating a ready umbrella item as the actionable next work front.",
+      "enforcement_surfaces": [
+        "GET /v1/delivery-work-items/{work_item_id}/continuation-context",
+        "project-delivery-operator skill"
+      ]
+    },
+    {
+      "id": "pi-review-must-carry-review-outcome-and-actual-value",
+      "control_type": "machine",
+      "rule": "PI review updates must carry review outcome and actual business value for each reviewed PI Objective.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-initiatives/{delivery_id}/pi-review"
+      ]
+    },
+    {
+      "id": "carryover-must-be-retargeted-or-decommitted",
+      "control_type": "operator",
+      "rule": "At PI review, open work must be explicitly retargeted to the next PI or moved back to backlog posture instead of keeping stale PI commitment.",
+      "enforcement_surfaces": [
+        "platform-engineering/products/openproject/runbooks/plan-delivery-art.md",
+        "GET /v1/delivery-initiatives/{delivery_id}/planning",
+        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+      ]
+    }
+  ]
+}

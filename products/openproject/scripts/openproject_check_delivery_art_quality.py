@@ -11,29 +11,30 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
-BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
-ROADMAP_UNASSIGNED_VERSION_NAME = "Not yet committed to a PI"
-ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
+SCRIPT_DIR = Path(__file__).resolve().parent
+PRODUCT_DIR = SCRIPT_DIR.parent
+PLANNING_WORKFLOW_PATH = PRODUCT_DIR / "delivery-art-planning-workflow.json"
+PLANNING_WORKFLOW = json.loads(PLANNING_WORKFLOW_PATH.read_text(encoding="utf-8"))
+
+BACKLOG_ITERATION_LABEL = PLANNING_WORKFLOW["backlog_iteration_label"]
+ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_name"]
+ACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["active"])
 INACTIVE_STATUSES = {"retired"}
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
-TARGET_PI_REQUIRED_TYPES = {"PI Objective", "User story", "Task", "Milestone"}
-COMMITTED_ITERATION_REQUIRED_TYPES = {
-    "PI Objective",
-    "Feature",
-    "User story",
-    "Defect",
-    "Task",
-    "Milestone",
-    "Risk",
-}
-BACKLOG_FEATURE_CHILD_TYPES = {"User story"}
+TARGET_PI_REQUIRED_TYPES = set(
+    PLANNING_WORKFLOW["planning_sets"]["target_pi_required_types"]
+)
+COMMITTED_ITERATION_REQUIRED_TYPES = set(
+    PLANNING_WORKFLOW["planning_sets"]["iteration_required_when_target_pi_types"]
+)
+BACKLOG_FEATURE_CHILD_TYPES = set(
+    PLANNING_WORKFLOW["planning_sets"]["backlog_feature_forbidden_child_types"]
+)
 FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
     "Acceptance Criteria",
     "Definition of Ready",
     "Definition of Done",
 }
-SCRIPT_DIR = Path(__file__).resolve().parent
-PRODUCT_DIR = SCRIPT_DIR.parent
 TAXONOMY_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
 OPENPROJECT_DUMP_RUNNER_PATH = SCRIPT_DIR / "openproject_dump_delivery_art_runner.rb"
 OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_custom_field_support.rb"
@@ -381,6 +382,7 @@ def add_issue(
     initiative_id: int | None,
     target: dict[str, object],
     detail: str,
+    gate_id: str | None = None,
 ) -> None:
     issues.append(
         {
@@ -391,6 +393,7 @@ def add_issue(
             "subject": target.get("subject"),
             "status": target.get("status"),
             "detail": detail,
+            "gate_id": gate_id,
         }
     )
 
@@ -580,6 +583,7 @@ def evaluate_execution_summary(
                     initiative_id=initiative_id,
                     target=node,
                     detail="backlog item marked as not committed to a PI iteration still has Target PI assigned",
+                    gate_id="committed-non-epic-must-carry-non-backlog-iteration",
                 )
             if node.get("start_date") or node.get("due_date"):
                 add_issue(
@@ -601,6 +605,7 @@ def evaluate_execution_summary(
                 initiative_id=initiative_id,
                 target=node,
                 detail="PI-committed non-Epic work must carry a non-backlog Iteration",
+                gate_id="committed-non-epic-must-carry-non-backlog-iteration",
             )
 
         if (
@@ -627,6 +632,7 @@ def evaluate_execution_summary(
                     "backlog Feature must stay umbrella-shaped until PI commitment; "
                     f"open story children: {child_ids}"
                 ),
+                gate_id="backlog-feature-must-stay-umbrella-shaped",
             )
 
     for node in all_nodes:
@@ -817,6 +823,7 @@ def evaluate_live_project_taxonomy(
                 initiative_id=None,
                 target=entry,
                 detail=f"Target PI {target_pi!r} must project to matching version, not {version_name!r}",
+                gate_id="roadmap-version-must-match-target-pi-projection",
             )
         elif not target_pi and version_name != ROADMAP_UNASSIGNED_VERSION_NAME:
             issue_type = (
@@ -833,6 +840,7 @@ def evaluate_live_project_taxonomy(
                     f"work without canonical Target PI must project to derived roadmap bucket "
                     f"{ROADMAP_UNASSIGNED_VERSION_NAME!r}, not {version_name!r}"
                 ),
+                gate_id="roadmap-version-must-match-target-pi-projection",
             )
 
         if (
@@ -849,6 +857,7 @@ def evaluate_live_project_taxonomy(
                     "non-epic work in ready, in-progress, or blocked must carry canonical "
                     "Target PI instead of remaining in the unassigned backlog bucket"
                 ),
+                gate_id="active-non-epic-must-not-stay-uncommitted",
             )
 
         if type_name in TARGET_PI_REQUIRED_TYPES and not target_pi:
@@ -858,6 +867,7 @@ def evaluate_live_project_taxonomy(
                 initiative_id=None,
                 target=entry,
                 detail=f"{type_name} must carry canonical Target PI before it exists in ART",
+                gate_id="target-pi-required-on-committed-leaf-types",
             )
 
         if (
@@ -871,6 +881,7 @@ def evaluate_live_project_taxonomy(
                 initiative_id=None,
                 target=entry,
                 detail="Defect without Target PI must stay in new backlog posture until committed",
+                gate_id="active-non-epic-must-not-stay-uncommitted",
             )
 
         iteration = entry.get("iteration")
@@ -887,6 +898,7 @@ def evaluate_live_project_taxonomy(
                 initiative_id=None,
                 target=entry,
                 detail="PI-committed non-Epic work must carry a non-backlog Iteration",
+                gate_id="committed-non-epic-must-carry-non-backlog-iteration",
             )
 
         expected_prefix = derived_subject_prefix(type_name, classification)

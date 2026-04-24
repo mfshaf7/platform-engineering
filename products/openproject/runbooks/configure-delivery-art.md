@@ -44,8 +44,8 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
   - `Epic`
   - `PI Objective`
   - `Feature`
-  - `Enabler`
   - `User story`
+  - `Defect`
   - `Task`
   - `Milestone`
   - `Risk`
@@ -70,6 +70,7 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
   - SAFe execution fields:
     - `Delivery Team`
     - `Iteration`
+    - `Execution Classification`
     - `Acceptance Criteria`
     - `Definition of Ready`
     - `Definition of Done`
@@ -110,7 +111,7 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "puts Type.where(name: [\"Epic\", \"PI Objective\", \"Feature\", \"Enabler\", \"User story\", \"Task\", \"Milestone\", \"Risk\"]).pluck(:name).inspect"'
+  sh -lc 'bundle exec rails runner "puts Type.where(name: [\"Epic\", \"PI Objective\", \"Feature\", \"User story\", \"Defect\", \"Task\", \"Milestone\", \"Risk\"]).pluck(:name).inspect"'
 ```
 
 ```bash

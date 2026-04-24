@@ -22,9 +22,15 @@ The current standardization pass can:
 
 - populate missing `Owner Repo`
 - populate missing `Assignee` and `Responsible` on active and done work
+- replace the legacy structural `Enabler` type with canonical machine types plus
+  `Execution Classification`
+- backfill missing `Execution Classification` on `Feature` and `User story`
+- promote `Defect:` items to the structural `Defect` type
+- repair parent-child relationships to the canonical hierarchy
 - populate missing active-execution contract fields:
   - `Delivery Team`
   - `Iteration`
+  - `Execution Classification`
   - `Acceptance Criteria`
   - `Definition of Ready`
   - `Definition of Done`
@@ -49,19 +55,26 @@ The current standardization pass can:
     - `Benefit Hypothesis`
     - `Scope Boundaries`
     - `Execution Context`
-  - `Enabler`
+  - `Feature` / `User story` with `Execution Classification = Enabler`
     - `What This Enables`
-    - `Benefit Hypothesis`
-    - `Scope Boundaries`
+    - `Benefit Hypothesis` for `Feature`
+    - `Why This Matters Now` for `User story`
+    - `Scope Boundaries` for `Feature`
+    - `Evidence Expectation` for `User story`
     - `Execution Context`
   - `User story` / `Task`
     - `What This Achieves`
     - `Why This Matters Now`
     - `Evidence Expectation`
     - `Execution Context`
-  - `Milestone`
-    - `Exit Condition`
+  - `Defect`
+    - `What This Corrects`
+    - `Why This Matters Now`
+    - `Evidence Expectation`
     - `Execution Context`
+- `Milestone`
+  - `Exit Condition`
+  - `Execution Context`
 - preserve existing done-state completion sections while normalizing the
   narrative headings around them
 

@@ -105,13 +105,20 @@ Required narrative sections by type:
   - `Benefit Hypothesis`
   - `Scope Boundaries`
   - `Execution Context`
-- `Enabler`
-  - `What This Enables`
-  - `Benefit Hypothesis`
-  - `Scope Boundaries`
-  - `Execution Context`
 - `User story`
   - `What This Achieves`
+  - `Why This Matters Now`
+  - `Evidence Expectation`
+  - `Execution Context`
+- `Feature` or `User story` with `Execution Classification = Enabler`
+  - `What This Enables`
+  - `Benefit Hypothesis` for `Feature`
+  - `Why This Matters Now` for `User story`
+  - `Scope Boundaries` for `Feature`
+  - `Evidence Expectation` for `User story`
+  - `Execution Context`
+- `Defect`
+  - `What This Corrects`
   - `Why This Matters Now`
   - `Evidence Expectation`
   - `Execution Context`
@@ -203,11 +210,15 @@ SAFe-aligned mapping in OpenProject:
   - `Epic`
   - `PI Objective`
   - `Feature`
-  - `Enabler`
   - `User story`
+  - `Defect`
   - `Task`
   - `Milestone`
   - `Risk`
+- `Execution Classification` on `Feature` and `User story`:
+  - `Business`
+  - `Enabler`
+  - `Improvement`
 - boards:
   - Kanban execution views
 
@@ -245,7 +256,7 @@ The PM² phase is not the same thing as Kanban execution status.
 PM² governance fields are initiative-level controls.
 
 They apply directly to the top-level delivery `Epic`, not to every child
-`Feature`, `Enabler`, `User story`, or `Task`.
+`Feature`, `User story`, `Defect`, or `Task`.
 
 Child delivery work should instead carry:
 
@@ -443,10 +454,17 @@ Recommended planning fields by type:
     - `WSJF Risk Reduction / Opportunity Enablement`
     - `WSJF Job Size`
     - computed `WSJF Score`
-- `Enabler`
+- `Feature`
   - `Acceptance Criteria`
-  - `NFR Category` when the enabler is primarily runway or non-functional work
-- `User story` / `Task`
+  - `Execution Classification`
+  - `NFR Category` when the feature is primarily non-functional work
+- `User story`
+  - `Acceptance Criteria`
+  - `Definition of Ready`
+  - `Definition of Done`
+  - `Iteration`
+  - `Execution Classification`
+- `Defect` / `Task`
   - `Acceptance Criteria`
   - `Definition of Ready`
   - `Definition of Done`
@@ -465,9 +483,10 @@ execution fields for its type.
 
 Minimum `ready` expectations are:
 
-- `Feature`, `Enabler`, `User story`, `Task`
+- `Feature`, `User story`, `Defect`, `Task`
   - `Delivery Team`
   - `Iteration`
+  - `Execution Classification` for `Feature` and `User story`
   - `Acceptance Criteria`
   - `Definition of Ready`
   - `Definition of Done`

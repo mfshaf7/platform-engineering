@@ -155,8 +155,12 @@ Inside `Workspace Delivery ART`, the current operator model is PM²-governed at
 the initiative layer and SAFe-aligned at the execution layer. That includes:
 
 - PI versions
-- `PI Objective`, `Feature`, `Enabler`, `User story`, `Task`, `Milestone`, and
-  `Risk` work-item types
+- `PI Objective`, `Feature`, `User story`, `Defect`, `Task`, `Milestone`, and
+  `Risk` structural work-item types
+- `Execution Classification` on `Feature` and `User story` for:
+  - `Business`
+  - `Enabler`
+  - `Improvement`
 - PI-objective business-value tracking
 - WSJF prioritization fields
 - ROAM risk tracking

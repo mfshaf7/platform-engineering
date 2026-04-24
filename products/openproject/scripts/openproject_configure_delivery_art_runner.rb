@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "openproject_delivery_art_home_support"
+require_relative "openproject_delivery_art_taxonomy_support"
 
 RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_BEGIN__"
 RESULT_END = "__OPENPROJECT_DELIVERY_ART_END__"
@@ -10,6 +11,14 @@ PROJECT_IDENTIFIER = "workspace-delivery-art"
 PROJECT_NAME = "Workspace Delivery ART"
 PROJECT_DESCRIPTION = OpenprojectDeliveryArtHomeSupport.render_description
 PROJECT_MODULES = %w[work_package_tracking board_view].freeze
+
+EXECUTION_CLASSIFICATION_FIELD_NAME = OpenprojectDeliveryArtTaxonomySupport.classification_field_name
+EXECUTION_CLASSIFICATION_VALUES = OpenprojectDeliveryArtTaxonomySupport.classification_values.freeze
+STRUCTURAL_TYPE_NAMES = OpenprojectDeliveryArtTaxonomySupport.structural_type_names.freeze
+EXECUTION_CLASSIFICATION_TYPE_NAMES = OpenprojectDeliveryArtTaxonomySupport.classification_required_types.freeze
+EXECUTION_FIELD_TYPE_NAMES = (STRUCTURAL_TYPE_NAMES - ["Epic"]).freeze
+WORKFLOW_FIELD_TYPE_NAMES = STRUCTURAL_TYPE_NAMES.freeze
+WSJF_TYPE_NAMES = ["Feature"].freeze
 
 TYPE_SPECS = [
   {
@@ -28,13 +37,13 @@ TYPE_SPECS = [
     is_milestone: false
   },
   {
-    name: "Enabler",
-    description: "Delivery enabler needed for the single-ART execution model.",
+    name: "User story",
+    description: "Operator-facing or implementation-facing delivery story under a feature.",
     is_milestone: false
   },
   {
-    name: "User story",
-    description: "User-facing or operator-facing delivery slice under a feature or enabler.",
+    name: "Defect",
+    description: "Concrete defect correction tracked as a first-class delivery work item.",
     is_milestone: false
   },
   {
@@ -133,7 +142,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Epic", "Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+    type_names: STRUCTURAL_TYPE_NAMES
   },
   {
     name: "Owner Repo",
@@ -142,7 +151,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Epic", "Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+    type_names: STRUCTURAL_TYPE_NAMES
   },
   {
     name: "Delivery Team",
@@ -151,7 +160,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+    type_names: EXECUTION_FIELD_TYPE_NAMES
   },
   {
     name: "Iteration",
@@ -160,7 +169,16 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Risk"]
+    type_names: EXECUTION_FIELD_TYPE_NAMES
+  },
+  {
+    name: EXECUTION_CLASSIFICATION_FIELD_NAME,
+    field_format: "list",
+    searchable: false,
+    is_filter: true,
+    multi_value: false,
+    possible_values: EXECUTION_CLASSIFICATION_VALUES,
+    type_names: EXECUTION_CLASSIFICATION_TYPE_NAMES
   },
   {
     name: "Acceptance Criteria",
@@ -168,7 +186,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+    type_names: ["Feature", "PI Objective", "User story", "Defect", "Task"]
   },
   {
     name: "Definition of Ready",
@@ -176,7 +194,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+    type_names: ["Feature", "PI Objective", "User story", "Defect", "Task"]
   },
   {
     name: "Definition of Done",
@@ -184,7 +202,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: true,
     is_filter: false,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task"]
+    type_names: ["Feature", "PI Objective", "User story", "Defect", "Task"]
   },
   {
     name: "NFR Category",
@@ -193,7 +211,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     possible_values: ["Security", "Reliability", "Performance", "Scalability", "Operability", "Compliance", "Usability", "Maintainability"],
-    type_names: ["Epic", "Feature", "Enabler"]
+    type_names: ["Feature"]
   },
   {
     name: "WSJF User-Business Value",
@@ -201,7 +219,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "Enabler"]
+    type_names: WSJF_TYPE_NAMES
   },
   {
     name: "WSJF Time Criticality",
@@ -209,7 +227,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "Enabler"]
+    type_names: WSJF_TYPE_NAMES
   },
   {
     name: "WSJF Risk Reduction / Opportunity Enablement",
@@ -217,7 +235,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "Enabler"]
+    type_names: WSJF_TYPE_NAMES
   },
   {
     name: "WSJF Job Size",
@@ -225,7 +243,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "Enabler"]
+    type_names: WSJF_TYPE_NAMES
   },
   {
     name: "WSJF Score",
@@ -233,7 +251,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "Enabler"]
+    type_names: WSJF_TYPE_NAMES
   },
   {
     name: "PI Objective Type",
@@ -310,7 +328,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: false,
     multi_value: false,
     max_length: 1024,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Impact",
@@ -319,7 +337,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: false,
     multi_value: false,
     max_length: 1024,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Owner",
@@ -328,7 +346,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Discovered On",
@@ -336,7 +354,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Decision Path",
@@ -345,7 +363,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     possible_values: ["remove", "workaround", "accept-risk", "defer"],
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Justification",
@@ -354,7 +372,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: false,
     multi_value: false,
     max_length: 1024,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Follow-Up Owner",
@@ -363,7 +381,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     max_length: 255,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Blocker Review Date",
@@ -371,7 +389,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Parking Decision",
@@ -380,7 +398,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     possible_values: ["defer", "retire"],
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Parking Reason",
@@ -389,7 +407,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: false,
     multi_value: false,
     max_length: 1024,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Parking Review Date",
@@ -397,7 +415,7 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false,
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   },
   {
     name: "Retirement Reason",
@@ -406,7 +424,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     possible_values: ["superseded", "duplicate", "invalid", "absorbed", "cancelled"],
-    type_names: ["Feature", "PI Objective", "Enabler", "User story", "Task", "Milestone", "Epic", "Risk"]
+    type_names: WORKFLOW_FIELD_TYPE_NAMES
   }
 ].freeze
 

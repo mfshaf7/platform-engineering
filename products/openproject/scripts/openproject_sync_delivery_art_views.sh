@@ -8,6 +8,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RUNNER_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_sync_delivery_art_views_runner.rb"
 SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_custom_field_support.rb"
 HOME_SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_home_support.rb"
+TAXONOMY_SUPPORT_SCRIPT="${REPO_ROOT}/products/openproject/scripts/openproject_delivery_art_taxonomy_support.rb"
 OPENPROJECT_DELIVERY_PI_NAMES="${OPENPROJECT_DELIVERY_PI_NAMES:-}"
 
 need_cmd() {
@@ -44,6 +45,11 @@ if [[ ! -f "${HOME_SUPPORT_SCRIPT}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${TAXONOMY_SUPPORT_SCRIPT}" ]]; then
+  echo "Missing support script: ${TAXONOMY_SUPPORT_SCRIPT}" >&2
+  exit 1
+fi
+
 pod_name="$(openproject_pod)"
 
 echo "Synchronizing OpenProject delivery ART views in ${OPENPROJECT_NAMESPACE}/${pod_name}"
@@ -51,13 +57,15 @@ echo "Synchronizing OpenProject delivery ART views in ${OPENPROJECT_NAMESPACE}/$
 runner_remote="/tmp/openproject_sync_delivery_art_views_runner.rb"
 support_remote="/tmp/openproject_delivery_art_custom_field_support.rb"
 home_support_remote="/tmp/openproject_delivery_art_home_support.rb"
+taxonomy_support_remote="/tmp/openproject_delivery_art_taxonomy_support.rb"
 
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${RUNNER_SCRIPT}" "${pod_name}:${runner_remote}"
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${SUPPORT_SCRIPT}" "${pod_name}:${support_remote}"
 kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${HOME_SUPPORT_SCRIPT}" "${pod_name}:${home_support_remote}"
+kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" cp "${TAXONOMY_SUPPORT_SCRIPT}" "${pod_name}:${taxonomy_support_remote}"
 
 cleanup() {
-  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" "${support_remote}" "${home_support_remote}" >/dev/null 2>&1 || true
+  kubectl_cmd -n "${OPENPROJECT_NAMESPACE}" exec "${pod_name}" -- rm -f "${runner_remote}" "${support_remote}" "${home_support_remote}" "${taxonomy_support_remote}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 

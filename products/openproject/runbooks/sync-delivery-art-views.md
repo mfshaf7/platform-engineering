@@ -29,6 +29,9 @@ So the supported delivery-art surface here is:
 - project versions used as the declared SAFe Program Increment set
 - `Target PI` used as the writable work-item placement field for PI objective
   lanes and the planning read-model surfaces
+- `Execution Classification` used to distinguish `Business`, `Enabler`, and
+  `Improvement` work on `Feature` and `User story` without reintroducing a
+  fake structural `Enabler` type
 
 This is the strongest supported SAFe plus PM² operator surface in the current
 packaged runtime.

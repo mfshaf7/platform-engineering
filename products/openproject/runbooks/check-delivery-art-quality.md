@@ -48,13 +48,20 @@ The supported quality check currently verifies:
     - `Benefit Hypothesis`
     - `Scope Boundaries`
     - `Execution Context`
-  - `Enabler`
+  - `Feature` / `User story` with `Execution Classification = Enabler`
     - `What This Enables`
-    - `Benefit Hypothesis`
-    - `Scope Boundaries`
+    - `Benefit Hypothesis` for `Feature`
+    - `Why This Matters Now` for `User story`
+    - `Scope Boundaries` for `Feature`
+    - `Evidence Expectation` for `User story`
     - `Execution Context`
   - `User story` / `Task`
     - `What This Achieves`
+    - `Why This Matters Now`
+    - `Evidence Expectation`
+    - `Execution Context`
+  - `Defect`
+    - `What This Corrects`
     - `Why This Matters Now`
     - `Evidence Expectation`
     - `Execution Context`
@@ -65,6 +72,13 @@ The supported quality check currently verifies:
 Structural issues are hard failures.
 
 That includes done-state attestation drift such as:
+
+- legacy structural `Enabler` work items still present
+- root-level non-`Epic` work items still present
+- parent-child type relationships that violate the canonical taxonomy
+- missing or invalid `Execution Classification` on `Feature` and `User story`
+- semantic subject prefixes such as `Enabler:` or `Improvement:` that no longer
+  match the machine type plus classification
 
 - description starts with loose prose instead of a heading
 - description duplicates `Acceptance Criteria`, `Definition of Ready`, or

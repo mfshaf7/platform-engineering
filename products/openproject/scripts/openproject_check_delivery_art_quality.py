@@ -3,35 +3,70 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
+from collections import Counter, defaultdict
+from pathlib import Path
 
 
 BACKLOG_ITERATION_LABEL = "Not committed to a PI iteration yet."
 ACTIVE_STATUSES = {"ready", "in-progress", "blocked"}
 INACTIVE_STATUSES = {"retired"}
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
-NARRATIVE_REQUIREMENTS = {
-    "Epic": ["What This Initiative Achieves", "Current PI Focus", "Scope Boundaries", "Execution Context"],
-    "PI Objective": ["Outcome", "Why This PI", "Success Signal", "Execution Context"],
-    "Risk": ["Risk Event", "Impact", "Current Handling", "Execution Context"],
-    "Feature": ["What This Achieves", "Benefit Hypothesis", "Scope Boundaries", "Execution Context"],
-    "Enabler": ["What This Enables", "Benefit Hypothesis", "Scope Boundaries", "Execution Context"],
-    "User story": ["What This Achieves", "Why This Matters Now", "Evidence Expectation", "Execution Context"],
-    "Task": ["What This Achieves", "Why This Matters Now", "Evidence Expectation", "Execution Context"],
-    "Milestone": ["Exit Condition", "Execution Context"],
-}
 FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
     "Acceptance Criteria",
     "Definition of Ready",
     "Definition of Done",
 }
+SCRIPT_DIR = Path(__file__).resolve().parent
+PRODUCT_DIR = SCRIPT_DIR.parent
+TAXONOMY_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
+OPENPROJECT_DUMP_RUNNER_PATH = SCRIPT_DIR / "openproject_dump_delivery_art_runner.rb"
+OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_custom_field_support.rb"
+OPENPROJECT_TAXONOMY_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_taxonomy_support.rb"
+OPENPROJECT_TAXONOMY_JSON_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
 
 
-def run_json(command: list[str], *, env: dict[str, str]) -> dict[str, object]:
+def load_taxonomy() -> dict[str, object]:
+    with TAXONOMY_PATH.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+TAXONOMY = load_taxonomy()
+CLASSIFICATION_FIELD_NAME = TAXONOMY["classification_field"]["name"]
+CLASSIFICATION_REQUIRED_TYPES = set(TAXONOMY["classification_field"]["required_for_types"])
+CLASSIFICATION_VALUES = set(TAXONOMY["classification_field"]["values"])
+LEGACY_SUBJECT_PREFIXES = set(TAXONOMY["legacy_subject_prefixes"])
+STRUCTURAL_TYPES = TAXONOMY["structural_types"]
+STRUCTURAL_TYPE_NAMES = set(STRUCTURAL_TYPES.keys())
+SEMANTIC_PREFIXES = {
+    *(
+        spec.get("derived_subject_prefix")
+        for spec in STRUCTURAL_TYPES.values()
+        if spec.get("derived_subject_prefix")
+    ),
+    *(
+        prefix
+        for spec in STRUCTURAL_TYPES.values()
+        for prefix in (spec.get("derived_subject_prefix_by_classification") or {}).values()
+    ),
+}
+
+
+def run_json(
+    command: list[str], *, env: dict[str, str], input_text: str | None = None
+) -> dict[str, object]:
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, env=env, check=True)
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+            input=input_text,
+        )
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         stdout = (exc.stdout or "").strip()
@@ -39,7 +74,8 @@ def run_json(command: list[str], *, env: dict[str, str]) -> dict[str, object]:
         raise RuntimeError(f"command failed: {' '.join(command)}: {detail}") from exc
     lines = completed.stdout.splitlines()
     cleaned = "\n".join(
-        line for line in lines
+        line
+        for line in lines
         if not line.startswith("Showing delivery ")
         and not line.startswith("Defaulted container ")
         and not line.startswith("DEPRECATION WARNING:")
@@ -131,6 +167,121 @@ process.stdout.write(`${JSON.stringify(payload, null, 2)}\\n`);
     )
 
 
+def push_remote_file(
+    *,
+    env: dict[str, str],
+    deployment: str,
+    namespace: str,
+    local_path: Path,
+    remote_path: str,
+) -> None:
+    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
+    with local_path.open("r", encoding="utf-8") as handle:
+        content = handle.read()
+    subprocess.run(
+        [
+            *kubectl,
+            "-n",
+            namespace,
+            "exec",
+            "-i",
+            f"deploy/{deployment}",
+            "--",
+            "sh",
+            "-lc",
+            f"cat > {shlex.quote(remote_path)}",
+        ],
+        input=content,
+        text=True,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+
+
+def run_openproject_project_json(*, env: dict[str, str]) -> dict[str, object]:
+    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
+    namespace = (env.get("OPENPROJECT_NAMESPACE") or "openproject").strip() or "openproject"
+    deployment = (env.get("OPENPROJECT_DEPLOYMENT") or "openproject-web").strip() or "openproject-web"
+    remote_runner = "/tmp/openproject_dump_delivery_art_runner.rb"
+    remote_custom_field_support = "/tmp/openproject_delivery_art_custom_field_support.rb"
+    remote_taxonomy_support = "/tmp/openproject_delivery_art_taxonomy_support.rb"
+    remote_taxonomy_json = "/tmp/delivery-art-taxonomy.json"
+
+    push_remote_file(
+        env=env,
+        deployment=deployment,
+        namespace=namespace,
+        local_path=OPENPROJECT_DUMP_RUNNER_PATH,
+        remote_path=remote_runner,
+    )
+    push_remote_file(
+        env=env,
+        deployment=deployment,
+        namespace=namespace,
+        local_path=OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH,
+        remote_path=remote_custom_field_support,
+    )
+    push_remote_file(
+        env=env,
+        deployment=deployment,
+        namespace=namespace,
+        local_path=OPENPROJECT_TAXONOMY_SUPPORT_PATH,
+        remote_path=remote_taxonomy_support,
+    )
+    push_remote_file(
+        env=env,
+        deployment=deployment,
+        namespace=namespace,
+        local_path=OPENPROJECT_TAXONOMY_JSON_PATH,
+        remote_path=remote_taxonomy_json,
+    )
+
+    try:
+        return run_json(
+            [
+                *kubectl,
+                "-n",
+                namespace,
+                "exec",
+                "-i",
+                f"deploy/{deployment}",
+                "--",
+                "sh",
+                "-lc",
+                (
+                    "export OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER=\"$1\"; "
+                    "bundle exec rails runner \"$2\""
+                ),
+                "sh",
+                env.get("OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER", "workspace-delivery-art"),
+                remote_runner,
+            ],
+            env=env,
+        )
+    finally:
+        subprocess.run(
+            [
+                *kubectl,
+                "-n",
+                namespace,
+                "exec",
+                f"deploy/{deployment}",
+                "--",
+                "rm",
+                "-f",
+                remote_runner,
+                remote_custom_field_support,
+                remote_taxonomy_support,
+                remote_taxonomy_json,
+            ],
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+
 def flatten_tree(node: dict[str, object]) -> list[dict[str, object]]:
     children = node.get("children") or []
     flattened = [node]
@@ -143,7 +294,7 @@ def add_issue(
     issues: list[dict[str, object]],
     *,
     issue_type: str,
-    initiative_id: int,
+    initiative_id: int | None,
     target: dict[str, object],
     detail: str,
 ) -> None:
@@ -164,7 +315,7 @@ def add_narrative_finding(
     findings: list[dict[str, object]],
     *,
     finding_type: str,
-    initiative_id: int,
+    initiative_id: int | None,
     target: dict[str, object],
     severity: str,
     attention_scope: str,
@@ -186,6 +337,55 @@ def add_narrative_finding(
             "detail": detail,
         }
     )
+
+
+def detect_subject_prefix(subject: str | None) -> str | None:
+    rendered = (subject or "").strip()
+    for prefix in sorted(LEGACY_SUBJECT_PREFIXES | SEMANTIC_PREFIXES, key=len, reverse=True):
+        if re.match(rf"^{re.escape(prefix)}:\s*", rendered, re.IGNORECASE):
+            return prefix
+    return None
+
+
+def derived_subject_prefix(type_name: str | None, classification: str | None) -> str | None:
+    if not type_name or type_name not in STRUCTURAL_TYPES:
+        return None
+    spec = STRUCTURAL_TYPES[type_name]
+    if classification:
+        classified = spec.get("derived_subject_prefix_by_classification") or {}
+        if classification in classified:
+            return classified[classification]
+    return spec.get("derived_subject_prefix")
+
+
+def required_headings(type_name: str | None, classification: str | None) -> list[str]:
+    if not type_name or type_name not in STRUCTURAL_TYPES:
+        return []
+    headings = STRUCTURAL_TYPES[type_name]["narrative_headings"]
+    if isinstance(headings, list):
+        return headings
+    return headings.get(classification, headings.get("default", []))
+
+
+def build_subtree_scope_ids(
+    work_packages_by_id: dict[int, dict[str, object]], target_epic_id: int | None
+) -> set[int]:
+    if target_epic_id is None:
+        return set(work_packages_by_id.keys())
+
+    children_by_parent: dict[int | None, list[int]] = defaultdict(list)
+    for entry in work_packages_by_id.values():
+        children_by_parent[entry.get("parent_id")].append(int(entry["id"]))
+
+    scoped_ids: set[int] = set()
+    stack = [target_epic_id]
+    while stack:
+        current = stack.pop()
+        if current in scoped_ids:
+            continue
+        scoped_ids.add(current)
+        stack.extend(children_by_parent.get(current, []))
+    return scoped_ids
 
 
 def evaluate_execution_summary(
@@ -348,12 +548,13 @@ def evaluate_execution_summary(
     ]
     for node in narrative_targets:
         node_type = node.get("type")
-        required_headings = NARRATIVE_REQUIREMENTS.get(str(node_type), [])
-        if not required_headings:
+        node_classification = node.get("execution_classification")
+        needed = required_headings(str(node_type), node_classification)
+        if not needed:
             continue
 
         present_headings = set(node.get("description_headings") or [])
-        missing_headings = [heading for heading in required_headings if heading not in present_headings]
+        missing_headings = [heading for heading in needed if heading not in present_headings]
         if not missing_headings:
             continue
 
@@ -362,7 +563,7 @@ def evaluate_execution_summary(
         iteration = node.get("iteration")
         if status in {"in-progress", "blocked"} or node_type == "Epic":
             attention_scope = "active"
-            severity = "rewrite-required" if len(missing_headings) == len(required_headings) else "discussion-required"
+            severity = "rewrite-required" if len(missing_headings) == len(needed) else "discussion-required"
         elif status == "ready" or (target_pi and iteration != BACKLOG_ITERATION_LABEL):
             attention_scope = "next-up"
             severity = "discussion-required"
@@ -382,12 +583,173 @@ def evaluate_execution_summary(
         )
 
 
+def evaluate_live_project_taxonomy(
+    *,
+    project_payload: dict[str, object],
+    issues: list[dict[str, object]],
+    narrative_findings: list[dict[str, object]],
+    scoped_ids: set[int],
+) -> dict[str, object]:
+    work_packages = project_payload.get("work_packages") or []
+    work_packages_by_id = {
+        int(entry["id"]): entry for entry in work_packages if isinstance(entry, dict) and "id" in entry
+    }
+    type_counts = Counter()
+    prefix_counts = Counter()
+
+    for entry_id in scoped_ids:
+        entry = work_packages_by_id.get(entry_id)
+        if not entry:
+            continue
+        type_name = entry.get("type")
+        subject = entry.get("subject") or ""
+        status = entry.get("status")
+        classification = entry.get("execution_classification")
+        parent_id = entry.get("parent_id")
+        type_counts[str(type_name)] += 1
+        detected_prefix = detect_subject_prefix(subject)
+        prefix_counts[detected_prefix or "<none>"] += 1
+
+        if type_name == "Enabler":
+            add_issue(
+                issues,
+                issue_type="legacy_enabler_type_present",
+                initiative_id=None,
+                target=entry,
+                detail="Enabler must no longer exist as a structural type; use Feature or User story with Execution Classification instead",
+            )
+
+        if type_name not in STRUCTURAL_TYPE_NAMES:
+            add_issue(
+                issues,
+                issue_type="unsupported_structural_type",
+                initiative_id=None,
+                target=entry,
+                detail=f"type {type_name} is not part of the canonical delivery taxonomy",
+            )
+            continue
+
+        if parent_id is None:
+            if type_name != "Epic":
+                add_issue(
+                    issues,
+                    issue_type="root_non_epic_work_item",
+                    initiative_id=None,
+                    target=entry,
+                    detail="only Epic may exist at the project root",
+                )
+        else:
+            parent = work_packages_by_id.get(int(parent_id))
+            if parent is None:
+                add_issue(
+                    issues,
+                    issue_type="missing_parent_reference",
+                    initiative_id=None,
+                    target=entry,
+                    detail=f"parent work package {parent_id} is missing from the project dump",
+                )
+            else:
+                allowed_parent_types = STRUCTURAL_TYPES[type_name]["allowed_parent_types"]
+                if parent.get("type") not in allowed_parent_types:
+                    add_issue(
+                        issues,
+                        issue_type="invalid_parent_type",
+                        initiative_id=None,
+                        target=entry,
+                        detail=f"{type_name} must be parented by {', '.join(allowed_parent_types)}, not {parent.get('type')}",
+                    )
+
+        if type_name in CLASSIFICATION_REQUIRED_TYPES:
+            if not classification:
+                add_issue(
+                    issues,
+                    issue_type="missing_execution_classification",
+                    initiative_id=None,
+                    target=entry,
+                    detail=f"{type_name} requires {CLASSIFICATION_FIELD_NAME}",
+                )
+            elif classification not in CLASSIFICATION_VALUES:
+                add_issue(
+                    issues,
+                    issue_type="invalid_execution_classification",
+                    initiative_id=None,
+                    target=entry,
+                    detail=f"{classification} is not an allowed {CLASSIFICATION_FIELD_NAME} value",
+                )
+        elif classification:
+            add_issue(
+                issues,
+                issue_type="unexpected_execution_classification",
+                initiative_id=None,
+                target=entry,
+                detail=f"{CLASSIFICATION_FIELD_NAME} is not allowed on {type_name}",
+            )
+
+        expected_prefix = derived_subject_prefix(type_name, classification)
+        if detected_prefix in LEGACY_SUBJECT_PREFIXES:
+            add_issue(
+                issues,
+                issue_type="legacy_subject_prefix_present",
+                initiative_id=None,
+                target=entry,
+                detail=f"legacy prefix {detected_prefix}: is no longer allowed in ART subjects",
+            )
+        elif expected_prefix and detected_prefix != expected_prefix:
+            add_issue(
+                issues,
+                issue_type="derived_subject_prefix_mismatch",
+                initiative_id=None,
+                target=entry,
+                detail=f"{type_name} with classification {classification or 'Business'} must use subject prefix {expected_prefix}:",
+            )
+        elif not expected_prefix and detected_prefix in SEMANTIC_PREFIXES:
+            add_issue(
+                issues,
+                issue_type="semantic_subject_prefix_not_allowed",
+                initiative_id=None,
+                target=entry,
+                detail=f"subject prefix {detected_prefix}: is not allowed on structural type {type_name}",
+            )
+
+        if status in {"ready", "in-progress", "blocked"}:
+            needed = required_headings(type_name, classification)
+            present = set(entry.get("description_headings") or [])
+            missing = [heading for heading in needed if heading not in present]
+            if missing:
+                add_narrative_finding(
+                    narrative_findings,
+                    finding_type="missing_required_narrative_headings",
+                    initiative_id=None,
+                    target=entry,
+                    severity="discussion-required" if status == "ready" else "rewrite-required",
+                    attention_scope="next-up" if status == "ready" else "active",
+                    missing_headings=missing,
+                    detail=f"{type_name} is missing required narrative headings: {', '.join(missing)}",
+                )
+
+    return {
+        "scoped_work_package_count": len(scoped_ids),
+        "type_counts": dict(sorted(type_counts.items())),
+        "subject_prefix_counts": dict(sorted(prefix_counts.items())),
+    }
+
+
 def main() -> int:
     env = os.environ.copy()
     include_done = env.get("INCLUDE_DONE", "true")
     target_epic_id = env.get("TARGET_EPIC_ID", "").strip()
     scoped_execution_only = bool(target_epic_id)
     include_done_param = "true" if include_done == "true" else "false"
+
+    full_project_payload = run_openproject_project_json(env=env)
+    work_packages = full_project_payload.get("work_packages") or []
+    work_packages_by_id = {
+        int(entry["id"]): entry for entry in work_packages if isinstance(entry, dict) and "id" in entry
+    }
+    scoped_ids = build_subtree_scope_ids(
+        work_packages_by_id,
+        int(target_epic_id) if target_epic_id else None,
+    )
 
     if scoped_execution_only:
         initiatives_payload = {
@@ -475,8 +837,16 @@ def main() -> int:
             narrative_findings=narrative_findings,
         )
 
+    project_taxonomy_summary = evaluate_live_project_taxonomy(
+        project_payload=full_project_payload,
+        issues=issues,
+        narrative_findings=narrative_findings,
+        scoped_ids=scoped_ids,
+    )
+
     result = {
         "project": initiatives_payload.get("project"),
+        "openproject_project": full_project_payload.get("project"),
         "scope": {
             "include_done": include_done == "true",
             "mode": "scoped-execution" if scoped_execution_only else "full-portfolio",
@@ -498,14 +868,23 @@ def main() -> int:
                 severity: sum(1 for finding in narrative_findings if finding["severity"] == severity)
                 for severity in sorted({finding["severity"] for finding in narrative_findings})
             },
-            "initiative_ids_with_issues": sorted({issue["initiative_id"] for issue in issues}),
-            "initiative_ids_with_narrative_findings": sorted({finding["initiative_id"] for finding in narrative_findings}),
+            "initiative_ids_with_issues": sorted(
+                {issue["initiative_id"] for issue in issues if issue["initiative_id"] is not None}
+            ),
+            "initiative_ids_with_narrative_findings": sorted(
+                {
+                    finding["initiative_id"]
+                    for finding in narrative_findings
+                    if finding["initiative_id"] is not None
+                }
+            ),
             "discussion_required_before_execution": any(
                 finding["severity"] in {"rewrite-required", "discussion-required"}
                 and finding["attention_scope"] in {"active", "next-up"}
                 for finding in narrative_findings
             ),
         },
+        "project_taxonomy_summary": project_taxonomy_summary,
         "issues": issues,
         "narrative_findings": narrative_findings,
     }

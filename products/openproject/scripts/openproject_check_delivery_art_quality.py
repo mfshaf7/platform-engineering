@@ -119,29 +119,54 @@ def resolve_openproject_deployment(env: dict[str, str]) -> str:
 
     namespace = resolve_openproject_namespace(env)
     kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
-    try:
+
+    def run_deploy_query(args: list[str]) -> str:
         completed = subprocess.run(
+            [*kubectl, "-n", namespace, *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return completed.stdout.strip()
+
+    try:
+        resolved = run_deploy_query(
             [
-                *kubectl,
-                "-n",
-                namespace,
                 "get",
                 "deploy",
                 "-l",
                 "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject",
                 "-o",
                 "jsonpath={.items[0].metadata.name}",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-            check=True,
+            ]
         )
-        resolved = completed.stdout.strip()
         if resolved:
             return resolved
     except subprocess.CalledProcessError:
         pass
+
+    try:
+        deployment_names = run_deploy_query(
+            [
+                "get",
+                "deploy",
+                "-o",
+                "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}",
+            ]
+        )
+        candidates = [
+            name.strip()
+            for name in deployment_names.splitlines()
+            if name.strip().endswith("-openproject-web") or name.strip() == "openproject-web"
+        ]
+        if "openproject-web" in candidates:
+            return "openproject-web"
+        if len(candidates) == 1:
+            return candidates[0]
+    except subprocess.CalledProcessError:
+        pass
+
     return "openproject-web"
 
 

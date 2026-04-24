@@ -40,6 +40,27 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertEqual(deployment, "devint-accepted-idea-delivery-openproject-web")
         run_mock.assert_called_once()
 
+    def test_openproject_deployment_falls_back_to_name_scan(self) -> None:
+        selector_miss = mock.Mock(stdout="")
+        deployment_scan = mock.Mock(
+            stdout=(
+                "devint-accepted-idea-delivery-openproject-cron\n"
+                "devint-accepted-idea-delivery-openproject-web\n"
+                "devint-accepted-idea-delivery-openproject-worker-default\n"
+            )
+        )
+        with mock.patch.object(
+            MODULE.subprocess,
+            "run",
+            side_effect=[selector_miss, deployment_scan],
+        ) as run_mock:
+            deployment = MODULE.resolve_openproject_deployment(
+                {"OPENPROJECT_NAMESPACE": "devint-accepted-idea-delivery-mfshaf7"}
+            )
+
+        self.assertEqual(deployment, "devint-accepted-idea-delivery-openproject-web")
+        self.assertEqual(run_mock.call_count, 2)
+
     def test_done_state_narrative_drift_is_a_hard_failure(self) -> None:
         issues = []
         narrative_findings = []

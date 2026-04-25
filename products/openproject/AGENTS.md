@@ -19,6 +19,7 @@ declared, operated, and verified on this platform.
 - `runbooks/access-openproject.md`
 - `runbooks/check-delivery-art-workflow-health.md`
 - `runbooks/check-delivery-art-quality.md`
+- `openproject-platform-admin-surface.json`
 - `runbooks/openproject-platform-admin-surface.md`
 - `runbooks/sync-delivery-art-views.md`
 - `https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md`

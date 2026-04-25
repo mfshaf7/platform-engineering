@@ -38,6 +38,9 @@ COMMITTED_ITERATION_REQUIRED_TYPES = set(
 BACKLOG_FEATURE_CHILD_TYPES = set(
     PLANNING_WORKFLOW["planning_sets"]["backlog_feature_forbidden_child_types"]
 )
+FEATURE_LEAF_FRONT_CHILD_TYPES = set(
+    PLANNING_WORKFLOW["planning_sets"]["feature_leaf_front_child_types"]
+)
 FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
     "Acceptance Criteria",
     "Definition of Ready",
@@ -469,6 +472,32 @@ def evaluate_execution_summary(
 ) -> None:
     all_nodes = flatten_tree(root)
     descendants = all_nodes[1:]
+    open_descendants = [
+        node
+        for node in descendants
+        if node.get("status") not in DONE_TREE_TERMINAL_STATUSES
+    ]
+    open_pi_objectives = [
+        node for node in open_descendants if node.get("type") == "PI Objective"
+    ]
+    pi_committed_open_descendants = [
+        node
+        for node in open_descendants
+        if node.get("type") != "Epic" and node.get("target_pi")
+    ]
+
+    if pi_committed_open_descendants and not open_pi_objectives:
+        add_issue(
+            issues,
+            issue_type="pi_committed_initiative_missing_pi_objective",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=(
+                "initiative has PI-committed non-Epic work but no open PI Objective; "
+                "Milestones do not replace PI Objectives."
+            ),
+            gate_id="pi-committed-initiative-must-have-pi-objective",
+        )
 
     for node in descendants:
         status = node.get("status")
@@ -618,6 +647,30 @@ def evaluate_execution_summary(
                 ),
                 gate_id="backlog-feature-must-stay-umbrella-shaped",
             )
+
+        if (
+            node.get("type") == "Feature"
+            and node.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            and node.get("target_pi")
+        ):
+            open_leaf_children = [
+                child
+                for child in (node.get("children") or [])
+                if child.get("status") not in DONE_TREE_TERMINAL_STATUSES
+                and child.get("type") in FEATURE_LEAF_FRONT_CHILD_TYPES
+            ]
+            if not open_leaf_children:
+                add_issue(
+                    issues,
+                    issue_type="pi_committed_feature_missing_leaf_child",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail=(
+                        "PI-committed Feature must keep at least one open User story or "
+                        "Defect child; Milestones do not satisfy the executable leaf front."
+                    ),
+                    gate_id="pi-committed-feature-must-have-open-leaf-child",
+                )
 
     for node in all_nodes:
         if node.get("status") != "done":

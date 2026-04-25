@@ -89,9 +89,11 @@ Forbidden:
 
 - leaving committed work on the backlog iteration label
 - using roadmap `version` as if it were the canonical planning field
+- PI-committing initiative scope without at least one `PI Objective`
 
 Controls:
 
+- `pi-committed-initiative-must-have-pi-objective`
 - `target-pi-required-on-committed-leaf-types`
 - `committed-non-epic-must-carry-non-backlog-iteration`
 - `roadmap-version-must-match-target-pi-projection`
@@ -103,14 +105,19 @@ Operator checklist:
 - create `User story` work only for committed `Feature` items
 - create `Task` work only under active `User story` or `Defect` items
 - keep new elaboration inside the already committed slice
+- make sure each PI-committed `Feature` already has at least one open
+  `User story` or `Defect` child
 
 Forbidden:
 
 - story or task creation under uncommitted parents
 - pre-expanding backlog `Feature` work into execution trees
+- leaving a PI-committed `Feature` without an open `User story` or `Defect`
+  child
 
 Controls:
 
+- `pi-committed-feature-must-have-open-leaf-child`
 - `story-and-task-parent-must-be-committed`
 - `target-pi-required-on-committed-leaf-types`
 - `committed-non-epic-must-carry-non-backlog-iteration`
@@ -129,10 +136,12 @@ Forbidden:
 - treating a ready umbrella item as executable next work without checking
   continuation context first
 - leaving active non-`Epic` work uncommitted
+- leaving an active `Feature` without an open `User story` or `Defect` child
 
 Controls:
 
 - `active-non-epic-must-not-stay-uncommitted`
+- `pi-committed-feature-must-have-open-leaf-child`
 - `execute-from-leaf-front`
 
 ### 6. Review, Carryover, and Decommit
@@ -162,9 +171,11 @@ Controls:
 | `consume-top-level-shell-only` | machine | consume creates one top-level `Epic` shell only | broker consume route |
 | `consume-must-use-proposal-handoff` | machine | top-level initiatives cannot be created through generic work-item create | broker work-item create route |
 | `backlog-feature-must-stay-umbrella-shaped` | machine | backlog `Feature` items cannot own `User story` children | ART quality checker |
-| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `User story`, `Task`, and `Milestone` must carry `Target PI` | broker create/update/move + ART quality checker |
+| `pi-committed-initiative-must-have-pi-objective` | machine | initiative scope with PI-committed non-`Epic` work must include at least one `PI Objective` | ART quality checker |
+| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `User story`, `Task`, and `Milestone` must carry `Target PI`; `Milestone` is checkpoint-only and does not replace a `PI Objective` or leaf front | broker create/update/move + ART quality checker |
 | `active-non-epic-must-not-stay-uncommitted` | machine | `ready`, `in-progress`, or `blocked` non-`Epic` work must carry `Target PI` | broker create/update + ART quality checker |
 | `committed-non-epic-must-carry-non-backlog-iteration` | machine | committed non-`Epic` work must carry non-backlog `Iteration` | broker create/update + ART quality checker |
+| `pi-committed-feature-must-have-open-leaf-child` | machine | PI-committed `Feature` work must keep at least one open `User story` or `Defect` child | ART quality checker + broker plan/update guards |
 | `story-and-task-parent-must-be-committed` | machine | story and task work may only live beneath PI-committed parents | broker create/move |
 | `roadmap-version-must-match-target-pi-projection` | machine | roadmap `version` stays a faithful projection of canonical `Target PI` | roadmap healer + ART quality checker |
 | `execute-from-leaf-front` | operator | operators verify continuation context before treating umbrella work as the next front | broker continuation-context + ART skill |
@@ -214,6 +225,11 @@ Create or update:
 - committed `Feature`
 - committed `Risk`
 
+Rules:
+
+- do not PI-commit initiative scope unless at least one `PI Objective` exists
+  in the same initiative
+
 Committed non-`Epic` work must carry:
 
 - `Target PI`
@@ -236,6 +252,8 @@ Rules:
 - do not pre-expand backlog features into story forests
 - if ad hoc defect work is needed before commitment, keep it explicitly in
   backlog posture until it is truly committed
+- once a `Feature` carries `Target PI` and a non-backlog `Iteration`, it must
+  already have at least one open `User story` or `Defect` child
 
 ### 5. Execution
 
@@ -248,6 +266,8 @@ Rules:
   not the actionable next item when it still has open child work
 - use continuation context to confirm the real next leaf instead of treating
   planning alone as sufficient proof
+- if an active `Feature` has no open `User story` or `Defect` child, repair
+  the planning tree before presenting it as executable work
 
 ### 6. Review, Carryover, And Decommit
 
@@ -266,6 +286,8 @@ Use these as the planning contract:
   - may exist without `Target PI`
 - `Feature`
   - may exist without `Target PI` only while it remains backlog-shaped
+  - once it carries `Target PI` and a non-backlog `Iteration`, it must keep at
+    least one open `User story` or `Defect` child
 - `Risk`
   - may exist without `Target PI`
 - `Defect`
@@ -273,12 +295,17 @@ Use these as the planning contract:
     in `new` posture
 - `PI Objective`
   - must always carry `Target PI`
+  - at least one `PI Objective` must exist before an initiative can keep
+    PI-committed non-`Epic` scope
 - `User story`
   - must always carry `Target PI`
 - `Task`
   - must always carry `Target PI`
 - `Milestone`
   - must always carry `Target PI`
+  - remains an `Epic`-level checkpoint, not an execution container
+  - does not replace a `PI Objective`
+  - does not satisfy the `Feature` leaf-front requirement
 
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
 
@@ -295,6 +322,8 @@ make openproject-check-delivery-art-quality \
 The quality gate now fails on:
 
 - story-level work created before PI commitment
+- PI-committed initiative scope without a `PI Objective`
+- PI-committed `Feature` work without an open `User story` or `Defect` child
 - PI-committed non-`Epic` work without `Iteration`
 - roadmap drift between canonical `Target PI` and derived `version`
 - active non-`Epic` work that still looks uncommitted

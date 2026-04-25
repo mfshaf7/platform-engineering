@@ -22,6 +22,7 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertIn("ready", MODULE.ACTIVE_STATUSES)
         self.assertIn("PI Objective", MODULE.TARGET_PI_REQUIRED_TYPES)
         self.assertIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
+        self.assertIn("Defect", MODULE.FEATURE_LEAF_FRONT_CHILD_TYPES)
 
     def test_initiative_review_workflow_contract_constants_are_loaded(self) -> None:
         self.assertEqual(MODULE.PM2_CLOSING_PHASE, "Closing")
@@ -836,6 +837,163 @@ class DeliveryArtQualityTest(unittest.TestCase):
             any(
                 issue["issue_type"] == "backlog_feature_has_story_children"
                 and issue["work_package_id"] == 520
+                for issue in issues
+            )
+        )
+
+    def test_pi_committed_initiative_without_pi_objective_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        epic = {
+            "id": 251,
+            "record_ref": "openproject://work_packages/251",
+            "status": "new",
+            "subject": "Activate bounded governed AI runtime assist after parity, audit, and approval gates",
+            "type": "Epic",
+            "description_headings": [
+                "What This Initiative Achieves",
+                "Current PI Focus",
+                "Scope Boundaries",
+                "Execution Context",
+            ],
+        }
+        root = {
+            "id": 251,
+            "children": [
+                {
+                    "children": [],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "What This Enables",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 252,
+                    "iteration": "PI-2026-03 / Iteration 1",
+                    "owner_repo": "operator-orchestration-service",
+                    "parent_id": 251,
+                    "record_ref": "openproject://work_packages/252",
+                    "responsible_login": "Operator Orchestration-Service",
+                    "status": "new",
+                    "subject": "Enabler: Define the invocation and caller-control path",
+                    "target_pi": "PI-2026-03",
+                    "type": "Feature",
+                }
+            ],
+        }
+
+        MODULE.evaluate_execution_summary(
+            initiative_id=251,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "pi_committed_initiative_missing_pi_objective"
+                and issue["work_package_id"] == 251
+                for issue in issues
+            )
+        )
+
+    def test_pi_committed_feature_without_leaf_child_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        epic = {
+            "id": 251,
+            "record_ref": "openproject://work_packages/251",
+            "status": "new",
+            "subject": "Activate bounded governed AI runtime assist after parity, audit, and approval gates",
+            "type": "Epic",
+            "description_headings": [
+                "What This Initiative Achieves",
+                "Current PI Focus",
+                "Scope Boundaries",
+                "Execution Context",
+            ],
+        }
+        root = {
+            "id": 251,
+            "children": [
+                {
+                    "children": [],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "Outcome",
+                        "Why This PI",
+                        "Success Signal",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 345,
+                    "iteration": "PI-2026-03 / Iteration 1",
+                    "owner_repo": "platform-engineering",
+                    "parent_id": 251,
+                    "record_ref": "openproject://work_packages/345",
+                    "responsible_login": "Platform Engineering",
+                    "status": "new",
+                    "subject": "Deliver the first bounded governed runtime-assist slice for PI-2026-03",
+                    "target_pi": "PI-2026-03",
+                    "type": "PI Objective",
+                },
+                {
+                    "children": [],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "What This Enables",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 252,
+                    "iteration": "PI-2026-03 / Iteration 1",
+                    "owner_repo": "operator-orchestration-service",
+                    "parent_id": 251,
+                    "record_ref": "openproject://work_packages/252",
+                    "responsible_login": "Operator Orchestration-Service",
+                    "status": "new",
+                    "subject": "Enabler: Define the invocation and caller-control path",
+                    "target_pi": "PI-2026-03",
+                    "type": "Feature",
+                },
+            ],
+        }
+
+        MODULE.evaluate_execution_summary(
+            initiative_id=251,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "pi_committed_feature_missing_leaf_child"
+                and issue["work_package_id"] == 252
                 for issue in issues
             )
         )

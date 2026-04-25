@@ -4,6 +4,7 @@
   "art_project_identifier": "workspace-delivery-art",
   "backlog_iteration_label": "Not committed to a PI iteration yet.",
   "roadmap_unassigned_version_name": "Not yet committed to a PI",
+  "roadmap_retired_version_name": "Retired scope",
   "statuses": {
     "backlog_default": "new",
     "active": [

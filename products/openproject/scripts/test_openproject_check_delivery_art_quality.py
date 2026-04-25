@@ -292,6 +292,86 @@ class DeliveryArtQualityTest(unittest.TestCase):
             )
         )
 
+    def test_retired_scope_in_unassigned_bucket_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 343,
+                    "record_ref": "openproject://work_packages/343",
+                    "subject": "Feature: Package and consume a standalone governance engine after the extraction gate is approved",
+                    "type": "Feature",
+                    "status": "retired",
+                    "parent_id": 247,
+                    "execution_classification": "Enabler",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Not yet committed to a PI",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={343},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "retired_scope_in_wrong_roadmap_bucket"
+                and issue["work_package_id"] == 343
+                for issue in issues
+            )
+        )
+
+    def test_retired_scope_missing_retired_bucket_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 344,
+                    "record_ref": "openproject://work_packages/344",
+                    "subject": "Feature: Activate bounded governed AI runtime assist after extraction is approved",
+                    "type": "Feature",
+                    "status": "retired",
+                    "parent_id": 247,
+                    "execution_classification": "Enabler",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": None,
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={344},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "roadmap_retired_bucket_missing"
+                and issue["work_package_id"] == 344
+                for issue in issues
+            )
+        )
+
     def test_blocked_item_missing_blocker_record_is_reported(self) -> None:
         issues = []
         narrative_findings = []

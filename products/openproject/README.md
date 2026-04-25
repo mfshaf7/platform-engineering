@@ -73,9 +73,10 @@ readiness evidence is missing, but they still do not create a separate
 OpenProject-owned `source -> stage -> prod` rollout rail.
 
 The delivery ART roadmap now treats OpenProject `version` as a derived
-projection of canonical `Target PI`, with one explicit backlog bucket:
-`Not yet committed to a PI`. That bucket keeps the roadmap truthful, but it is
-not a substitute for PI commitment on active non-`Epic` work.
+projection of canonical `Target PI`, with one explicit backlog bucket
+`Not yet committed to a PI` and one retired-scope bucket `Retired scope`.
+Those buckets keep the roadmap truthful, but they are not substitutes for PI
+commitment on active non-`Epic` work.
 
 The remaining OpenProject bootstrap and repair layer now also has one canonical
 machine-readable boundary contract:

@@ -14,13 +14,14 @@ PM2_TYPE_NAME = "Epic"
 PI_OBJECTIVE_TYPE_NAME = "PI Objective"
 RISK_TYPE_NAME = "Risk"
 ACTIVE_INITIATIVE_STATUS_NAMES = ["new", "ready", "in-progress", "blocked"].freeze
-RETIRED_INITIATIVE_STATUS_NAME = "retired"
+RETIRED_STATUS_NAME = "retired"
 EXECUTION_TYPE_NAMES = ["Feature", "User story", "Defect", "Task", "Milestone"].freeze
 EXECUTION_STATUS_NAMES = ["new", "ready", "in-progress", "blocked", "parked", "done"].freeze
 PM2_PHASES = ["Initiating", "Planning", "Executing", "Closing"].freeze
 PI_OBJECTIVE_COMMITMENT_TYPES = ["Committed", "Stretch"].freeze
 ROAM_STATES = ["Resolved", "Owned", "Accepted", "Mitigated"].freeze
 ROADMAP_UNASSIGNED_VERSION_NAME = "Not yet committed to a PI".freeze
+ROADMAP_RETIRED_VERSION_NAME = "Retired scope".freeze
 
 ART_DASHBOARD_BOARD_NAME = "ART Dashboard"
 PM2_BOARD_NAME = "PM² Phase Board"
@@ -117,7 +118,18 @@ def contains_unassigned_target_pi?(project, target_pi_field:)
                OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(
                  entry: work_package,
                  field: target_pi_field
-               ).blank?
+               ).blank? && !retired_status?(work_package)
+             end
+end
+
+def contains_retired_without_target_pi?(project, target_pi_field:)
+  WorkPackage.where(project: project)
+             .find_each
+             .any? do |work_package|
+               OpenprojectDeliveryArtCustomFieldSupport.rendered_custom_value(
+                 entry: work_package,
+                 field: target_pi_field
+               ).blank? && retired_status?(work_package)
              end
 end
 
@@ -149,6 +161,17 @@ def assign_version!(work_package, version)
   end
 end
 
+def retired_status?(work_package)
+  work_package.status&.name.to_s.casecmp?(RETIRED_STATUS_NAME)
+end
+
+def desired_roadmap_version_name_for(work_package, target_pi:)
+  return target_pi if target_pi.present?
+  return ROADMAP_RETIRED_VERSION_NAME if retired_status?(work_package)
+
+  ROADMAP_UNASSIGNED_VERSION_NAME
+end
+
 def reconcile_target_pi_versions!(project:, target_pi_field:, versions:)
   versions_by_name = versions.index_by(&:name)
   changes = []
@@ -158,13 +181,8 @@ def reconcile_target_pi_versions!(project:, target_pi_field:, versions:)
       entry: work_package,
       field: target_pi_field
     )
-    desired_version_name =
-      if target_pi.present?
-        target_pi
-      else
-        ROADMAP_UNASSIGNED_VERSION_NAME
-      end
-    desired_version = versions_by_name[desired_version_name]
+    desired_version_name = desired_roadmap_version_name_for(work_package, target_pi: target_pi)
+    desired_version = versions_by_name.fetch(desired_version_name)
     current_version_name = version_name_for(work_package)
     desired_version_name = desired_version&.name
     next if current_version_name == desired_version_name
@@ -355,8 +373,11 @@ raise "Missing PI Objective Type custom field for PI objective views" if pi_obje
 
 pi_names = (configured_pi_names + existing_target_pi_names(project)).uniq
 pi_names << ROADMAP_UNASSIGNED_VERSION_NAME if contains_unassigned_target_pi?(project, target_pi_field: target_pi_field)
+pi_names << ROADMAP_RETIRED_VERSION_NAME if contains_retired_without_target_pi?(project, target_pi_field: target_pi_field)
 versions = ensure_versions!(project, pi_names)
-pi_versions = versions.reject { |version| version.name == ROADMAP_UNASSIGNED_VERSION_NAME }
+pi_versions = versions.reject do |version|
+  [ROADMAP_UNASSIGNED_VERSION_NAME, ROADMAP_RETIRED_VERSION_NAME].include?(version.name)
+end
 
 normalized_list_custom_values = OpenprojectDeliveryArtCustomFieldSupport.normalize_list_storage!(project: project)
 version_projection_changes = reconcile_target_pi_versions!(
@@ -433,7 +454,7 @@ dashboard_board = create_basic_board!(
 )
 
 pm2_queries = []
-retired_initiative_status = Status.find_by!(name: RETIRED_INITIATIVE_STATUS_NAME)
+retired_initiative_status = Status.find_by!(name: RETIRED_STATUS_NAME)
 pm2_board = create_basic_board!(
   project: project,
   name: PM2_BOARD_NAME,

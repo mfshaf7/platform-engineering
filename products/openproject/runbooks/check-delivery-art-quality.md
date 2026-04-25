@@ -63,8 +63,10 @@ The supported quality check currently verifies:
 - items explicitly marked `Not committed to a PI iteration yet.` do not also
   pretend to have concrete PI assignment or scheduled dates
 - `Target PI` and roadmap `version` do not diverge
-- work with blank `Target PI` still projects to the derived roadmap bucket
-  `Not yet committed to a PI`
+- backlog or active work with blank `Target PI` still projects to the derived
+  roadmap bucket `Not yet committed to a PI`
+- retired work with blank `Target PI` projects to the derived roadmap bucket
+  `Retired scope`
 - `PI Objective`, `User story`, `Task`, and `Milestone` records do not exist
   without PI commitment
 - backlog `Feature` work does not already carry story-level execution children
@@ -204,8 +206,9 @@ Quality modes:
 The quality check also verifies PI-commitment hygiene:
 
 - PI-assigned work must project into the matching roadmap `version`
-- work without `Target PI` must project into the derived roadmap bucket
-  `Not yet committed to a PI`
+- work without `Target PI` must project into the correct derived roadmap bucket
+- backlog or active scope uses `Not yet committed to a PI`
+- retired scope uses `Retired scope`
 - non-`Epic` work in `ready`, `in-progress`, or `blocked` must not stay in
   that unassigned backlog bucket
 - `PI Objective`, `User story`, `Task`, and `Milestone` work must not stay

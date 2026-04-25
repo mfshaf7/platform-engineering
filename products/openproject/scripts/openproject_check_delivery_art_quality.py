@@ -21,6 +21,8 @@ INITIATIVE_REVIEW_WORKFLOW_PATH = (
 INITIATIVE_REVIEW_WORKFLOW = json.loads(
     INITIATIVE_REVIEW_WORKFLOW_PATH.read_text(encoding="utf-8")
 )
+BLOCKER_WORKFLOW_PATH = PRODUCT_DIR / "delivery-art-blocker-workflow.json"
+BLOCKER_WORKFLOW = json.loads(BLOCKER_WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 BACKLOG_ITERATION_LABEL = PLANNING_WORKFLOW["backlog_iteration_label"]
 ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_name"]
@@ -51,6 +53,13 @@ INITIATIVE_DONE_REQUIRED_GATE_IDS = tuple(
 )
 INITIATIVE_RETIRED_REQUIRED_GATE_IDS = tuple(
     INITIATIVE_REVIEW_WORKFLOW["retirement_transition"]["control_gate_ids"]
+)
+BLOCKED_STATUS = BLOCKER_WORKFLOW["blocked_status"]
+BLOCKER_REQUIRED_RESPONSE_KEYS = tuple(
+    BLOCKER_WORKFLOW["required_blocker_response_keys"]
+)
+BLOCKER_FOLLOW_UP_RESPONSE_KEYS = tuple(
+    BLOCKER_WORKFLOW["conditionally_required_follow_up_response_keys"]
 )
 
 INITIATIVE_REVIEW_REASON_DETAILS = {
@@ -665,7 +674,7 @@ def evaluate_execution_summary(
         status = str(node.get("status"))
         target_pi = node.get("target_pi")
         iteration = node.get("iteration")
-        if status in {"in-progress", "blocked"} or node_type == "Epic":
+        if status in {"in-progress", BLOCKED_STATUS} or node_type == "Epic":
             attention_scope = "active"
             severity = "rewrite-required" if len(missing_headings) == len(needed) else "discussion-required"
         elif status == "ready" or (target_pi and iteration != BACKLOG_ITERATION_LABEL):
@@ -710,6 +719,7 @@ def evaluate_live_project_taxonomy(
         status = entry.get("status")
         classification = entry.get("execution_classification")
         parent_id = entry.get("parent_id")
+        blocker_fields = entry.get("blocker_fields") or {}
         type_counts[str(type_name)] += 1
         detected_prefix = detect_subject_prefix(subject)
         prefix_counts[detected_prefix or "<none>"] += 1
@@ -818,9 +828,51 @@ def evaluate_live_project_taxonomy(
                 gate_id="roadmap-version-must-match-target-pi-projection",
             )
 
+        blocker_active = any(
+            blocker_fields.get(field_name)
+            for field_name in (
+                *BLOCKER_REQUIRED_RESPONSE_KEYS,
+                *BLOCKER_FOLLOW_UP_RESPONSE_KEYS,
+            )
+        )
+        if status == BLOCKED_STATUS:
+            missing_blocker_fields = [
+                field_name
+                for field_name in BLOCKER_REQUIRED_RESPONSE_KEYS
+                if not blocker_fields.get(field_name)
+            ]
+            decision_path = blocker_fields.get("decision_path")
+            if decision_path and decision_path != "remove":
+                missing_blocker_fields.extend(
+                    field_name
+                    for field_name in BLOCKER_FOLLOW_UP_RESPONSE_KEYS
+                    if not blocker_fields.get(field_name)
+                )
+            if missing_blocker_fields:
+                add_issue(
+                    issues,
+                    issue_type="blocked_item_missing_blocker_record",
+                    initiative_id=None,
+                    target=entry,
+                    detail=(
+                        "blocked work item is missing bounded blocker fields: "
+                        + ", ".join(missing_blocker_fields)
+                    ),
+                    gate_id="blocked-status-requires-bounded-blocker-record",
+                )
+        elif blocker_active:
+            add_issue(
+                issues,
+                issue_type="non_blocked_item_retains_active_blocker_record",
+                initiative_id=None,
+                target=entry,
+                detail="active blocker fields must not remain on an item whose status is not blocked",
+                gate_id="active-blocker-record-must-stay-on-blocked-item",
+            )
+
         if (
             type_name != "Epic"
-            and status in {"ready", "in-progress", "blocked"}
+            and status in {"ready", "in-progress", BLOCKED_STATUS}
             and not target_pi
         ):
             add_issue(
@@ -902,7 +954,7 @@ def evaluate_live_project_taxonomy(
                 detail=f"subject prefix {detected_prefix}: is not allowed on structural type {type_name}",
             )
 
-        if status in {"ready", "in-progress", "blocked"}:
+        if status in {"ready", "in-progress", BLOCKED_STATUS}:
             needed = required_headings(type_name, classification)
             present = set(entry.get("description_headings") or [])
             missing = [heading for heading in needed if heading not in present]

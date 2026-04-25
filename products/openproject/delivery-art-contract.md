@@ -314,6 +314,8 @@ Use one governed planning path for newly accepted work:
    - assign `Target PI` to the initiative once the current PI focus is real
    - create `PI Objective` items for that PI
    - create only the committed `Feature` and `Risk` slices for that PI
+   - do not PI-commit initiative scope unless at least one `PI Objective`
+     exists in the same initiative
    - committed non-`Epic` work must carry:
      - `Target PI`
      - non-backlog `Iteration`
@@ -321,6 +323,8 @@ Use one governed planning path for newly accepted work:
 4. Rolling-wave elaboration
    - create `User story` work only for committed features
    - create `Task` work only under active `User story` or `Defect` items
+   - each PI-committed `Feature` must already have at least one open
+     `User story` or `Defect` child as its executable leaf front
    - do not pre-expand backlog features into story forests before PI
      commitment
 5. Execution
@@ -362,6 +366,8 @@ Use these commitment rules as the canonical machine model:
   - may exist without `Target PI` while it stays backlog-shaped
   - backlog features must not carry `User story` children before PI
     commitment
+  - once PI-committed, a `Feature` must keep at least one open `User story`
+    or `Defect` child
 - `Risk`
   - may exist without `Target PI`
 - `Defect`
@@ -369,12 +375,16 @@ Use these commitment rules as the canonical machine model:
     in `new` posture
 - `PI Objective`
   - must always carry `Target PI`
+  - at least one `PI Objective` must exist before an initiative can keep
+    PI-committed non-`Epic` scope
 - `User story`
   - must always carry `Target PI`
 - `Task`
   - must always carry `Target PI`
 - `Milestone`
   - must always carry `Target PI`
+  - remains an `Epic`-level checkpoint, not an execution container
+  - does not replace a `PI Objective` or a `Feature` leaf front
 
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
 

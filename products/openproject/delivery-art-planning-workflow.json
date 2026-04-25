@@ -37,6 +37,10 @@
     "backlog_feature_forbidden_child_types": [
       "User story"
     ],
+    "feature_leaf_front_child_types": [
+      "User story",
+      "Defect"
+    ],
     "committed_parent_required_child_types": [
       "User story",
       "Task"
@@ -159,10 +163,12 @@
       },
       "forbidden_actions": [
         "Use the backlog iteration label on PI-committed work.",
-        "Treat roadmap version as the canonical PI planning field."
+        "Treat roadmap version as the canonical PI planning field.",
+        "PI-commit initiative scope without at least one PI Objective."
       ],
       "exit_criteria": [
         "Committed work carries Target PI and non-backlog Iteration.",
+        "PI-committed initiative scope includes at least one PI Objective.",
         "Roadmap version projection matches canonical Target PI."
       ],
       "primary_surfaces": [
@@ -175,6 +181,7 @@
         "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
       ],
       "control_gate_ids": [
+        "pi-committed-initiative-must-have-pi-objective",
         "target-pi-required-on-committed-leaf-types",
         "committed-non-epic-must-carry-non-backlog-iteration",
         "roadmap-version-must-match-target-pi-projection"
@@ -214,10 +221,12 @@
       },
       "forbidden_actions": [
         "Create User story or Task work beneath an uncommitted parent.",
-        "Pre-expand backlog Features into story forests."
+        "Pre-expand backlog Features into story forests.",
+        "Leave a PI-committed Feature without an open User story or Defect child."
       ],
       "exit_criteria": [
         "Story and task work exists only for committed features or active defects.",
+        "PI-committed Features already have an executable User story or Defect leaf front.",
         "Active leaf work keeps PI commitment and non-backlog iteration."
       ],
       "primary_surfaces": [
@@ -230,6 +239,7 @@
         "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
       ],
       "control_gate_ids": [
+        "pi-committed-feature-must-have-open-leaf-child",
         "story-and-task-parent-must-be-committed",
         "target-pi-required-on-committed-leaf-types",
         "committed-non-epic-must-carry-non-backlog-iteration"
@@ -267,10 +277,12 @@
       },
       "forbidden_actions": [
         "Treat a ready umbrella item as the executable front without checking its continuation context.",
-        "Leave active non-Epic work uncommitted."
+        "Leave active non-Epic work uncommitted.",
+        "Leave an active Feature without an open User story or Defect child."
       ],
       "exit_criteria": [
         "The operator can name the leaf story, defect, or task that is the true next front.",
+        "Any active Feature retains at least one open User story or Defect child while it stays active.",
         "Execution status changes stay on PI-committed work."
       ],
       "primary_surfaces": [
@@ -283,6 +295,7 @@
       ],
       "control_gate_ids": [
         "active-non-epic-must-not-stay-uncommitted",
+        "pi-committed-feature-must-have-open-leaf-child",
         "execute-from-leaf-front"
       ]
     },
@@ -348,6 +361,14 @@
       ]
     },
     {
+      "id": "pi-committed-initiative-must-have-pi-objective",
+      "control_type": "machine",
+      "rule": "Once an initiative holds PI-committed non-Epic work, it must also hold at least one PI Objective.",
+      "enforcement_surfaces": [
+        "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
       "id": "target-pi-required-on-committed-leaf-types",
       "control_type": "machine",
       "rule": "PI Objective, User story, Task, and Milestone work must carry Target PI.",
@@ -384,7 +405,8 @@
       "rule": "User story and Task work may only be created or moved under PI-committed parents.",
       "enforcement_surfaces": [
         "POST /v1/delivery-work-items",
-        "POST /v1/delivery-work-items/{work_item_id}/move"
+        "POST /v1/delivery-work-items/{work_item_id}/move",
+        "POST /v1/delivery-initiatives/{delivery_id}/plan/apply"
       ]
     },
     {
@@ -394,6 +416,16 @@
       "enforcement_surfaces": [
         "openproject_check_delivery_art_quality.py",
         "openproject_sync_delivery_art_views_runner.rb"
+      ]
+    },
+    {
+      "id": "pi-committed-feature-must-have-open-leaf-child",
+      "control_type": "machine",
+      "rule": "Feature work that is already PI-committed must keep at least one open User story or Defect child instead of remaining an executable umbrella shell.",
+      "enforcement_surfaces": [
+        "openproject_check_delivery_art_quality.py",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "POST /v1/delivery-initiatives/{delivery_id}/plan/apply"
       ]
     },
     {

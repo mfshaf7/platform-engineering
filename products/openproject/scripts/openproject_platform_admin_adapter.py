@@ -31,6 +31,10 @@ def openproject_namespace() -> str:
     return os.environ.get("OPENPROJECT_NAMESPACE", "openproject")
 
 
+def openproject_deployment() -> str:
+    return os.environ.get("OPENPROJECT_DEPLOYMENT", "openproject-web")
+
+
 def run(command: list[str], *, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
@@ -40,25 +44,56 @@ def run(command: list[str], *, capture_output: bool = False) -> subprocess.Compl
     )
 
 
+def deployment_selector() -> str | None:
+    try:
+        result = run(
+            [
+                *kubectl_base(),
+                "-n",
+                openproject_namespace(),
+                "get",
+                "deployment",
+                openproject_deployment(),
+                "-o",
+                "json",
+            ],
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError:
+        return None
+    selector = json.loads(result.stdout).get("spec", {}).get("selector", {}).get("matchLabels", {})
+    if not selector:
+        return None
+    return ",".join(f"{key}={value}" for key, value in sorted(selector.items()))
+
+
 def openproject_pod() -> str:
-    result = run(
-        [
-            *kubectl_base(),
-            "-n",
-            openproject_namespace(),
-            "get",
-            "pod",
-            "-l",
-            OPENPROJECT_POD_LABEL_SELECTOR,
-            "-o",
-            "jsonpath={.items[0].metadata.name}",
-        ],
-        capture_output=True,
-    )
-    pod_name = result.stdout.strip()
-    if not pod_name:
-        raise RuntimeError("failed to resolve the OpenProject web pod")
-    return pod_name
+    selectors = [OPENPROJECT_POD_LABEL_SELECTOR]
+    deployment_match_selector = deployment_selector()
+    if deployment_match_selector and deployment_match_selector not in selectors:
+        selectors.append(deployment_match_selector)
+    for selector in selectors:
+        try:
+            result = run(
+                [
+                    *kubectl_base(),
+                    "-n",
+                    openproject_namespace(),
+                    "get",
+                    "pod",
+                    "-l",
+                    selector,
+                    "-o",
+                    "jsonpath={.items[0].metadata.name}",
+                ],
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError:
+            continue
+        pod_name = result.stdout.strip()
+        if pod_name:
+            return pod_name
+    raise RuntimeError("failed to resolve the OpenProject web pod")
 
 
 def find_operation(contract: dict[str, object], operation_id: str) -> dict[str, object]:
@@ -185,4 +220,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

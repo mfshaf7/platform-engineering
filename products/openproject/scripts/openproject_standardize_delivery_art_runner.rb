@@ -248,7 +248,8 @@ def set_field!(entry, field, value, kind: nil)
   OpenprojectDeliveryArtCustomFieldSupport.assign_custom_value!(entry: entry, field: field, value: value, kind: kind)
 end
 
-def owner_repo_for(entry, top_epic)
+def owner_repo_for(entry, top_epic, current_owner_repo: nil)
+  return current_owner_repo if current_owner_repo.present?
   explicit_owner_repo = execution_context_owner_repo(entry)
   return explicit_owner_repo if explicit_owner_repo.present?
   return "security-architecture" if top_epic&.id == 87
@@ -584,9 +585,9 @@ changes = []
 
 work_packages.each do |entry|
   top_epic = top_epic_for(parent_entry_for(entry, by_id) || entry, by_id)
-  owner_repo = owner_repo_for(entry, top_epic)
   owner_repo_field = custom_fields.fetch("Owner Repo")
   current_owner_repo = field_value(entry, owner_repo_field)
+  owner_repo = owner_repo_for(entry, top_epic, current_owner_repo:)
 
   delivery_team_field = custom_fields["Delivery Team"]
   iteration_field = custom_fields["Iteration"]

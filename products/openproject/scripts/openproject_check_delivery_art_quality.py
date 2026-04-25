@@ -26,8 +26,9 @@ BLOCKER_WORKFLOW = json.loads(BLOCKER_WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 BACKLOG_ITERATION_LABEL = PLANNING_WORKFLOW["backlog_iteration_label"]
 ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_name"]
+ROADMAP_RETIRED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_retired_version_name"]
 ACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["active"])
-INACTIVE_STATUSES = {"retired"}
+INACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["inactive"])
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
 TARGET_PI_REQUIRED_TYPES = set(
     PLANNING_WORKFLOW["planning_sets"]["target_pi_required_types"]
@@ -756,6 +757,13 @@ def evaluate_live_project_taxonomy(
     narrative_findings: list[dict[str, object]],
     scoped_ids: set[int],
 ) -> dict[str, object]:
+    def expected_roadmap_version_name(entry: dict[str, object]) -> str:
+        if entry.get("target_pi"):
+            return str(entry["target_pi"])
+        if entry.get("status") in INACTIVE_STATUSES:
+            return ROADMAP_RETIRED_VERSION_NAME
+        return ROADMAP_UNASSIGNED_VERSION_NAME
+
     work_packages = project_payload.get("work_packages") or []
     work_packages_by_id = {
         int(entry["id"]): entry for entry in work_packages if isinstance(entry, dict) and "id" in entry
@@ -854,19 +862,27 @@ def evaluate_live_project_taxonomy(
 
         target_pi = entry.get("target_pi")
         version_name = entry.get("version_name")
-        if target_pi and version_name != target_pi:
+        expected_version_name = expected_roadmap_version_name(entry)
+        if target_pi and version_name != expected_version_name:
             add_issue(
                 issues,
                 issue_type="target_pi_version_drift",
                 initiative_id=None,
                 target=entry,
-                detail=f"Target PI {target_pi!r} must project to matching version, not {version_name!r}",
+                detail=(
+                    f"Target PI {target_pi!r} must project to matching version, "
+                    f"not {version_name!r}"
+                ),
                 gate_id="roadmap-version-must-match-target-pi-projection",
             )
-        elif not target_pi and version_name != ROADMAP_UNASSIGNED_VERSION_NAME:
+        elif not target_pi and version_name != expected_version_name:
             issue_type = (
-                "roadmap_unassigned_bucket_missing"
+                "roadmap_retired_bucket_missing"
+                if not version_name and expected_version_name == ROADMAP_RETIRED_VERSION_NAME
+                else "roadmap_unassigned_bucket_missing"
                 if not version_name
+                else "retired_scope_in_wrong_roadmap_bucket"
+                if expected_version_name == ROADMAP_RETIRED_VERSION_NAME
                 else "version_without_target_pi"
             )
             add_issue(
@@ -876,7 +892,7 @@ def evaluate_live_project_taxonomy(
                 target=entry,
                 detail=(
                     f"work without canonical Target PI must project to derived roadmap bucket "
-                    f"{ROADMAP_UNASSIGNED_VERSION_NAME!r}, not {version_name!r}"
+                    f"{expected_version_name!r}, not {version_name!r}"
                 ),
                 gate_id="roadmap-version-must-match-target-pi-projection",
             )

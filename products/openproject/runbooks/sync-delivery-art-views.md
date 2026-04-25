@@ -63,7 +63,9 @@ The command:
 - reconciles each ART work package so `version` matches the canonical
   `Target PI` value
 - assigns the derived backlog roadmap bucket `Not yet committed to a PI` when
-  a work package does not yet carry `Target PI`
+  a backlog or active work package does not yet carry `Target PI`
+- assigns the derived retired roadmap bucket `Retired scope` when a retired
+  work package does not carry `Target PI`
 - refreshes the generated project overview content for the ART home
 - normalizes managed ART list custom-field storage to the current OpenProject
   custom-option id form before rebuilding managed queries and boards

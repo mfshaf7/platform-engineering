@@ -195,8 +195,10 @@ Rules:
 - do not create PI objectives, user stories, tasks, or other deep execution
   trees during consume
 - `Target PI` may stay blank at this stage
-- the roadmap projection should place the initiative in
+- the roadmap projection should place backlog work in
   `Not yet committed to a PI`
+- retired blank-`Target PI` scope belongs in `Retired scope`, not the backlog
+  bucket
 
 ### 2. Initiative Framing
 

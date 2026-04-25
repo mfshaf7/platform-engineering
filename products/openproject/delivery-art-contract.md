@@ -18,8 +18,10 @@ delivery plane.
 Projection rules:
 
 - when `Target PI` is populated, `version` must match that PI exactly
-- when `Target PI` is blank, `version` must project to the derived backlog
-  bucket `Not yet committed to a PI`
+- when `Target PI` is blank on backlog or active scope, `version` must project
+  to the derived backlog bucket `Not yet committed to a PI`
+- when `Target PI` is blank on retired scope, `version` must project to the
+  derived retired bucket `Retired scope`
 - the derived backlog bucket is only for uncommitted backlog posture; non-`Epic`
   work must carry `Target PI` before it moves to `ready`, `in-progress`, or
   `blocked`
@@ -388,13 +390,17 @@ Use these commitment rules as the canonical machine model:
 
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
 
-Derived roadmap rules stay unchanged:
+Derived roadmap rules:
 
 - `Target PI` is canonical planning truth
 - OpenProject `version` is a derived roadmap projection
-- blank `Target PI` projects to `Not yet committed to a PI`
+- blank `Target PI` on backlog or active scope projects to `Not yet committed
+  to a PI`
+- blank `Target PI` on retired scope projects to `Retired scope`
 - the unassigned roadmap bucket is for backlog posture only, not active
   execution
+- the retired roadmap bucket is for inactive superseded or withdrawn scope, not
+  current PI commitment
 
 ## PM² Governance Overlay
 

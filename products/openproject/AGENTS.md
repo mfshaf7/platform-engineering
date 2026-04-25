@@ -17,7 +17,9 @@ declared, operated, and verified on this platform.
 - `secrets-and-config.md`
 - `visibility-and-operations.md`
 - `runbooks/access-openproject.md`
+- `runbooks/check-delivery-art-workflow-health.md`
 - `runbooks/check-delivery-art-quality.md`
+- `runbooks/openproject-platform-admin-surface.md`
 - `runbooks/sync-delivery-art-views.md`
 - `https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md`
 - `runbooks/prepare-production-clean-start.md`
@@ -156,7 +158,9 @@ broker's OpenProject access path, or the ART repair layer, also update:
 
 - `idea-backlog-contract.md`
 - `delivery-art-contract.md`
+- `runbooks/check-delivery-art-workflow-health.md`
 - `runbooks/check-delivery-art-quality.md`
+- `runbooks/openproject-platform-admin-surface.md`
 - `runbooks/sync-delivery-art-views.md`
 - `runbooks/prepare-production-clean-start.md`
 - `runbooks/configure-idea-backlog.md`

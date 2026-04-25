@@ -35,10 +35,14 @@ Read this as operator workflow families:
   proposal and project-bootstrap side.
 - `plan-delivery-art.md` is the primary operator surface for consume, framing,
   PI planning, rolling-wave elaboration, and PI carryover discipline.
+- `check-delivery-art-workflow-health.md` is the first ART-lane health read
+  and the supported normal-session starting point before scoped quality or
+  platform-admin repair.
 - `provision-delivery-art-identities.md` is the control that converges the
   assignable repo-owner principals for `Workspace Delivery ART`.
-- `check-delivery-art-quality.md` and `standardize-delivery-art.md` are the
-  ART repair path.
+- `check-delivery-art-quality.md` is the scoped broker-native quality gate.
+- `openproject-platform-admin-surface.md` defines the remaining OpenProject
+  platform-admin controls that are still allowed to use Rails-backed internals.
 - `standardize-delivery-art.md` is the controlled repair path when the ART
   needs one governed normalization pass after the contract changed.
 - backup, uninstall, identity provisioning, and clean-start guidance remain
@@ -52,9 +56,11 @@ Read this as operator workflow families:
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [plan-delivery-art.md](plan-delivery-art.md)
+- [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md)
 - [sync-delivery-art-views.md](sync-delivery-art-views.md)
 - [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
+- [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [prepare-production-clean-start.md](prepare-production-clean-start.md)
 - [provision-operator-orchestration-identity.md](provision-operator-orchestration-identity.md)

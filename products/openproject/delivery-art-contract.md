@@ -27,6 +27,31 @@ Projection rules:
 That keeps the OpenProject roadmap page truthful to the whole ART instead of
 only the subset that already carries PI assignment.
 
+## Supported Delivery Surfaces
+
+Normal `Workspace Delivery ART` work should now use the broker-owned delivery
+workflow in
+[`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
+for:
+
+- session bootstrap
+- workflow health
+- scoped ART quality/readiness reads
+- planning repair
+- work-item continuation and closeout
+- initiative review and guided initiative closeout
+
+The remaining OpenProject product runbooks and scripts in this directory are
+platform-admin surfaces only. They remain valid for:
+
+- bootstrap and schema provisioning
+- board and roadmap projection repair
+- one-time normalization after contract changes
+- identity and admin repair
+- clean-start verification
+
+They are not the supported day-to-day ART execution surface anymore.
+
 ## Work-State Authority
 
 Once work is already tracked inside `Workspace Delivery ART`, the delivery ART

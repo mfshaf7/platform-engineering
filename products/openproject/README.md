@@ -100,6 +100,16 @@ Initiative closeout is explicit too:
 - use initiative `retired` as the separate non-success terminal path only after
   all descendants are already `done` or `retired`
 
+Active blockers are explicit too:
+
+- record the blocker on the affected work item as soon as the exact next
+  committed step cannot proceed
+- do not use generic create, update, or planning-repair to enter or clear
+  `blocked`
+- open a real `Defect` when the blocker is caused by a live system or workflow
+  control bug
+- open a `Risk` when the exposure is broader than one blocked item
+
 The canonical OpenProject workflow model now has two distinct planes:
 
 - [Workspace Proposals](idea-backlog-contract.md) for intake and proposal
@@ -210,6 +220,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-workflow-health.md](runbooks/check-delivery-art-workflow-health.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
+- [runbooks/manage-delivery-blockers.md](runbooks/manage-delivery-blockers.md)
 - [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
 - [runbooks/openproject-platform-admin-surface.md](runbooks/openproject-platform-admin-surface.md)
 - [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)

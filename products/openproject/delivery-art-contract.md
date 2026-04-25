@@ -283,6 +283,17 @@ That contract is the phase-and-gate source for:
 - broker-side planning metadata in `operator-orchestration-service`
 - workspace-level cross-repo drift validation in `workspace-governance`
 
+Canonical machine-readable blocker workflow contract:
+
+- `products/openproject/delivery-art-blocker-workflow.json`
+
+That contract is the trigger-and-gate source for:
+
+- `runbooks/manage-delivery-blockers.md`
+- blocker-related ART quality checks
+- broker-side blocker workflow metadata in `operator-orchestration-service`
+- workspace-level cross-repo drift validation in `workspace-governance`
+
 Use one governed planning path for newly accepted work:
 
 1. Consume
@@ -607,6 +618,10 @@ Neither `parked` nor `retired` counts as active execution work.
 
 ## Blocker / Impediment Governance
 
+Primary operator surface:
+
+- `products/openproject/runbooks/manage-delivery-blockers.md`
+
 `blocked` is an execution visibility state, not a sufficient enterprise record
 by itself.
 
@@ -631,6 +646,31 @@ If the blocker is not removed immediately:
 
 Workaround, accepted-risk, and defer paths must not live only in chat memory or
 board labels.
+
+Trigger a blocker when the exact next committed ART step cannot proceed because
+of:
+
+- a live mutation, closeout, or review failure that the same proof cycle did
+  not clear
+- a repeated failure on the same active step
+- a missing required principal, approval, PI commitment, iteration, runtime,
+  or environment prerequisite
+- an unresolved dependency
+- a security or governance hold
+- a quality or readiness gate preventing the transition
+
+Once the blocker is known:
+
+- stop adjacent ART mutation on the same initiative
+- record the blocker on the affected work item
+- open or update a real `Defect` when the blocker is caused by a live system or
+  workflow control bug
+- open or update a `Risk` when the exposure is broader than one blocked item
+
+Do not treat `blocked` as something generic create, update, or planning-repair
+surfaces can set directly. Enter and clear `blocked` through the dedicated
+blocker workflow so the blocker fields, decision path, and follow-up posture
+stay bounded and reviewable.
 
 Risks are not the same thing as blockers.
 

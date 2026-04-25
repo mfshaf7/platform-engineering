@@ -118,12 +118,12 @@ pod copy-and-exec flow. They now call the shared adapter, which stages the
 declared runner and support files by named operation before invoking
 `bundle exec rails runner`.
 
-One residual runner is explicitly classified for later retirement:
-
-- `openproject_dump_delivery_art_runner.rb`
-
-It is no longer a supported normal ART read path and must not be reintroduced
-into day-to-day operator flow.
+That now includes the shared identity-provisioning helper used by the supported
+identity wrapper scripts, so dependent callers can keep their existing marked
+JSON payload and token handoff behavior without bypassing the admin surface.
+When a dependent caller needs the issued token locally instead of Vault storage,
+the helper now supports `OPENPROJECT_API_TOKEN_OUTPUT_PATH` as the explicit
+local handoff path while still keeping stdout sanitized.
 
 ## Related References
 

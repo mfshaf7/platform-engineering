@@ -41,6 +41,8 @@ Read this as operator workflow families:
 - `provision-delivery-art-identities.md` is the control that converges the
   assignable repo-owner principals for `Workspace Delivery ART`.
 - `check-delivery-art-quality.md` is the scoped broker-native quality gate.
+- `manage-delivery-blockers.md` is the primary blocker trigger, recording, and
+  clear checklist for active ART work.
 - `openproject-platform-admin-surface.md` defines the remaining OpenProject
   platform-admin controls that are still allowed to use Rails-backed internals.
   The machine-readable source for that boundary is
@@ -62,6 +64,7 @@ Read this as operator workflow families:
 - [sync-delivery-art-views.md](sync-delivery-art-views.md)
 - [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
+- [manage-delivery-blockers.md](manage-delivery-blockers.md)
 - [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
 - [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)

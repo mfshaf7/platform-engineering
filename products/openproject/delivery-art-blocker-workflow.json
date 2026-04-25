@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "workflow_id": "delivery-art-blocker-workflow",
+  "blocked_status": "blocked",
+  "resume_allowed_statuses": [
+    "new",
+    "ready",
+    "in-progress"
+  ],
+  "decision_paths": [
+    {
+      "id": "remove",
+      "description": "Work is blocked until the blocker is removed and the blocked step can resume normally."
+    },
+    {
+      "id": "workaround",
+      "description": "A temporary bounded path exists, but the blocker remains reviewable and must still be tracked."
+    },
+    {
+      "id": "accept-risk",
+      "description": "The operator is deliberately proceeding with known exposure that remains documented and reviewable."
+    },
+    {
+      "id": "defer",
+      "description": "The blocked step will not proceed now and must carry explicit follow-up ownership and review timing."
+    }
+  ],
+  "required_blocker_fields": [
+    "Blocker Statement",
+    "Blocker Impact",
+    "Blocker Owner",
+    "Blocker Discovered On",
+    "Blocker Decision Path",
+    "Blocker Justification"
+  ],
+  "required_blocker_response_keys": [
+    "statement",
+    "impact",
+    "owner",
+    "discovered_on",
+    "decision_path",
+    "justification"
+  ],
+  "conditionally_required_follow_up_fields": [
+    "Blocker Follow-Up Owner",
+    "Blocker Review Date"
+  ],
+  "conditionally_required_follow_up_response_keys": [
+    "follow_up_owner",
+    "review_date"
+  ],
+  "trigger_definitions": [
+    {
+      "id": "next-committed-step-cannot-proceed",
+      "type": "operator",
+      "description": "The exact next committed ART step cannot proceed without another event, permission, fix, or decision."
+    },
+    {
+      "id": "live-mutation-or-closeout-failure-not-cleared",
+      "type": "operator",
+      "description": "A live broker or OpenProject mutation, closeout, or review action failed and the same proof cycle did not clear it."
+    },
+    {
+      "id": "repeated-live-failure-on-same-step",
+      "type": "operator",
+      "description": "The same active ART step failed again after an earlier corrective attempt in the same task or session."
+    },
+    {
+      "id": "committed-prerequisite-missing",
+      "type": "operator",
+      "description": "A required principal, approval, PI commitment, iteration, runtime, or environment prerequisite is missing for committed work."
+    },
+    {
+      "id": "unresolved-dependency-prevents-next-step",
+      "type": "operator",
+      "description": "An unresolved dependency or external owner dependency prevents the next committed step from proceeding."
+    },
+    {
+      "id": "security-or-governance-hold",
+      "type": "operator",
+      "description": "Security, trust-boundary, or governance review is explicitly holding the active step."
+    },
+    {
+      "id": "quality-gate-prevents-transition",
+      "type": "machine",
+      "description": "A quality gate or readiness gate prevents the active transition, closeout, or review step."
+    }
+  ],
+  "recording_rules": [
+    {
+      "id": "exact-blocker-must-be-recorded-before-adjacent-mutation",
+      "type": "operator",
+      "description": "Once the blocker is known, record it before continuing adjacent ART mutation on the same initiative."
+    },
+    {
+      "id": "same-step-repeat-must-open-defect-or-update-existing-one",
+      "type": "operator",
+      "description": "When the blocker is caused by a live system or workflow control bug, open or update a real Defect in ART instead of leaving the issue only in chat or a candidate."
+    },
+    {
+      "id": "broader-art-or-pi-exposure-must-open-risk",
+      "type": "operator",
+      "description": "When the blocker creates exposure broader than one blocked work item, represent that exposure as a Risk with ROAM fields."
+    }
+  ],
+  "transition_rules": [
+    {
+      "id": "blocked-status-must-use-blocker-workflow",
+      "type": "machine",
+      "description": "Generic create, update, and planning-repair surfaces do not set or clear blocked status; use the dedicated blocker workflow."
+    },
+    {
+      "id": "blocked-status-requires-bounded-blocker-record",
+      "type": "machine",
+      "description": "A blocked work item must carry the bounded blocker fields, including follow-up owner and review date when the decision path is not remove."
+    },
+    {
+      "id": "active-blocker-record-must-stay-on-blocked-item",
+      "type": "machine",
+      "description": "Active blocker fields must not remain on an item whose status is no longer blocked."
+    },
+    {
+      "id": "blocker-clear-must-use-active-resume-status",
+      "type": "machine",
+      "description": "Clearing a blocker must resume to new, ready, or in-progress. Use parking, retirement, or completion workflows for other terminal outcomes."
+    }
+  ],
+  "primary_surfaces": [
+    "POST /v1/delivery-work-items/{work_item_id}/blocker",
+    "platform-engineering/products/openproject/runbooks/manage-delivery-blockers.md",
+    "operator-orchestration-service/docs/operations/delivery-workflow-operator-surface.md"
+  ]
+}

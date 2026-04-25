@@ -282,7 +282,8 @@
         "openproject_configure_idea_backlog.sh",
         "openproject_configure_delivery_art.sh",
         "openproject_sync_delivery_art_views.sh",
-        "openproject_standardize_delivery_art.sh"
+        "openproject_standardize_delivery_art.sh",
+        "openproject_provision_identity.sh"
       ],
       "purpose": "Shared adapter that stages runner-backed OpenProject platform-admin operations inside the web pod."
     },
@@ -349,19 +350,12 @@
         "openproject_sync_delivery_art_views.sh"
       ],
       "purpose": "Reconcile roadmap, PM², PI objective, and risk compatibility views in OpenProject."
-    },
-    {
-      "script": "openproject_dump_delivery_art_runner.rb",
-      "status": "residual-retirement-candidate",
-      "invoked_by": [],
-      "purpose": "Legacy direct ART dump runner kept only as a classified residual until the admin-surface adapter retires it."
     }
   ],
   "support_modules": [
     {
       "script": "openproject_delivery_art_custom_field_support.rb",
       "used_by": [
-        "openproject_dump_delivery_art_runner.rb",
         "openproject_sync_delivery_art_views_runner.rb"
       ]
     },

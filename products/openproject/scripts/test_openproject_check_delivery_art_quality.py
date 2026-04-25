@@ -38,6 +38,11 @@ class DeliveryArtQualityTest(unittest.TestCase):
             MODULE.INITIATIVE_RETIRED_REQUIRED_GATE_IDS,
         )
 
+    def test_blocker_workflow_contract_constants_are_loaded(self) -> None:
+        self.assertEqual(MODULE.BLOCKED_STATUS, "blocked")
+        self.assertIn("statement", MODULE.BLOCKER_REQUIRED_RESPONSE_KEYS)
+        self.assertIn("follow_up_owner", MODULE.BLOCKER_FOLLOW_UP_RESPONSE_KEYS)
+
     def test_blank_env_values_fall_back_to_defaults(self) -> None:
         self.assertEqual(
             MODULE.resolve_openproject_namespace({"OPENPROJECT_NAMESPACE": ""}),
@@ -282,6 +287,131 @@ class DeliveryArtQualityTest(unittest.TestCase):
             any(
                 issue["issue_type"] == "version_without_target_pi"
                 and issue["work_package_id"] == 300
+                for issue in issues
+            )
+        )
+
+    def test_blocked_item_missing_blocker_record_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 336,
+                    "record_ref": "openproject://work_packages/336",
+                    "subject": "Defect: State the exact blocker and stop adjacent ART mutation when a live mutation seam fails repeatedly",
+                    "type": "Defect",
+                    "status": "blocked",
+                    "parent_id": 304,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Corrects",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "blocker_fields": {
+                        "statement": "Closeout path is still blocked by repeated live mutation seam failure.",
+                        "decision_path": "workaround",
+                    },
+                },
+                {
+                    "id": 304,
+                    "record_ref": "openproject://work_packages/304",
+                    "subject": "Establish seamless broker-owned ART workflow and zero-Rails normal operator path",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "blocker_fields": None,
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={304, 336},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "blocked_item_missing_blocker_record"
+                and issue["work_package_id"] == 336
+                and issue["gate_id"] == "blocked-status-requires-bounded-blocker-record"
+                for issue in issues
+            )
+        )
+
+    def test_non_blocked_item_retaining_blocker_record_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 336,
+                    "record_ref": "openproject://work_packages/336",
+                    "subject": "Defect: State the exact blocker and stop adjacent ART mutation when a live mutation seam fails repeatedly",
+                    "type": "Defect",
+                    "status": "in-progress",
+                    "parent_id": 304,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Corrects",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "blocker_fields": {
+                        "statement": "Residual blocker note was left behind.",
+                    },
+                },
+                {
+                    "id": 304,
+                    "record_ref": "openproject://work_packages/304",
+                    "subject": "Establish seamless broker-owned ART workflow and zero-Rails normal operator path",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "blocker_fields": None,
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={304, 336},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "non_blocked_item_retains_active_blocker_record"
+                and issue["work_package_id"] == 336
+                and issue["gate_id"] == "active-blocker-record-must-stay-on-blocked-item"
                 for issue in issues
             )
         )

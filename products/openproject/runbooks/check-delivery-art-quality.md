@@ -22,6 +22,10 @@ Canonical machine-readable initiative-review workflow contract:
 
 - [delivery-art-initiative-review-workflow.json](../delivery-art-initiative-review-workflow.json)
 
+Canonical machine-readable blocker workflow contract:
+
+- [delivery-art-blocker-workflow.json](../delivery-art-blocker-workflow.json)
+
 When this quality check reports planning drift, read the matching gate id from
 that contract before deciding whether the fix belongs in broker mutation
 surfaces, roadmap projection, or operator procedure.
@@ -53,6 +57,8 @@ The supported quality check currently verifies:
   especially a broken `Execution Context`
 - `done` delivery work does not still have descendants outside `done` or
   `retired`
+- blocked delivery work carries a complete blocker record
+- non-blocked delivery work does not still retain active blocker fields
 - active execution items do not violate the structured ready contract
 - items explicitly marked `Not committed to a PI iteration yet.` do not also
   pretend to have concrete PI assignment or scheduled dates
@@ -206,6 +212,8 @@ The quality check also verifies PI-commitment hygiene:
   uncommitted even in `new`
 - backlog `Feature` work must stay backlog-shaped until PI commitment
 - PI-committed non-`Epic` work must also carry a non-backlog `Iteration`
+- blocked work must use the bounded blocker workflow instead of generic status
+  drift
 
 Typical fields include:
 
@@ -221,6 +229,7 @@ Typical fields include:
 - [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [plan-delivery-art.md](plan-delivery-art.md)
+- [manage-delivery-blockers.md](manage-delivery-blockers.md)
 - [review-delivery-initiative.md](review-delivery-initiative.md)
 - [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)

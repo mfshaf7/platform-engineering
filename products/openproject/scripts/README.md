@@ -57,6 +57,11 @@ The runner-backed platform-admin wrappers now share one adapter implementation:
 
 That adapter stages the contract-declared runner and support files by named
 operation instead of duplicating raw pod copy-and-exec logic in each wrapper.
+The shared `openproject_provision_identity.sh` helper now uses that same
+adapter path so dependent callers can preserve the marked identity payload
+contract without copying the provisioning runner directly. For local caller
+bootstrap, the helper also supports `OPENPROJECT_API_TOKEN_OUTPUT_PATH` as the
+explicit token-handoff destination instead of forcing direct runner access.
 
 ## Operator Entrypoints
 
@@ -104,10 +109,3 @@ The following command family is intentionally removed from this repo:
 Use the broker-owned delivery operator surface in
 [`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
 instead of recreating local execution scripts.
-
-One Rails runner remains explicitly classified as residual only:
-
-- `openproject_dump_delivery_art_runner.rb`
-
-It stays in the contract as a retirement candidate, not as an approved normal
-ART operator surface.

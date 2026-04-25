@@ -10,6 +10,18 @@ Delivery execution is broker-owned in
 This directory no longer carries the operator-facing ART read or mutation
 surface.
 
+The canonical machine-readable inventory for the remaining OpenProject product
+runtime and platform-admin layer is:
+
+- [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
+
+Validate the contract, script inventory, and required doc markers together
+with:
+
+```bash
+python3 products/openproject/scripts/validate_openproject_platform_admin_surface.py --repo-root .
+```
+
 ## Script Shape
 
 The supported OpenProject script surface has two execution shapes:
@@ -26,6 +38,7 @@ The supported OpenProject script surface has two execution shapes:
   - shared helper modules used by multiple runners
 - `*.py`
   - repo-local validators or quality checks invoked by the shell entrypoints
+  - includes the shared platform-admin adapter and the contract validator
 
 If a script is not listed as a supported operator entrypoint below, treat it
 as an implementation detail rather than a direct workflow surface.
@@ -37,6 +50,13 @@ For `Workspace Delivery ART`, the remaining entrypoints here cover:
 - ART quality validation through the broker-native quality-pack read
 - one-time ART normalization after a contract change
 - clean-start and service-identity admin controls
+
+The runner-backed platform-admin wrappers now share one adapter implementation:
+
+- `openproject_platform_admin_adapter.py`
+
+That adapter stages the contract-declared runner and support files by named
+operation instead of duplicating raw pod copy-and-exec logic in each wrapper.
 
 ## Operator Entrypoints
 
@@ -84,3 +104,10 @@ The following command family is intentionally removed from this repo:
 Use the broker-owned delivery operator surface in
 [`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)
 instead of recreating local execution scripts.
+
+One Rails runner remains explicitly classified as residual only:
+
+- `openproject_dump_delivery_art_runner.rb`
+
+It stays in the contract as a retirement candidate, not as an approved normal
+ART operator surface.

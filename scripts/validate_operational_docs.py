@@ -421,6 +421,29 @@ def validate_workflow_docs(errors: list[str], repo_root: Path) -> None:
             errors.append(f"{doc_path}: missing workflow doc headings: {', '.join(missing)}")
 
 
+def validate_openproject_platform_admin_surface(errors: list[str], repo_root: Path) -> None:
+    validator = (
+        repo_root
+        / "products"
+        / "openproject"
+        / "scripts"
+        / "validate_openproject_platform_admin_surface.py"
+    )
+    if not validator.exists():
+        errors.append(f"{validator}: missing OpenProject platform-admin surface validator")
+        return
+    completed = subprocess.run(
+        ["python3", str(validator), "--repo-root", str(repo_root)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        errors.append(
+            f"{validator}: OpenProject platform-admin surface contract invalid\n{detail}"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate workflow docs coverage and operational doc freshness markers."
@@ -444,6 +467,7 @@ def main() -> int:
     validate_date_markers(errors, repo_root)
     validate_doc_truth_markers(errors, repo_root)
     validate_workflow_docs(errors, repo_root)
+    validate_openproject_platform_admin_surface(errors, repo_root)
     validate_wsl_host_bootstrap_contract(errors, repo_root)
     validate_legacy_operator_separation(errors, repo_root)
     validate_readme_operator_surface(errors, repo_root)

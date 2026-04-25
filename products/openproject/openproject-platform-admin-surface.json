@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "normal_art_operator_surface": {
+    "owner_repo": "operator-orchestration-service",
+    "primary_doc": "https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md",
+    "broker_cli_examples": [
+      "npm run art -- bootstrap",
+      "npm run art -- workflow-health"
+    ]
+  },
+  "surface_classes": {
+    "product-runtime": "OpenProject product runtime or access entrypoint outside normal ART delivery execution.",
+    "platform-admin": "Supported OpenProject bootstrap, repair, hygiene, or identity admin entrypoint.",
+    "internal-helper": "Implementation helper that is not a direct operator surface.",
+    "platform-admin-internal": "Implementation detail invoked by a supported platform-admin wrapper.",
+    "platform-admin-validator": "Validator that proves the platform-admin contract and docs still match the live inventory."
+  },
+  "doc_surfaces": [
+    {
+      "path": "runbooks/openproject-platform-admin-surface.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json",
+        "validate_openproject_platform_admin_surface.py"
+      ]
+    },
+    {
+      "path": "scripts/README.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json",
+        "validate_openproject_platform_admin_surface.py"
+      ]
+    },
+    {
+      "path": "README.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json"
+      ]
+    },
+    {
+      "path": "delivery-art-contract.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json"
+      ]
+    },
+    {
+      "path": "runbooks/README.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json"
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "required_markers": [
+        "openproject-platform-admin-surface.json"
+      ]
+    }
+  ],
+  "shell_surfaces": [
+    {
+      "script": "openproject_apply.sh",
+      "surface_class": "product-runtime",
+      "make_targets": [
+        "openproject-apply"
+      ],
+      "runbooks": [
+        "runbooks/bootstrap-openproject.md"
+      ],
+      "purpose": "Register and wait for the OpenProject Argo applications.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_status.sh",
+      "surface_class": "product-runtime",
+      "make_targets": [
+        "openproject-status"
+      ],
+      "runbooks": [
+        "runbooks/bootstrap-openproject.md"
+      ],
+      "purpose": "Report current OpenProject Argo and workload status.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_access.sh",
+      "surface_class": "product-runtime",
+      "make_targets": [
+        "openproject-access"
+      ],
+      "runbooks": [
+        "runbooks/access-openproject.md"
+      ],
+      "purpose": "Print the preferred Windows and WSL OpenProject URLs.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_sync_admin_password.sh",
+      "surface_class": "platform-admin",
+      "make_targets": [
+        "openproject-sync-admin-password"
+      ],
+      "runbooks": [
+        "runbooks/openproject-platform-admin-surface.md"
+      ],
+      "purpose": "Reconcile the OpenProject admin password from the Vault-backed secret.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_configure_idea_backlog.sh",
+      "surface_class": "platform-admin",
+      "operation_id": "configure-idea-backlog",
+      "make_targets": [
+        "openproject-configure-idea-backlog"
+      ],
+      "runbooks": [
+        "runbooks/configure-idea-backlog.md"
+      ],
+      "purpose": "Provision the canonical Workspace Proposals project model.",
+      "internal_runner_files": [
+        "openproject_configure_idea_backlog_runner.rb"
+      ],
+      "support_files": [],
+      "pass_env": []
+    },
+    {
+      "script": "openproject_configure_delivery_art.sh",
+      "surface_class": "platform-admin",
+      "operation_id": "configure-delivery-art",
+      "make_targets": [
+        "openproject-configure-delivery-art"
+      ],
+      "runbooks": [
+        "runbooks/configure-delivery-art.md"
+      ],
+      "purpose": "Provision the Workspace Delivery ART project model and managed views.",
+      "internal_runner_files": [
+        "openproject_configure_delivery_art_runner.rb"
+      ],
+      "support_files": [
+        "openproject_delivery_art_home_support.rb",
+        "openproject_delivery_art_taxonomy_support.rb"
+      ],
+      "pass_env": []
+    },
+    {
+      "script": "openproject_sync_delivery_art_views.sh",
+      "surface_class": "platform-admin",
+      "operation_id": "sync-delivery-art-views",
+      "make_targets": [
+        "openproject-sync-delivery-art-views"
+      ],
+      "runbooks": [
+        "runbooks/sync-delivery-art-views.md"
+      ],
+      "purpose": "Repair roadmap and board projection compatibility for Workspace Delivery ART.",
+      "internal_runner_files": [
+        "openproject_sync_delivery_art_views_runner.rb"
+      ],
+      "support_files": [
+        "openproject_delivery_art_custom_field_support.rb",
+        "openproject_delivery_art_home_support.rb",
+        "openproject_delivery_art_taxonomy_support.rb"
+      ],
+      "pass_env": [
+        "OPENPROJECT_DELIVERY_PI_NAMES"
+      ]
+    },
+    {
+      "script": "openproject_check_delivery_art_quality.sh",
+      "surface_class": "platform-admin",
+      "make_targets": [
+        "openproject-check-delivery-art-quality"
+      ],
+      "runbooks": [
+        "runbooks/check-delivery-art-quality.md"
+      ],
+      "purpose": "Run the broker-backed scoped ART quality gate through the platform wrapper.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_standardize_delivery_art.sh",
+      "surface_class": "platform-admin",
+      "operation_id": "standardize-delivery-art",
+      "make_targets": [
+        "openproject-standardize-delivery-art"
+      ],
+      "runbooks": [
+        "runbooks/standardize-delivery-art.md"
+      ],
+      "purpose": "Apply one governed normalization pass after a delivery-art contract change.",
+      "internal_runner_files": [
+        "openproject_standardize_delivery_art_runner.rb"
+      ],
+      "support_files": [
+        "openproject_delivery_art_custom_field_support.rb",
+        "openproject_delivery_art_taxonomy_support.rb"
+      ],
+      "pass_env": [
+        "TARGET_EPIC_ID",
+        "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER"
+      ]
+    },
+    {
+      "script": "openproject_verify_clean_start.sh",
+      "surface_class": "platform-admin",
+      "make_targets": [
+        "openproject-verify-clean-start"
+      ],
+      "runbooks": [
+        "runbooks/prepare-production-clean-start.md"
+      ],
+      "purpose": "Verify production activation hygiene for the OpenProject workflow planes.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_provision_delivery_art_identities.sh",
+      "surface_class": "platform-admin",
+      "make_targets": [
+        "openproject-provision-delivery-art-identities"
+      ],
+      "runbooks": [
+        "runbooks/provision-delivery-art-identities.md"
+      ],
+      "purpose": "Converge assignable non-admin repo-owner identities on Workspace Delivery ART.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_provision_operator_orchestration_identity.sh",
+      "surface_class": "platform-admin",
+      "make_targets": [
+        "openproject-provision-operator-orchestration-identity",
+        "openproject-provision-operator-orchestration-delivery-access"
+      ],
+      "runbooks": [
+        "runbooks/provision-operator-orchestration-identity.md"
+      ],
+      "purpose": "Converge the broker OpenProject identity, token, and optional delivery-plane access.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_uninstall.sh",
+      "surface_class": "product-runtime",
+      "make_targets": [
+        "openproject-uninstall"
+      ],
+      "runbooks": [
+        "runbooks/uninstall-openproject.md"
+      ],
+      "purpose": "Remove the OpenProject Argo applications from the platform.",
+      "internal_runner_files": []
+    },
+    {
+      "script": "openproject_provision_identity.sh",
+      "surface_class": "internal-helper",
+      "operation_id": "provision-identity",
+      "make_targets": [],
+      "runbooks": [],
+      "purpose": "Shared identity-provisioning helper invoked by the supported identity wrapper scripts.",
+      "internal_runner_files": [
+        "openproject_provision_identity_runner.rb"
+      ],
+      "support_files": [],
+      "pass_env": [
+        "TARGET_LOGIN",
+        "TARGET_FIRSTNAME",
+        "TARGET_LASTNAME",
+        "TARGET_MAIL",
+        "TARGET_PROJECT_IDENTIFIER",
+        "TARGET_PROJECT_IDENTIFIERS_JSON",
+        "TARGET_TOKEN_NAME",
+        "TARGET_ROLE_NAMES_JSON",
+        "ROTATE_API_TOKEN",
+        "ISSUE_API_TOKEN",
+        "TARGET_LANGUAGE"
+      ]
+    }
+  ],
+  "python_tools": [
+    {
+      "script": "openproject_platform_admin_adapter.py",
+      "surface_class": "platform-admin-adapter",
+      "invoked_by": [
+        "openproject_configure_idea_backlog.sh",
+        "openproject_configure_delivery_art.sh",
+        "openproject_sync_delivery_art_views.sh",
+        "openproject_standardize_delivery_art.sh"
+      ],
+      "purpose": "Shared adapter that stages runner-backed OpenProject platform-admin operations inside the web pod."
+    },
+    {
+      "script": "openproject_check_delivery_art_quality.py",
+      "surface_class": "platform-admin-internal",
+      "invoked_by": [
+        "openproject_check_delivery_art_quality.sh"
+      ],
+      "purpose": "Broker-backed ART quality checker used by the shell wrapper."
+    },
+    {
+      "script": "openproject_provision_delivery_art_identities.py",
+      "surface_class": "platform-admin-internal",
+      "invoked_by": [
+        "openproject_provision_delivery_art_identities.sh"
+      ],
+      "purpose": "Delivery identity convergence helper used by the shell wrapper."
+    },
+    {
+      "script": "validate_openproject_platform_admin_surface.py",
+      "surface_class": "platform-admin-validator",
+      "invoked_by": [],
+      "purpose": "Validate the OpenProject platform-admin surface contract, inventory, and doc references."
+    }
+  ],
+  "rails_runners": [
+    {
+      "script": "openproject_configure_delivery_art_runner.rb",
+      "status": "active-platform-admin-internal",
+      "invoked_by": [
+        "openproject_configure_delivery_art.sh"
+      ],
+      "purpose": "Provision the Workspace Delivery ART project model, custom fields, queries, and boards."
+    },
+    {
+      "script": "openproject_configure_idea_backlog_runner.rb",
+      "status": "active-platform-admin-internal",
+      "invoked_by": [
+        "openproject_configure_idea_backlog.sh"
+      ],
+      "purpose": "Provision the Workspace Proposals project model."
+    },
+    {
+      "script": "openproject_provision_identity_runner.rb",
+      "status": "active-platform-admin-internal",
+      "invoked_by": [
+        "openproject_provision_identity.sh"
+      ],
+      "purpose": "Converge OpenProject identities, project membership, and broker token issuance."
+    },
+    {
+      "script": "openproject_standardize_delivery_art_runner.rb",
+      "status": "active-platform-admin-internal",
+      "invoked_by": [
+        "openproject_standardize_delivery_art.sh"
+      ],
+      "purpose": "Normalize live delivery-art records to the current taxonomy and narrative contract."
+    },
+    {
+      "script": "openproject_sync_delivery_art_views_runner.rb",
+      "status": "active-platform-admin-internal",
+      "invoked_by": [
+        "openproject_sync_delivery_art_views.sh"
+      ],
+      "purpose": "Reconcile roadmap, PM², PI objective, and risk compatibility views in OpenProject."
+    },
+    {
+      "script": "openproject_dump_delivery_art_runner.rb",
+      "status": "residual-retirement-candidate",
+      "invoked_by": [],
+      "purpose": "Legacy direct ART dump runner kept only as a classified residual until the admin-surface adapter retires it."
+    }
+  ],
+  "support_modules": [
+    {
+      "script": "openproject_delivery_art_custom_field_support.rb",
+      "used_by": [
+        "openproject_dump_delivery_art_runner.rb",
+        "openproject_sync_delivery_art_views_runner.rb"
+      ]
+    },
+    {
+      "script": "openproject_delivery_art_home_support.rb",
+      "used_by": [
+        "openproject_configure_delivery_art_runner.rb",
+        "openproject_sync_delivery_art_views_runner.rb"
+      ]
+    },
+    {
+      "script": "openproject_delivery_art_taxonomy_support.rb",
+      "used_by": [
+        "openproject_standardize_delivery_art_runner.rb"
+      ]
+    }
+  ],
+  "test_files": [
+    "test_openproject_check_delivery_art_quality.py",
+    "test_openproject_platform_admin_adapter.py",
+    "test_validate_openproject_platform_admin_surface.py"
+  ],
+  "ignored_files": [
+    "README.md"
+  ]
+}

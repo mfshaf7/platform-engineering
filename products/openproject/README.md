@@ -77,6 +77,11 @@ projection of canonical `Target PI`, with one explicit backlog bucket:
 `Not yet committed to a PI`. That bucket keeps the roadmap truthful, but it is
 not a substitute for PI commitment on active non-`Epic` work.
 
+The remaining OpenProject bootstrap and repair layer now also has one canonical
+machine-readable boundary contract:
+
+- [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
+
 The canonical planning path is now explicit as well:
 
 - consume accepted work into one `Epic` shell
@@ -205,6 +210,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-workflow-health.md](runbooks/check-delivery-art-workflow-health.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
+- [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
 - [runbooks/openproject-platform-admin-surface.md](runbooks/openproject-platform-admin-surface.md)
 - [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)
 - [runbooks/review-delivery-initiative.md](runbooks/review-delivery-initiative.md)

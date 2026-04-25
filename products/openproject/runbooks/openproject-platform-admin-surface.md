@@ -9,6 +9,31 @@ Normal ART work should now use broker-owned reads and writes. The commands in
 this runbook remain because they still manage OpenProject platform internals,
 not because they are the supported day-to-day ART execution surface.
 
+## Canonical Contract
+
+The machine-readable source of truth for this boundary is:
+
+- [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
+
+That contract enumerates:
+
+- supported OpenProject runtime and platform-admin shell entrypoints
+- the remaining Rails-backed internal runners behind those entrypoints
+- internal helper scripts and support modules
+- the residual runner that still exists only as a retirement candidate
+- the docs that must keep pointing at the same boundary model
+
+Validate the contract and inventory together with:
+
+```bash
+python3 products/openproject/scripts/validate_openproject_platform_admin_surface.py --repo-root .
+```
+
+The runner-backed platform-admin wrappers now stage those internals through the
+shared adapter:
+
+- `products/openproject/scripts/openproject_platform_admin_adapter.py`
+
 ## Normal ART Operator Path
 
 Use the broker-owned surface in `operator-orchestration-service` for:
@@ -27,6 +52,18 @@ cd /home/mfshaf7/projects/operator-orchestration-service
 npm run art -- bootstrap
 npm run art -- workflow-health
 ```
+
+## Product Runtime Compatibility Surface
+
+These commands still belong to the OpenProject product runtime and do not move
+into the broker:
+
+- `make openproject-apply`
+- `make openproject-status`
+- `make openproject-access`
+- `make openproject-uninstall`
+
+They are product runtime controls, not ART delivery execution controls.
 
 ## Platform-Admin Only
 
@@ -49,6 +86,10 @@ Use them only for:
 - identity and admin repair
 - clean-start and runtime hygiene checks
 
+The canonical command inventory lives in
+[../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
+instead of only in this prose runbook.
+
 ## Remaining Rails Rule
 
 The remaining direct OpenProject Rails runners are implementation details behind
@@ -63,6 +104,26 @@ They are not the supported normal ART workflow for:
 - ART reads or writes in normal delivery work
 
 If a normal ART session needs any of those, go back to the broker route first.
+
+The currently active Rails-backed internals remain:
+
+- `openproject_configure_idea_backlog_runner.rb`
+- `openproject_configure_delivery_art_runner.rb`
+- `openproject_sync_delivery_art_views_runner.rb`
+- `openproject_standardize_delivery_art_runner.rb`
+- `openproject_provision_identity_runner.rb`
+
+The supported runner-backed platform wrappers no longer implement their own raw
+pod copy-and-exec flow. They now call the shared adapter, which stages the
+declared runner and support files by named operation before invoking
+`bundle exec rails runner`.
+
+One residual runner is explicitly classified for later retirement:
+
+- `openproject_dump_delivery_art_runner.rb`
+
+It is no longer a supported normal ART read path and must not be reintroduced
+into day-to-day operator flow.
 
 ## Related References
 

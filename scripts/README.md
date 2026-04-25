@@ -68,7 +68,10 @@ for current topology and access docs, the supported WSL host bootstrap
 contract, the shared-vs-product operator-runbook boundary, and the
 operator-surface split between current platform procedures and legacy migration
 materials. It also checks that the shared component indexes in the repo root
-and `docs/components/README.md` cover every governed shared component.
+and `docs/components/README.md` cover every governed shared component, and that
+the OpenProject platform-admin contract in
+`products/openproject/openproject-platform-admin-surface.json` still matches
+the current product script inventory and doc markers.
 
 `validate_observability_taxonomy.py` fail-closes the platform observability
 baseline and overlay model so alerts, recording rules, dashboards, release

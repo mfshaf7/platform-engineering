@@ -43,6 +43,8 @@ Read this as operator workflow families:
 - `check-delivery-art-quality.md` is the scoped broker-native quality gate.
 - `openproject-platform-admin-surface.md` defines the remaining OpenProject
   platform-admin controls that are still allowed to use Rails-backed internals.
+  The machine-readable source for that boundary is
+  `../openproject-platform-admin-surface.json`.
 - `standardize-delivery-art.md` is the controlled repair path when the ART
   needs one governed normalization pass after the contract changed.
 - backup, uninstall, identity provisioning, and clean-start guidance remain
@@ -60,6 +62,7 @@ Read this as operator workflow families:
 - [sync-delivery-art-views.md](sync-delivery-art-views.md)
 - [provision-delivery-art-identities.md](provision-delivery-art-identities.md)
 - [check-delivery-art-quality.md](check-delivery-art-quality.md)
+- [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
 - [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [prepare-production-clean-start.md](prepare-production-clean-start.md)

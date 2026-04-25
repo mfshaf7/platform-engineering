@@ -50,6 +50,10 @@ platform-admin surfaces only. They remain valid for:
 - identity and admin repair
 - clean-start verification
 
+Canonical machine-readable admin-surface contract:
+
+- `products/openproject/openproject-platform-admin-surface.json`
+
 They are not the supported day-to-day ART execution surface anymore.
 
 ## Work-State Authority

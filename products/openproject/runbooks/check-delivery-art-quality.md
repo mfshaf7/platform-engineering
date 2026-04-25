@@ -8,6 +8,12 @@ used as the primary work-state truth for a serious delivery session.
 Use this as a scoped hygiene gate for the active initiative, and reserve the
 full portfolio sweep for replanning, portfolio review, or governance cleanup.
 
+Normal-session entrypoint:
+
+1. broker workflow health
+2. scoped ART quality
+3. platform-admin repair only when projection or board state is the issue
+
 Canonical machine-readable planning workflow contract:
 
 - [delivery-art-planning-workflow.json](../delivery-art-planning-workflow.json)
@@ -165,9 +171,9 @@ make openproject-check-delivery-art-quality \
   OPENPROJECT_NAMESPACE=devint-accepted-idea-delivery-mfshaf7
 ```
 
-The checker now resolves the profile-scoped OpenProject web deployment and the
-canonical `workspace-delivery-art` project identifier automatically when those
-values are left blank.
+The checker now reads the broker-owned delivery-session quality pack instead of
+pushing a direct Rails dump into the OpenProject pod. It remains the supported
+platform quality wrapper, but its normal read path is broker-native.
 
 ## Expected Outcome
 
@@ -212,8 +218,10 @@ Typical fields include:
 
 ## Related References
 
+- [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md)
 - [standardize-delivery-art.md](standardize-delivery-art.md)
 - [plan-delivery-art.md](plan-delivery-art.md)
 - [review-delivery-initiative.md](review-delivery-initiative.md)
+- [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

@@ -12,6 +12,10 @@ Use this when:
 - you need to add or refresh Program Increment versions
 - you want the canonical PM², execution, PI-objective, and risk boards
 
+This is a platform-admin repair path, not the normal ART session-health read.
+For normal-session ART health, start with
+[check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md).
+
 ## Current Truth
 
 On this platform, OpenProject Community Edition does not expose the native
@@ -125,6 +129,8 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 
 ## Related References
 
+- [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md)
+- [openproject-platform-admin-surface.md](openproject-platform-admin-surface.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
 - [delivery-art-contract.md](../delivery-art-contract.md)
 - [operator-orchestration-service delivery operator surface](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

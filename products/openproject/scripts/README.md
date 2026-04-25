@@ -34,7 +34,7 @@ For `Workspace Delivery ART`, the remaining entrypoints here cover:
 
 - project bootstrap and schema provisioning
 - ART view synchronization
-- ART quality validation
+- ART quality validation through the broker-native quality-pack read
 - one-time ART normalization after a contract change
 - clean-start and service-identity admin controls
 
@@ -79,6 +79,7 @@ The following command family is intentionally removed from this repo:
 - delivery initiative mutations
 - delivery work-item mutations
 - proposal-to-delivery consume and closeout execution
+- normal-session ART workflow-health reads
 
 Use the broker-owned delivery operator surface in
 [`operator-orchestration-service`](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md)

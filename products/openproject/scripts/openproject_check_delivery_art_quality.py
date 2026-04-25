@@ -42,10 +42,6 @@ FORBIDDEN_STRUCTURED_DESCRIPTION_HEADINGS = {
     "Definition of Done",
 }
 TAXONOMY_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
-OPENPROJECT_DUMP_RUNNER_PATH = SCRIPT_DIR / "openproject_dump_delivery_art_runner.rb"
-OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_custom_field_support.rb"
-OPENPROJECT_TAXONOMY_SUPPORT_PATH = SCRIPT_DIR / "openproject_delivery_art_taxonomy_support.rb"
-OPENPROJECT_TAXONOMY_JSON_PATH = PRODUCT_DIR / "delivery-art-taxonomy.json"
 PM2_CLOSING_PHASE = INITIATIVE_REVIEW_WORKFLOW["closing_transition"]["to_phase"]
 INITIATIVE_CLOSING_REQUIRED_GATE_IDS = tuple(
     INITIATIVE_REVIEW_WORKFLOW["closing_transition"]["control_gate_ids"]
@@ -197,68 +193,6 @@ def resolve_openproject_namespace(env: dict[str, str]) -> str:
     return env_value(env, "OPENPROJECT_NAMESPACE", "openproject")
 
 
-def resolve_openproject_deployment(env: dict[str, str]) -> str:
-    explicit = (env.get("OPENPROJECT_DEPLOYMENT") or "").strip()
-    if explicit:
-        return explicit
-
-    namespace = resolve_openproject_namespace(env)
-    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
-
-    def run_deploy_query(args: list[str]) -> str:
-        completed = subprocess.run(
-            [*kubectl, "-n", namespace, *args],
-            capture_output=True,
-            text=True,
-            env=env,
-            check=True,
-        )
-        return completed.stdout.strip()
-
-    try:
-        resolved = run_deploy_query(
-            [
-                "get",
-                "deploy",
-                "-l",
-                "app.kubernetes.io/component=web,app.kubernetes.io/name=openproject",
-                "-o",
-                "jsonpath={.items[0].metadata.name}",
-            ]
-        )
-        if resolved:
-            return resolved
-    except subprocess.CalledProcessError:
-        pass
-
-    try:
-        deployment_names = run_deploy_query(
-            [
-                "get",
-                "deploy",
-                "-o",
-                "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}",
-            ]
-        )
-        candidates = [
-            name.strip()
-            for name in deployment_names.splitlines()
-            if name.strip().endswith("-openproject-web") or name.strip() == "openproject-web"
-        ]
-        if "openproject-web" in candidates:
-            return "openproject-web"
-        if len(candidates) == 1:
-            return candidates[0]
-    except subprocess.CalledProcessError:
-        pass
-
-    return "openproject-web"
-
-
-def resolve_delivery_project_identifier(env: dict[str, str]) -> str:
-    return env_value(env, "OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER", "workspace-delivery-art")
-
-
 def resolve_broker_namespace(env: dict[str, str]) -> str:
     broker_namespace = (env.get("BROKER_NAMESPACE") or "").strip()
     if broker_namespace:
@@ -333,122 +267,6 @@ process.stdout.write(`${JSON.stringify(payload, null, 2)}\\n`);
         ],
         env=env,
     )
-
-
-def push_remote_file(
-    *,
-    env: dict[str, str],
-    deployment: str,
-    namespace: str,
-    local_path: Path,
-    remote_path: str,
-) -> None:
-    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
-    with local_path.open("r", encoding="utf-8") as handle:
-        content = handle.read()
-    subprocess.run(
-        [
-            *kubectl,
-            "-n",
-            namespace,
-            "exec",
-            "-i",
-            f"deploy/{deployment}",
-            "--",
-            "sh",
-            "-lc",
-            f"cat > {shlex.quote(remote_path)}",
-        ],
-        input=content,
-        text=True,
-        env=env,
-        check=True,
-        capture_output=True,
-    )
-
-
-def run_openproject_project_json(*, env: dict[str, str]) -> dict[str, object]:
-    kubectl = shlex.split(env.get("KUBECTL", "k3s kubectl"))
-    namespace = resolve_openproject_namespace(env)
-    deployment = resolve_openproject_deployment(env)
-    project_identifier = resolve_delivery_project_identifier(env)
-    remote_runner = "/tmp/openproject_dump_delivery_art_runner.rb"
-    remote_custom_field_support = "/tmp/openproject_delivery_art_custom_field_support.rb"
-    remote_taxonomy_support = "/tmp/openproject_delivery_art_taxonomy_support.rb"
-    remote_taxonomy_json = "/tmp/delivery-art-taxonomy.json"
-
-    push_remote_file(
-        env=env,
-        deployment=deployment,
-        namespace=namespace,
-        local_path=OPENPROJECT_DUMP_RUNNER_PATH,
-        remote_path=remote_runner,
-    )
-    push_remote_file(
-        env=env,
-        deployment=deployment,
-        namespace=namespace,
-        local_path=OPENPROJECT_CUSTOM_FIELD_SUPPORT_PATH,
-        remote_path=remote_custom_field_support,
-    )
-    push_remote_file(
-        env=env,
-        deployment=deployment,
-        namespace=namespace,
-        local_path=OPENPROJECT_TAXONOMY_SUPPORT_PATH,
-        remote_path=remote_taxonomy_support,
-    )
-    push_remote_file(
-        env=env,
-        deployment=deployment,
-        namespace=namespace,
-        local_path=OPENPROJECT_TAXONOMY_JSON_PATH,
-        remote_path=remote_taxonomy_json,
-    )
-
-    try:
-        return run_json(
-            [
-                *kubectl,
-                "-n",
-                namespace,
-                "exec",
-                "-i",
-                f"deploy/{deployment}",
-                "--",
-                "sh",
-                "-lc",
-                (
-                    "export OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER=\"$1\"; "
-                    "bundle exec rails runner \"$2\""
-                ),
-                "sh",
-                project_identifier,
-                remote_runner,
-            ],
-            env=env,
-        )
-    finally:
-        subprocess.run(
-            [
-                *kubectl,
-                "-n",
-                namespace,
-                "exec",
-                f"deploy/{deployment}",
-                "--",
-                "rm",
-                "-f",
-                remote_runner,
-                remote_custom_field_support,
-                remote_taxonomy_support,
-                remote_taxonomy_json,
-            ],
-            env=env,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
 
 
 def flatten_tree(node: dict[str, object]) -> list[dict[str, object]]:
@@ -1114,8 +932,9 @@ def main() -> int:
     scoped_execution_only = bool(target_epic_id)
     include_done_param = "true" if include_done == "true" else "false"
 
-    full_project_payload = run_openproject_project_json(env=env)
-    work_packages = full_project_payload.get("work_packages") or []
+    quality_pack_payload = run_broker_json("/v1/delivery-session/quality-pack", env=env)
+    quality_pack = quality_pack_payload.get("quality_pack") or {}
+    work_packages = quality_pack.get("work_packages") or []
     work_packages_by_id = {
         int(entry["id"]): entry for entry in work_packages if isinstance(entry, dict) and "id" in entry
     }
@@ -1242,7 +1061,7 @@ def main() -> int:
                 )
 
     project_taxonomy_summary = evaluate_live_project_taxonomy(
-        project_payload=full_project_payload,
+        project_payload=quality_pack,
         issues=issues,
         narrative_findings=narrative_findings,
         scoped_ids=scoped_ids,
@@ -1250,7 +1069,7 @@ def main() -> int:
 
     result = {
         "project": initiatives_payload.get("project"),
-        "openproject_project": full_project_payload.get("project"),
+        "openproject_project": quality_pack_payload.get("project"),
         "scope": {
             "include_done": include_done == "true",
             "mode": "scoped-execution" if scoped_execution_only else "full-portfolio",
@@ -1287,6 +1106,11 @@ def main() -> int:
                 and finding["attention_scope"] in {"active", "next-up"}
                 for finding in narrative_findings
             ),
+        },
+        "workflow_health": {
+            "compatible_views": quality_pack.get("compatible_views") or {},
+            "projection_health": quality_pack.get("projection_health") or {},
+            "summary": quality_pack.get("summary") or {},
         },
         "project_taxonomy_summary": project_taxonomy_summary,
         "issues": issues,

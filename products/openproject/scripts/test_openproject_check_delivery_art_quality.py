@@ -44,46 +44,23 @@ class DeliveryArtQualityTest(unittest.TestCase):
             "openproject",
         )
         self.assertEqual(
-            MODULE.resolve_delivery_project_identifier(
-                {"OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER": ""}
-            ),
-            "workspace-delivery-art",
-        )
-        self.assertEqual(
             MODULE.env_value({"BROKER_PORT": ""}, "BROKER_PORT", "8080"),
             "8080",
         )
 
-    def test_openproject_deployment_resolves_from_profile_namespace(self) -> None:
-        completed = mock.Mock(stdout="devint-accepted-idea-delivery-openproject-web")
-        with mock.patch.object(MODULE.subprocess, "run", return_value=completed) as run_mock:
-            deployment = MODULE.resolve_openproject_deployment(
+    def test_broker_namespace_defaults_to_openproject_namespace_for_profiles(self) -> None:
+        self.assertEqual(
+            MODULE.resolve_broker_namespace(
                 {"OPENPROJECT_NAMESPACE": "devint-accepted-idea-delivery-mfshaf7"}
-            )
-
-        self.assertEqual(deployment, "devint-accepted-idea-delivery-openproject-web")
-        run_mock.assert_called_once()
-
-    def test_openproject_deployment_falls_back_to_name_scan(self) -> None:
-        selector_miss = mock.Mock(stdout="")
-        deployment_scan = mock.Mock(
-            stdout=(
-                "devint-accepted-idea-delivery-openproject-cron\n"
-                "devint-accepted-idea-delivery-openproject-web\n"
-                "devint-accepted-idea-delivery-openproject-worker-default\n"
-            )
+            ),
+            "devint-accepted-idea-delivery-mfshaf7",
         )
-        with mock.patch.object(
-            MODULE.subprocess,
-            "run",
-            side_effect=[selector_miss, deployment_scan],
-        ) as run_mock:
-            deployment = MODULE.resolve_openproject_deployment(
-                {"OPENPROJECT_NAMESPACE": "devint-accepted-idea-delivery-mfshaf7"}
-            )
 
-        self.assertEqual(deployment, "devint-accepted-idea-delivery-openproject-web")
-        self.assertEqual(run_mock.call_count, 2)
+    def test_broker_namespace_defaults_to_shared_namespace_for_default_openproject(self) -> None:
+        self.assertEqual(
+            MODULE.resolve_broker_namespace({"OPENPROJECT_NAMESPACE": "openproject"}),
+            "operator-orchestration-service",
+        )
 
     def test_done_state_narrative_drift_is_a_hard_failure(self) -> None:
         issues = []

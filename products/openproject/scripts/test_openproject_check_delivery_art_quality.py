@@ -372,6 +372,87 @@ class DeliveryArtQualityTest(unittest.TestCase):
             )
         )
 
+    def test_retired_scope_retaining_target_pi_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 346,
+                    "record_ref": "openproject://work_packages/346",
+                    "subject": "User story: Preserve a broker-first governed triage path",
+                    "type": "User story",
+                    "status": "retired",
+                    "parent_id": 252,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={346},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "retired_scope_retains_target_pi"
+                and issue["gate_id"] == "retired-scope-must-clear-target-pi"
+                and issue["work_package_id"] == 346
+                for issue in issues
+            )
+        )
+
+    def test_retired_story_without_target_pi_is_not_reported_as_missing_commitment(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 347,
+                    "record_ref": "openproject://work_packages/347",
+                    "subject": "User story: Preserve a broker-first operator acceptance path",
+                    "type": "User story",
+                    "status": "retired",
+                    "parent_id": 252,
+                    "execution_classification": "Business",
+                    "description_headings": [
+                        "What This Achieves",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": None,
+                    "version_name": "Retired scope",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={347},
+        )
+
+        self.assertFalse(
+            any(
+                issue["issue_type"] == "target_pi_required_type_missing_commitment"
+                and issue["work_package_id"] == 347
+                for issue in issues
+            )
+        )
+
     def test_blocked_item_missing_blocker_record_is_reported(self) -> None:
         issues = []
         narrative_findings = []

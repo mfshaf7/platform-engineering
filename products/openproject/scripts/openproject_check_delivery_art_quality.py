@@ -29,6 +29,7 @@ ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_
 ROADMAP_RETIRED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_retired_version_name"]
 ACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["active"])
 INACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["inactive"])
+RETIRED_STATUS = "retired"
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
 TARGET_PI_REQUIRED_TYPES = set(
     PLANNING_WORKFLOW["planning_sets"]["target_pi_required_types"]
@@ -863,7 +864,19 @@ def evaluate_live_project_taxonomy(
         target_pi = entry.get("target_pi")
         version_name = entry.get("version_name")
         expected_version_name = expected_roadmap_version_name(entry)
-        if target_pi and version_name != expected_version_name:
+        if status == RETIRED_STATUS and target_pi:
+            add_issue(
+                issues,
+                issue_type="retired_scope_retains_target_pi",
+                initiative_id=None,
+                target=entry,
+                detail=(
+                    "retired scope must clear canonical Target PI and project into "
+                    f"{ROADMAP_RETIRED_VERSION_NAME!r}"
+                ),
+                gate_id="retired-scope-must-clear-target-pi",
+            )
+        elif target_pi and version_name != expected_version_name:
             add_issue(
                 issues,
                 issue_type="target_pi_version_drift",
@@ -956,7 +969,11 @@ def evaluate_live_project_taxonomy(
                 gate_id="active-non-epic-must-not-stay-uncommitted",
             )
 
-        if type_name in TARGET_PI_REQUIRED_TYPES and not target_pi:
+        if (
+            type_name in TARGET_PI_REQUIRED_TYPES
+            and status not in DONE_TREE_TERMINAL_STATUSES
+            and not target_pi
+        ):
             add_issue(
                 issues,
                 issue_type="target_pi_required_type_missing_commitment",
@@ -969,6 +986,7 @@ def evaluate_live_project_taxonomy(
         if (
             type_name == "Defect"
             and not target_pi
+            and status not in DONE_TREE_TERMINAL_STATUSES
             and status != "new"
         ):
             add_issue(

@@ -34,6 +34,8 @@ Operator checklist:
 - set:
   - `Owner Repo`
   - `PM² Phase`
+- leave lineage fields blank only while the initiative is still the brand-new
+  `new` + `Initiating` shell with blank `Target PI`
 - allow `Target PI` to stay blank when the initiative is not yet committed
 - verify the initiative projects into `Not yet committed to a PI`
 
@@ -47,6 +49,7 @@ Controls:
 
 - `consume-top-level-shell-only`
 - `consume-must-use-proposal-handoff`
+- `initiative-family-required-before-planning-or-commitment`
 
 ### 2. Initiative Framing
 
@@ -56,6 +59,10 @@ Operator checklist:
   - `Feature`
   - `Risk`
   - backlog `Defect` only when it is truly held as correction work
+- before the initiative leaves shell posture, set:
+  - `Initiative Family`
+  - `Lineage Role`
+  - `Architecture Anchor Ref` or `Required Upstream Ref` when the role requires them
 - keep backlog work in `new`
 - keep backlog `Feature` items umbrella-shaped
 
@@ -68,6 +75,8 @@ Controls:
 
 - `backlog-feature-must-stay-umbrella-shaped`
 - `active-non-epic-must-not-stay-uncommitted`
+- `initiative-lineage-role-must-satisfy-anchor-requirements`
+- `initiative-anchor-ref-must-point-to-top-level-epic`
 
 ### 3. PI Planning
 

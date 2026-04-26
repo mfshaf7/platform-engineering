@@ -29,6 +29,46 @@ Projection rules:
 That keeps the OpenProject roadmap page truthful to the whole ART instead of
 only the subset that already carries PI assignment.
 
+## Initiative Family And Lineage
+
+One ART portfolio may contain multiple valid initiative families.
+
+What must stay coherent is not “same project = same story”, but the top-level
+lineage model for each `Epic`.
+
+Canonical machine-readable lineage contract:
+
+- `products/openproject/delivery-art-initiative-lineage.json`
+
+Primary operator surface:
+
+- [runbooks/manage-delivery-initiative-lineage.md](runbooks/manage-delivery-initiative-lineage.md)
+
+Top-level `Epic` work now carries four lineage fields:
+
+- `Initiative Family`
+- `Lineage Role`
+- `Architecture Anchor Ref`
+- `Required Upstream Ref`
+
+The only allowed temporary exception is a brand-new initiative shell that is
+still:
+
+- `status = new`
+- `PM² Phase = Initiating`
+- blank `Target PI`
+- blank lineage fields
+
+Once a top-level initiative moves beyond that shell posture, it must declare
+its family and lineage role. Roles then govern whether anchor and upstream refs
+are mandatory.
+
+Managed family views exist so the portfolio no longer has to be read as one
+flat storyline:
+
+- `Initiative Family Board`
+- `Initiative Family / <family>` queries
+
 ## Supported Delivery Surfaces
 
 Normal `Workspace Delivery ART` work should now use the broker-owned delivery

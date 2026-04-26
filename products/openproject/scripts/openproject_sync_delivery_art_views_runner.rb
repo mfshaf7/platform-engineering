@@ -6,6 +6,14 @@ require_relative "openproject_delivery_art_home_support"
 
 RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_VIEWS_BEGIN__"
 RESULT_END = "__OPENPROJECT_DELIVERY_ART_VIEWS_END__"
+INITIATIVE_LINEAGE_CONTRACT_PATH = [
+  File.expand_path("delivery-art-initiative-lineage.json", __dir__),
+  File.expand_path("../delivery-art-initiative-lineage.json", __dir__)
+].find { |path| File.exist?(path) }
+raise "Missing delivery-art-initiative-lineage.json support file" if INITIATIVE_LINEAGE_CONTRACT_PATH.nil?
+INITIATIVE_LINEAGE_CONTRACT = JSON.parse(
+  File.read(INITIATIVE_LINEAGE_CONTRACT_PATH)
+)
 
 PROJECT_IDENTIFIER = "workspace-delivery-art"
 BOARD_MODULE = "board_view"
@@ -28,8 +36,16 @@ PM2_BOARD_NAME = "PM² Phase Board"
 EXECUTION_BOARD_NAME = "ART Execution Kanban"
 PI_OBJECTIVES_BOARD_NAME = "PI Objectives"
 RISK_BOARD_NAME = "ART Risk Register"
+INITIATIVE_FAMILY_BOARD_NAME = "Initiative Family Board"
 LEGACY_PM2_BOARD_NAME = "PM² Initiative Register"
 LEGACY_PI_BOARD_NAME = "Program Increment Planning"
+INITIATIVE_FAMILY_FIELD_NAME = INITIATIVE_LINEAGE_CONTRACT
+  .fetch("custom_fields")
+  .fetch("initiative_family")
+  .fetch("name")
+INITIATIVE_FAMILY_KEYS = INITIATIVE_LINEAGE_CONTRACT.fetch("families").map do |entry|
+  entry.fetch("key")
+end.freeze
 
 MANAGED_QUERY_PREFIXES = [
   "PM² Initiatives",
@@ -38,7 +54,8 @@ MANAGED_QUERY_PREFIXES = [
   "ART Execution / ",
   "PI Planning / ",
   "PI Objectives / ",
-  "ART Risks / "
+  "ART Risks / ",
+  "Initiative Family / "
 ].freeze
 
 def admin_user!
@@ -211,7 +228,8 @@ def destroy_managed_views!(project)
       EXECUTION_BOARD_NAME,
       LEGACY_PI_BOARD_NAME,
       PI_OBJECTIVES_BOARD_NAME,
-      RISK_BOARD_NAME
+      RISK_BOARD_NAME,
+      INITIATIVE_FAMILY_BOARD_NAME
     ]
   ).find_each(&:destroy!)
 
@@ -306,6 +324,18 @@ def retired_initiative_filters(pm2_type:, retired_status:)
   ]
 end
 
+def initiative_family_filters(pm2_type:, initiative_family_field:, family_key:)
+  [
+    { type_id: { operator: "=", values: [pm2_type.id.to_s] } },
+    {
+      "cf_#{initiative_family_field.id}": {
+        operator: "=",
+        values: [ensure_custom_option_value!(field: initiative_family_field, value: family_key)]
+      }
+    }
+  ]
+end
+
 def pi_objective_filters(version:, pi_objective_type:, target_pi_field:, pi_objective_type_field:, commitment_type:)
   [
     { "cf_#{target_pi_field.id}": { operator: "=", values: [version.name] } },
@@ -368,6 +398,8 @@ target_pi_field = project.work_package_custom_fields.find_by(name: "Target PI")
 raise "Missing Target PI custom field for PI planning views" if target_pi_field.nil?
 pm2_phase_field = project.work_package_custom_fields.find_by(name: "PM² Phase")
 raise "Missing PM² Phase custom field for PM² board views" if pm2_phase_field.nil?
+initiative_family_field = project.work_package_custom_fields.find_by(name: INITIATIVE_FAMILY_FIELD_NAME)
+raise "Missing Initiative Family custom field for initiative-family views" if initiative_family_field.nil?
 pi_objective_type_field = project.work_package_custom_fields.find_by(name: "PI Objective Type")
 raise "Missing PI Objective Type custom field for PI objective views" if pi_objective_type_field.nil?
 
@@ -553,6 +585,26 @@ risk_board = create_basic_board!(
   widgets: risk_widgets
 )
 
+initiative_family_queries = []
+initiative_family_board = create_basic_board!(
+  project: project,
+  name: INITIATIVE_FAMILY_BOARD_NAME,
+  widgets: INITIATIVE_FAMILY_KEYS.map do |family_key|
+    filters = initiative_family_filters(
+      pm2_type: pm2_type!,
+      initiative_family_field: initiative_family_field,
+      family_key: family_key
+    )
+    query = create_query!(
+      project: project,
+      name: "Initiative Family / #{family_key}",
+      filters: filters
+    )
+    initiative_family_queries << query
+    { query: query, filters: filters }
+  end
+)
+
 project.reload
 
 result = {
@@ -574,7 +626,8 @@ result = {
     pm2_board,
     execution_board,
     pi_objective_board,
-    risk_board
+    risk_board,
+    initiative_family_board
   ].compact.map do |board|
     {
       id: board.id,
@@ -593,7 +646,8 @@ result = {
     *pm2_queries,
     *execution_widgets.map { |widget| widget[:query] },
     *pi_objective_queries,
-    *risk_queries
+    *risk_queries,
+    *initiative_family_queries
   ].map do |query|
     {
      id: query.id,

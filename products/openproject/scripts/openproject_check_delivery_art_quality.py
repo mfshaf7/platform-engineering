@@ -23,6 +23,10 @@ INITIATIVE_REVIEW_WORKFLOW = json.loads(
 )
 BLOCKER_WORKFLOW_PATH = PRODUCT_DIR / "delivery-art-blocker-workflow.json"
 BLOCKER_WORKFLOW = json.loads(BLOCKER_WORKFLOW_PATH.read_text(encoding="utf-8"))
+INITIATIVE_LINEAGE_WORKFLOW_PATH = PRODUCT_DIR / "delivery-art-initiative-lineage.json"
+INITIATIVE_LINEAGE_WORKFLOW = json.loads(
+    INITIATIVE_LINEAGE_WORKFLOW_PATH.read_text(encoding="utf-8")
+)
 
 BACKLOG_ITERATION_LABEL = PLANNING_WORKFLOW["backlog_iteration_label"]
 ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_name"]
@@ -66,6 +70,26 @@ BLOCKER_REQUIRED_RESPONSE_KEYS = tuple(
 BLOCKER_FOLLOW_UP_RESPONSE_KEYS = tuple(
     BLOCKER_WORKFLOW["conditionally_required_follow_up_response_keys"]
 )
+INITIATIVE_LINEAGE_CUSTOM_FIELDS = INITIATIVE_LINEAGE_WORKFLOW["custom_fields"]
+INITIATIVE_FAMILY_FIELD_NAME = INITIATIVE_LINEAGE_CUSTOM_FIELDS["initiative_family"][
+    "name"
+]
+LINEAGE_ROLE_FIELD_NAME = INITIATIVE_LINEAGE_CUSTOM_FIELDS["lineage_role"]["name"]
+ARCHITECTURE_ANCHOR_REF_FIELD_NAME = INITIATIVE_LINEAGE_CUSTOM_FIELDS[
+    "architecture_anchor_ref"
+]["name"]
+REQUIRED_UPSTREAM_REF_FIELD_NAME = INITIATIVE_LINEAGE_CUSTOM_FIELDS[
+    "required_upstream_ref"
+]["name"]
+INITIATIVE_FAMILY_KEYS = {
+    entry["key"] for entry in INITIATIVE_LINEAGE_WORKFLOW["families"]
+}
+INITIATIVE_LINEAGE_ROLE_RULES = {
+    entry["key"]: entry for entry in INITIATIVE_LINEAGE_WORKFLOW["roles"]
+}
+INITIATIVE_UNCLASSIFIED_SHELL_RULE = INITIATIVE_LINEAGE_WORKFLOW[
+    "allow_unclassified_initiative_shell"
+]
 
 INITIATIVE_REVIEW_REASON_DETAILS = {
     "system_demo_missing": {
@@ -312,6 +336,238 @@ def add_issue(
             "gate_id": gate_id,
         }
     )
+
+
+def parse_openproject_work_package_ref(value: object) -> int | None:
+    rendered = str(value or "").strip()
+    if not rendered:
+        return None
+    match = re.fullmatch(r"openproject://work_packages/(\d+)", rendered)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def is_allowed_unclassified_initiative_shell(epic: dict[str, object]) -> bool:
+    return (
+        (epic.get("status") or "").strip().lower()
+        == INITIATIVE_UNCLASSIFIED_SHELL_RULE["status"].lower()
+        and (epic.get("pm2_phase") or "").strip()
+        == INITIATIVE_UNCLASSIFIED_SHELL_RULE["pm2_phase"]
+        and not (epic.get("target_pi") or "").strip()
+        and not (epic.get("initiative_family") or "").strip()
+        and not (epic.get("lineage_role") or "").strip()
+        and not (epic.get("architecture_anchor_ref") or "").strip()
+        and not (epic.get("required_upstream_ref") or "").strip()
+    )
+
+
+def evaluate_initiative_lineage_state(
+    *,
+    epic: dict[str, object],
+    initiative_id: int,
+    initiatives_by_id: dict[int, dict[str, object]],
+    issues: list[dict[str, object]],
+    work_packages_by_id: dict[int, dict[str, object]],
+) -> None:
+    if is_allowed_unclassified_initiative_shell(epic):
+        return
+
+    initiative_family = str(epic.get("initiative_family") or "").strip()
+    lineage_role = str(epic.get("lineage_role") or "").strip()
+    architecture_anchor_ref = str(epic.get("architecture_anchor_ref") or "").strip()
+    required_upstream_ref = str(epic.get("required_upstream_ref") or "").strip()
+
+    if not initiative_family:
+        add_issue(
+            issues,
+            issue_type="initiative_missing_family",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=(
+                "Top-level initiative is missing Initiative Family outside the allowed "
+                "new Initiating shell posture."
+            ),
+            gate_id="initiative-family-required-before-planning-or-commitment",
+        )
+        return
+
+    if initiative_family not in INITIATIVE_FAMILY_KEYS:
+        add_issue(
+            issues,
+            issue_type="initiative_invalid_family",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Initiative Family {initiative_family} is not allowed.",
+            gate_id="initiative-family-required-before-planning-or-commitment",
+        )
+        return
+
+    if not lineage_role:
+        add_issue(
+            issues,
+            issue_type="initiative_missing_lineage_role",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=(
+                "Top-level initiative is missing Lineage Role outside the allowed "
+                "new Initiating shell posture."
+            ),
+            gate_id="initiative-family-required-before-planning-or-commitment",
+        )
+        return
+
+    role_rule = INITIATIVE_LINEAGE_ROLE_RULES.get(lineage_role)
+    if role_rule is None:
+        add_issue(
+            issues,
+            issue_type="initiative_invalid_lineage_role",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Lineage Role {lineage_role} is not allowed.",
+            gate_id="initiative-lineage-role-must-satisfy-anchor-requirements",
+        )
+        return
+
+    if role_rule.get("requires_anchor_ref") and not architecture_anchor_ref:
+        add_issue(
+            issues,
+            issue_type="initiative_missing_architecture_anchor_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Lineage Role {lineage_role} requires Architecture Anchor Ref.",
+            gate_id="initiative-lineage-role-must-satisfy-anchor-requirements",
+        )
+    if role_rule.get("allows_anchor_ref") is False and architecture_anchor_ref:
+        add_issue(
+            issues,
+            issue_type="initiative_forbidden_architecture_anchor_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Lineage Role {lineage_role} must not set Architecture Anchor Ref.",
+            gate_id="initiative-lineage-role-must-satisfy-anchor-requirements",
+        )
+    if role_rule.get("requires_upstream_ref") and not required_upstream_ref:
+        add_issue(
+            issues,
+            issue_type="initiative_missing_required_upstream_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Lineage Role {lineage_role} requires Required Upstream Ref.",
+            gate_id="initiative-lineage-role-must-satisfy-anchor-requirements",
+        )
+    if role_rule.get("allows_upstream_ref") is False and required_upstream_ref:
+        add_issue(
+            issues,
+            issue_type="initiative_forbidden_required_upstream_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail=f"Lineage Role {lineage_role} must not set Required Upstream Ref.",
+            gate_id="initiative-lineage-role-must-satisfy-anchor-requirements",
+        )
+
+    anchor_id = parse_openproject_work_package_ref(architecture_anchor_ref)
+    if architecture_anchor_ref and anchor_id is None:
+        add_issue(
+            issues,
+            issue_type="initiative_invalid_architecture_anchor_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail="Architecture Anchor Ref must look like openproject://work_packages/<id>.",
+            gate_id="initiative-anchor-ref-must-point-to-top-level-epic",
+        )
+    elif anchor_id is not None:
+        anchor_initiative = initiatives_by_id.get(anchor_id)
+        if anchor_initiative is None:
+            add_issue(
+                issues,
+                issue_type="initiative_missing_anchor_epic",
+                initiative_id=initiative_id,
+                target=epic,
+                detail=(
+                    f"Architecture Anchor Ref {architecture_anchor_ref} must point to an existing "
+                    "top-level Epic."
+                ),
+                gate_id="initiative-anchor-ref-must-point-to-top-level-epic",
+            )
+        else:
+            anchor_epic = anchor_initiative.get("epic") or {}
+            anchor_family = str(anchor_epic.get("initiative_family") or "").strip()
+            if anchor_family and anchor_family != initiative_family:
+                add_issue(
+                    issues,
+                    issue_type="initiative_anchor_family_mismatch",
+                    initiative_id=initiative_id,
+                    target=epic,
+                    detail=(
+                        f"Initiative Family {initiative_family} must match anchor family {anchor_family}."
+                    ),
+                    gate_id="initiative-anchor-family-must-match",
+                )
+
+    upstream_id = parse_openproject_work_package_ref(required_upstream_ref)
+    if required_upstream_ref and upstream_id is None:
+        add_issue(
+            issues,
+            issue_type="initiative_invalid_required_upstream_ref",
+            initiative_id=initiative_id,
+            target=epic,
+            detail="Required Upstream Ref must look like openproject://work_packages/<id>.",
+            gate_id="initiative-upstream-ref-must-point-to-existing-art-record",
+        )
+    elif upstream_id is not None:
+        upstream_item = work_packages_by_id.get(upstream_id)
+        if upstream_item is None:
+            add_issue(
+                issues,
+                issue_type="initiative_missing_required_upstream_record",
+                initiative_id=initiative_id,
+                target=epic,
+                detail=(
+                    f"Required Upstream Ref {required_upstream_ref} must point to an existing "
+                    "ART work package."
+                ),
+                gate_id="initiative-upstream-ref-must-point-to-existing-art-record",
+            )
+        else:
+            upstream_root_id = upstream_id
+            visited: set[int] = set()
+            while True:
+                if upstream_root_id in visited:
+                    add_issue(
+                        issues,
+                        issue_type="initiative_upstream_parent_loop",
+                        initiative_id=initiative_id,
+                        target=epic,
+                        detail=(
+                            f"Required Upstream Ref {required_upstream_ref} resolved through a parent loop."
+                        ),
+                        gate_id="initiative-upstream-ref-must-point-to-existing-art-record",
+                    )
+                    break
+                visited.add(upstream_root_id)
+                current = work_packages_by_id.get(upstream_root_id)
+                if current is None or current.get("parent_id") is None:
+                    break
+                upstream_root_id = int(current["parent_id"])
+
+            upstream_root = initiatives_by_id.get(int(upstream_root_id))
+            upstream_root_epic = upstream_root.get("epic") if upstream_root else None
+            upstream_root_family = (
+                str((upstream_root_epic or {}).get("initiative_family") or "").strip()
+            )
+            if upstream_root_family and upstream_root_family != initiative_family:
+                add_issue(
+                    issues,
+                    issue_type="initiative_required_upstream_family_mismatch",
+                    initiative_id=initiative_id,
+                    target=epic,
+                    detail=(
+                        f"Required Upstream Ref {required_upstream_ref} resolves to family "
+                        f"{upstream_root_family}, not {initiative_family}."
+                    ),
+                    gate_id="initiative-upstream-ref-must-point-to-existing-art-record",
+                )
 
 
 def add_narrative_finding(
@@ -1105,12 +1361,27 @@ def main() -> int:
 
     issues: list[dict[str, object]] = []
     narrative_findings: list[dict[str, object]] = []
+    initiatives_by_id = {
+        int(entry["epic"]["id"]): entry
+        for entry in initiatives
+        if isinstance(entry, dict)
+        and isinstance(entry.get("epic"), dict)
+        and entry["epic"].get("id") is not None
+    }
 
     for initiative in initiatives:
         epic = initiative.get("epic") or {}
         if not isinstance(epic, dict):
             continue
         initiative_id = int(epic["id"])
+        if not scoped_execution_only:
+            evaluate_initiative_lineage_state(
+                epic=epic,
+                initiative_id=initiative_id,
+                initiatives_by_id=initiatives_by_id,
+                issues=issues,
+                work_packages_by_id=work_packages_by_id,
+            )
         epic_status = epic.get("status")
         if not scoped_execution_only and epic_status not in {"new", "parked", "retired"}:
             if not epic.get("pm2_phase"):

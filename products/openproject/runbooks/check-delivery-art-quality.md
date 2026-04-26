@@ -67,8 +67,9 @@ The supported quality check currently verifies:
   roadmap bucket `Not yet committed to a PI`
 - retired work with blank `Target PI` projects to the derived roadmap bucket
   `Retired scope`
+- retired work does not still retain stale `Target PI` commitment
 - `PI Objective`, `User story`, `Task`, and `Milestone` records do not exist
-  without PI commitment
+  without PI commitment unless they have already moved into `retired` scope
 - backlog `Feature` work does not already carry story-level execution children
 - PI-committed non-`Epic` work carries a non-backlog `Iteration`
 - advisory narrative quality findings by work-item type:

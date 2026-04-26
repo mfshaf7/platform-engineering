@@ -376,15 +376,15 @@ Use these commitment rules as the canonical machine model:
   - may exist without `Target PI` only while it remains backlog correction work
     in `new` posture
 - `PI Objective`
-  - must always carry `Target PI`
+  - must carry `Target PI` unless it has already moved into `retired` scope
   - at least one `PI Objective` must exist before an initiative can keep
     PI-committed non-`Epic` scope
 - `User story`
-  - must always carry `Target PI`
+  - must carry `Target PI` unless it has already moved into `retired` scope
 - `Task`
-  - must always carry `Target PI`
+  - must carry `Target PI` unless it has already moved into `retired` scope
 - `Milestone`
-  - must always carry `Target PI`
+  - must carry `Target PI` unless it has already moved into `retired` scope
   - remains an `Epic`-level checkpoint, not an execution container
   - does not replace a `PI Objective` or a `Feature` leaf front
 
@@ -397,6 +397,8 @@ Derived roadmap rules:
 - blank `Target PI` on backlog or active scope projects to `Not yet committed
   to a PI`
 - blank `Target PI` on retired scope projects to `Retired scope`
+- retired scope must not retain stale `Target PI`; retirement clears PI
+  commitment and returns the item to the canonical uncommitted iteration label
 - the unassigned roadmap bucket is for backlog posture only, not active
   execution
 - the retired roadmap bucket is for inactive superseded or withdrawn scope, not

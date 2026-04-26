@@ -9,6 +9,10 @@ Use this runbook to keep consume, initiative framing, PI commitment,
 rolling-wave elaboration, and carryover review aligned to one machine-enforced
 model.
 
+When the operator first needs to decide the correct ART shape for newly
+accepted work, start with
+[start-delivery-initiative.md](start-delivery-initiative.md) first.
+
 Canonical planning-workflow contract:
 
 - [delivery-art-planning-workflow.json](../delivery-art-planning-workflow.json)

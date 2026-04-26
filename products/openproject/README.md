@@ -85,6 +85,9 @@ machine-readable boundary contract:
 
 The canonical planning path is now explicit as well:
 
+- start with
+  [runbooks/start-delivery-initiative.md](runbooks/start-delivery-initiative.md)
+  when accepted work is first entering ART
 - consume accepted work into one `Epic` shell
 - frame the initiative while it stays backlog-shaped
 - commit PI objectives and features during PI planning
@@ -221,10 +224,12 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 - [runbooks/check-delivery-art-workflow-health.md](runbooks/check-delivery-art-workflow-health.md)
 - [runbooks/check-delivery-art-quality.md](runbooks/check-delivery-art-quality.md)
+- [runbooks/start-delivery-initiative.md](runbooks/start-delivery-initiative.md)
 - [runbooks/manage-delivery-initiative-lineage.md](runbooks/manage-delivery-initiative-lineage.md)
 - [runbooks/manage-delivery-blockers.md](runbooks/manage-delivery-blockers.md)
 - [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
 - [runbooks/openproject-platform-admin-surface.md](runbooks/openproject-platform-admin-surface.md)
+- [runbooks/start-delivery-initiative.md](runbooks/start-delivery-initiative.md)
 - [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)
 - [runbooks/review-delivery-initiative.md](runbooks/review-delivery-initiative.md)
 - [runbooks/sync-delivery-art-views.md](runbooks/sync-delivery-art-views.md)

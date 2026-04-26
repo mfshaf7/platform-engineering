@@ -33,8 +33,11 @@ Read this as operator workflow families:
   state.
 - `configure-idea-backlog.md` and `configure-delivery-art.md` live on the
   proposal and project-bootstrap side.
-- `plan-delivery-art.md` is the primary operator surface for consume, framing,
-  PI planning, rolling-wave elaboration, and PI carryover discipline.
+- `start-delivery-initiative.md` is the primary start-here operator surface
+  for accepted work entering ART.
+- `plan-delivery-art.md` is the detailed planning checklist and gate matrix for
+  consume, framing, PI planning, rolling-wave elaboration, and PI carryover
+  discipline.
 - `manage-delivery-initiative-lineage.md` is the primary operator surface for
   top-level initiative family, anchor, and upstream lineage classification.
 - `check-delivery-art-workflow-health.md` is the first ART-lane health read
@@ -61,6 +64,7 @@ Read this as operator workflow families:
 - [bootstrap-openproject.md](bootstrap-openproject.md)
 - [configure-idea-backlog.md](configure-idea-backlog.md)
 - [configure-delivery-art.md](configure-delivery-art.md)
+- [start-delivery-initiative.md](start-delivery-initiative.md)
 - [plan-delivery-art.md](plan-delivery-art.md)
 - [manage-delivery-initiative-lineage.md](manage-delivery-initiative-lineage.md)
 - [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md)

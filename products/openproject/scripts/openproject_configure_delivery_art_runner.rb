@@ -6,6 +6,14 @@ require_relative "openproject_delivery_art_taxonomy_support"
 
 RESULT_BEGIN = "__OPENPROJECT_DELIVERY_ART_BEGIN__"
 RESULT_END = "__OPENPROJECT_DELIVERY_ART_END__"
+INITIATIVE_LINEAGE_CONTRACT_PATH = [
+  File.expand_path("delivery-art-initiative-lineage.json", __dir__),
+  File.expand_path("../delivery-art-initiative-lineage.json", __dir__)
+].find { |path| File.exist?(path) }
+raise "Missing delivery-art-initiative-lineage.json support file" if INITIATIVE_LINEAGE_CONTRACT_PATH.nil?
+INITIATIVE_LINEAGE_CONTRACT = JSON.parse(
+  File.read(INITIATIVE_LINEAGE_CONTRACT_PATH)
+)
 
 PROJECT_IDENTIFIER = "workspace-delivery-art"
 PROJECT_NAME = "Workspace Delivery ART"
@@ -19,6 +27,7 @@ EXECUTION_CLASSIFICATION_TYPE_NAMES = OpenprojectDeliveryArtTaxonomySupport.clas
 EXECUTION_FIELD_TYPE_NAMES = (STRUCTURAL_TYPE_NAMES - ["Epic"]).freeze
 WORKFLOW_FIELD_TYPE_NAMES = STRUCTURAL_TYPE_NAMES.freeze
 WSJF_TYPE_NAMES = ["Feature"].freeze
+INITIATIVE_LINEAGE_CUSTOM_FIELDS = INITIATIVE_LINEAGE_CONTRACT.fetch("custom_fields")
 
 TYPE_SPECS = [
   {
@@ -134,6 +143,42 @@ CUSTOM_FIELD_SPECS = [
     is_filter: false,
     multi_value: false,
     type_names: ["Epic"]
+  },
+  {
+    name: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("initiative_family").fetch("name"),
+    field_format: "list",
+    searchable: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("initiative_family").fetch("searchable"),
+    is_filter: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("initiative_family").fetch("filter"),
+    multi_value: false,
+    possible_values: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("initiative_family").fetch("possible_values"),
+    type_names: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("initiative_family").fetch("type_names")
+  },
+  {
+    name: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("lineage_role").fetch("name"),
+    field_format: "list",
+    searchable: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("lineage_role").fetch("searchable"),
+    is_filter: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("lineage_role").fetch("filter"),
+    multi_value: false,
+    possible_values: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("lineage_role").fetch("possible_values"),
+    type_names: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("lineage_role").fetch("type_names")
+  },
+  {
+    name: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("architecture_anchor_ref").fetch("name"),
+    field_format: "string",
+    searchable: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("architecture_anchor_ref").fetch("searchable"),
+    is_filter: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("architecture_anchor_ref").fetch("filter"),
+    multi_value: false,
+    max_length: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("architecture_anchor_ref").fetch("max_length"),
+    type_names: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("architecture_anchor_ref").fetch("type_names")
+  },
+  {
+    name: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("required_upstream_ref").fetch("name"),
+    field_format: "string",
+    searchable: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("required_upstream_ref").fetch("searchable"),
+    is_filter: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("required_upstream_ref").fetch("filter"),
+    multi_value: false,
+    max_length: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("required_upstream_ref").fetch("max_length"),
+    type_names: INITIATIVE_LINEAGE_CUSTOM_FIELDS.fetch("required_upstream_ref").fetch("type_names")
   },
   {
     name: "Target PI",

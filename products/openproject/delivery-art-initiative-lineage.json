@@ -1,0 +1,169 @@
+{
+  "workflow_id": "delivery-art-initiative-lineage",
+  "scope": "top-level-epic",
+  "allow_unclassified_initiative_shell": {
+    "status": "new",
+    "pm2_phase": "Initiating",
+    "target_pi_must_be_blank": true
+  },
+  "custom_fields": {
+    "initiative_family": {
+      "name": "Initiative Family",
+      "field_format": "list",
+      "filter": true,
+      "possible_values": [
+        "governed-ai-control-plane",
+        "enterprise-cybersecurity-baseline",
+        "delivery-art-governance-foundations",
+        "delivery-art-operator-surfaces",
+        "devint-smoke"
+      ],
+      "searchable": false,
+      "type_names": [
+        "Epic"
+      ]
+    },
+    "lineage_role": {
+      "name": "Lineage Role",
+      "field_format": "list",
+      "filter": true,
+      "possible_values": [
+        "architecture-anchor",
+        "prerequisite-foundation",
+        "topology-decision",
+        "bounded-activation",
+        "control-hardening",
+        "operational-smoke"
+      ],
+      "searchable": false,
+      "type_names": [
+        "Epic"
+      ]
+    },
+    "architecture_anchor_ref": {
+      "name": "Architecture Anchor Ref",
+      "field_format": "string",
+      "filter": true,
+      "max_length": 512,
+      "searchable": true,
+      "type_names": [
+        "Epic"
+      ]
+    },
+    "required_upstream_ref": {
+      "name": "Required Upstream Ref",
+      "field_format": "string",
+      "filter": true,
+      "max_length": 512,
+      "searchable": true,
+      "type_names": [
+        "Epic"
+      ]
+    }
+  },
+  "families": [
+    {
+      "key": "governed-ai-control-plane",
+      "label": "Governed AI Control Plane",
+      "description": "Centralized governance control-plane architecture, parity, topology, and bounded governed AI activation work."
+    },
+    {
+      "key": "enterprise-cybersecurity-baseline",
+      "label": "Enterprise Cybersecurity Baseline",
+      "description": "Workspace-wide cybersecurity control baseline, assurance, and compliance operating-model work."
+    },
+    {
+      "key": "delivery-art-governance-foundations",
+      "label": "Delivery ART Governance Foundations",
+      "description": "Machine-readable ART model, taxonomy, and projection-governance work that keeps the delivery plane structurally truthful."
+    },
+    {
+      "key": "delivery-art-operator-surfaces",
+      "label": "Delivery ART Operator Surfaces",
+      "description": "Delivery workflow operator path, consume-to-planning flow, and admin-surface hardening for ART execution."
+    },
+    {
+      "key": "devint-smoke",
+      "label": "Devint Smoke",
+      "description": "Smoke, rehearsal, or temporary validation initiatives that exist to prove a runtime or workflow path."
+    }
+  ],
+  "roles": [
+    {
+      "key": "architecture-anchor",
+      "label": "Architecture Anchor",
+      "allows_anchor_ref": false,
+      "allows_upstream_ref": false,
+      "description": "Defines the top-level architecture truth for one initiative family.",
+      "requires_anchor_ref": false,
+      "requires_upstream_ref": false
+    },
+    {
+      "key": "prerequisite-foundation",
+      "label": "Prerequisite Foundation",
+      "allows_anchor_ref": true,
+      "allows_upstream_ref": true,
+      "description": "Lands a required foundation tranche beneath an existing architecture anchor.",
+      "requires_anchor_ref": true,
+      "requires_upstream_ref": false
+    },
+    {
+      "key": "topology-decision",
+      "label": "Topology Decision",
+      "allows_anchor_ref": true,
+      "allows_upstream_ref": true,
+      "description": "Captures a structural topology or extraction decision after an upstream gate.",
+      "requires_anchor_ref": true,
+      "requires_upstream_ref": true
+    },
+    {
+      "key": "bounded-activation",
+      "label": "Bounded Activation",
+      "allows_anchor_ref": true,
+      "allows_upstream_ref": true,
+      "description": "Activates one bounded consumer or runtime tranche behind the anchor and explicit upstream gate.",
+      "requires_anchor_ref": true,
+      "requires_upstream_ref": true
+    },
+    {
+      "key": "control-hardening",
+      "label": "Control Hardening",
+      "allows_anchor_ref": true,
+      "allows_upstream_ref": true,
+      "description": "Hardens one existing initiative family or operator surface without redefining the architecture anchor.",
+      "requires_anchor_ref": true,
+      "requires_upstream_ref": false
+    },
+    {
+      "key": "operational-smoke",
+      "label": "Operational Smoke",
+      "allows_anchor_ref": false,
+      "allows_upstream_ref": false,
+      "description": "Temporary smoke or rehearsal initiative that proves runtime or workflow reachability without becoming an architecture chain.",
+      "requires_anchor_ref": false,
+      "requires_upstream_ref": false
+    }
+  ],
+  "quality_gates": [
+    {
+      "gate_id": "initiative-family-required-before-planning-or-commitment",
+      "rule": "A top-level initiative may remain unclassified only while it is a new Initiating shell without Target PI. Planning or committed initiatives must carry Initiative Family and Lineage Role."
+    },
+    {
+      "gate_id": "initiative-lineage-role-must-satisfy-anchor-requirements",
+      "rule": "The declared Lineage Role controls whether Architecture Anchor Ref and Required Upstream Ref are mandatory."
+    },
+    {
+      "gate_id": "initiative-anchor-ref-must-point-to-top-level-epic",
+      "rule": "Architecture Anchor Ref must point to an existing top-level Epic when present."
+    },
+    {
+      "gate_id": "initiative-anchor-family-must-match",
+      "rule": "A non-anchor initiative must share Initiative Family with its declared Architecture Anchor Ref."
+    },
+    {
+      "gate_id": "initiative-upstream-ref-must-point-to-existing-art-record",
+      "rule": "Required Upstream Ref must point to an existing ART work package when present."
+    }
+  ]
+}

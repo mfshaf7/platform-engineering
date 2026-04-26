@@ -44,6 +44,14 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertIn("statement", MODULE.BLOCKER_REQUIRED_RESPONSE_KEYS)
         self.assertIn("follow_up_owner", MODULE.BLOCKER_FOLLOW_UP_RESPONSE_KEYS)
 
+    def test_initiative_lineage_contract_constants_are_loaded(self) -> None:
+        self.assertEqual(MODULE.INITIATIVE_FAMILY_FIELD_NAME, "Initiative Family")
+        self.assertIn("governed-ai-control-plane", MODULE.INITIATIVE_FAMILY_KEYS)
+        self.assertIn(
+            "bounded-activation",
+            MODULE.INITIATIVE_LINEAGE_ROLE_RULES,
+        )
+
     def test_blank_env_values_fall_back_to_defaults(self) -> None:
         self.assertEqual(
             MODULE.resolve_openproject_namespace({"OPENPROJECT_NAMESPACE": ""}),
@@ -159,6 +167,77 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertEqual(
             result["retirement_transition_reasons"],
             ["open_descendants_present", "pm2_phase_not_cleared_for_retired"],
+        )
+
+    def test_initiative_lineage_missing_family_is_reported_outside_shell_posture(self) -> None:
+        issues = []
+        MODULE.evaluate_initiative_lineage_state(
+            epic={
+                "id": 251,
+                "record_ref": "openproject://work_packages/251",
+                "status": "planning",
+                "subject": "Activate the first bounded governed AI assist path",
+                "target_pi": "PI-2026-03",
+                "pm2_phase": "Planning",
+            },
+            initiative_id=251,
+            initiatives_by_id={},
+            issues=issues,
+            work_packages_by_id={},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "initiative_missing_family"
+                and issue["gate_id"]
+                == "initiative-family-required-before-planning-or-commitment"
+                for issue in issues
+            )
+        )
+
+    def test_initiative_lineage_anchor_family_mismatch_is_reported(self) -> None:
+        issues = []
+        MODULE.evaluate_initiative_lineage_state(
+            epic={
+                "id": 251,
+                "record_ref": "openproject://work_packages/251",
+                "status": "new",
+                "subject": "Activate the first bounded governed AI assist path",
+                "target_pi": "PI-2026-03",
+                "pm2_phase": "Planning",
+                "initiative_family": "enterprise-cybersecurity-baseline",
+                "lineage_role": "bounded-activation",
+                "architecture_anchor_ref": "openproject://work_packages/38",
+                "required_upstream_ref": "openproject://work_packages/245",
+            },
+            initiative_id=251,
+            initiatives_by_id={
+                38: {
+                    "epic": {
+                        "id": 38,
+                        "initiative_family": "governed-ai-control-plane",
+                    }
+                }
+            },
+            issues=issues,
+            work_packages_by_id={
+                245: {
+                    "id": 245,
+                    "parent_id": 227,
+                },
+                227: {
+                    "id": 227,
+                    "parent_id": None,
+                },
+            },
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "initiative_anchor_family_mismatch"
+                and issue["gate_id"] == "initiative-anchor-family-must-match"
+                for issue in issues
+            )
         )
 
     def test_target_pi_version_drift_is_reported(self) -> None:

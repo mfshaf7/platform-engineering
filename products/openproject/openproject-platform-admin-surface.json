@@ -136,6 +136,7 @@
         "openproject_configure_delivery_art_runner.rb"
       ],
       "support_files": [
+        "../delivery-art-initiative-lineage.json",
         "openproject_delivery_art_home_support.rb",
         "openproject_delivery_art_taxonomy_support.rb"
       ],
@@ -156,6 +157,7 @@
         "openproject_sync_delivery_art_views_runner.rb"
       ],
       "support_files": [
+        "../delivery-art-initiative-lineage.json",
         "openproject_delivery_art_custom_field_support.rb",
         "openproject_delivery_art_home_support.rb",
         "openproject_delivery_art_taxonomy_support.rb"

@@ -19,6 +19,7 @@ declared, operated, and verified on this platform.
 - `runbooks/access-openproject.md`
 - `runbooks/check-delivery-art-workflow-health.md`
 - `runbooks/check-delivery-art-quality.md`
+- `runbooks/manage-delivery-initiative-lineage.md`
 - `runbooks/manage-delivery-blockers.md`
 - `openproject-platform-admin-surface.json`
 - `runbooks/openproject-platform-admin-surface.md`

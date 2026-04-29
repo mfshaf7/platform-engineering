@@ -20,6 +20,9 @@ These support shared platform operations:
     the operator-facing evidence pack copied into each run directory
   - reports drill status without pretending a temporary runtime exercise is the
     same thing as governed promotion
+  - writes generated run state under `.platform-drills/`, which is local
+    scratch state; promote durable outcomes through governed records instead of
+    committing raw drill directories
 
 The default shared drill profile and evidence template live under:
 

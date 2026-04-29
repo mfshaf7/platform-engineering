@@ -173,7 +173,13 @@ This creates a run directory under:
 
 - `.platform-drills/active-stack-runtime-drill/<run-id>/`
 
-The directory is the operator ledger for the drill. It contains:
+The directory is the operator ledger for the drill, but it is generated local
+state and is ignored by git. If the drill outcome needs durable evidence,
+promote the relevant summary into the active ART item, a governed change
+record, or another approved evidence surface. Do not commit raw
+`.platform-drills/` directories with absolute local paths.
+
+The directory contains:
 
 - `contract.yaml`
 - `run.yaml`

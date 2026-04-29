@@ -104,6 +104,34 @@ only when all of these are true:
   `workspace-governance`
 - the operator acceptance metadata is recorded with the intake entry
 
+## Runtime-Assist Activation Contract
+
+Bounded AI runtime assists must satisfy
+`security/governed-ai-runtime-assist-contract.yaml` before any live activation.
+The model-profile registry is necessary, but it is not sufficient by itself.
+
+Live activation requires:
+
+- an `active` approved profile with a selected upstream model
+- a governed invocation path owned by the platform access plane
+- caller identity at the access-plane boundary
+- separate operator acceptance identity when human approval is required
+- minimum audit fields emitted and retained
+- direct provider egress blocked from governed consumers
+- a current security delta review for the activation scope
+- rollback controls that can suspend the profile or consumer when evidence
+  fails
+
+Consumer repos must reference the platform contract instead of cloning AI
+policy locally. `workspace-governance`, product repos, and operator workflows
+may consume approved profiles, but they do not own profile lifecycle,
+provider-secret placement, direct-provider egress decisions, or the access-plane
+audit boundary.
+
+Until every activation gate is proven, a runtime assist may be designed,
+reviewed, or tested as an exception/non-governed path, but it must not be
+recorded as a governed live runtime path.
+
 ## Anti-Patterns
 
 - putting raw provider API keys into product or operator-assist repos

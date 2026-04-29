@@ -175,6 +175,10 @@ def validate_runtime_assist_contract(
         audit_fields = audit.get("required_fields")
         if not isinstance(audit_fields, list):
             errors.append(f"{RUNTIME_ASSIST_CONTRACT_PATH}: audit_minimum.required_fields must be a list")
+        elif any(not isinstance(field, str) or not field for field in audit_fields):
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: audit_minimum.required_fields entries must be non-empty strings"
+            )
         else:
             missing = sorted(REQUIRED_RUNTIME_AUDIT_FIELDS.difference(audit_fields))
             if missing:
@@ -182,7 +186,12 @@ def validate_runtime_assist_contract(
                     f"{RUNTIME_ASSIST_CONTRACT_PATH}: audit_minimum.required_fields missing {missing}"
                 )
 
-    for field_name in ("activation_gates", "environment_control_gates", "rollback_gates"):
+    gate_required_keys = {
+        "activation_gates": "id",
+        "environment_control_gates": "environment",
+        "rollback_gates": "id",
+    }
+    for field_name, required_key in gate_required_keys.items():
         entries = require_non_empty_list(
             contract.get(field_name),
             label=f"{RUNTIME_ASSIST_CONTRACT_PATH}: contract.{field_name}",
@@ -194,8 +203,10 @@ def validate_runtime_assist_contract(
             if not isinstance(entry, dict):
                 errors.append(f"{RUNTIME_ASSIST_CONTRACT_PATH}: {field_name} entry #{idx} must be a mapping")
                 continue
-            if "id" not in entry and "environment" not in entry:
-                errors.append(f"{RUNTIME_ASSIST_CONTRACT_PATH}: {field_name} entry #{idx} missing id or environment")
+            if not isinstance(entry.get(required_key), str) or not entry.get(required_key):
+                errors.append(
+                    f"{RUNTIME_ASSIST_CONTRACT_PATH}: {field_name} entry #{idx} missing non-empty {required_key}"
+                )
 
     for field_name in ("security_review_refs", "related_artifacts"):
         refs = require_non_empty_list(

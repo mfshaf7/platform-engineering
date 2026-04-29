@@ -1,0 +1,104 @@
+schema_version: 1
+contract:
+  contract_id: bounded-runtime-assist-v1
+  status: blocked
+  owner_repo: platform-engineering
+  security_owner: security-architecture
+  delivery_refs:
+    delivery_id: delivery-251
+    epic_ref: openproject://work_packages/251
+    platform_feature_ref: openproject://work_packages/253
+    security_feature_ref: openproject://work_packages/254
+  purpose: >
+    Define the platform-owned admission contract for bounded governed AI
+    runtime assists before any consumer can activate a live model-assisted path.
+  model_profiles:
+    - intake-classifier-v1
+  consumers:
+    allowed_callers:
+      - workspace-governance/intake-assist
+    denied_patterns:
+      - direct-provider-client
+      - repo-local-provider-secret
+      - model-output-direct-mutation
+  model_profile_selection:
+    required_profile_status_for_live_activation: active
+    require_profile_purpose_match: true
+    require_allowed_caller_match: true
+    require_allowed_data_scope_match: true
+    require_output_schema_ref: true
+    require_security_review_ref: true
+    prohibit_pending_upstream_model_for_live_activation: true
+  invocation_boundary:
+    required_path: governed-ai-gateway
+    direct_provider_access_allowed: false
+    provider_credentials_allowed_in_consumers: false
+    required_controls:
+      - approved platform access plane
+      - caller identity at the access-plane boundary
+      - operator acceptance identity when human approval is required
+      - direct provider egress block for governed consumers
+      - structured audit emission before returning model output
+  approval_boundary:
+    human_approval_required: true
+    approval_authority: operator
+    model_output_mutates_canonical_state: false
+    required_acceptance_evidence:
+      - operator_identity
+      - decision_or_correlation_id
+      - accepted_or_overridden_outcome
+      - override_reason_when_changed
+  audit_minimum:
+    required_fields:
+      - event_time
+      - correlation_id
+      - caller_identity
+      - operator_identity
+      - approved_profile_id
+      - invocation_path
+      - purpose
+      - output_schema_ref
+      - policy_decision
+      - outcome
+      - operator_acceptance_state
+      - override_reason
+  activation_gates:
+    - id: profile-active
+      required_evidence: governed profile status is active and references a selected upstream model
+    - id: access-plane-live
+      required_evidence: governed AI gateway or equivalent approved access plane is deployed
+    - id: identity-boundary-live
+      required_evidence: caller identity and operator acceptance identity are both attributable
+    - id: audit-retention-live
+      required_evidence: minimum audit fields are emitted and retained
+    - id: provider-egress-blocked
+      required_evidence: consumers cannot bypass the governed path with direct provider access
+    - id: security-delta-review-current
+      required_evidence: current security delta review approves the live activation scope
+  environment_control_gates:
+    - environment: dev-integration
+      requirement: activation allowed only after the activation gates are proven for the profile and caller
+    - environment: stage
+      requirement: governed promotion evidence must reference the same profile, caller, audit, and rollback controls
+    - environment: prod
+      requirement: production promotion requires release authority approval and no unresolved activation findings
+  rollback_gates:
+    - id: suspend-profile
+      trigger: audit emission failure, caller identity failure, provider bypass, or security finding
+      required_action: set the affected model profile to suspended before further governed use
+    - id: disable-consumer
+      trigger: consumer sends data outside the approved scope or bypasses operator approval
+      required_action: disable the consumer integration and preserve audit evidence
+    - id: revoke-provider-route
+      trigger: provider credential exposure or direct provider egress is detected
+      required_action: revoke the route or credential and record security remediation evidence
+  security_review_refs:
+    - repo: security-architecture
+      path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md
+  related_artifacts:
+    - repo: platform-engineering
+      path: security/governed-ai-model-profiles.yaml
+    - repo: platform-engineering
+      path: docs/standards/governed-ai-access-model.md
+    - repo: security-architecture
+      path: docs/standards/ai-security-and-governance.md

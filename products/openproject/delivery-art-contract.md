@@ -222,7 +222,12 @@ truth. They are not free-form writing polish targets.
 
 Description rules:
 
-- start the description with a markdown heading instead of loose prose
+- start the description with a markdown heading instead of loose prose before
+  the item becomes executable, PI-committed, blocked, or done
+- planned backlog `Feature`, `User story`, `Defect`, and `Risk` items may carry
+  lightweight planning prose while they remain `new` or `parked`, have no
+  `Target PI`, and have no concrete iteration; the quality checker reports
+  that as backlog `polish`, not as a hard ART failure
 - keep `Acceptance Criteria`, `Definition of Ready`, and `Definition of Done`
   in custom fields only
 - use `Execution Context` for the fast human-readable bridge to repo, review,

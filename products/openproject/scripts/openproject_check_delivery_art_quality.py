@@ -623,6 +623,18 @@ def add_narrative_finding(
     )
 
 
+def filter_narrative_findings_for_output(
+    narrative_findings: list[dict[str, object]], *, include_polish_details: bool
+) -> list[dict[str, object]]:
+    if include_polish_details:
+        return narrative_findings
+    return [
+        finding
+        for finding in narrative_findings
+        if finding.get("severity") != "polish"
+    ]
+
+
 def add_initiative_review_issue(
     issues: list[dict[str, object]],
     *,
@@ -724,6 +736,40 @@ def required_headings(type_name: str | None, classification: str | None) -> list
     return headings.get(classification, headings.get("default", []))
 
 
+def is_planned_backlog_scope(
+    node: dict[str, object], work_packages_by_id: dict[int, dict[str, object]]
+) -> bool:
+    type_name = node.get("type")
+    status = str(node.get("status") or "")
+    iteration = node.get("iteration")
+    if (
+        type_name not in {"Feature", "User story", "Defect", "Risk"}
+        or node.get("target_pi")
+        or status not in {"new", "parked"}
+        or (iteration and iteration != BACKLOG_ITERATION_LABEL)
+    ):
+        return False
+
+    if type_name == "User story":
+        parent_id = node.get("parent_id")
+        try:
+            parent = (
+                work_packages_by_id.get(int(parent_id))
+                if parent_id is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            parent = None
+        return bool(
+            parent
+            and parent.get("type") == "Feature"
+            and not parent.get("target_pi")
+            and parent.get("status") not in DONE_TREE_TERMINAL_STATUSES
+        )
+
+    return True
+
+
 def build_subtree_scope_ids(
     work_packages_by_id: dict[int, dict[str, object]], target_epic_id: int | None
 ) -> set[int]:
@@ -754,6 +800,11 @@ def evaluate_execution_summary(
     narrative_findings: list[dict[str, object]],
 ) -> None:
     all_nodes = flatten_tree(root)
+    work_packages_by_id = {
+        int(node["id"]): node
+        for node in all_nodes
+        if isinstance(node, dict) and "id" in node
+    }
     descendants = all_nodes[1:]
     open_descendants = [
         node
@@ -838,13 +889,28 @@ def evaluate_execution_summary(
                 ),
             )
         if not node.get("description_starts_with_heading", False) and node.get("description_present"):
-            add_issue(
-                issues,
-                issue_type="description_does_not_start_with_heading",
-                initiative_id=initiative_id,
-                target=node,
-                detail="description must start with a markdown heading instead of loose prose",
-            )
+            if is_planned_backlog_scope(node, work_packages_by_id):
+                add_narrative_finding(
+                    narrative_findings,
+                    finding_type="description_does_not_start_with_heading",
+                    initiative_id=initiative_id,
+                    target=node,
+                    severity="polish",
+                    attention_scope="backlog",
+                    missing_headings=[],
+                    detail=(
+                        "planned backlog description should start with a markdown heading "
+                        "before the item becomes executable"
+                    ),
+                )
+            else:
+                add_issue(
+                    issues,
+                    issue_type="description_does_not_start_with_heading",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail="description must start with a markdown heading instead of loose prose",
+                )
         if status in ACTIVE_STATUSES and node.get("ready_contract_applicable") and not node.get("ready_contract_satisfied"):
             missing = node.get("ready_contract_missing_fields") or []
             add_issue(
@@ -1385,6 +1451,7 @@ def evaluate_live_project_taxonomy(
 def main() -> int:
     env = os.environ.copy()
     include_done = env.get("INCLUDE_DONE", "true")
+    include_polish_details = env.get("INCLUDE_POLISH_DETAILS", "false").lower() == "true"
     target_epic_id = env.get("TARGET_EPIC_ID", "").strip()
     scoped_execution_only = bool(target_epic_id)
     include_done_param = "true" if include_done == "true" else "false"
@@ -1538,6 +1605,10 @@ def main() -> int:
         narrative_findings=narrative_findings,
         scoped_ids=scoped_ids,
     )
+    visible_narrative_findings = filter_narrative_findings_for_output(
+        narrative_findings,
+        include_polish_details=include_polish_details,
+    )
 
     result = {
         "project": initiatives_payload.get("project"),
@@ -1563,6 +1634,9 @@ def main() -> int:
                 severity: sum(1 for finding in narrative_findings if finding["severity"] == severity)
                 for severity in sorted({finding["severity"] for finding in narrative_findings})
             },
+            "suppressed_polish_finding_count": len(narrative_findings)
+            - len(visible_narrative_findings),
+            "include_polish_details": include_polish_details,
             "initiative_ids_with_issues": sorted(
                 {issue["initiative_id"] for issue in issues if issue["initiative_id"] is not None}
             ),
@@ -1586,7 +1660,7 @@ def main() -> int:
         },
         "project_taxonomy_summary": project_taxonomy_summary,
         "issues": issues,
-        "narrative_findings": narrative_findings,
+        "narrative_findings": visible_narrative_findings,
     }
 
     print(json.dumps(result, indent=2))

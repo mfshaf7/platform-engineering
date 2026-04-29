@@ -66,13 +66,13 @@ contract:
     - id: profile-active
       required_evidence: governed profile status is active and references a selected upstream model
     - id: access-plane-live
-      required_evidence: governed AI gateway or equivalent approved access plane is deployed
+      required_evidence: governed AI gateway or equivalent approved access plane is deployed and matches security/governed-ai-access-plane.yaml
     - id: identity-boundary-live
       required_evidence: caller identity and operator acceptance identity are both attributable
     - id: audit-retention-live
       required_evidence: minimum audit fields are emitted and retained
     - id: provider-egress-blocked
-      required_evidence: consumers cannot bypass the governed path with direct provider access
+      required_evidence: consumers cannot bypass the governed path with direct provider access and satisfy security/governed-ai-devint-egress-policy.yaml in devint
     - id: security-delta-review-current
       required_evidence: current security delta review approves the live activation scope
   environment_control_gates:
@@ -96,6 +96,10 @@ contract:
     - repo: security-architecture
       path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md
   related_artifacts:
+    - repo: platform-engineering
+      path: security/governed-ai-access-plane.yaml
+    - repo: platform-engineering
+      path: security/governed-ai-devint-egress-policy.yaml
     - repo: platform-engineering
       path: security/governed-ai-model-profiles.yaml
     - repo: platform-engineering

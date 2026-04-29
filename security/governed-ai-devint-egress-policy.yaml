@@ -1,0 +1,34 @@
+schema_version: 1
+devint_egress_policy:
+  id: governed-ai-devint-egress-v1
+  status: source-defined
+  owner_repo: platform-engineering
+  applies_to:
+    lane: dev-integration
+    consumers:
+      - workspace-governance/intake-assist
+  required_invocation_path:
+    service_name: governed-ai-gateway
+    namespace: governed-ai
+    port_name: http
+  consumer_policy:
+    default_egress: deny
+    allow_to_governed_gateway: true
+    allow_dns: true
+    direct_provider_egress_allowed: false
+  denied_provider_destinations:
+    - api.openai.com
+    - api.anthropic.com
+    - generativelanguage.googleapis.com
+    - api.mistral.ai
+    - api.cohere.ai
+  required_kubernetes_controls:
+    - "namespace_selector_label: governed-ai-consumer=true"
+    - "pod_selector_label: governed-ai-caller=true"
+    - "network_policy: deny direct provider egress from governed consumers"
+    - "network_policy: allow consumer egress only to governed-ai-gateway and DNS"
+  evidence_required_before_activation:
+    - rendered NetworkPolicy or equivalent CNI policy is applied in devint
+    - consumer pod cannot reach denied provider destinations directly
+    - consumer pod can reach governed-ai-gateway service
+    - gateway emits caller identity and audit metadata for the request

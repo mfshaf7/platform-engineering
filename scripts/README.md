@@ -43,8 +43,9 @@ The default shared drill profile and evidence template live under:
     in `../environments/shared/single-host-scaling-policy.yaml`
 
 `validate_ai_model_profiles.py` checks the platform-owned governed AI model
-profile registry under `../security/governed-ai-model-profiles.yaml`, including
-cross-repo references to `security-architecture` review artifacts and
+profile registry, runtime-assist activation contract, access-plane source
+contract, and devint egress policy under `../security/`, including cross-repo
+references to `security-architecture` review artifacts and
 `workspace-governance` output-schema contracts.
 
 `validate_environment_readiness.py` evaluates the aggregate governed readiness

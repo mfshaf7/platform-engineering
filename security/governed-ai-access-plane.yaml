@@ -1,0 +1,77 @@
+schema_version: 1
+access_plane:
+  id: governed-ai-gateway
+  status: source-defined
+  owner_repo: platform-engineering
+  security_owner: security-architecture
+  purpose: >
+    Provide the shared governed invocation boundary for central governance
+    consumers. Consumers call this boundary instead of carrying provider
+    credentials or direct provider clients.
+  profile_registry_ref:
+    repo: platform-engineering
+    path: security/governed-ai-model-profiles.yaml
+  runtime_assist_contract_ref:
+    repo: platform-engineering
+    path: security/governed-ai-runtime-assist-contract.yaml
+  allowed_profiles:
+    - intake-classifier-v1
+  allowed_callers:
+    - caller_id: workspace-governance/intake-assist
+      purpose: workspace-intake-assist
+      required_profile: intake-classifier-v1
+      required_output_schema_ref:
+        repo: workspace-governance
+        path: contracts/schemas/intake-ai-suggestion.schema.json
+  caller_identity:
+    required_fields:
+      - caller_id
+      - caller_repo
+      - caller_workflow
+      - decision_or_correlation_id
+      - requested_profile_id
+    propagation_boundary: access-plane-request
+    operator_identity_required_when_human_approval_required: true
+  provider_credential_custody:
+    owner: platform-engineering
+    allowed_secret_store: vault
+    consumer_provider_credentials_allowed: false
+    provider_secret_projection_allowed_only_to:
+      - governed-ai-gateway runtime namespace
+    provider_secret_refs:
+      - provider: internal-ai-gateway
+        vault_path: components/governed-ai-gateway/shared/provider
+        property: apiToken
+  audit_contract:
+    sink_status: pending-implementation
+    retention_owner: platform-engineering
+    required_fields:
+      - event_time
+      - correlation_id
+      - caller_identity
+      - operator_identity
+      - approved_profile_id
+      - invocation_path
+      - purpose
+      - output_schema_ref
+      - policy_decision
+      - outcome
+      - operator_acceptance_state
+      - override_reason
+  admission_policy:
+    default_decision: deny
+    require_active_profile: true
+    require_caller_allowlist_match: true
+    require_data_scope_match: true
+    require_output_schema_match: true
+    require_human_approval_for_governance_decisions: true
+    direct_provider_passthrough_allowed: false
+  devint_enforcement_ref:
+    repo: platform-engineering
+    path: security/governed-ai-devint-egress-policy.yaml
+  activation_state:
+    profile_activation_allowed: false
+    reason: >
+      Source contract is defined, but live activation remains blocked until a
+      deployed gateway, audit sink, caller identity proof, provider-egress block,
+      and rollback evidence exist.

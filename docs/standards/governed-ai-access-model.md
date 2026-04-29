@@ -132,6 +132,42 @@ Until every activation gate is proven, a runtime assist may be designed,
 reviewed, or tested as an exception/non-governed path, but it must not be
 recorded as a governed live runtime path.
 
+## Access-Plane Source Contract
+
+The platform access-plane source of truth is
+`security/governed-ai-access-plane.yaml`. It defines:
+
+- the shared `governed-ai-gateway` invocation boundary
+- allowed profiles and callers
+- caller identity fields that must reach the access plane
+- provider credential custody and Vault placement rules
+- audit fields required at the access-plane boundary
+- default-deny admission policy for governed model calls
+- the activation state for profile use
+
+The access-plane contract is source truth, not proof of live operation by
+itself. A profile remains unavailable for governed live use while
+`activation_state.profile_activation_allowed` is false.
+
+## Devint Egress Enforcement
+
+The dev-integration egress source contract is
+`security/governed-ai-devint-egress-policy.yaml`. It defines the minimum
+devint posture for the first central governance consumer:
+
+- consumer egress defaults to deny
+- governed AI consumers may reach only DNS and the `governed-ai-gateway`
+  service for AI invocation
+- direct provider egress remains denied from consumer pods
+- provider destinations such as direct API endpoints are explicitly listed as
+  denied
+- activation evidence must prove both positive gateway reachability and
+  negative direct-provider reachability
+
+If the devint runtime cannot enforce these controls, the caller may still be
+tested as a non-governed exception path, but it must not activate the governed
+profile or record itself as a governed runtime assist.
+
 ## Anti-Patterns
 
 - putting raw provider API keys into product or operator-assist repos

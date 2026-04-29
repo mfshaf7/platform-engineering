@@ -11,7 +11,10 @@ import yaml
 ALLOWED_STATUSES = {"active", "suspended", "retired", "exception"}
 PROFILE_PATH = Path("security/governed-ai-model-profiles.yaml")
 RUNTIME_ASSIST_CONTRACT_PATH = Path("security/governed-ai-runtime-assist-contract.yaml")
+ACCESS_PLANE_PATH = Path("security/governed-ai-access-plane.yaml")
+DEVINT_EGRESS_POLICY_PATH = Path("security/governed-ai-devint-egress-policy.yaml")
 RUNTIME_CONTRACT_STATUSES = {"blocked", "planned", "active", "retired"}
+ACCESS_PLANE_STATUSES = {"source-defined", "active", "retired"}
 REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "event_time",
     "correlation_id",
@@ -24,6 +27,13 @@ REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "policy_decision",
     "outcome",
     "operator_acceptance_state",
+}
+REQUIRED_CALLER_IDENTITY_FIELDS = {
+    "caller_id",
+    "caller_repo",
+    "caller_workflow",
+    "decision_or_correlation_id",
+    "requested_profile_id",
 }
 
 
@@ -228,6 +238,241 @@ def validate_runtime_assist_contract(
             )
 
 
+def validate_devint_egress_policy(repo_root: Path, errors: list[str]) -> dict | None:
+    policy_path = repo_root / DEVINT_EGRESS_POLICY_PATH
+    if not policy_path.exists():
+        errors.append(f"missing governed AI devint egress policy: {DEVINT_EGRESS_POLICY_PATH}")
+        return None
+
+    payload = load_yaml(policy_path)
+    if payload.get("schema_version") != 1:
+        errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: schema_version must be 1")
+
+    policy = require_non_empty_mapping(
+        payload.get("devint_egress_policy"),
+        label=f"{DEVINT_EGRESS_POLICY_PATH}: devint_egress_policy",
+        errors=errors,
+    )
+    if policy is None:
+        return None
+
+    if policy.get("owner_repo") != "platform-engineering":
+        errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: owner_repo must be platform-engineering")
+
+    applies_to = require_non_empty_mapping(
+        policy.get("applies_to"),
+        label=f"{DEVINT_EGRESS_POLICY_PATH}: applies_to",
+        errors=errors,
+    )
+    if applies_to is not None and applies_to.get("lane") != "dev-integration":
+        errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: applies_to.lane must be dev-integration")
+
+    invocation_path = require_non_empty_mapping(
+        policy.get("required_invocation_path"),
+        label=f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path",
+        errors=errors,
+    )
+    if invocation_path is not None:
+        if invocation_path.get("service_name") != "governed-ai-gateway":
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path.service_name must be governed-ai-gateway")
+        if not isinstance(invocation_path.get("namespace"), str) or not invocation_path.get("namespace"):
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path.namespace must be a non-empty string")
+
+    consumer_policy = require_non_empty_mapping(
+        policy.get("consumer_policy"),
+        label=f"{DEVINT_EGRESS_POLICY_PATH}: consumer_policy",
+        errors=errors,
+    )
+    if consumer_policy is not None:
+        if consumer_policy.get("default_egress") != "deny":
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: consumer_policy.default_egress must be deny")
+        if consumer_policy.get("allow_to_governed_gateway") is not True:
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: consumer_policy.allow_to_governed_gateway must be true")
+        if consumer_policy.get("direct_provider_egress_allowed") is not False:
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: direct provider egress must be false")
+
+    for field_name in (
+        "denied_provider_destinations",
+        "required_kubernetes_controls",
+        "evidence_required_before_activation",
+    ):
+        entries = require_non_empty_list(
+            policy.get(field_name),
+            label=f"{DEVINT_EGRESS_POLICY_PATH}: {field_name}",
+            errors=errors,
+        )
+        if entries and any(not isinstance(entry, str) or not entry for entry in entries):
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: {field_name} entries must be non-empty strings")
+
+    return policy
+
+
+def validate_access_plane_contract(
+    repo_root: Path,
+    workspace_root: Path,
+    profiles: dict,
+    errors: list[str],
+) -> None:
+    access_plane_path = repo_root / ACCESS_PLANE_PATH
+    if not access_plane_path.exists():
+        errors.append(f"missing governed AI access-plane contract: {ACCESS_PLANE_PATH}")
+        return
+
+    egress_policy = validate_devint_egress_policy(repo_root, errors)
+    payload = load_yaml(access_plane_path)
+    if payload.get("schema_version") != 1:
+        errors.append(f"{ACCESS_PLANE_PATH}: schema_version must be 1")
+
+    access_plane = require_non_empty_mapping(
+        payload.get("access_plane"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane",
+        errors=errors,
+    )
+    if access_plane is None:
+        return
+
+    if access_plane.get("id") != "governed-ai-gateway":
+        errors.append(f"{ACCESS_PLANE_PATH}: access_plane.id must be governed-ai-gateway")
+    if access_plane.get("status") not in ACCESS_PLANE_STATUSES:
+        errors.append(f"{ACCESS_PLANE_PATH}: access_plane.status must be one of {sorted(ACCESS_PLANE_STATUSES)}")
+    if access_plane.get("owner_repo") != "platform-engineering":
+        errors.append(f"{ACCESS_PLANE_PATH}: access_plane.owner_repo must be platform-engineering")
+    if access_plane.get("security_owner") != "security-architecture":
+        errors.append(f"{ACCESS_PLANE_PATH}: access_plane.security_owner must be security-architecture")
+
+    for ref_field in ("profile_registry_ref", "runtime_assist_contract_ref", "devint_enforcement_ref"):
+        ref = access_plane.get(ref_field)
+        if not isinstance(ref, dict):
+            errors.append(f"{ACCESS_PLANE_PATH}: access_plane.{ref_field} must be a mapping")
+        else:
+            resolve_cross_repo_path(
+                workspace_root,
+                ref,
+                label=f"{ACCESS_PLANE_PATH}: access_plane.{ref_field}",
+                errors=errors,
+            )
+
+    allowed_profiles = require_non_empty_list(
+        access_plane.get("allowed_profiles"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.allowed_profiles",
+        errors=errors,
+    )
+    if allowed_profiles:
+        for profile_id in allowed_profiles:
+            if not isinstance(profile_id, str) or not profile_id:
+                errors.append(f"{ACCESS_PLANE_PATH}: allowed_profiles entries must be strings")
+            elif profile_id not in profiles:
+                errors.append(f"{ACCESS_PLANE_PATH}: unknown allowed profile {profile_id}")
+
+    allowed_callers = require_non_empty_list(
+        access_plane.get("allowed_callers"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.allowed_callers",
+        errors=errors,
+    )
+    if allowed_callers:
+        for idx, caller in enumerate(allowed_callers, start=1):
+            if not isinstance(caller, dict):
+                errors.append(f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} must be a mapping")
+                continue
+            required_profile = caller.get("required_profile")
+            if required_profile not in profiles:
+                errors.append(f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} references unknown profile {required_profile!r}")
+            output_schema_ref = caller.get("required_output_schema_ref")
+            if not isinstance(output_schema_ref, dict):
+                errors.append(f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} required_output_schema_ref must be a mapping")
+            else:
+                resolve_cross_repo_path(
+                    workspace_root,
+                    output_schema_ref,
+                    label=f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} required_output_schema_ref",
+                    errors=errors,
+                )
+
+    caller_identity = require_non_empty_mapping(
+        access_plane.get("caller_identity"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.caller_identity",
+        errors=errors,
+    )
+    if caller_identity is not None:
+        fields = caller_identity.get("required_fields")
+        if not isinstance(fields, list) or any(not isinstance(field, str) or not field for field in fields):
+            errors.append(f"{ACCESS_PLANE_PATH}: caller_identity.required_fields must be a list of non-empty strings")
+        else:
+            missing = sorted(REQUIRED_CALLER_IDENTITY_FIELDS.difference(fields))
+            if missing:
+                errors.append(f"{ACCESS_PLANE_PATH}: caller_identity.required_fields missing {missing}")
+        if caller_identity.get("operator_identity_required_when_human_approval_required") is not True:
+            errors.append(f"{ACCESS_PLANE_PATH}: caller_identity must require operator identity when human approval is required")
+
+    custody = require_non_empty_mapping(
+        access_plane.get("provider_credential_custody"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.provider_credential_custody",
+        errors=errors,
+    )
+    if custody is not None:
+        if custody.get("consumer_provider_credentials_allowed") is not False:
+            errors.append(f"{ACCESS_PLANE_PATH}: consumer provider credentials must be false")
+        refs = require_non_empty_list(
+            custody.get("provider_secret_refs"),
+            label=f"{ACCESS_PLANE_PATH}: provider_credential_custody.provider_secret_refs",
+            errors=errors,
+        )
+        if refs:
+            for idx, ref in enumerate(refs, start=1):
+                if not isinstance(ref, dict):
+                    errors.append(f"{ACCESS_PLANE_PATH}: provider_secret_refs entry #{idx} must be a mapping")
+                    continue
+                if not isinstance(ref.get("vault_path"), str) or not ref.get("vault_path"):
+                    errors.append(f"{ACCESS_PLANE_PATH}: provider_secret_refs entry #{idx} missing vault_path")
+
+    audit = require_non_empty_mapping(
+        access_plane.get("audit_contract"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.audit_contract",
+        errors=errors,
+    )
+    if audit is not None:
+        audit_fields = audit.get("required_fields")
+        if not isinstance(audit_fields, list) or any(not isinstance(field, str) or not field for field in audit_fields):
+            errors.append(f"{ACCESS_PLANE_PATH}: audit_contract.required_fields must be a list of non-empty strings")
+        else:
+            missing = sorted(REQUIRED_RUNTIME_AUDIT_FIELDS.difference(audit_fields))
+            if missing:
+                errors.append(f"{ACCESS_PLANE_PATH}: audit_contract.required_fields missing {missing}")
+
+    admission = require_non_empty_mapping(
+        access_plane.get("admission_policy"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.admission_policy",
+        errors=errors,
+    )
+    if admission is not None:
+        if admission.get("default_decision") != "deny":
+            errors.append(f"{ACCESS_PLANE_PATH}: admission_policy.default_decision must be deny")
+        for bool_field in (
+            "require_active_profile",
+            "require_caller_allowlist_match",
+            "require_data_scope_match",
+            "require_output_schema_match",
+            "require_human_approval_for_governance_decisions",
+        ):
+            if admission.get(bool_field) is not True:
+                errors.append(f"{ACCESS_PLANE_PATH}: admission_policy.{bool_field} must be true")
+        if admission.get("direct_provider_passthrough_allowed") is not False:
+            errors.append(f"{ACCESS_PLANE_PATH}: admission_policy.direct_provider_passthrough_allowed must be false")
+
+    activation = require_non_empty_mapping(
+        access_plane.get("activation_state"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.activation_state",
+        errors=errors,
+    )
+    if activation is not None and activation.get("profile_activation_allowed") is not False:
+        errors.append(f"{ACCESS_PLANE_PATH}: activation_state.profile_activation_allowed must remain false until live evidence exists")
+
+    if egress_policy is not None:
+        required_path = egress_policy.get("required_invocation_path") or {}
+        if required_path.get("service_name") != access_plane.get("id"):
+            errors.append(f"{ACCESS_PLANE_PATH}: devint egress policy service_name must match access_plane.id")
+
+
 def validate(repo_root: Path) -> list[str]:
     errors: list[str] = []
     registry_path = repo_root / PROFILE_PATH
@@ -326,6 +571,7 @@ def validate(repo_root: Path) -> list[str]:
                     f"{PROFILE_PATH}: {profile_id} active profile must not keep upstream_model as pending-selection"
                 )
 
+    validate_access_plane_contract(repo_root, workspace_root, profiles, errors)
     validate_runtime_assist_contract(repo_root, workspace_root, profiles, errors)
 
     return errors
@@ -352,6 +598,7 @@ def main() -> int:
     print(
         "governed AI model profiles valid: "
         f"profiles={len(payload.get('model_profiles', {}))} "
+        f"access_plane={ACCESS_PLANE_PATH} "
         f"runtime_assist_contract={RUNTIME_ASSIST_CONTRACT_PATH}"
     )
     return 0

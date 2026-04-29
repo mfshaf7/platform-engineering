@@ -363,12 +363,14 @@ Use one governed planning path for newly accepted work:
      - non-backlog `Iteration`
      - owner and assignment fields
 4. Rolling-wave elaboration
-   - create `User story` work only for committed features
+   - create `User story` work under backlog features only as `new`,
+     non-executable future decomposition with blank `Target PI`
+   - create executable `User story` work only for committed features
    - create `Task` work only under active `User story` or `Defect` items
    - each PI-committed `Feature` must already have at least one open
      `User story` or `Defect` child as its executable leaf front
-   - do not pre-expand backlog features into story forests before PI
-     commitment
+   - do not pre-expand backlog features into executable story forests before
+     PI commitment
 5. Execution
    - treat the active child `User story`, `Defect`, or `Task` as the real
      execution front
@@ -406,8 +408,9 @@ Use these commitment rules as the canonical machine model:
   - is the only allowed root work-item type
 - `Feature`
   - may exist without `Target PI` while it stays backlog-shaped
-  - backlog features must not carry `User story` children before PI
-    commitment
+  - backlog features may carry `new` planned `User story` children only while
+    those children remain non-executable future decomposition with blank
+    `Target PI`
   - once PI-committed, a `Feature` must keep at least one open `User story`
     or `Defect` child
 - `Risk`
@@ -420,7 +423,9 @@ Use these commitment rules as the canonical machine model:
   - at least one `PI Objective` must exist before an initiative can keep
     PI-committed non-`Epic` scope
 - `User story`
-  - must carry `Target PI` unless it has already moved into `retired` scope
+  - may exist without `Target PI` only as `new` or `parked` planned backlog
+    decomposition under a backlog `Feature`
+  - must carry `Target PI` once executable, active, or PI-committed
 - `Task`
   - must carry `Target PI` unless it has already moved into `retired` scope
 - `Milestone`

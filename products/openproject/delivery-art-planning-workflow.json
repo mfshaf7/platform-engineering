@@ -22,7 +22,6 @@
   "planning_sets": {
     "target_pi_required_types": [
       "PI Objective",
-      "User story",
       "Task",
       "Milestone"
     ],
@@ -36,6 +35,8 @@
       "Risk"
     ],
     "backlog_feature_forbidden_child_types": [
+    ],
+    "backlog_feature_planned_child_types": [
       "User story"
     ],
     "feature_leaf_front_child_types": [
@@ -105,12 +106,12 @@
         ]
       },
       "forbidden_actions": [
-        "Leave backlog Features with User story children.",
+        "Leave backlog Features with executable User story children.",
         "Move non-Epic work into ready, in-progress, or blocked without PI commitment."
       ],
       "exit_criteria": [
         "Backlog work stays new unless it is explicitly PI committed.",
-        "Backlog Features remain umbrella-shaped."
+        "Backlog Features either remain umbrella-shaped or carry only non-executable planned User story children."
       ],
       "primary_surfaces": [
         "POST /v1/delivery-work-items",
@@ -221,12 +222,12 @@
         ]
       },
       "forbidden_actions": [
-        "Create User story or Task work beneath an uncommitted parent.",
-        "Pre-expand backlog Features into story forests.",
+        "Create executable User story or Task work beneath an uncommitted parent.",
+        "Pre-expand backlog Features into executable story forests.",
         "Leave a PI-committed Feature without an open User story or Defect child."
       ],
       "exit_criteria": [
-        "Story and task work exists only for committed features or active defects.",
+        "Executable story and task work exists only for committed features or active defects.",
         "PI-committed Features already have an executable User story or Defect leaf front.",
         "Active leaf work keeps PI commitment and non-backlog iteration."
       ],
@@ -354,9 +355,9 @@
       ]
     },
     {
-      "id": "backlog-feature-must-stay-umbrella-shaped",
+      "id": "backlog-feature-child-scope-must-stay-non-executable",
       "control_type": "machine",
-      "rule": "Backlog Features must not own User story children before PI commitment.",
+      "rule": "Backlog Features may own planned User story children only while those children stay new or parked, blank Target PI, and backlog-iteration only.",
       "enforcement_surfaces": [
         "openproject_check_delivery_art_quality.py"
       ]
@@ -372,7 +373,7 @@
     {
       "id": "target-pi-required-on-committed-leaf-types",
       "control_type": "machine",
-      "rule": "PI Objective, User story, Task, and Milestone work must carry Target PI.",
+      "rule": "PI Objective, Task, and Milestone work must carry Target PI; User story work must carry Target PI once executable, active, or PI-committed.",
       "enforcement_surfaces": [
         "POST /v1/delivery-work-items",
         "POST /v1/delivery-work-items/{work_item_id}/update",
@@ -403,7 +404,7 @@
     {
       "id": "story-and-task-parent-must-be-committed",
       "control_type": "machine",
-      "rule": "User story and Task work may only be created or moved under PI-committed parents.",
+      "rule": "Executable User story and Task work may only be created or moved under PI-committed parents; backlog Features may keep new planned User story children as non-executable future decomposition.",
       "enforcement_surfaces": [
         "POST /v1/delivery-work-items",
         "POST /v1/delivery-work-items/{work_item_id}/move",

@@ -21,7 +21,9 @@ class DeliveryArtQualityTest(unittest.TestCase):
         )
         self.assertIn("ready", MODULE.ACTIVE_STATUSES)
         self.assertIn("PI Objective", MODULE.TARGET_PI_REQUIRED_TYPES)
-        self.assertIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
+        self.assertNotIn("User story", MODULE.TARGET_PI_REQUIRED_TYPES)
+        self.assertNotIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
+        self.assertIn("User story", MODULE.BACKLOG_FEATURE_PLANNED_CHILD_TYPES)
         self.assertIn("Defect", MODULE.FEATURE_LEAF_FRONT_CHILD_TYPES)
 
     def test_initiative_review_workflow_contract_constants_are_loaded(self) -> None:
@@ -1036,7 +1038,7 @@ class DeliveryArtQualityTest(unittest.TestCase):
             )
         )
 
-    def test_backlog_feature_with_story_children_is_reported(self) -> None:
+    def test_backlog_feature_allows_planned_story_children_but_reports_executable_child_scope(self) -> None:
         issues = []
         narrative_findings = []
         epic = {
@@ -1121,9 +1123,28 @@ class DeliveryArtQualityTest(unittest.TestCase):
             narrative_findings=narrative_findings,
         )
 
+        self.assertFalse(
+            any(
+                issue["issue_type"] == "backlog_feature_has_executable_child_scope"
+                and issue["work_package_id"] == 520
+                for issue in issues
+            )
+        )
+
+        root["children"][0]["children"][0]["status"] = "ready"
+        issues = []
+        narrative_findings = []
+        MODULE.evaluate_execution_summary(
+            initiative_id=277,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
         self.assertTrue(
             any(
-                issue["issue_type"] == "backlog_feature_has_story_children"
+                issue["issue_type"] == "backlog_feature_has_executable_child_scope"
                 and issue["work_package_id"] == 520
                 for issue in issues
             )

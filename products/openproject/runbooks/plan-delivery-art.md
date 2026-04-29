@@ -115,7 +115,9 @@ Controls:
 
 Operator checklist:
 
-- create `User story` work only for committed `Feature` items
+- create `User story` work under backlog `Feature` items only as `new`,
+  non-executable future decomposition with blank `Target PI`
+- create executable `User story` work only for committed `Feature` items
 - create `Task` work only under active `User story` or `Defect` items
 - keep new elaboration inside the already committed slice
 - make sure each PI-committed `Feature` already has at least one open
@@ -123,8 +125,8 @@ Operator checklist:
 
 Forbidden:
 
-- story or task creation under uncommitted parents
-- pre-expanding backlog `Feature` work into execution trees
+- executable story or task creation under uncommitted parents
+- pre-expanding backlog `Feature` work into executable trees
 - leaving a PI-committed `Feature` without an open `User story` or `Defect`
   child
 
@@ -185,11 +187,12 @@ Controls:
 | `consume-must-use-proposal-handoff` | machine | top-level initiatives cannot be created through generic work-item create | broker work-item create route |
 | `backlog-feature-must-stay-umbrella-shaped` | machine | backlog `Feature` items cannot own `User story` children | ART quality checker |
 | `pi-committed-initiative-must-have-pi-objective` | machine | initiative scope with PI-committed non-`Epic` work must include at least one `PI Objective` | ART quality checker |
-| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `User story`, `Task`, and `Milestone` must carry `Target PI`; `Milestone` is checkpoint-only and does not replace a `PI Objective` or leaf front | broker create/update/move + ART quality checker |
+| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `Task`, and `Milestone` must carry `Target PI`; `User story` requires `Target PI` once executable or PI-committed | broker create/update/move + ART quality checker |
 | `active-non-epic-must-not-stay-uncommitted` | machine | `ready`, `in-progress`, or `blocked` non-`Epic` work must carry `Target PI` | broker create/update + ART quality checker |
 | `committed-non-epic-must-carry-non-backlog-iteration` | machine | committed non-`Epic` work must carry non-backlog `Iteration` | broker create/update + ART quality checker |
 | `pi-committed-feature-must-have-open-leaf-child` | machine | PI-committed `Feature` work must keep at least one open `User story` or `Defect` child | ART quality checker + broker plan/update guards |
-| `story-and-task-parent-must-be-committed` | machine | story and task work may only live beneath PI-committed parents | broker create/move |
+| `story-and-task-parent-must-be-committed` | machine | executable story and task work may only live beneath PI-committed parents; backlog Features may keep `new` planned User story children | broker create/move |
+| `backlog-feature-child-scope-must-stay-non-executable` | machine | planned User story children under backlog Features must stay `new` or `parked`, blank `Target PI`, and backlog-iteration only | ART quality checker |
 | `roadmap-version-must-match-target-pi-projection` | machine | roadmap `version` stays a faithful projection of canonical `Target PI` | roadmap healer + ART quality checker |
 | `execute-from-leaf-front` | operator | operators verify continuation context before treating umbrella work as the next front | broker continuation-context + ART skill |
 | `pi-review-must-carry-review-outcome-and-actual-value` | machine | reviewed PI objectives must record review outcome and actual value | broker PI-review route |
@@ -225,8 +228,11 @@ Allowed backlog children:
 
 Rules:
 
-- backlog features stay umbrella-shaped
-- backlog features must not already contain `User story` execution trees
+- backlog features may stay umbrella-shaped
+- backlog features may carry planned `User story` children only while those
+  children stay `new` or `parked`, blank `Target PI`, and backlog-iteration
+  only
+- backlog features must not already contain executable `User story` trees
 - uncommitted work stays in `new` posture
 - the initiative narrative explains scope boundaries and the current PI focus
 
@@ -258,13 +264,16 @@ still `Target PI`.
 
 ### 4. Rolling-Wave Elaboration
 
-Only elaborate the committed slice.
+Elaborate the committed slice, or record future decomposition as explicit
+non-executable backlog scope.
 
 Rules:
 
-- create `User story` work only for committed features
+- create `User story` work under backlog features only as planned
+  non-executable backlog scope
+- create executable `User story` work only for committed features
 - create `Task` work only under active `User story` or `Defect` items
-- do not pre-expand backlog features into story forests
+- do not pre-expand backlog features into executable story forests
 - if ad hoc defect work is needed before commitment, keep it explicitly in
   backlog posture until it is truly committed
 - once a `Feature` carries `Target PI` and a non-backlog `Iteration`, it must

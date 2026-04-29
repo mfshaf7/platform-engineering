@@ -157,6 +157,16 @@ Advisory narrative findings still matter for non-done work:
 - `polish`
   - usable, but weak enough to clean up later
 
+Planned backlog decomposition is intentionally lighter than executable work.
+Loose prose on a `new` or `parked` backlog `Feature`, `User story`, `Defect`,
+or `Risk` is reported as backlog `polish` while it has no `Target PI` and no
+concrete iteration. It becomes a hard quality issue only when that item is
+promoted into executable, PI-committed, blocked, or done scope.
+
+To keep the default operator output small, backlog `polish` details are
+summarized by count. Set `INCLUDE_POLISH_DETAILS=true` only when you are
+intentionally cleaning backlog prose.
+
 ## Command
 
 Run from `platform-engineering/`:
@@ -172,6 +182,9 @@ Optional fields:
   - recommended for routine active-session startup
 - `INCLUDE_DONE=true|false`
   - include or skip fully done initiatives in the portfolio sweep
+- `INCLUDE_POLISH_DETAILS=true|false`
+  - include the full backlog-polish list instead of the default compact
+    summary
 
 For the `accepted-idea-delivery` devint lane, also set the namespace:
 

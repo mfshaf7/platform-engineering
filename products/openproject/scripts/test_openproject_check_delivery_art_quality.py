@@ -64,6 +64,35 @@ class DeliveryArtQualityTest(unittest.TestCase):
             "8080",
         )
 
+    def test_polish_narrative_findings_are_summarized_by_default(self) -> None:
+        findings = [
+            {
+                "finding_type": "description_does_not_start_with_heading",
+                "severity": "polish",
+                "work_package_id": 427,
+            },
+            {
+                "finding_type": "missing_required_narrative_headings",
+                "severity": "discussion-required",
+                "work_package_id": 422,
+            },
+        ]
+
+        self.assertEqual(
+            MODULE.filter_narrative_findings_for_output(
+                findings,
+                include_polish_details=False,
+            ),
+            [findings[1]],
+        )
+        self.assertEqual(
+            MODULE.filter_narrative_findings_for_output(
+                findings,
+                include_polish_details=True,
+            ),
+            findings,
+        )
+
     def test_broker_namespace_defaults_to_openproject_namespace_for_profiles(self) -> None:
         self.assertEqual(
             MODULE.resolve_broker_namespace(
@@ -1146,6 +1175,191 @@ class DeliveryArtQualityTest(unittest.TestCase):
             any(
                 issue["issue_type"] == "backlog_feature_has_executable_child_scope"
                 and issue["work_package_id"] == 520
+                for issue in issues
+            )
+        )
+
+    def test_planned_backlog_story_loose_description_is_polish_not_hard_issue(self) -> None:
+        issues = []
+        narrative_findings = []
+        epic = {
+            "id": 420,
+            "record_ref": "openproject://work_packages/420",
+            "status": "new",
+            "subject": "Build Workspace Governance Control Fabric foundation",
+            "type": "Epic",
+            "description_headings": [
+                "What This Initiative Achieves",
+                "Current PI Focus",
+                "Scope Boundaries",
+                "Execution Context",
+            ],
+        }
+        root = {
+            "id": 420,
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [],
+                            "completion_evidence_formatting_valid": False,
+                            "completion_evidence_issues": [],
+                            "completion_evidence_present": False,
+                            "description_headings": [],
+                            "description_present": True,
+                            "description_starts_with_heading": False,
+                            "done_narrative_contract_applicable": False,
+                            "done_narrative_contract_issues": [],
+                            "done_narrative_contract_satisfied": True,
+                            "id": 427,
+                            "iteration": None,
+                            "owner_repo": "workspace-governance",
+                            "parent_id": 426,
+                            "record_ref": "openproject://work_packages/427",
+                            "responsible_login": "Workspace Governance",
+                            "status": "new",
+                            "subject": "Enabler: Write the control-fabric architecture ADR",
+                            "target_pi": None,
+                            "type": "User story",
+                        }
+                    ],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "What This Enables",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 426,
+                    "iteration": None,
+                    "owner_repo": "workspace-governance",
+                    "parent_id": 420,
+                    "record_ref": "openproject://work_packages/426",
+                    "responsible_login": "Workspace Governance",
+                    "status": "new",
+                    "subject": "Enabler: Define the control-fabric architecture",
+                    "target_pi": None,
+                    "type": "Feature",
+                }
+            ],
+        }
+
+        MODULE.evaluate_execution_summary(
+            initiative_id=420,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
+        self.assertFalse(
+            any(
+                issue["issue_type"] == "description_does_not_start_with_heading"
+                and issue["work_package_id"] == 427
+                for issue in issues
+            )
+        )
+        self.assertTrue(
+            any(
+                finding["finding_type"] == "description_does_not_start_with_heading"
+                and finding["work_package_id"] == 427
+                and finding["severity"] == "polish"
+                and finding["attention_scope"] == "backlog"
+                for finding in narrative_findings
+            )
+        )
+
+    def test_ready_story_loose_description_still_hard_fails(self) -> None:
+        issues = []
+        narrative_findings = []
+        epic = {
+            "id": 420,
+            "record_ref": "openproject://work_packages/420",
+            "status": "new",
+            "subject": "Build Workspace Governance Control Fabric foundation",
+            "type": "Epic",
+            "description_headings": [
+                "What This Initiative Achieves",
+                "Current PI Focus",
+                "Scope Boundaries",
+                "Execution Context",
+            ],
+        }
+        root = {
+            "id": 420,
+            "children": [
+                {
+                    "children": [
+                        {
+                            "children": [],
+                            "completion_evidence_formatting_valid": False,
+                            "completion_evidence_issues": [],
+                            "completion_evidence_present": False,
+                            "description_headings": [],
+                            "description_present": True,
+                            "description_starts_with_heading": False,
+                            "done_narrative_contract_applicable": False,
+                            "done_narrative_contract_issues": [],
+                            "done_narrative_contract_satisfied": True,
+                            "id": 423,
+                            "iteration": "PI-2026-03 / Iteration 1",
+                            "owner_repo": "workspace-governance",
+                            "parent_id": 422,
+                            "record_ref": "openproject://work_packages/423",
+                            "responsible_login": "Workspace Governance",
+                            "status": "ready",
+                            "subject": "Enabler: Register the control-fabric repo",
+                            "target_pi": "PI-2026-03",
+                            "type": "User story",
+                        }
+                    ],
+                    "completion_evidence_formatting_valid": False,
+                    "completion_evidence_issues": [],
+                    "completion_evidence_present": False,
+                    "description_headings": [
+                        "What This Enables",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "description_present": True,
+                    "description_starts_with_heading": True,
+                    "done_narrative_contract_applicable": False,
+                    "done_narrative_contract_issues": [],
+                    "done_narrative_contract_satisfied": True,
+                    "id": 422,
+                    "iteration": "PI-2026-03 / Iteration 1",
+                    "owner_repo": "workspace-governance",
+                    "parent_id": 420,
+                    "record_ref": "openproject://work_packages/422",
+                    "responsible_login": "Workspace Governance",
+                    "status": "new",
+                    "subject": "Enabler: Admit the control-fabric repo and ownership surfaces",
+                    "target_pi": "PI-2026-03",
+                    "type": "Feature",
+                }
+            ],
+        }
+
+        MODULE.evaluate_execution_summary(
+            initiative_id=420,
+            epic=epic,
+            root=root,
+            issues=issues,
+            narrative_findings=narrative_findings,
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "description_does_not_start_with_heading"
+                and issue["work_package_id"] == 423
                 for issue in issues
             )
         )

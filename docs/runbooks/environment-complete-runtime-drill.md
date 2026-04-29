@@ -85,6 +85,11 @@ This creates the run directory:
 
 - `.platform-drills/environment-complete-runtime-drill/<run-id>/`
 
+The run directory is generated local state and is ignored by git. If the drill
+outcome needs durable evidence, promote the relevant summary into the active
+ART item, a governed change record, or another approved evidence surface. Do
+not commit raw `.platform-drills/` directories with absolute local paths.
+
 and the authoritative files:
 
 - `run.yaml`

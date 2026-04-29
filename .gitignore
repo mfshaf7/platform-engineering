@@ -5,3 +5,4 @@ __pycache__/
 *.py[cod]
 ansible/generated/
 terraform/modules/*/generated-*.txt
+.platform-drills/

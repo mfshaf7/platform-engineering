@@ -70,6 +70,16 @@ BLOCKER_REQUIRED_RESPONSE_KEYS = tuple(
 BLOCKER_FOLLOW_UP_RESPONSE_KEYS = tuple(
     BLOCKER_WORKFLOW["conditionally_required_follow_up_response_keys"]
 )
+BLOCKER_FIELD_RESPONSE_KEY_ALIASES = {
+    field_name: response_key
+    for field_name, response_key in zip(
+        (
+            *BLOCKER_WORKFLOW["required_blocker_fields"],
+            *BLOCKER_WORKFLOW["conditionally_required_follow_up_fields"],
+        ),
+        (*BLOCKER_REQUIRED_RESPONSE_KEYS, *BLOCKER_FOLLOW_UP_RESPONSE_KEYS),
+    )
+}
 INITIATIVE_LINEAGE_CUSTOM_FIELDS = INITIATIVE_LINEAGE_WORKFLOW["custom_fields"]
 INITIATIVE_FAMILY_FIELD_NAME = INITIATIVE_LINEAGE_CUSTOM_FIELDS["initiative_family"][
     "name"
@@ -90,6 +100,18 @@ INITIATIVE_LINEAGE_ROLE_RULES = {
 INITIATIVE_UNCLASSIFIED_SHELL_RULE = INITIATIVE_LINEAGE_WORKFLOW[
     "allow_unclassified_initiative_shell"
 ]
+
+
+def normalize_blocker_fields(blocker_fields: object) -> dict[str, object]:
+    if not isinstance(blocker_fields, dict):
+        return {}
+
+    normalized = dict(blocker_fields)
+    for display_name, response_key in BLOCKER_FIELD_RESPONSE_KEY_ALIASES.items():
+        if not normalized.get(response_key) and normalized.get(display_name):
+            normalized[response_key] = normalized[display_name]
+    return normalized
+
 
 INITIATIVE_REVIEW_REASON_DETAILS = {
     "system_demo_missing": {
@@ -1037,7 +1059,7 @@ def evaluate_live_project_taxonomy(
         status = entry.get("status")
         classification = entry.get("execution_classification")
         parent_id = entry.get("parent_id")
-        blocker_fields = entry.get("blocker_fields") or {}
+        blocker_fields = normalize_blocker_fields(entry.get("blocker_fields"))
         type_counts[str(type_name)] += 1
         detected_prefix = detect_subject_prefix(subject)
         prefix_counts[detected_prefix or "<none>"] += 1

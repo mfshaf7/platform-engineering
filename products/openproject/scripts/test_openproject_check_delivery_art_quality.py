@@ -595,6 +595,54 @@ class DeliveryArtQualityTest(unittest.TestCase):
             )
         )
 
+    def test_blocked_item_accepts_display_name_blocker_fields(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 336,
+                    "record_ref": "openproject://work_packages/336",
+                    "subject": "Defect: State the exact blocker and stop adjacent ART mutation when a live mutation seam fails repeatedly",
+                    "type": "Defect",
+                    "status": "blocked",
+                    "parent_id": 304,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Corrects",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                    "blocker_fields": {
+                        "Blocker Statement": "Closeout path is blocked by runtime evidence.",
+                        "Blocker Impact": "The active step cannot close honestly.",
+                        "Blocker Owner": "Workspace Governance",
+                        "Blocker Discovered On": "2026-04-29",
+                        "Blocker Decision Path": "remove",
+                        "Blocker Justification": "The exact blocker must be removed before execution resumes.",
+                    },
+                }
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={336},
+        )
+
+        self.assertFalse(
+            any(
+                issue["issue_type"] == "blocked_item_missing_blocker_record"
+                and issue["work_package_id"] == 336
+                for issue in issues
+            )
+        )
+
     def test_non_blocked_item_retaining_blocker_record_is_reported(self) -> None:
         issues = []
         narrative_findings = []

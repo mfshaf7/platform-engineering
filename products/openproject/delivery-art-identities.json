@@ -48,6 +48,19 @@
       ]
     },
     {
+      "login": "workspace-governance-control-fabric",
+      "firstname": "Workspace Governance",
+      "lastname": "Control Fabric",
+      "mail": "workspace-governance-control-fabric@local.invalid",
+      "project_identifiers": [
+        "workspace-delivery-art"
+      ],
+      "role_names": [
+        "Reader",
+        "Work package editor"
+      ]
+    },
+    {
       "login": "security-architecture",
       "firstname": "Security",
       "lastname": "Architecture",

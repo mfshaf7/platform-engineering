@@ -12,6 +12,7 @@ This control provisions:
 - repo-owner identities for:
   - `platform-engineering`
   - `workspace-governance`
+  - `workspace-governance-control-fabric`
   - `security-architecture`
   - `openclaw-runtime-distribution`
   - `openclaw-telegram-enhanced`
@@ -66,7 +67,7 @@ Confirm the expected members and roles:
 
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
-  sh -lc 'bundle exec rails runner "logins = %w[operator-orchestration-service platform-engineering workspace-governance security-architecture openclaw-runtime-distribution openclaw-telegram-enhanced openclaw-host-bridge]; projects = Project.where(identifier: [\"workspace-proposals\", \"workspace-delivery-art\"]).order(:identifier); rows = logins.map do |login| user = User.find_by!(login: login); memberships = projects.map do |project| member = Member.find_by(project: project, principal: user); {identifier: project.identifier, roles: member&.roles&.order(:name)&.pluck(:name) || []}; end; {login: user.login, admin: user.admin, memberships: memberships}; end; puts rows.to_json"'
+  sh -lc 'bundle exec rails runner "logins = %w[operator-orchestration-service platform-engineering workspace-governance workspace-governance-control-fabric security-architecture openclaw-runtime-distribution openclaw-telegram-enhanced openclaw-host-bridge]; projects = Project.where(identifier: [\"workspace-proposals\", \"workspace-delivery-art\"]).order(:identifier); rows = logins.map do |login| user = User.find_by!(login: login); memberships = projects.map do |project| member = Member.find_by(project: project, principal: user); {identifier: project.identifier, roles: member&.roles&.order(:name)&.pluck(:name) || []}; end; {login: user.login, admin: user.admin, memberships: memberships}; end; puts rows.to_json"'
 ```
 
 Confirm the delivery project now exposes the principals as assignable:

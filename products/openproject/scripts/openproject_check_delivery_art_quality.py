@@ -44,6 +44,9 @@ COMMITTED_ITERATION_REQUIRED_TYPES = set(
 BACKLOG_FEATURE_CHILD_TYPES = set(
     PLANNING_WORKFLOW["planning_sets"]["backlog_feature_forbidden_child_types"]
 )
+BACKLOG_FEATURE_PLANNED_CHILD_TYPES = set(
+    PLANNING_WORKFLOW["planning_sets"].get("backlog_feature_planned_child_types", [])
+)
 FEATURE_LEAF_FRONT_CHILD_TYPES = set(
     PLANNING_WORKFLOW["planning_sets"]["feature_leaf_front_child_types"]
 )
@@ -901,9 +904,46 @@ def evaluate_execution_summary(
                 gate_id="committed-non-epic-must-carry-non-backlog-iteration",
             )
 
+        if node.get("type") == "Feature" and not node.get("target_pi"):
+            invalid_backlog_children = []
+            for child in node.get("children") or []:
+                child_status = child.get("status")
+                child_type = child.get("type")
+                if child_status in DONE_TREE_TERMINAL_STATUSES:
+                    continue
+                if child_type in BACKLOG_FEATURE_CHILD_TYPES:
+                    invalid_backlog_children.append(child)
+                    continue
+                if child_type not in BACKLOG_FEATURE_PLANNED_CHILD_TYPES:
+                    continue
+                child_iteration = child.get("iteration")
+                if (
+                    child.get("target_pi")
+                    or child_status not in {"new", "parked"}
+                    or (child_iteration and child_iteration != BACKLOG_ITERATION_LABEL)
+                ):
+                    invalid_backlog_children.append(child)
+            if invalid_backlog_children:
+                child_ids = ", ".join(
+                    f"#{child.get('id')}" for child in invalid_backlog_children
+                )
+                add_issue(
+                    issues,
+                    issue_type="backlog_feature_has_executable_child_scope",
+                    initiative_id=initiative_id,
+                    target=node,
+                    detail=(
+                        "backlog Feature may keep planned User story children only while they "
+                        "remain non-executable backlog scope; executable child scope: "
+                        f"{child_ids}"
+                    ),
+                    gate_id="backlog-feature-child-scope-must-stay-non-executable",
+                )
+
         if (
             node.get("type") == "Feature"
             and not node.get("target_pi")
+            and BACKLOG_FEATURE_CHILD_TYPES
             and any(
                 child.get("type") in BACKLOG_FEATURE_CHILD_TYPES
                 for child in (node.get("children") or [])

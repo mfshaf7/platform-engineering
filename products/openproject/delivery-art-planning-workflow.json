@@ -182,8 +182,8 @@
       ],
       "verification_commands": [
         "GET /v1/delivery-initiatives/{delivery_id}/planning",
-        "cd ../operator-orchestration-service && npm run art -- projection status",
-        "cd ../operator-orchestration-service && npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-committed-initiative-must-have-pi-objective",
@@ -243,8 +243,8 @@
       ],
       "verification_commands": [
         "GET /v1/delivery-work-items/{work_item_id}/continuation-context",
-        "cd ../operator-orchestration-service && npm run art -- projection status",
-        "cd ../operator-orchestration-service && npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-committed-feature-must-have-open-leaf-child",
@@ -337,8 +337,8 @@
       "verification_commands": [
         "GET /v1/delivery-initiatives/{delivery_id}/pi-objectives",
         "GET /v1/delivery-initiatives/{delivery_id}/closeout-readiness",
-        "cd ../operator-orchestration-service && npm run art -- projection status",
-        "cd ../operator-orchestration-service && npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-review-must-carry-review-outcome-and-actual-value",

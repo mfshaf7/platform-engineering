@@ -14,11 +14,14 @@ Operators should use the local source repo commands while WGCF remains in
 bootstrap posture:
 
 ```bash
-cd /home/mfshaf7/projects/workspace-governance-control-fabric
+cd "${WORKSPACE_ROOT}/workspace-governance-control-fabric"
 .venv/bin/python scripts/validate_project.py --repo-root .
 PYTHONPATH=packages/control_fabric_core/src:apps/api/src:apps/cli/src:apps/worker/src .venv/bin/python -m unittest discover -s tests
 PYTHONPATH=packages/control_fabric_core/src:apps/api/src:apps/cli/src .venv/bin/python -m wgcf_cli status --repo-root .
 ```
+
+Set `WORKSPACE_ROOT` to the local workspace root that contains the checked-out
+`workspace-governance-control-fabric` repo.
 
 ## Future Access Requirements
 

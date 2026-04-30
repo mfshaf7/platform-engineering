@@ -453,6 +453,10 @@ Derived roadmap rules:
   execution
 - the retired roadmap bucket is for inactive superseded or withdrawn scope, not
   current PI commitment
+- projection reconciliation is part of the workflow after any mutation that can
+  move work between roadmap buckets, including PI assignment or clearing,
+  carryover, decommit, parking, retirement, completion, and platform-admin
+  repair; run view sync before treating the scoped quality gate as final
 
 ## PM² Governance Overlay
 

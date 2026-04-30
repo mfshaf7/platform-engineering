@@ -73,6 +73,18 @@ def validate_change_records(errors: list[str], records_dir: Path) -> None:
     if not records_dir.exists():
         errors.append(f"{records_dir}: missing change-record directory")
         return
+    template_path = records_dir / "TEMPLATE.md"
+    if not template_path.exists():
+        errors.append(f"{template_path}: missing change-record template")
+    else:
+        _, template_text = parse_front_matter(read_text(template_path))
+        missing = sorted(
+            heading for heading in CHANGE_RECORD_REQUIRED_HEADINGS if heading not in template_text
+        )
+        if missing:
+            errors.append(
+                f"{template_path}: missing change-record template headings: {', '.join(missing)}"
+            )
 
     for path in sorted(records_dir.glob("*.md")):
         if path.name in {"README.md", "TEMPLATE.md"}:

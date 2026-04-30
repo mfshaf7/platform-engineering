@@ -108,6 +108,19 @@ the backlog bucket a substitute for PI commitment: non-`Epic` work still needs
 canonical `Target PI` before it can move into `ready`, `in-progress`, or
 `blocked`.
 
+Run this sync as a normal follow-up after any ART mutation that can change
+derived roadmap `version` placement. The trigger is broader than direct
+`Target PI` assignment:
+
+- PI assignment, clearing, or retargeting
+- carryover, decommit, parking, retirement, or completion
+- status changes that move work between backlog, committed, active, done,
+  parked, or retired roadmap buckets
+- platform-admin repairs that can change expected roadmap bucket placement
+
+After sync, run the scoped ART quality gate and require
+`roadmap_projection_drift_count=0` before continuing adjacent ART mutation.
+
 ## Verification
 
 In the OpenProject UI:

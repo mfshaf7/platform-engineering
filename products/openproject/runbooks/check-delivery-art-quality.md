@@ -228,6 +228,14 @@ The quality check also verifies PI-commitment hygiene:
 - `PI Objective`, `User story`, `Task`, and `Milestone` work must not stay
   uncommitted even in `new`
 - backlog `Feature` work must stay backlog-shaped until PI commitment
+
+If the only failure is roadmap `version` projection drift after a broker or
+platform-admin ART mutation, do not treat that as new planning scope. Run
+`make openproject-sync-delivery-art-views PI_NAMES="<known-pi-names>"` with the
+proven active ART runtime context, then rerun this quality gate. Projection sync
+is required after any mutation that can move work between committed, backlog,
+done, parked, or retired roadmap buckets, not only after direct `Target PI`
+updates.
 - PI-committed non-`Epic` work must also carry a non-backlog `Iteration`
 - blocked work must use the bounded blocker workflow instead of generic status
   drift

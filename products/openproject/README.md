@@ -78,6 +78,11 @@ projection of canonical `Target PI`, with one explicit backlog bucket
 Those buckets keep the roadmap truthful, but they are not substitutes for PI
 commitment on active non-`Epic` work.
 
+Projection reconciliation is part of the ART workflow after any mutation that
+can move work between roadmap buckets. Operators run the OpenProject view sync
+with the proven active ART runtime context, then rerun the scoped quality gate
+before treating roadmap projection health as final.
+
 The remaining OpenProject bootstrap and repair layer now also has one canonical
 machine-readable boundary contract:
 

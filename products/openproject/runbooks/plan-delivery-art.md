@@ -262,6 +262,21 @@ Committed non-`Epic` work must carry:
 Use the roadmap as a compatibility view only. The canonical planning field is
 still `Target PI`.
 
+After any planning mutation that can change OpenProject roadmap `version`
+projection, run the view sync before treating the quality gate as final. This
+is not limited to setting `Target PI`; it also applies to clearing PI
+commitment, carryover retargeting, parking, retirement, completion, and any
+state change that moves work between committed, backlog, done, parked, or
+retired roadmap buckets.
+
+Normal post-mutation sequence:
+
+1. submit the broker planning or work-item mutation
+2. run `make openproject-sync-delivery-art-views PI_NAMES="<known-pi-names>"`
+   with the proven active ART namespace and OpenProject deployment
+3. run the scoped ART quality gate
+4. continue only when roadmap projection drift is zero
+
 ### 4. Rolling-Wave Elaboration
 
 Elaborate the committed slice, or record future decomposition as explicit

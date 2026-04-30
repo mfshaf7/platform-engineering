@@ -6,7 +6,7 @@ security_evidence:
   findings: []
   risks: []
   workstreams:
-    - workspace-governance-control-fabric
+    - WS-007
 ---
 
 # WGCF Dev-Integration Runtime Access
@@ -33,6 +33,19 @@ security_evidence:
   - `workspace-governance`
   - `security-architecture`
 - Related ADR: None
+
+## Root Cause
+
+- Immediate failure: WGCF had implementation source and operator docs, but no
+  actually running dev-integration API and persistent metadata store for
+  console/API contract consumers.
+- Actual root cause: the dev-integration profile was planned before its
+  platform runtime acceptance, image publication, PostgreSQL persistence,
+  migration, and live smoke evidence were all implemented as one landing unit.
+- Why it escaped earlier controls: previous closeout treated source bootstrap
+  and planned profile language as enough, instead of requiring k3s status,
+  migration, PVC, image, and read-only smoke proof before calling the runtime
+  accessible.
 
 ## Runtime Decision
 

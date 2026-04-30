@@ -171,7 +171,7 @@
       "exit_criteria": [
         "Committed work carries Target PI and non-backlog Iteration.",
         "PI-committed initiative scope includes at least one PI Objective.",
-        "Any projection-affecting mutation has run platform view sync before the quality gate.",
+        "Projection-affecting mutations have been captured by the broker projection checkpoint, and checkpoint sync has run before final quality evidence when dirty.",
         "Roadmap version projection matches canonical Target PI or the required derived bucket."
       ],
       "primary_surfaces": [
@@ -182,8 +182,8 @@
       ],
       "verification_commands": [
         "GET /v1/delivery-initiatives/{delivery_id}/planning",
-        "make openproject-sync-delivery-art-views PI_NAMES=\"<known-pi-names>\"",
-        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-committed-initiative-must-have-pi-objective",
@@ -233,7 +233,7 @@
       "exit_criteria": [
         "Executable story and task work exists only for committed features or active defects.",
         "PI-committed Features already have an executable User story or Defect leaf front.",
-        "Any new or changed committed leaf work has reconciled roadmap version projection before quality verification.",
+        "Any new or changed committed leaf work has reconciled roadmap version projection at the next broker checkpoint before quality verification.",
         "Active leaf work keeps PI commitment and non-backlog iteration."
       ],
       "primary_surfaces": [
@@ -243,8 +243,8 @@
       ],
       "verification_commands": [
         "GET /v1/delivery-work-items/{work_item_id}/continuation-context",
-        "make openproject-sync-delivery-art-views PI_NAMES=\"<known-pi-names>\"",
-        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id>"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-committed-feature-must-have-open-leaf-child",
@@ -327,7 +327,7 @@
       "exit_criteria": [
         "Completed work is closed with evidence.",
         "Open carryover is re-targeted or returned to backlog posture deliberately.",
-        "Any carryover, retirement, backlog, or completion state that affects roadmap buckets has run projection sync before final quality verification."
+        "Any carryover, retirement, backlog, or completion state that affects roadmap buckets has run broker projection checkpoint sync before final quality verification."
       ],
       "primary_surfaces": [
         "POST /v1/delivery-initiatives/{delivery_id}/pi-review",
@@ -337,8 +337,8 @@
       "verification_commands": [
         "GET /v1/delivery-initiatives/{delivery_id}/pi-objectives",
         "GET /v1/delivery-initiatives/{delivery_id}/closeout-readiness",
-        "make openproject-sync-delivery-art-views PI_NAMES=\"<known-pi-names>\"",
-        "make openproject-check-delivery-art-quality OPENPROJECT_NAMESPACE=<namespace> TARGET_EPIC_ID=<epic-id> INCLUDE_DONE=true"
+        "npm run art -- projection status",
+        "npm run art -- projection sync --pi-names \"<known-pi-names>\" --target-epic-id <epic-id> --quality"
       ],
       "control_gate_ids": [
         "pi-review-must-carry-review-outcome-and-actual-value",
@@ -424,8 +424,9 @@
     {
       "id": "projection-affecting-mutations-require-view-sync",
       "control_type": "operator",
-      "rule": "After any ART mutation that can change roadmap version projection, including Target PI assignment or clearing, status-driven backlog or retired bucket movement, carryover retargeting, parking, retirement, completion, or platform-admin repair, run the platform view sync before treating the follow-up quality gate as final.",
+      "rule": "After any ART mutation that needs external roadmap version projection reconciliation, the broker CLI records a projection dirty marker. Operators may batch related dirty events, but must run the broker projection sync checkpoint before treating scoped quality or roadmap projection health as final.",
       "enforcement_surfaces": [
+        "operator-orchestration-service/src/art-cli.js",
         "openproject_sync_delivery_art_views_runner.rb",
         "project-delivery-operator skill",
         "operator-orchestration-service/docs/operations/delivery-workflow-operator-surface.md"

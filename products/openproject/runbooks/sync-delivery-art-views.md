@@ -16,6 +16,7 @@ This is a platform-admin repair path, not the normal ART session-health read.
 For normal-session ART health, start with
 [check-delivery-art-workflow-health.md](check-delivery-art-workflow-health.md).
 For normal post-mutation ART sessions, prefer the broker checkpoint:
+from `../operator-orchestration-service`, run
 `npm run art -- projection sync --pi-names "<known-pi-names>" --target-epic-id <epic-id> --quality`.
 That command calls this platform sync surface with the proven runtime context
 and keeps dirty projection state visible to the operator.

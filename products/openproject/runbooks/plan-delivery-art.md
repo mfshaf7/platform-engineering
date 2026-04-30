@@ -272,10 +272,12 @@ done, parked, or retired roadmap buckets.
 Normal post-mutation sequence:
 
 1. submit the broker planning or work-item mutation
-2. inspect `npm run art -- projection status`
+2. from `../operator-orchestration-service`, inspect
+   `npm run art -- projection status`
 3. continue related child closeouts only while the projection checkpoint remains
    intentionally dirty
-4. run `npm run art -- projection sync --pi-names "<known-pi-names>" --target-epic-id <epic-id> --quality`
+4. from `../operator-orchestration-service`, run
+   `npm run art -- projection sync --pi-names "<known-pi-names>" --target-epic-id <epic-id> --quality`
 5. continue only when roadmap projection drift is zero
 
 ### 4. Rolling-Wave Elaboration

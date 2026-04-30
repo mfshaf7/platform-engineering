@@ -231,7 +231,7 @@ The quality check also verifies PI-commitment hygiene:
 
 If the only failure is roadmap `version` projection drift after a broker or
 platform-admin ART mutation, do not treat that as new planning scope. Use the
-broker projection checkpoint:
+broker projection checkpoint from `../operator-orchestration-service`:
 `npm run art -- projection sync --pi-names "<known-pi-names>" --target-epic-id <epic-id> --quality`.
 Projection sync is required before final evidence after any dirty checkpoint
 that can move work between committed, backlog, done, parked, or retired roadmap

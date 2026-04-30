@@ -16,7 +16,11 @@ Product-specific runtimes do not belong here. Use `products/<product>/` for:
 - OpenProject
 - future product integrations
 
-## Current Shared Components
+## Shared Component Documentation
+
+Some documented components are live today. Others are admitted or planned
+platform components whose docs intentionally say that no deployment is approved
+yet. Use each component's `Current Live Footprint` section for live-state truth.
 
 | Component | Overview | Architecture | Access | Operations |
 | --- | --- | --- | --- | --- |
@@ -26,6 +30,7 @@ Product-specific runtimes do not belong here. Use `products/<product>/` for:
 | External Secrets Operator | [README.md](external-secrets/README.md) | [architecture.md](external-secrets/architecture.md) | [access.md](external-secrets/access.md) | [operations.md](external-secrets/operations.md) |
 | Platform PostgreSQL | [README.md](platform-postgresql/README.md) | [architecture.md](platform-postgresql/architecture.md) | [access.md](platform-postgresql/access.md) | [operations.md](platform-postgresql/operations.md) |
 | Operator Orchestration Service | [README.md](operator-orchestration-service/README.md) | [architecture.md](operator-orchestration-service/architecture.md) | [access.md](operator-orchestration-service/access.md) | [operations.md](operator-orchestration-service/operations.md) |
+| Workspace Governance Control Fabric | [README.md](workspace-governance-control-fabric/README.md) | [architecture.md](workspace-governance-control-fabric/architecture.md) | [access.md](workspace-governance-control-fabric/access.md) | [operations.md](workspace-governance-control-fabric/operations.md) |
 
 Each shared component directory should keep the same file contract:
 

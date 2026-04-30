@@ -114,6 +114,12 @@ components:
         - architecture.md
         - access.md
         - operations.md
+    workspace-governance-control-fabric:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
     platform-postgresql:
       required_files:
         - README.md

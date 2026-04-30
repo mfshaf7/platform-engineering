@@ -1,0 +1,86 @@
+# Workspace Governance Control Fabric Architecture
+
+## Role
+
+The Workspace Governance Control Fabric is a shared governance runtime
+component, not a product-specific application and not a new authority source.
+
+Its platform role is to make governance operations faster and more observable by
+running implementation services that consume authority truth from other repos.
+It stores runtime evidence, compact receipts, ledger events, graph projections,
+and readiness decisions. It must not become the source of truth for workspace
+contracts, platform promotion, security acceptance, or ART state.
+
+## Target Runtime Shape
+
+The durable platform target is:
+
+- API service for status, graph, validation plan, readiness, receipt, ledger,
+  and decision-explanation surfaces
+- CLI for local and operator recovery workflows
+- worker process for bounded background validation and receipt production
+- PostgreSQL for metadata, graph state, receipts, readiness decisions, and
+  ledger records
+- Temporal for durable worker orchestration after worker activation is approved
+- OPA/Rego for policy evaluation after policy-engine integration is approved
+- MinIO or S3 for full artifact custody when enterprise mode requires raw
+  artifact preservation
+- OpenTelemetry-compatible telemetry and Prometheus scraping for platform
+  observability
+
+## Current Runtime Posture
+
+The current implementation is not deployed as a platform runtime.
+
+Current allowed posture:
+
+- local source validation
+- local CLI status, graph, plan, check, and receipt-list commands
+- local receipt and ledger files
+- proposed `dev-integration` profile only
+
+Current denied posture:
+
+- no `stage` or `prod` Argo application
+- no long-running worker
+- no API-side validation execution
+- no approval or security-acceptance authority
+- no Governance Operations Console UI
+- no Context Governance Gateway implementation
+
+## Dependency Readiness
+
+| Dependency | Platform role | Readiness rule |
+| --- | --- | --- |
+| PostgreSQL | Metadata, graph, receipt, readiness, and ledger state | Reuse the platform PostgreSQL pattern only after data ownership, backup, restore, and migration gates are defined for WGCF. |
+| Temporal | Durable validation and control workflow orchestration | Keep the worker Temporal-shaped but non-running until worker execution, identity, retry, and audit semantics are approved. |
+| OPA/Rego | Policy evaluation engine | Use OPA as an evaluator of authority-backed policy inputs; do not move policy truth out of `workspace-governance`. |
+| MinIO/S3 | Full artifact custody for enterprise evidence | Add only when raw artifact retention, redaction, encryption, retention, and access policy are approved. |
+| Observability | Metrics, logs, traces, and operator health | Integrate with the existing platform observability model; do not introduce a custom observability backend. |
+
+## Environment Path
+
+WGCF should mature through these lanes:
+
+- local source validation in the implementation repo
+- proposed then active `dev-integration` profile for fast local API/runtime
+  iteration
+- governed `stage` only after platform and security gates approve deployment
+- governed `prod` only after stage evidence, release readiness, rollback, and
+  support-readiness gates pass
+
+`dev-integration` is not stage rehearsal and must not be described as governed
+deployment evidence.
+
+## Non-Goals
+
+The platform deployment shape must not:
+
+- build the Governance Operations Console UI in this slice
+- implement the Context Governance Gateway in WGCF
+- replace OpenProject, the broker, or Review Packets as ART evidence authority
+- store raw operational context in WGCF unless artifact custody is explicitly
+  approved
+- treat compact receipts as the full enterprise evidence store
+- expose direct operator access before identity and authorization controls are
+  approved

@@ -179,6 +179,7 @@ For shared component architecture and operations, use:
 - [docs/components/external-secrets/README.md](docs/components/external-secrets/README.md)
 - [docs/components/operator-orchestration-service/README.md](docs/components/operator-orchestration-service/README.md)
 - [docs/components/platform-postgresql/README.md](docs/components/platform-postgresql/README.md)
+- [docs/components/workspace-governance-control-fabric/README.md](docs/components/workspace-governance-control-fabric/README.md)
 
 ## Operator Entrypoints
 

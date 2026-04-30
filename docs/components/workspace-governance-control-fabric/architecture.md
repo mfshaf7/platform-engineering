@@ -37,7 +37,8 @@ Current allowed posture:
 - local source validation
 - local CLI status, graph, plan, check, and receipt-list commands
 - local receipt and ledger files
-- proposed `dev-integration` profile only
+- active local-k3s `dev-integration` API plus PostgreSQL profile for fast API
+  contract and console-consumption iteration
 
 Current denied posture:
 

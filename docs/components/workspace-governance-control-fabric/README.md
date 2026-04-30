@@ -22,14 +22,17 @@ not own WGCF contracts, workspace governance doctrine, or security acceptance.
 
 ## Current Live Footprint
 
-- namespace: none
+- dev-integration profile: `governance-control-fabric`
+- dev-integration namespace: `devint-governance-control-fabric-<operator>`
+- dev-integration storage: local PostgreSQL StatefulSet and PVC
 - Argo application: none
 - direct operator UI: none
 - deployment status: not approved for `stage` or `prod`
 
-WGCF is currently source-backed and local-first. Runtime deployment remains
-blocked until platform release gates and security review explicitly approve a
-deployment posture.
+WGCF currently has implementation source plus active local-k3s dev-integration
+API and PostgreSQL access. Governed stage/prod deployment remains blocked until
+platform release gates and security review explicitly approve that deployment
+posture.
 
 ## Owner Boundaries
 

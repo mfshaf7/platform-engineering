@@ -3,8 +3,8 @@
 This runbook is the primary operator-facing procedure for requesting and using
 `dev-integration` profiles.
 
-Use it when you need a fast local `k3s` environment for cross-repo workflow or
-API iteration and want to know:
+Use it when you need a fast local dev-integration environment for cross-repo
+workflow or API iteration and want to know:
 
 - whether an approved profile already exists
 - how to launch and operate an approved profile
@@ -61,6 +61,11 @@ are self-serve launchable from the shared runner.
 
 Current active profiles:
 
+- `governance-control-fabric`
+  - owner repo: `workspace-governance-control-fabric`
+  - profile path:
+    [workspace-governance-control-fabric/dev-integration/profiles/governance-control-fabric/profile.yaml](https://github.com/mfshaf7/workspace-governance-control-fabric/blob/main/dev-integration/profiles/governance-control-fabric/profile.yaml)
+  - role: local-k3s API and PostgreSQL runtime access for Governance Operations Console and WGCF API contract iteration
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - profile path:
@@ -96,7 +101,8 @@ make devint-down PROFILE=<profile>
 Meaning:
 
 - `devint-up`
-  - creates, refreshes, or resumes the local `k3s` profile runtime
+  - creates, refreshes, or resumes the local profile runtime declared by the
+    active profile
 - `devint-status`
   - shows the current session and runtime state
 - `devint-access`
@@ -138,6 +144,10 @@ Important boundaries:
 - persistent profiles are reserved working lanes, not mutation-smoke targets
 - if a test would create or mutate local work-tracking artifacts, it belongs in
   a disposable companion profile rather than the persistent lane
+- a profile's runtime platform is declared in its owner-repo
+  `profile.yaml`; active profiles can use local k3s or another approved local
+  runtime shape, but the profile's access and smoke scripts are the authority
+  for how operators reach it
 
 Port-forward note for persistent OpenProject lanes:
 
@@ -181,6 +191,7 @@ Required request content:
 - participating repos
 - runtime dependencies
 - expected canonical backend writes, if any
+- requested runtime platform, such as `local-k3s`
 - whether identity, secrets, runtime privilege, or AI review is involved
 - requested by
 - request record system

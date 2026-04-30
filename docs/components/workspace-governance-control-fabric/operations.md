@@ -2,15 +2,30 @@
 
 ## Current Operational Posture
 
-WGCF has no live platform operations yet.
+WGCF has local dev-integration operations only.
 
-Current operations are source-local:
+Current operations are local-k3s dev-integration:
 
+- launch, inspect, smoke, and suspend the active local-k3s dev-integration API
+  and PostgreSQL profile
 - run project validation in the implementation repo
 - run unit tests in the implementation repo
 - use local CLI status, graph, plan, check, and receipt-list commands
 - keep `.wgcf/` artifacts local and ignored unless a governed evidence path
   explicitly captures them
+
+Shared runner commands:
+
+```bash
+make devint-up PROFILE=governance-control-fabric
+make devint-status PROFILE=governance-control-fabric
+make devint-smoke PROFILE=governance-control-fabric
+make devint-access PROFILE=governance-control-fabric
+make devint-down PROFILE=governance-control-fabric
+```
+
+The profile runs PostgreSQL as persistent local-k3s state and runs database
+migrations before the API rollout is considered available.
 
 ## Deployment Readiness Checklist
 

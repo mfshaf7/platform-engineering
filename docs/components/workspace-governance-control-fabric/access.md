@@ -2,16 +2,26 @@
 
 ## Current State
 
-There is no live platform access path for WGCF.
+WGCF now has a local dev-integration API access path.
 
-- namespace: none
+- namespace: `devint-governance-control-fabric-<operator>`
 - Argo application: none
 - direct browser UI: none
-- API endpoint: none
+- API endpoint: local k3s Service exposed by `make devint-access`
+- metadata store: local k3s PostgreSQL StatefulSet and PVC
 - worker endpoint: none
 
-Operators should use the local source repo commands while WGCF remains in
-bootstrap posture:
+Operators should use the shared dev-integration runner:
+
+```bash
+make devint-up PROFILE=governance-control-fabric
+make devint-status PROFILE=governance-control-fabric
+make devint-smoke PROFILE=governance-control-fabric
+make devint-access PROFILE=governance-control-fabric
+make devint-down PROFILE=governance-control-fabric
+```
+
+The local source repo commands remain valid for implementation checks:
 
 ```bash
 cd "${WORKSPACE_ROOT}/workspace-governance-control-fabric"
@@ -23,9 +33,10 @@ PYTHONPATH=packages/control_fabric_core/src:apps/api/src:apps/cli/src .venv/bin/
 Set `WORKSPACE_ROOT` to the local workspace root that contains the checked-out
 `workspace-governance-control-fabric` repo.
 
-## Future Access Requirements
+## Future Governed Access Requirements
 
-Before a platform access path is added, the platform must define:
+Before a governed stage or prod platform access path is added, the platform
+must define:
 
 - service identity and authentication model
 - authorization for operator, CI, and automation callers
@@ -38,7 +49,7 @@ Before a platform access path is added, the platform must define:
 
 Do not:
 
-- expose the API with ad hoc port-forwards as approved operator access
+- describe dev-integration access as approved stage or prod access
 - document a Governance Operations Console URL before the console exists
 - bypass platform identity with a shared static API key
 - read raw artifacts through WGCF unless artifact custody and redaction policy

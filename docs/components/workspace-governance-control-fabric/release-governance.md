@@ -11,7 +11,11 @@ There is currently no approved:
 - image pin
 - platform release record
 - runtime support-readiness record
-- direct operator access path
+- governed stage or prod operator access path
+
+There is an active local dev-integration access path for API contract
+iteration. That path includes local-k3s PostgreSQL, is local evidence only, and
+is not a governed stage/prod deployment.
 
 ## Required Gates Before Deployment
 

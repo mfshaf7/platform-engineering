@@ -6,6 +6,10 @@ This document defines the platform gate for using
 `workspace-governance-control-fabric` to invoke governance validators and store
 their receipts.
 
+Authoritative platform decision:
+
+- [ADR-016: WGCF Validator Invocation Profile Gates](../../decisions/adr/ADR-016-wgcf-validator-invocation-profile-gates.md)
+
 It covers platform execution posture only. It does not move workspace contract
 authority, security acceptance, platform release approval, or Delivery ART
 mutation into WGCF.

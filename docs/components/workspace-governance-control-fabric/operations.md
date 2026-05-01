@@ -13,6 +13,8 @@ Current operations are local-k3s dev-integration:
 - use local CLI status, graph, plan, check, and receipt-list commands
 - keep `.wgcf/` artifacts local and ignored unless a governed evidence path
   explicitly captures them
+- use WGCF validator invocation only through the active profile gates in
+  [validator-invocation-gates.md](validator-invocation-gates.md)
 
 Shared runner commands:
 
@@ -36,6 +38,7 @@ Before platform deployment work starts, confirm:
   artifact-custody boundaries
 - PostgreSQL schema ownership, migrations, backup, restore, and rollback are
   defined
+- validator invocation profiles are approved for the intended lane
 - worker execution remains disabled unless Temporal runtime semantics are
   approved
 - OPA inputs and policy ownership are defined without copying authority truth
@@ -43,6 +46,8 @@ Before platform deployment work starts, confirm:
 - artifact custody is denied by default until MinIO or S3 retention and
   redaction rules are approved
 - observability uses existing platform surfaces instead of a custom backend
+- Prometheus remains the current health and metrics surface; OpenTelemetry
+  correlation can be added later without replacing platform observability
 - the Governance Operations Console remains future scope unless a separate UI
   item approves it
 

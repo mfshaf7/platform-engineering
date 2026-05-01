@@ -12,6 +12,7 @@ There is currently no approved:
 - platform release record
 - runtime support-readiness record
 - governed stage or prod operator access path
+- approved WGCF validator invocation profile beyond local dev-integration
 
 There is an active local dev-integration access path for API contract
 iteration. That path includes local-k3s PostgreSQL, is local evidence only, and
@@ -29,7 +30,14 @@ The first platform deployment slice must provide:
 - security review for runtime, secret, evidence, and AI-adjacent boundaries
 - observability and support-readiness checks
 - backup and restore expectations for runtime evidence stores
+- validator invocation gates for `devint-shadow`, `stage-readiness`,
+  `prod-readiness`, and `break-glass`
 - rollback and suspension procedure
+
+The validator invocation gates are defined in
+[validator-invocation-gates.md](validator-invocation-gates.md). These gates
+must be satisfied before WGCF receipts can replace direct validator evidence
+for any normal operator or CI path.
 
 ## Release Authority
 

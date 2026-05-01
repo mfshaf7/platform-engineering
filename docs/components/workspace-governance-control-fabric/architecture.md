@@ -27,6 +27,8 @@ The durable platform target is:
   artifact preservation
 - OpenTelemetry-compatible telemetry and Prometheus scraping for platform
   observability
+- profile-gated validator invocation that keeps direct validator rollback until
+  workspace shadow parity is proven
 
 ## Current Runtime Posture
 
@@ -58,6 +60,7 @@ Current denied posture:
 | OPA/Rego | Policy evaluation engine | Use OPA as an evaluator of authority-backed policy inputs; do not move policy truth out of `workspace-governance`. |
 | MinIO/S3 | Full artifact custody for enterprise evidence | Add only when raw artifact retention, redaction, encryption, retention, and access policy are approved. |
 | Observability | Metrics, logs, traces, and operator health | Integrate with the existing platform observability model; do not introduce a custom observability backend. |
+| Validator invocation gates | Platform profile control for WGCF planned checks and receipts | Use the approved profile gates in [validator-invocation-gates.md](validator-invocation-gates.md); do not let WGCF replace direct validators without workspace shadow parity and rollback. |
 
 ## Environment Path
 

@@ -19,6 +19,7 @@ not own WGCF contracts, workspace governance doctrine, or security acceptance.
 - [access.md](access.md)
 - [operations.md](operations.md)
 - [release-governance.md](release-governance.md)
+- [validator-invocation-gates.md](validator-invocation-gates.md)
 
 ## Current Live Footprint
 
@@ -49,6 +50,7 @@ Before WGCF can become a live shared component, the platform must have an
 approved runtime shape for:
 
 - PostgreSQL metadata and receipt state
+- validator invocation profiles and cutover gates
 - Temporal-backed worker orchestration, when worker execution is activated
 - OPA/Rego policy evaluation
 - MinIO or S3 artifact custody, when full artifact preservation is required

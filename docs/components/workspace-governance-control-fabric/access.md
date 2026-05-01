@@ -42,6 +42,7 @@ must define:
 - authorization for operator, CI, and automation callers
 - network exposure model for local, stage, and prod
 - audit logging and receipt lookup behavior
+- validator invocation profile and allowed command classes
 - secret delivery and rotation path
 - support and rollback owner
 
@@ -54,3 +55,5 @@ Do not:
 - bypass platform identity with a shared static API key
 - read raw artifacts through WGCF unless artifact custody and redaction policy
   are approved
+- run WGCF validator invocation as a replacement for direct validators before
+  the platform gate and workspace shadow-parity gate both pass

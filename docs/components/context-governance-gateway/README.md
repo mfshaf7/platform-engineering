@@ -26,19 +26,25 @@ security acceptance, or governed model invocation.
 
 ## Current Live Footprint
 
-- approved runtime: none
-- dev-integration profile: build-admitted, not self-serve launchable
-- dev-integration namespace: none approved
+- approved runtime: local-k3s `dev-integration` only after the workspace
+  profile lifecycle is `active`
+- dev-integration profile: platform-accepted for activation, with workspace
+  registry lifecycle still the launch authority
+- dev-integration namespace: `devint-context-governance-gateway-<operator>`
+  after activation
 - Argo application: none
 - direct operator UI: none
-- shared metadata store: none approved
-- shared artifact store: none approved
-- deployment status: not approved for `stage` or `prod`
+- API inspection path: `make devint-access PROFILE=context-governance-gateway`
+  after activation
+- metadata store: local dev-integration PostgreSQL only
+- artifact store: local dev-integration MinIO and PVC-backed CGG state only
+- deployment status: accepted for local dev-integration activation; not
+  approved for `stage` or `prod`
 
-Current approved posture is local CLI/source evidence plus build-admitted
-owner-repo service implementation. No platform operator should create an ad hoc
-CGG Service, Deployment, database, object store, dashboard, broker adapter, or
-model-facing endpoint from this document.
+Current approved posture is owner-repo implementation plus platform-accepted
+local `dev-integration` runtime activation. No platform operator should create
+an ad hoc CGG Service, Deployment, database, object store, dashboard, broker
+adapter, or model-facing endpoint outside the active profile and release gates.
 
 ## Owner Boundaries
 
@@ -51,22 +57,21 @@ model-facing endpoint from this document.
 
 ## Admission Summary
 
-Before service mode can launch from the shared runner, platform evidence must
-exist for:
+Before service mode can launch from the shared runner, evidence must exist for:
 
 - active dev-integration profile admission or an approved waiver
-- service identity and caller authorization
-- raw and redacted artifact custody
+- platform acceptance of the local-k3s runtime shape
+- local-only secret strategy
+- raw and redacted artifact custody in the local dev-integration lane
 - metadata persistence
-- retention and deletion
-- backup and restore
-- debug override and break-glass handling
-- tamper-evident ledger preservation
+- persistent suspend and destructive reset behavior
+- read-only smoke on the persistent working lane
 - observability and support readiness
-- rollback and suspension
 - security revalidation of the implemented runtime
 
-None of those gates are satisfied by the local CLI implementation alone.
+The local CLI implementation alone does not satisfy these gates. The active
+dev-integration lane is still local evidence only and does not approve a
+governed `stage` or `prod` deployment.
 
 ## Security References
 

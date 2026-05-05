@@ -81,6 +81,17 @@ Current active profiles:
     [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml)
   - role: disposable mutating smoke companion for accepted-idea consume and backlink rehearsal
 
+Platform-accepted profiles pending active workspace lifecycle:
+
+- `context-governance-gateway`
+  - owner repo: `context-governance-gateway`
+  - profile path:
+    [context-governance-gateway/dev-integration/profiles/context-governance-gateway/profile.yaml](https://github.com/mfshaf7/context-governance-gateway/blob/main/dev-integration/profiles/context-governance-gateway/profile.yaml)
+  - role: persistent local-k3s API, worker, PostgreSQL, MinIO, and PVC-backed
+    custody lane for CGG service-mode context admission proof
+  - launch rule: self-serve `up`, `access`, and `smoke` are allowed only after
+    the workspace registry lifecycle is `active`
+
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
 

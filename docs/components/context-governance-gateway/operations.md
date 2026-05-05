@@ -2,36 +2,54 @@
 
 ## Current Operational Posture
 
-CGG has no approved platform runtime operations today.
+CGG has approved local `dev-integration` operations only after the workspace
+registry marks the profile `active`.
 
-Current platform operations are limited to:
+Current platform operations are:
 
-- checking that no CGG Argo app, namespace, Service, worker, database, object
-  store, dashboard, or model-facing adapter has been created outside the
-  release gate
+- checking that no CGG Argo app, stage/prod namespace, governed Service,
+  dashboard, broker adapter, or model-facing adapter has been created outside
+  the release gate
+- launching or resuming the local-k3s dev-integration API, worker, PostgreSQL,
+  MinIO, and PVC-backed CGG state only through the shared runner after
+  workspace activation
+- running read-only smoke against the persistent local working lane
+- suspending the local dev-integration runtime while preserving PVCs and local
+  secrets
 - reviewing the inactive release-state records under
   `environments/shared/context-governance-gateway/`
-- routing runtime implementation back to the owner repo and ART items
+- routing implementation defects back to the owner repo and ART items
 - using the security review output before approving platform service mode
 
 ## Primary Checks
 
-For the current blocked posture, operators should check:
+Before workspace activation, operators should check the blocked posture:
 
 ```bash
 git status --short
 python3 scripts/validate_repo_structure.py --repo-root .
 python3 scripts/validate_governance_docs.py --repo-root .
+make devint-status PROFILE=context-governance-gateway
 ```
 
-When a future active profile exists, this document must be updated with the
-exact shared runner checks such as `devint-status`, `devint-smoke`, and
-`devint-promote-check` for `PROFILE=context-governance-gateway`.
+When the workspace registry is `active`, use:
+
+```bash
+make devint-up PROFILE=context-governance-gateway
+make devint-status PROFILE=context-governance-gateway
+make devint-smoke PROFILE=context-governance-gateway
+make devint-promote-check PROFILE=context-governance-gateway
+make devint-down PROFILE=context-governance-gateway
+```
+
+Use `make devint-reset PROFILE=context-governance-gateway` only when you intend
+to destroy the local CGG dev-integration namespace, PVC-backed local custody,
+and profile state.
 
 ## Common Failure Signals
 
-- a CGG namespace, Service, Deployment, PVC, or object store exists without a
-  matching release-state record
+- a CGG namespace, Service, Deployment, PVC, or object store exists outside the
+  active dev-integration profile or a governed release-state record
 - a release record claims candidate or readiness while security review remains
   blocked
 - raw operational context appears in platform logs, dashboards, issue notes, or
@@ -43,7 +61,7 @@ exact shared runner checks such as `devint-status`, `devint-smoke`, and
 ## First Response
 
 1. Stop treating the live, proposed, or build-admitted runtime as approved for
-   launch.
+   launch unless the workspace registry lifecycle is `active`.
 2. Identify whether the drift is source, platform deployment, storage custody,
    security review, or workspace contract drift.
 3. If a live component exists outside the gate, contain the runtime first and
@@ -73,7 +91,8 @@ For missing release evidence:
 - exact source repo, branch, PR, and merge commit
 - release-state record paths and statuses
 - security review reference
-- storage custody and retention decision
+- storage custody and retention decision, including whether evidence is local
+  dev-integration only
 - validation commands and results
 - rollback or suspension action when runtime drift occurred
 

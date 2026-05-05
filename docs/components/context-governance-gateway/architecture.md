@@ -40,16 +40,20 @@ Current allowed posture:
 
 - owner-repo local CLI/source behavior
 - local `.cgg` artifacts controlled by the operator
-- build-admitted but non-launchable dev-integration profile
+- platform-accepted local-k3s `dev-integration` profile after workspace
+  lifecycle activation
+- local dev-integration API, worker, PostgreSQL, MinIO, and PVC-backed CGG
+  state only through the active profile
+- read-only smoke against the persistent local working lane
 - platform release-state gate records with inactive or blocked posture
 
 Current denied posture:
 
 - no `stage` or `prod` Argo application
-- no API listener
-- no worker runtime
-- no shared metadata store
-- no shared raw or redacted artifact store
+- no governed API listener outside local dev-integration
+- no governed worker runtime outside local dev-integration
+- no shared stage or production metadata store
+- no shared stage or production raw or redacted artifact store
 - no dashboard upload or browsing
 - no broker, WGCF, CI, or model adapter runtime
 - no direct model invocation
@@ -58,9 +62,9 @@ Current denied posture:
 
 | Dependency | Platform role | Readiness rule |
 | --- | --- | --- |
-| Dev-integration profile | Fast local service-shape iteration | `build-admitted` authorizes bounded implementation only. The profile must be `active` in the workspace registry before shared runner launch. |
-| PostgreSQL | Metadata, manifests, packets, receipts, profile decisions, and ledger metadata | Use only after schema ownership, migration, backup, restore, retention, and deletion gates are defined for CGG. |
-| MinIO or S3 | Raw and redacted artifact custody | Use only after encryption, access, retention, deletion, legal hold, backup, restore, and audit posture are approved. |
+| Dev-integration profile | Fast local service-shape iteration | Platform accepts the local-k3s runtime shape, but the profile must be `active` in the workspace registry before shared runner launch. |
+| PostgreSQL | Metadata, manifests, packets, receipts, profile decisions, and ledger metadata | Approved only for local dev-integration hardening. Governed stage/prod use still requires schema ownership, migration, backup, restore, retention, and deletion gates. |
+| MinIO or S3 | Raw and redacted artifact custody | Approved only for local dev-integration hardening. Governed stage/prod use still requires encryption, access, retention, deletion, legal hold, backup, restore, and audit posture. |
 | OPA/Rego | Context-admission policy evaluation | Use as a policy evaluator; do not move workspace policy truth out of `workspace-governance`. |
 | Scanner integrations | Secret and sensitive-context detection | Integrate existing tools without making them the authority for projection. CGG admission policy still fails closed when uncertain. |
 | Observability | Health, metrics, logs, and traces | Use existing platform observability. Do not introduce a custom observability backend. |
@@ -84,9 +88,10 @@ as stage or prod readiness.
 
 The platform deployment shape must not:
 
-- implement CGG service mode before its security and platform gates are
-  complete
-- deploy object storage or PostgreSQL as a convenience workaround
+- implement governed CGG service mode before its security and platform gates
+  are complete
+- deploy object storage or PostgreSQL outside the accepted local
+  dev-integration profile as a convenience workaround
 - copy raw operational context into platform logs, dashboards, release records,
   or model prompts
 - replace WGCF, OOS, security acceptance, workspace contracts, or governed

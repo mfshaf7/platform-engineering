@@ -27,7 +27,7 @@ security acceptance, or governed model invocation.
 ## Current Live Footprint
 
 - approved runtime: none
-- dev-integration profile: proposed only, not self-serve launchable
+- dev-integration profile: build-admitted, not self-serve launchable
 - dev-integration namespace: none approved
 - Argo application: none
 - direct operator UI: none
@@ -35,8 +35,8 @@ security acceptance, or governed model invocation.
 - shared artifact store: none approved
 - deployment status: not approved for `stage` or `prod`
 
-Current approved posture is local CLI/source evidence in the owner repo plus
-blocked platform admission gates. No platform operator should create an ad hoc
+Current approved posture is local CLI/source evidence plus build-admitted
+owner-repo service implementation. No platform operator should create an ad hoc
 CGG Service, Deployment, database, object store, dashboard, broker adapter, or
 model-facing endpoint from this document.
 
@@ -51,7 +51,8 @@ model-facing endpoint from this document.
 
 ## Admission Summary
 
-Before service mode can start, platform evidence must exist for:
+Before service mode can launch from the shared runner, platform evidence must
+exist for:
 
 - active dev-integration profile admission or an approved waiver
 - service identity and caller authorization

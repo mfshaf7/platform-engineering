@@ -40,7 +40,7 @@ Current allowed posture:
 
 - owner-repo local CLI/source behavior
 - local `.cgg` artifacts controlled by the operator
-- proposed but non-launchable dev-integration profile
+- build-admitted but non-launchable dev-integration profile
 - platform release-state gate records with inactive or blocked posture
 
 Current denied posture:
@@ -58,7 +58,7 @@ Current denied posture:
 
 | Dependency | Platform role | Readiness rule |
 | --- | --- | --- |
-| Dev-integration profile | Fast local service-shape iteration | Must be `active` in the workspace registry before shared runner launch. Proposed profile state is not launch authority. |
+| Dev-integration profile | Fast local service-shape iteration | `build-admitted` authorizes bounded implementation only. The profile must be `active` in the workspace registry before shared runner launch. |
 | PostgreSQL | Metadata, manifests, packets, receipts, profile decisions, and ledger metadata | Use only after schema ownership, migration, backup, restore, retention, and deletion gates are defined for CGG. |
 | MinIO or S3 | Raw and redacted artifact custody | Use only after encryption, access, retention, deletion, legal hold, backup, restore, and audit posture are approved. |
 | OPA/Rego | Context-admission policy evaluation | Use as a policy evaluator; do not move workspace policy truth out of `workspace-governance`. |
@@ -71,8 +71,8 @@ Current denied posture:
 CGG should mature through these lanes:
 
 - local source and CLI validation in the implementation repo
-- proposed then active `dev-integration` profile for fast local service-shape
-  iteration
+- proposed, build-admitted, then active `dev-integration` profile for fast
+  local service-shape iteration
 - governed `stage` only after platform and security gates approve deployment
 - governed `prod` only after stage evidence, release readiness, support
   readiness, backup, restore, and rollback gates pass

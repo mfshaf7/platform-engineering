@@ -165,13 +165,16 @@ contains a `profile.yaml`.
 The workspace contract tracks profile lifecycle separately:
 
 - `proposed`
+- `build-admitted`
 - `active`
 - `suspended`
 - `retired`
 
-Only `active` profiles are launchable from the shared runner. The request and
-admission truth is owned in `workspace-governance`, even if the current human
-request surface happens to be a specific tool such as OpenProject.
+`build-admitted` authorizes bounded owner-repo implementation after platform
+and security gates, but it is still not launchable. Only `active` profiles are
+launchable from the shared runner. The request and admission truth is owned in
+`workspace-governance`, even if the current human request surface happens to be
+a specific tool such as OpenProject.
 
 ## Forbidden Targets
 

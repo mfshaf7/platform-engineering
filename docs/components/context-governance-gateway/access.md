@@ -17,9 +17,10 @@ that is not a platform access path and not governed stage or prod evidence.
 
 ## Dev-Integration Access
 
-The CGG dev-integration profile is proposed only. It is not self-serve
-launchable from the shared runner until the workspace registry marks it
-`active` and the platform gate accepts the runtime shape.
+The CGG dev-integration profile is build-admitted for owner-repo
+implementation only. It is not self-serve launchable from the shared runner
+until the workspace registry marks it `active` and the platform gate accepts
+the implemented runtime shape.
 
 Operators must not run or document a normal platform access path for:
 

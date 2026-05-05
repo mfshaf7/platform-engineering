@@ -29,7 +29,8 @@ Those records are gates, not deployment manifests.
 
 The first active dev-integration slice must provide:
 
-- active workspace profile lifecycle for `context-governance-gateway`
+- build-admitted workspace profile lifecycle for implementation authorization
+- active workspace profile lifecycle for self-serve launch
 - profile-owned runtime manifest in the owner repo
 - platform acceptance of runtime state model, namespace, ports, storage, and
   suspend or reset behavior

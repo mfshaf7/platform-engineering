@@ -42,7 +42,8 @@ exact shared runner checks such as `devint-status`, `devint-smoke`, and
 
 ## First Response
 
-1. Stop treating the live or proposed runtime as approved.
+1. Stop treating the live, proposed, or build-admitted runtime as approved for
+   launch.
 2. Identify whether the drift is source, platform deployment, storage custody,
    security review, or workspace contract drift.
 3. If a live component exists outside the gate, contain the runtime first and

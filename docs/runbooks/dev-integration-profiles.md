@@ -233,7 +233,9 @@ The admission path is:
    secrets, runtime privilege, AI influence, or other risky boundaries
 5. `workspace-governance` records the profile in
    `developer-integration-profiles.yaml`
-6. the profile becomes self-serve only when its lifecycle is set to `active`
+6. the profile may become `build-admitted` when implementation is authorized
+   but runtime launch is still denied
+7. the profile becomes self-serve only when its lifecycle is set to `active`
 
 Persistent-profile acceptance rule:
 
@@ -246,6 +248,9 @@ Lifecycle meanings:
 
 - `proposed`
   - request exists, not self-serve launchable
+- `build-admitted`
+  - implementation is authorized after platform and security gates, but the
+    profile is not self-serve launchable
 - `active`
   - admitted and self-serve launchable
 - `suspended`

@@ -361,12 +361,17 @@ Use one governed planning path for newly accepted work:
    - assign `Target PI` to the initiative once the current PI focus is real
    - create `PI Objective` items for that PI
    - create only the committed `Feature` and `Risk` slices for that PI
+   - create or select a new PI only for a new planning horizon, accepted
+     carryover target, or closed/current-PI boundary; high child item count is
+     not itself a reason to split the PI
    - do not PI-commit initiative scope unless at least one `PI Objective`
      exists in the same initiative
    - committed non-`Epic` work must carry:
      - `Target PI`
      - non-backlog `Iteration`
      - owner and assignment fields
+   - committed `Iteration` must align to the same `Target PI`, or use an
+     explicitly allowed `Program-wide / ...` iteration label
 4. Rolling-wave elaboration
    - create `User story` work under backlog features only as `new`,
      non-executable future decomposition with blank `Target PI`
@@ -439,6 +444,21 @@ Use these commitment rules as the canonical machine model:
   - does not replace a `PI Objective` or a `Feature` leaf front
 
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
+
+Lightweight PI lifecycle rules:
+
+- PI lifecycle states are `planning`, `active`, `closing`, and `closed`
+- the current enforcement mode is WIP-front-limited, not story-point capacity
+  accounting
+- a new PI is created or selected for a new planning horizon, accepted
+  carryover target, or closed/current-PI boundary
+- child item volume alone does not create a new PI
+- when `Target PI` is set, `Iteration` must either start with the same PI name
+  followed by ` / ` or use an allowed `Program-wide / ...` label
+- a mismatch such as `Target PI = PI-2026-03` with
+  `Iteration = PI-2026-02 / Iteration 1` is invalid
+- carryover at PI review must be re-targeted to the next PI or explicitly
+  decommitted back to backlog posture
 
 Derived roadmap rules:
 

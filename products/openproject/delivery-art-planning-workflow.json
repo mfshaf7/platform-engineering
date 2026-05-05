@@ -19,6 +19,42 @@
       "retired"
     ]
   },
+  "pi_lifecycle": {
+    "states": [
+      "planning",
+      "active",
+      "closing",
+      "closed"
+    ],
+    "cadence_rule": "Create or select a new PI for a new planning horizon, accepted carryover target, or closed/current-PI boundary. Do not create a new PI only because the current PI has many child work items.",
+    "commitment_rules": {
+      "pi_committed_scope_requires_pi_objective": true,
+      "committed_non_epic_scope_requires_target_pi": true,
+      "committed_non_epic_scope_requires_non_backlog_iteration": true,
+      "carryover_must_retarget_or_decommit": true,
+      "item_count_never_triggers_new_pi": true
+    },
+    "iteration_compatibility": {
+      "allowed_prefix_templates": [
+        "<target_pi> / ",
+        "Program-wide / "
+      ],
+      "rule": "When Target PI is set, Iteration must either start with the same Target PI followed by ` / ` or use an allowed Program-wide iteration label.",
+      "denied_example": {
+        "target_pi": "PI-2026-03",
+        "iteration": "PI-2026-02 / Iteration 1"
+      }
+    },
+    "capacity_model": {
+      "current_mode": "wip-front-limited",
+      "not_required_yet": [
+        "story-point velocity accounting",
+        "resource loading",
+        "full team capacity math"
+      ],
+      "rule": "Limit active executable fronts and use PI Objectives for commitment clarity before adding heavier capacity accounting."
+    }
+  },
   "planning_sets": {
     "target_pi_required_types": [
       "PI Objective",
@@ -189,6 +225,8 @@
         "pi-committed-initiative-must-have-pi-objective",
         "target-pi-required-on-committed-leaf-types",
         "committed-non-epic-must-carry-non-backlog-iteration",
+        "target-pi-iteration-must-align-with-pi-lifecycle",
+        "new-pi-created-by-planning-horizon-not-item-count",
         "projection-affecting-mutations-require-view-sync",
         "roadmap-version-must-match-target-pi-projection"
       ]
@@ -250,6 +288,7 @@
         "pi-committed-feature-must-have-open-leaf-child",
         "story-and-task-parent-must-be-committed",
         "target-pi-required-on-committed-leaf-types",
+        "target-pi-iteration-must-align-with-pi-lifecycle",
         "projection-affecting-mutations-require-view-sync",
         "committed-non-epic-must-carry-non-backlog-iteration"
       ]
@@ -304,6 +343,7 @@
       ],
       "control_gate_ids": [
         "active-non-epic-must-not-stay-uncommitted",
+        "target-pi-iteration-must-align-with-pi-lifecycle",
         "pi-committed-feature-must-have-open-leaf-child",
         "execute-from-leaf-front"
       ]
@@ -343,6 +383,7 @@
       "control_gate_ids": [
         "pi-review-must-carry-review-outcome-and-actual-value",
         "carryover-must-be-retargeted-or-decommitted",
+        "new-pi-created-by-planning-horizon-not-item-count",
         "projection-affecting-mutations-require-view-sync"
       ]
     }
@@ -409,6 +450,28 @@
         "POST /v1/delivery-work-items",
         "POST /v1/delivery-work-items/{work_item_id}/update",
         "openproject_check_delivery_art_quality.py"
+      ]
+    },
+    {
+      "id": "target-pi-iteration-must-align-with-pi-lifecycle",
+      "control_type": "machine",
+      "rule": "Committed work with Target PI must use an Iteration label that belongs to the same Target PI or an explicitly allowed Program-wide iteration label.",
+      "enforcement_surfaces": [
+        "POST /v1/delivery-work-items",
+        "POST /v1/delivery-work-items/{work_item_id}/update",
+        "POST /v1/delivery-initiatives/{delivery_id}/plan/apply",
+        "openproject_check_delivery_art_quality.py",
+        "WGCF ART readiness receipt"
+      ]
+    },
+    {
+      "id": "new-pi-created-by-planning-horizon-not-item-count",
+      "control_type": "operator",
+      "rule": "A new PI is created or selected only for a new planning horizon, accepted carryover target, or closed/current-PI boundary; high child item count is not itself a PI split trigger.",
+      "enforcement_surfaces": [
+        "platform-engineering/products/openproject/delivery-art-contract.md",
+        "platform-engineering/products/openproject/runbooks/plan-delivery-art.md",
+        "operator-orchestration-service/docs/operations/delivery-workflow-operator-surface.md"
       ]
     },
     {

@@ -190,6 +190,8 @@ Controls:
 | `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `Task`, and `Milestone` must carry `Target PI`; `User story` requires `Target PI` once executable or PI-committed | broker create/update/move + ART quality checker |
 | `active-non-epic-must-not-stay-uncommitted` | machine | `ready`, `in-progress`, or `blocked` non-`Epic` work must carry `Target PI` | broker create/update + ART quality checker |
 | `committed-non-epic-must-carry-non-backlog-iteration` | machine | committed non-`Epic` work must carry non-backlog `Iteration` | broker create/update + ART quality checker |
+| `target-pi-iteration-must-align-with-pi-lifecycle` | machine | committed work with `Target PI` must use an iteration aligned to the same PI or an allowed `Program-wide / ...` label | broker create/update/plan + ART quality checker + WGCF ART readiness |
+| `new-pi-created-by-planning-horizon-not-item-count` | operator | new PI creation is driven by planning horizon, carryover target, or closed/current-PI boundary, not child item count | PI planning checklist + operator review |
 | `pi-committed-feature-must-have-open-leaf-child` | machine | PI-committed `Feature` work must keep at least one open `User story` or `Defect` child | ART quality checker + broker plan/update guards |
 | `story-and-task-parent-must-be-committed` | machine | executable story and task work may only live beneath PI-committed parents; backlog Features may keep `new` planned User story children | broker create/move |
 | `backlog-feature-child-scope-must-stay-non-executable` | machine | planned User story children under backlog Features must stay `new` or `parked`, blank `Target PI`, and backlog-iteration only | ART quality checker |
@@ -250,6 +252,9 @@ Rules:
 
 - do not PI-commit initiative scope unless at least one `PI Objective` exists
   in the same initiative
+- create or select a new PI only for a new planning horizon, accepted
+  carryover target, or closed/current-PI boundary
+- do not create a new PI just because the current PI has many child work items
 
 Committed non-`Epic` work must carry:
 
@@ -258,6 +263,12 @@ Committed non-`Epic` work must carry:
 - `Owner Repo`
 - `Assignee`
 - `Responsible`
+
+The `Iteration` must align with the same `Target PI` unless the work is
+explicitly program-wide. Valid examples are `PI-2026-03 / Iteration 1` for
+`Target PI = PI-2026-03`, or `Program-wide / planning` for program-level
+planning. A mismatch such as `Target PI = PI-2026-03` with
+`Iteration = PI-2026-02 / Iteration 1` is invalid.
 
 Use the roadmap as a compatibility view only. The canonical planning field is
 still `Target PI`.
@@ -350,6 +361,10 @@ Use these as the planning contract:
   - does not satisfy the `Feature` leaf-front requirement
 
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
+
+That non-backlog `Iteration` must align with the same PI as `Target PI`, or use
+an allowed `Program-wide / ...` label. The quality checker and broker guards
+reject stale prior-PI iteration labels on newly committed or active work.
 
 ## Checks
 

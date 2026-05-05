@@ -33,6 +33,11 @@ ROADMAP_UNASSIGNED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_unassigned_version_
 ROADMAP_RETIRED_VERSION_NAME = PLANNING_WORKFLOW["roadmap_retired_version_name"]
 ACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["active"])
 INACTIVE_STATUSES = set(PLANNING_WORKFLOW["statuses"]["inactive"])
+PI_LIFECYCLE = PLANNING_WORKFLOW.get("pi_lifecycle", {})
+PI_ITERATION_COMPATIBILITY = PI_LIFECYCLE.get("iteration_compatibility", {})
+PI_ITERATION_ALLOWED_PREFIX_TEMPLATES = tuple(
+    PI_ITERATION_COMPATIBILITY.get("allowed_prefix_templates") or []
+)
 RETIRED_STATUS = "retired"
 DONE_TREE_TERMINAL_STATUSES = {"done", "retired"}
 TARGET_PI_REQUIRED_TYPES = set(
@@ -250,6 +255,20 @@ def run_json(
 def env_value(env: dict[str, str], key: str, default: str) -> str:
     value = (env.get(key) or "").strip()
     return value or default
+
+
+def iteration_matches_target_pi(target_pi: object, iteration: object) -> bool:
+    normalized_target_pi = str(target_pi or "").strip()
+    normalized_iteration = str(iteration or "").strip()
+    if not normalized_target_pi or not normalized_iteration:
+        return True
+
+    for template in PI_ITERATION_ALLOWED_PREFIX_TEMPLATES:
+        prefix = str(template).replace("<target_pi>", normalized_target_pi)
+        if prefix and normalized_iteration.startswith(prefix):
+            return True
+
+    return False
 
 
 def resolve_openproject_namespace(env: dict[str, str]) -> str:
@@ -970,6 +989,25 @@ def evaluate_execution_summary(
                 gate_id="committed-non-epic-must-carry-non-backlog-iteration",
             )
 
+        if (
+            node.get("type") != "Epic"
+            and node.get("status") not in DONE_TREE_TERMINAL_STATUSES
+            and node.get("target_pi")
+            and node.get("iteration")
+            and not iteration_matches_target_pi(node.get("target_pi"), node.get("iteration"))
+        ):
+            add_issue(
+                issues,
+                issue_type="target_pi_iteration_mismatch",
+                initiative_id=initiative_id,
+                target=node,
+                detail=(
+                    "PI-committed work must use an Iteration aligned to the same "
+                    "Target PI or an allowed Program-wide iteration label"
+                ),
+                gate_id="target-pi-iteration-must-align-with-pi-lifecycle",
+            )
+
         if node.get("type") == "Feature" and not node.get("target_pi"):
             invalid_backlog_children = []
             for child in node.get("children") or []:
@@ -1397,6 +1435,25 @@ def evaluate_live_project_taxonomy(
                 target=entry,
                 detail="PI-committed non-Epic work must carry a non-backlog Iteration",
                 gate_id="committed-non-epic-must-carry-non-backlog-iteration",
+            )
+
+        if (
+            type_name != "Epic"
+            and status not in DONE_TREE_TERMINAL_STATUSES
+            and target_pi
+            and iteration
+            and not iteration_matches_target_pi(target_pi, iteration)
+        ):
+            add_issue(
+                issues,
+                issue_type="target_pi_iteration_mismatch",
+                initiative_id=None,
+                target=entry,
+                detail=(
+                    f"Iteration {iteration!r} must align to Target PI {target_pi!r} "
+                    "or use an allowed Program-wide iteration label"
+                ),
+                gate_id="target-pi-iteration-must-align-with-pi-lifecycle",
             )
 
         expected_prefix = derived_subject_prefix(type_name, classification)

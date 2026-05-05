@@ -77,7 +77,10 @@ The accepted day-one runtime is:
 
 - Repo: `platform-engineering`
 - Commit(s):
-  - current PR for ART #636, #637, and #638
+  - `github://mfshaf7/platform-engineering/pull/187` for ART #636, #637,
+    and #638
+  - generated security index dependency:
+    `github://mfshaf7/security-architecture/pull/80`
 - Guardrail added:
   - platform component docs now describe the exact local dev-integration access
     and operation boundary

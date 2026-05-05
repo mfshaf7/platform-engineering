@@ -31,6 +31,7 @@ yet. Use each component's `Current Live Footprint` section for live-state truth.
 | Platform PostgreSQL | [README.md](platform-postgresql/README.md) | [architecture.md](platform-postgresql/architecture.md) | [access.md](platform-postgresql/access.md) | [operations.md](platform-postgresql/operations.md) |
 | Operator Orchestration Service | [README.md](operator-orchestration-service/README.md) | [architecture.md](operator-orchestration-service/architecture.md) | [access.md](operator-orchestration-service/access.md) | [operations.md](operator-orchestration-service/operations.md) |
 | Workspace Governance Control Fabric | [README.md](workspace-governance-control-fabric/README.md) | [architecture.md](workspace-governance-control-fabric/architecture.md) | [access.md](workspace-governance-control-fabric/access.md) | [operations.md](workspace-governance-control-fabric/operations.md) |
+| Context Governance Gateway | [README.md](context-governance-gateway/README.md) | [architecture.md](context-governance-gateway/architecture.md) | [access.md](context-governance-gateway/access.md) | [operations.md](context-governance-gateway/operations.md) |
 
 Each shared component directory should keep the same file contract:
 

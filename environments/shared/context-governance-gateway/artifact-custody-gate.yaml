@@ -1,0 +1,43 @@
+schemaVersion: 1
+component: context-governance-gateway
+gate: artifact-custody-and-retention
+status: inactive
+recordedAt: '2026-05-05T12:12:00Z'
+recordedBy: Platform Engineering
+note: >-
+  Shared CGG artifact custody is not approved. Raw and redacted operational
+  context must remain outside platform shared storage until this gate records
+  an approved storage, retention, deletion, backup, restore, and access model.
+rawArtifactStore:
+  status: not_approved
+  storageRef: null
+redactedArtifactStore:
+  status: not_approved
+  storageRef: null
+metadataStore:
+  status: not_approved
+  storageRef: null
+retentionPolicy:
+  status: not_approved
+  policyRef: null
+deletionPolicy:
+  status: not_approved
+  policyRef: null
+backupRestore:
+  status: not_approved
+  evidenceRef: null
+debugOverride:
+  status: not_approved
+  policyRef: null
+ledgerIntegrity:
+  status: local_source_only
+  sharedLedgerRef: null
+requiredBeforeApproval:
+  - encryption at rest
+  - access control by artifact class
+  - retention classes
+  - deletion receipt fields
+  - legal hold behavior
+  - backup and restore test cadence
+  - ledger integrity across restore
+  - no raw artifact body in release evidence

@@ -180,6 +180,7 @@ For shared component architecture and operations, use:
 - [docs/components/operator-orchestration-service/README.md](docs/components/operator-orchestration-service/README.md)
 - [docs/components/platform-postgresql/README.md](docs/components/platform-postgresql/README.md)
 - [docs/components/workspace-governance-control-fabric/README.md](docs/components/workspace-governance-control-fabric/README.md)
+- [docs/components/context-governance-gateway/README.md](docs/components/context-governance-gateway/README.md)
 
 ## Operator Entrypoints
 

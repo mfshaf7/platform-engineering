@@ -25,6 +25,29 @@ class DeliveryArtQualityTest(unittest.TestCase):
         self.assertNotIn("User story", MODULE.BACKLOG_FEATURE_CHILD_TYPES)
         self.assertIn("User story", MODULE.BACKLOG_FEATURE_PLANNED_CHILD_TYPES)
         self.assertIn("Defect", MODULE.FEATURE_LEAF_FRONT_CHILD_TYPES)
+        self.assertIn("active", MODULE.PI_LIFECYCLE["states"])
+        self.assertIn(
+            "<target_pi> / ",
+            MODULE.PI_ITERATION_ALLOWED_PREFIX_TEMPLATES,
+        )
+        self.assertTrue(
+            MODULE.iteration_matches_target_pi(
+                "PI-2026-03",
+                "PI-2026-03 / Iteration 1",
+            )
+        )
+        self.assertTrue(
+            MODULE.iteration_matches_target_pi(
+                "PI-2026-03",
+                "Program-wide / planning",
+            )
+        )
+        self.assertFalse(
+            MODULE.iteration_matches_target_pi(
+                "PI-2026-03",
+                "PI-2026-02 / Iteration 1",
+            )
+        )
 
     def test_initiative_review_workflow_contract_constants_are_loaded(self) -> None:
         self.assertEqual(MODULE.PM2_CLOSING_PHASE, "Closing")
@@ -398,6 +421,84 @@ class DeliveryArtQualityTest(unittest.TestCase):
             any(
                 issue["issue_type"] == "version_without_target_pi"
                 and issue["work_package_id"] == 300
+                for issue in issues
+            )
+        )
+
+    def test_target_pi_iteration_mismatch_is_reported(self) -> None:
+        issues = []
+        narrative_findings = []
+        project_payload = {
+            "work_packages": [
+                {
+                    "id": 430,
+                    "record_ref": "openproject://work_packages/430",
+                    "subject": "Enabler: Repair PI lifecycle placement",
+                    "type": "User story",
+                    "status": "ready",
+                    "parent_id": 429,
+                    "execution_classification": "Enabler",
+                    "description_headings": [
+                        "What This Enables",
+                        "Why This Matters Now",
+                        "Evidence Expectation",
+                        "Execution Context",
+                    ],
+                    "iteration": "PI-2026-02 / Iteration 1",
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                },
+                {
+                    "id": 429,
+                    "record_ref": "openproject://work_packages/429",
+                    "subject": "Enabler: Commit the PI lifecycle guard",
+                    "type": "Feature",
+                    "status": "in-progress",
+                    "parent_id": 428,
+                    "execution_classification": "Enabler",
+                    "description_headings": [
+                        "What This Enables",
+                        "Benefit Hypothesis",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "iteration": "PI-2026-03 / Iteration 1",
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                },
+                {
+                    "id": 428,
+                    "record_ref": "openproject://work_packages/428",
+                    "subject": "Govern the ART PI lifecycle",
+                    "type": "Epic",
+                    "status": "in-progress",
+                    "parent_id": None,
+                    "execution_classification": None,
+                    "description_headings": [
+                        "What This Initiative Achieves",
+                        "Current PI Focus",
+                        "Scope Boundaries",
+                        "Execution Context",
+                    ],
+                    "target_pi": "PI-2026-03",
+                    "version_name": "PI-2026-03",
+                },
+            ]
+        }
+
+        MODULE.evaluate_live_project_taxonomy(
+            project_payload=project_payload,
+            issues=issues,
+            narrative_findings=narrative_findings,
+            scoped_ids={428, 429, 430},
+        )
+
+        self.assertTrue(
+            any(
+                issue["issue_type"] == "target_pi_iteration_mismatch"
+                and issue["gate_id"]
+                == "target-pi-iteration-must-align-with-pi-lifecycle"
+                and issue["work_package_id"] == 430
                 for issue in issues
             )
         )

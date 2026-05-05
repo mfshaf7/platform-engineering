@@ -10,22 +10,26 @@ satisfied first.
 
 ## Current Custody State
 
-- raw artifact store: not approved
-- redacted artifact store: not approved
-- metadata store: not approved
-- backup: not approved
-- restore: not approved
-- retention deletion: not approved
-- legal hold: not approved
-- debug override: not approved
-- tamper-evident ledger: local/source only
+- raw artifact store: local dev-integration MinIO/PVC-backed custody only
+  after workspace lifecycle activation
+- redacted artifact store: local dev-integration MinIO/PVC-backed custody only
+  after workspace lifecycle activation
+- metadata store: local dev-integration PostgreSQL and PVC-backed CGG state
+  only after workspace lifecycle activation
+- backup: not approved for governed stage or production
+- restore: not approved for governed stage or production
+- retention deletion: not approved for governed stage or production
+- legal hold: not approved for governed stage or production
+- debug override: not approved for governed stage or production
+- tamper-evident ledger: local source and local dev-integration evidence only
 
-The only approved custody today is owner-repo local CLI/source behavior where
-the operator controls local `.cgg` artifacts.
+Approved custody today is limited to owner-repo local CLI/source behavior and
+the active local dev-integration profile. Neither is governed stage or
+production custody.
 
 ## Required Storage Model
 
-Before shared custody is approved, the platform must define:
+Before governed shared custody is approved, the platform must define:
 
 - storage class and namespace
 - raw artifact bucket or equivalent storage boundary
@@ -44,6 +48,8 @@ Before shared custody is approved, the platform must define:
 Raw and redacted artifacts must be logically separated. Operator-facing
 receipts, packets, release records, and support evidence must reference raw
 artifacts by digest and location metadata instead of embedding raw bodies.
+This applies to local dev-integration evidence as well as future governed
+stage or production custody.
 
 ## Retention Classes
 

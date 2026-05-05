@@ -2,19 +2,29 @@
 
 ## Current Release State
 
-CGG is not approved for platform deployment.
+CGG is approved only for local `dev-integration` operation after workspace
+profile activation. It is not approved for governed `stage` or `prod`
+deployment.
+
+There is currently approved:
+
+- local-k3s dev-integration runtime shape after workspace activation
+- profile-owned API, worker, PostgreSQL, MinIO, and PVC-backed CGG state in the
+  local dev-integration namespace
+- read-only smoke on the persistent local working lane
+- suspend through `devint-down` with PVC and local secret preservation
+- destructive local reset through `devint-reset`
 
 There is currently no approved:
 
-- active dev-integration launch from the shared runner
 - `stage` Argo application
 - `prod` Argo application
 - image pin or deployed digest
 - platform release record with a candidate artifact
 - runtime support-readiness record
 - governed stage or prod operator access path
-- shared metadata store
-- shared raw or redacted artifact store
+- shared stage/prod metadata store
+- shared stage/prod raw or redacted artifact store
 
 The inactive gate records are:
 
@@ -25,9 +35,10 @@ The inactive gate records are:
 
 Those records are gates, not deployment manifests.
 
-## Required Gates Before Dev-Integration Activation
+## Dev-Integration Activation Gate
 
-The first active dev-integration slice must provide:
+The local dev-integration activation gate is satisfied only when all of these
+are true:
 
 - build-admitted workspace profile lifecycle for implementation authorization
 - active workspace profile lifecycle for self-serve launch
@@ -39,6 +50,9 @@ The first active dev-integration slice must provide:
 - stage handoff checklist
 - security review reference for service-mode boundary
 - explicit statement that dev-integration is not governed rollout evidence
+
+Platform acceptance covers the local runtime fit and operator surface. It does
+not replace the workspace lifecycle flip or security custody review.
 
 ## Required Gates Before Stage Candidate
 

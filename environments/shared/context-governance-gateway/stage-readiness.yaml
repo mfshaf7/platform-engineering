@@ -1,0 +1,24 @@
+schemaVersion: 1
+component: context-governance-gateway
+environment: stage
+status: inactive
+approvedAt: null
+approvedBy: null
+note: >-
+  Stage readiness is inactive because no CGG stage candidate is admitted.
+  Readiness must remain closed until the candidate and verification records
+  reference an approved implemented runtime.
+candidateRef:
+  path: environments/shared/context-governance-gateway/stage-candidate.yaml
+  status: inactive
+  imageDigest: null
+verificationRef:
+  path: null
+  status: inactive
+  verifiedAt: null
+requiredBeforeApproval:
+  - stage candidate status is candidate
+  - stage verification is recorded against the exact candidate
+  - artifact custody gate is approved or explicitly not applicable
+  - security acceptance remains current
+  - rollback and suspension procedure is documented

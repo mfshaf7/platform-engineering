@@ -1,0 +1,21 @@
+schemaVersion: 1
+component: context-governance-gateway
+environment: prod
+status: inactive
+verifiedAt: null
+verifiedBy: null
+note: >-
+  Production verification is inactive because CGG has no approved stage
+  candidate, no approved prod environment contract, and no platform runtime.
+deployedContractRef:
+  path: null
+  status: inactive
+  imageDigest: null
+requiredBeforeVerification:
+  - approved stage readiness
+  - prod environment contract
+  - live Argo reconciliation evidence
+  - metadata and artifact backup evidence
+  - post-promotion smoke evidence
+  - security acceptance remains current
+checkResults: []

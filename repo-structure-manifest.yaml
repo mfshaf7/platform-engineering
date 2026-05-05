@@ -120,6 +120,14 @@ components:
         - architecture.md
         - access.md
         - operations.md
+    context-governance-gateway:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+        - release-governance.md
+        - artifact-custody-and-retention.md
     platform-postgresql:
       required_files:
         - README.md

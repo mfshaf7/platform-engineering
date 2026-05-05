@@ -1,0 +1,26 @@
+schemaVersion: 1
+component: context-governance-gateway
+environment: stage
+tier: shared_control_plane_component
+status: inactive
+recordedAt: '2026-05-05T12:12:00Z'
+recordedBy: Platform Engineering
+note: >-
+  No CGG stage candidate is admitted. This record exists as a fail-closed gate
+  so missing candidate state cannot be mistaken for approval to deploy service
+  mode.
+candidate: null
+blockedBy:
+  - active dev-integration profile admission
+  - platform runtime shape and release gate
+  - artifact custody and retention gate
+  - service identity and authorization gate
+  - current security review against implemented runtime
+requiredBeforeCandidate:
+  - source revision and image provenance
+  - namespace and ServiceAccount contract
+  - network exposure contract
+  - metadata migration and rollback plan
+  - artifact storage custody contract
+  - backup and restore evidence plan
+  - observability and support checks

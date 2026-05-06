@@ -110,6 +110,7 @@ For per-component architecture and operations, use:
 - [../components/external-secrets/README.md](../components/external-secrets/README.md)
 - [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
 - [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
+- [../components/governed-ai-gateway/README.md](../components/governed-ai-gateway/README.md)
 
 ## Internal-Only Or Currently Absent Surfaces
 
@@ -130,6 +131,10 @@ These surfaces should not be documented as if they are directly reachable today:
 - stage Grafana, stage Prometheus, stage Alertmanager
   - configured in source for stage use
   - not currently deployed because stage observability remains suspended
+- `governed-ai-gateway`
+  - local `dev-integration` profile source exists for access-plane proof
+  - no Argo-managed stage or prod deployment exists
+  - no model profile is activated by this topology entry
 
 ## Access Model Clarification
 

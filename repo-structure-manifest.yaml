@@ -128,6 +128,13 @@ components:
         - operations.md
         - release-governance.md
         - artifact-custody-and-retention.md
+    governed-ai-gateway:
+      required_files:
+        - README.md
+        - architecture.md
+        - access.md
+        - operations.md
+        - release-governance.md
     platform-postgresql:
       required_files:
         - README.md

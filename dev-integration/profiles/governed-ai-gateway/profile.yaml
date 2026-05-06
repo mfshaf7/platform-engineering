@@ -1,0 +1,49 @@
+schema_version: 1
+profile_id: governed-ai-gateway
+summary: Active local-k3s dev-integration lane for the governed AI access-plane gateway.
+runtime:
+  platform: local-k3s
+  state_model: persistent
+  namespace_pattern: devint-{profile}-{operator}
+  state_root_template: .dev-integration/{profile}/{operator}
+  components:
+    - governed-ai-gateway-api
+    - governed-ai-gateway-audit-ledger
+    - governed-ai-consumer-probe
+    - governed-ai-provider-sentinel
+testing:
+  smoke:
+    mutation_mode: read-only
+source_repos:
+  - repo: platform-engineering
+    purpose: Gateway dev-integration runtime profile, platform contracts, provider custody, audit ledger, and network-policy proof.
+  - repo: workspace-governance
+    purpose: Workspace profile lifecycle registry, intake-assist consumer contract, and ai-suggested intake validation.
+  - repo: security-architecture
+    purpose: Security delta review for identity, secrets, runtime, delivery, and AI activation controls.
+commands:
+  up: dev-integration/profiles/governed-ai-gateway/scripts/up.sh
+  status: dev-integration/profiles/governed-ai-gateway/scripts/status.sh
+  access: dev-integration/profiles/governed-ai-gateway/scripts/access.sh
+  smoke: dev-integration/profiles/governed-ai-gateway/scripts/smoke.sh
+  down: dev-integration/profiles/governed-ai-gateway/scripts/down.sh
+  reset: dev-integration/profiles/governed-ai-gateway/scripts/reset.sh
+  promote_check: dev-integration/profiles/governed-ai-gateway/scripts/promote-check.sh
+session:
+  required_artifacts:
+    - profile-status.txt
+    - smoke-summary.json
+    - profile-promotion-notes.md
+    - promotion-report.yaml
+stage_handoff:
+  owner_repo: platform-engineering
+  governed_surface: governed-ai-gateway-stage
+  required_checks:
+    - active dev-integration profile admission
+    - gateway API readiness
+    - caller identity boundary
+    - provider credential custody
+    - audit ledger emission
+    - gateway-only consumer egress proof
+    - direct-provider sentinel denial
+    - current security delta review

@@ -94,6 +94,16 @@ Platform-accepted profiles pending active workspace lifecycle:
     custody lane for CGG service-mode context admission proof
   - launch rule: self-serve `up`, `access`, and `smoke` are allowed only after
     the workspace registry lifecycle is `active`
+- `governed-ai-gateway`
+  - owner repo: `platform-engineering`
+  - profile path:
+    [platform-engineering/dev-integration/profiles/governed-ai-gateway/profile.yaml](https://github.com/mfshaf7/platform-engineering/blob/main/dev-integration/profiles/governed-ai-gateway/profile.yaml)
+  - role: persistent local-k3s gateway API, provider-custody Secret, local
+    audit ledger, consumer egress probe, and provider-sentinel denial proof for
+    the governed AI access plane
+  - launch rule: self-serve `up`, `access`, and `smoke` are allowed only after
+    the workspace registry lifecycle is `active`; model-profile activation
+    remains separately gated by the governed AI access-plane contract
 
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.

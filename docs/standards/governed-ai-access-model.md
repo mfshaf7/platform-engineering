@@ -149,6 +149,12 @@ The access-plane contract is source truth, not proof of live operation by
 itself. A profile remains unavailable for governed live use while
 `activation_state.profile_activation_allowed` is false.
 
+The first implemented runtime posture is `devint-runtime-defined`. That means
+the local-k3s gateway profile source, provider custody path, local audit ledger,
+and network-policy proof shape exist, but the model profile is still not live
+until the activation gates are completed and the workspace consumer contract is
+explicitly opened.
+
 ## Devint Egress Enforcement
 
 The dev-integration egress source contract is
@@ -161,6 +167,8 @@ devint posture for the first central governance consumer:
 - direct provider egress remains denied from consumer pods
 - provider destinations such as direct API endpoints are explicitly listed as
   denied
+- the dev-integration provider sentinel is used as the local proof target for
+  direct-provider bypass denial before a real provider route is activated
 - activation evidence must prove both positive gateway reachability and
   negative direct-provider reachability
 

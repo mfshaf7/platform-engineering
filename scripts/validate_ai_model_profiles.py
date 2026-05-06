@@ -14,7 +14,8 @@ RUNTIME_ASSIST_CONTRACT_PATH = Path("security/governed-ai-runtime-assist-contrac
 ACCESS_PLANE_PATH = Path("security/governed-ai-access-plane.yaml")
 DEVINT_EGRESS_POLICY_PATH = Path("security/governed-ai-devint-egress-policy.yaml")
 RUNTIME_CONTRACT_STATUSES = {"blocked", "planned", "active", "retired"}
-ACCESS_PLANE_STATUSES = {"source-defined", "active", "retired"}
+ACCESS_PLANE_STATUSES = {"source-defined", "devint-runtime-defined", "active", "retired"}
+DEVINT_EGRESS_POLICY_STATUSES = {"source-defined", "devint-runtime-defined", "active", "retired"}
 REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "event_time",
     "correlation_id",
@@ -258,6 +259,10 @@ def validate_devint_egress_policy(repo_root: Path, errors: list[str]) -> dict | 
 
     if policy.get("owner_repo") != "platform-engineering":
         errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: owner_repo must be platform-engineering")
+    if policy.get("status") not in DEVINT_EGRESS_POLICY_STATUSES:
+        errors.append(
+            f"{DEVINT_EGRESS_POLICY_PATH}: status must be one of {sorted(DEVINT_EGRESS_POLICY_STATUSES)}"
+        )
 
     applies_to = require_non_empty_mapping(
         policy.get("applies_to"),
@@ -275,8 +280,25 @@ def validate_devint_egress_policy(repo_root: Path, errors: list[str]) -> dict | 
     if invocation_path is not None:
         if invocation_path.get("service_name") != "governed-ai-gateway":
             errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path.service_name must be governed-ai-gateway")
-        if not isinstance(invocation_path.get("namespace"), str) or not invocation_path.get("namespace"):
-            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path.namespace must be a non-empty string")
+        namespace = invocation_path.get("namespace") or invocation_path.get("namespace_pattern")
+        if not isinstance(namespace, str) or not namespace:
+            errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: required_invocation_path namespace or namespace_pattern must be a non-empty string")
+
+    proof_profile = policy.get("proof_profile")
+    if policy.get("status") == "devint-runtime-defined":
+        profile = require_non_empty_mapping(
+            proof_profile,
+            label=f"{DEVINT_EGRESS_POLICY_PATH}: proof_profile",
+            errors=errors,
+        )
+        if profile is not None:
+            profile_path = profile.get("profile_path")
+            if not isinstance(profile_path, str) or not profile_path:
+                errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: proof_profile.profile_path must be non-empty")
+            elif not (repo_root / profile_path).exists():
+                errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: proof_profile.profile_path does not exist: {profile_path}")
+            if profile.get("profile_id") != "governed-ai-gateway":
+                errors.append(f"{DEVINT_EGRESS_POLICY_PATH}: proof_profile.profile_id must be governed-ai-gateway")
 
     consumer_policy = require_non_empty_mapping(
         policy.get("consumer_policy"),
@@ -412,6 +434,12 @@ def validate_access_plane_contract(
     if custody is not None:
         if custody.get("consumer_provider_credentials_allowed") is not False:
             errors.append(f"{ACCESS_PLANE_PATH}: consumer provider credentials must be false")
+        devint_secret_ref = custody.get("devint_secret_ref")
+        if access_plane.get("status") == "devint-runtime-defined":
+            if not isinstance(devint_secret_ref, dict):
+                errors.append(f"{ACCESS_PLANE_PATH}: provider_credential_custody.devint_secret_ref must be a mapping when status is devint-runtime-defined")
+            elif devint_secret_ref.get("consumer_projection_allowed") is not False:
+                errors.append(f"{ACCESS_PLANE_PATH}: devint provider secret consumer projection must be false")
         refs = require_non_empty_list(
             custody.get("provider_secret_refs"),
             label=f"{ACCESS_PLANE_PATH}: provider_credential_custody.provider_secret_refs",
@@ -431,6 +459,8 @@ def validate_access_plane_contract(
         errors=errors,
     )
     if audit is not None:
+        if access_plane.get("status") == "devint-runtime-defined" and audit.get("sink_status") != "devint-local-ledger":
+            errors.append(f"{ACCESS_PLANE_PATH}: audit_contract.sink_status must be devint-local-ledger when status is devint-runtime-defined")
         audit_fields = audit.get("required_fields")
         if not isinstance(audit_fields, list) or any(not isinstance(field, str) or not field for field in audit_fields):
             errors.append(f"{ACCESS_PLANE_PATH}: audit_contract.required_fields must be a list of non-empty strings")

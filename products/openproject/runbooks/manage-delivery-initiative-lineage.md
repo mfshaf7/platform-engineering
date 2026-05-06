@@ -68,6 +68,10 @@ Do not keep lineage only in prose.
   - ART machine-model, taxonomy, and projection-governance controls
 - `delivery-art-operator-surfaces`
   - ART operator-path and admin-surface hardening
+- `product-prototype-delivery`
+  - fast governed incubation for prototypes, internal products, and client app
+    delivery before graduation into governed product delivery or a dedicated
+    product repository
 - `devint-smoke`
   - smoke or rehearsal initiatives that exist only to prove reachability
 
@@ -163,6 +167,9 @@ as if every epic shared one storyline.
 - `#304`
   - family: `delivery-art-operator-surfaces`
   - role: `control-hardening`
+- product/prototype incubation epics
+  - family: `product-prototype-delivery`
+  - role: `architecture-anchor` for the first lane-defining initiative
   - anchor: `openproject://work_packages/277`
 
 ## Machine Gates

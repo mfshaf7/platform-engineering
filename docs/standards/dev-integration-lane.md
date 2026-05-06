@@ -16,6 +16,8 @@ basic environment, command, and integration-shape mistakes.
 - ungoverned for delivery
 - contract-aligned for interfaces
 - runtime-model driven: disposable or persistent-project-backed
+- lane-classed as `prototype-devint`, `integration-devint`, or
+  `governed-devint`
 - isolated from governed `stage` and `prod`
 
 It is not:
@@ -59,6 +61,15 @@ branch, worktree, or dirty state each repo contributed.
 
 Branch-only is not enough because source state does not tell you which
 services, seed jobs, smoke checks, and cleanup behavior the environment needs.
+
+## Lane Classes
+
+- `prototype-devint`: prototype preview for internal tools, client app
+  concepts, UI prototypes, and UI-plus-backend experiments before graduation.
+- `integration-devint`: fast workflow or API integration rehearsal that is not
+  governed runtime evidence.
+- `governed-devint`: local proof lane for an admitted governed component or
+  workflow before stage handoff.
 
 ## Runtime Target
 

@@ -72,6 +72,7 @@ class DeliveryArtQualityTest(unittest.TestCase):
     def test_initiative_lineage_contract_constants_are_loaded(self) -> None:
         self.assertEqual(MODULE.INITIATIVE_FAMILY_FIELD_NAME, "Initiative Family")
         self.assertIn("governed-ai-control-plane", MODULE.INITIATIVE_FAMILY_KEYS)
+        self.assertIn("product-prototype-delivery", MODULE.INITIATIVE_FAMILY_KEYS)
         self.assertIn(
             "bounded-activation",
             MODULE.INITIATIVE_LINEAGE_ROLE_RULES,

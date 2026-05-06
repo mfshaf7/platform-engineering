@@ -66,8 +66,9 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
     - `Success Criteria`
     - `System Demo Evidence`
     - `Inspect & Adapt Actions`
-    - `NFR Category`
   - `Target PI`
+  - shared `Epic` and `Feature` NFR field:
+    - `NFR Category`
   - SAFe execution fields:
     - `Delivery Team`
     - `Iteration`
@@ -75,7 +76,6 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
     - `Acceptance Criteria`
     - `Definition of Ready`
     - `Definition of Done`
-    - `NFR Category`
   - PI objective fields:
     - `PI Objective Type`
     - `PI Objective Review Outcome`

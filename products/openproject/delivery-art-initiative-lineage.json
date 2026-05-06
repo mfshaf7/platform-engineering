@@ -16,6 +16,7 @@
         "enterprise-cybersecurity-baseline",
         "delivery-art-governance-foundations",
         "delivery-art-operator-surfaces",
+        "product-prototype-delivery",
         "devint-smoke"
       ],
       "searchable": false,
@@ -81,6 +82,11 @@
       "key": "delivery-art-operator-surfaces",
       "label": "Delivery ART Operator Surfaces",
       "description": "Delivery workflow operator path, consume-to-planning flow, and admin-surface hardening for ART execution."
+    },
+    {
+      "key": "product-prototype-delivery",
+      "label": "Product And Prototype Delivery",
+      "description": "Fast governed incubation, prototype, internal product, and client app delivery lane work before graduation into governed product delivery or a dedicated product repository."
     },
     {
       "key": "devint-smoke",

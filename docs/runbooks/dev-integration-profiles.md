@@ -40,6 +40,11 @@ flowchart LR
 Read this as lane separation, not one blended environment:
 
 - `dev-integration` is the fast local lane for changing workflow and API shape.
+- `lane_class` declares the lane posture:
+  - `prototype-devint` for prototype preview before graduation
+  - `integration-devint` for workflow or API integration rehearsal
+  - `governed-devint` for admitted governed component or workflow proof before
+    stage handoff
 - `Workspace Proposals` and `Workspace Delivery ART` remain the work-state
   systems of record while the local lane is active.
 - `stage` is the first governed runtime rehearsal after reviewed source
@@ -63,15 +68,18 @@ Current active profiles:
 
 - `governance-control-fabric`
   - owner repo: `workspace-governance-control-fabric`
+  - lane class: `governed-devint`
   - profile path:
     [workspace-governance-control-fabric/dev-integration/profiles/governance-control-fabric/profile.yaml](https://github.com/mfshaf7/workspace-governance-control-fabric/blob/main/dev-integration/profiles/governance-control-fabric/profile.yaml)
   - role: local-k3s API and PostgreSQL runtime access for Governance Operations Console and WGCF API contract iteration
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
+  - lane class: `integration-devint`
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/idea-workflow/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/idea-workflow/profile.yaml)
 - `accepted-idea-delivery`
   - owner repo: `operator-orchestration-service`
+  - lane class: `governed-devint`
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery/profile.yaml)
   - role: persistent operator workbench for the local delivery ART lane
@@ -80,30 +88,28 @@ Current active profiles:
     automated landing-unit closeout evidence read
 - `accepted-idea-delivery-mutation-smoke`
   - owner repo: `operator-orchestration-service`
+  - lane class: `integration-devint`
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery-mutation-smoke/profile.yaml)
   - role: disposable mutating smoke companion for accepted-idea consume and backlink rehearsal
 
-Platform-accepted profiles pending active workspace lifecycle:
-
 - `context-governance-gateway`
   - owner repo: `context-governance-gateway`
+  - lane class: `governed-devint`
   - profile path:
     [context-governance-gateway/dev-integration/profiles/context-governance-gateway/profile.yaml](https://github.com/mfshaf7/context-governance-gateway/blob/main/dev-integration/profiles/context-governance-gateway/profile.yaml)
   - role: persistent local-k3s API, worker, PostgreSQL, MinIO, and PVC-backed
     custody lane for CGG service-mode context admission proof
-  - launch rule: self-serve `up`, `access`, and `smoke` are allowed only after
-    the workspace registry lifecycle is `active`
 - `governed-ai-gateway`
   - owner repo: `platform-engineering`
+  - lane class: `governed-devint`
   - profile path:
     [platform-engineering/dev-integration/profiles/governed-ai-gateway/profile.yaml](https://github.com/mfshaf7/platform-engineering/blob/main/dev-integration/profiles/governed-ai-gateway/profile.yaml)
   - role: persistent local-k3s gateway API, provider-custody Secret, local
     audit ledger, consumer egress probe, and provider-sentinel denial proof for
     the governed AI access plane
-  - launch rule: self-serve `up`, `access`, and `smoke` are allowed only after
-    the workspace registry lifecycle is `active`; model-profile activation
-    remains separately gated by the governed AI access-plane contract
+  - launch rule: model-profile activation remains separately gated by the
+    governed AI access-plane contract
 
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.

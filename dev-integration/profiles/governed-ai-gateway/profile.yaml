@@ -1,5 +1,6 @@
 schema_version: 1
 profile_id: governed-ai-gateway
+lane_class: governed-devint
 summary: Active local-k3s dev-integration lane for the governed AI access-plane gateway.
 runtime:
   platform: local-k3s

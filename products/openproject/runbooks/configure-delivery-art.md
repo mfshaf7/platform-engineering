@@ -67,6 +67,8 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
     - `System Demo Evidence`
     - `Inspect & Adapt Actions`
   - `Target PI`
+  - shared `Epic` and `Feature` NFR field:
+    - `NFR Category`
   - SAFe execution fields:
     - `Delivery Team`
     - `Iteration`
@@ -74,7 +76,6 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
     - `Acceptance Criteria`
     - `Definition of Ready`
     - `Definition of Done`
-    - `NFR Category`
   - PI objective fields:
     - `PI Objective Type`
     - `PI Objective Review Outcome`
@@ -122,6 +123,11 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 ```bash
 k3s kubectl -n openproject exec deploy/openproject-web -- \
   sh -lc 'bundle exec rails runner "project = Project.find_by!(identifier: \"workspace-delivery-art\"); puts({custom_fields: project.work_package_custom_fields.order(:position).pluck(:name), enabled_modules: project.enabled_module_names, boards: Boards::Grid.where(project: project).pluck(:name), versions: project.versions.with_status_open.pluck(:name)}.to_json)"'
+```
+
+```bash
+k3s kubectl -n openproject exec deploy/openproject-web -- \
+  sh -lc 'bundle exec rails runner "field = WorkPackageCustomField.find_by!(name: \"NFR Category\"); puts field.types.order(:name).pluck(:name).inspect"'
 ```
 
 ## Next Step

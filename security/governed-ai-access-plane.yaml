@@ -1,7 +1,7 @@
 schema_version: 1
 access_plane:
   id: governed-ai-gateway
-  status: source-defined
+  status: devint-runtime-defined
   owner_repo: platform-engineering
   security_owner: security-architecture
   purpose: >
@@ -38,13 +38,23 @@ access_plane:
     consumer_provider_credentials_allowed: false
     provider_secret_projection_allowed_only_to:
       - governed-ai-gateway runtime namespace
+      - devint-governed-ai-gateway profile namespace
     provider_secret_refs:
       - provider: internal-ai-gateway
         vault_path: components/governed-ai-gateway/shared/provider
         property: apiToken
+    devint_secret_ref:
+      namespace_pattern: devint-governed-ai-gateway-<operator>
+      secret_name: governed-ai-gateway-provider
+      property: GOVERNED_AI_PROVIDER_TOKEN
+      consumer_projection_allowed: false
   audit_contract:
-    sink_status: pending-implementation
+    sink_status: devint-local-ledger
     retention_owner: platform-engineering
+    devint_ledger_ref:
+      namespace_pattern: devint-governed-ai-gateway-<operator>
+      pvc: governed-ai-gateway-audit
+      path: /var/lib/governed-ai-gateway/audit-ledger.jsonl
     required_fields:
       - event_time
       - correlation_id
@@ -72,6 +82,8 @@ access_plane:
   activation_state:
     profile_activation_allowed: false
     reason: >
-      Source contract is defined, but live activation remains blocked until a
-      deployed gateway, audit sink, caller identity proof, provider-egress block,
-      and rollback evidence exist.
+      The dev-integration runtime source is defined for gateway, provider
+      custody, and local audit proof. Live profile activation remains blocked
+      until the runtime smoke evidence, provider-egress proof, current security
+      delta review, workspace consumer activation, and rollback evidence are
+      complete.

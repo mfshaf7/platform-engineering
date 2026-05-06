@@ -114,6 +114,7 @@ Use the shared component docs for shared services:
 - External Secrets: [../components/external-secrets/README.md](../components/external-secrets/README.md)
 - Operator Orchestration Service: [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
 - Platform PostgreSQL: [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
+- Governed AI Gateway: [../components/governed-ai-gateway/README.md](../components/governed-ai-gateway/README.md)
 
 Use the product-local runbooks for product details:
 

@@ -75,6 +75,9 @@ Current active profiles:
   - profile path:
     [operator-orchestration-service/dev-integration/profiles/accepted-idea-delivery/profile.yaml](https://github.com/mfshaf7/operator-orchestration-service/blob/main/dev-integration/profiles/accepted-idea-delivery/profile.yaml)
   - role: persistent operator workbench for the local delivery ART lane
+  - read-only smoke coverage: broker readiness, delivery draft validation,
+    WGCF ART readiness configuration, optimized ART packet reads, and the first
+    automated landing-unit closeout evidence read
 - `accepted-idea-delivery-mutation-smoke`
   - owner repo: `operator-orchestration-service`
   - profile path:
@@ -121,6 +124,9 @@ Meaning:
     OpenProject UI port-forward, until you stop it
 - `devint-smoke`
   - runs the profile’s smoke checks
+  - for persistent ART profiles such as `accepted-idea-delivery`, this must
+    stay read-only while still proving the optimized broker packet and closeout
+    evidence surfaces that operators depend on
 - `devint-promote-check`
   - renders the profile-owned governed handoff checklist that must be proven
     before calling the local slice ready for `stage`

@@ -256,7 +256,7 @@ CUSTOM_FIELD_SPECS = [
     is_filter: true,
     multi_value: false,
     possible_values: ["Security", "Reliability", "Performance", "Scalability", "Operability", "Compliance", "Usability", "Maintainability"],
-    type_names: ["Feature"]
+    type_names: ["Epic", "Feature"]
   },
   {
     name: "WSJF User-Business Value",

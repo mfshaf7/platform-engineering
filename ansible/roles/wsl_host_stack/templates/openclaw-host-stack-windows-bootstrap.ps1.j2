@@ -33,11 +33,6 @@ $hostForwardRules = @(
   @{
     Name = '{{ rule.name }}'
     ListenAddressSource = '{{ rule.listen_address_source }}'
-    ListenAddressAliases = @(
-{% for alias in rule.listen_address_aliases | default([]) %}
-      '{{ alias }}'{{ "," if not loop.last else "" }}
-{% endfor %}
-    )
     ListenPort = {{ rule.listen_port }}
     ConnectAddress = '{{ rule.connect_address }}'
     ConnectPort = {{ rule.connect_port }}
@@ -67,8 +62,13 @@ function Invoke-WslBash {
 }
 
 function Get-WslHostDockerInternalIp {
-  $resolved = Invoke-WslBash -TargetDistro $Distro -Command "getent hosts host.docker.internal | awk '{print `$1; exit}'"
-  $ip = $resolved.Trim()
+  $resolved = Invoke-WslBash -TargetDistro $Distro -Command "getent hosts host.docker.internal"
+  $line = ($resolved -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
+  if (-not $line) {
+    throw "Unable to resolve host.docker.internal from $Distro"
+  }
+
+  $ip = ($line.Trim() -split '\s+')[0]
   if (-not $ip) {
     throw "Unable to resolve host.docker.internal from $Distro"
   }
@@ -85,6 +85,26 @@ function Get-TransitWslIp {
   return $resolved
 }
 
+function Remove-PortProxyEntriesByListenPort {
+  param([int]$ListenPort)
+
+  $rows = netsh interface portproxy show v4tov4
+  foreach ($row in $rows) {
+    $parts = $row.Trim() -split '\s+' | Where-Object { $_ }
+    if ($parts.Count -lt 4) {
+      continue
+    }
+
+    $parsedListenPort = 0
+    if (
+      [int]::TryParse($parts[1], [ref]$parsedListenPort) -and
+      $parsedListenPort -eq $ListenPort
+    ) {
+      netsh interface portproxy delete v4tov4 listenport=$parsedListenPort listenaddress=$parts[0] | Out-Null
+    }
+  }
+}
+
 function Update-LocalhostPortProxy {
   $wslIp = (Invoke-WslBash -TargetDistro $Distro -Command "hostname -I").Trim().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)[0]
   if (-not $wslIp) {
@@ -92,7 +112,7 @@ function Update-LocalhostPortProxy {
   }
 
   foreach ($port in $forwardPorts) {
-    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=127.0.0.1 | Out-Null
+    Remove-PortProxyEntriesByListenPort -ListenPort $port
     netsh interface portproxy add v4tov4 listenport=$port listenaddress=127.0.0.1 connectport=$port connectaddress=$wslIp | Out-Null
   }
 
@@ -111,12 +131,7 @@ function Update-LocalhostPortProxy {
       }
     }
 
-    netsh interface portproxy delete v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress | Out-Null
-    foreach ($listenAddressAlias in $rule.ListenAddressAliases) {
-      if ($listenAddressAlias) {
-        netsh interface portproxy delete v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddressAlias | Out-Null
-      }
-    }
+    Remove-PortProxyEntriesByListenPort -ListenPort $rule.ListenPort
     netsh interface portproxy add v4tov4 listenport=$($rule.ListenPort) listenaddress=$listenAddress connectport=$($rule.ConnectPort) connectaddress=$($rule.ConnectAddress) | Out-Null
 
     $existingRule = Get-NetFirewallRule -DisplayName $rule.Name -ErrorAction SilentlyContinue
@@ -140,7 +155,7 @@ function Update-TransitVaultPortProxy {
   $listenAddress = Get-WslHostDockerInternalIp
   $transitIp = Get-TransitWslIp
 
-  netsh interface portproxy delete v4tov4 listenport=$TransitVaultProxyPort listenaddress=$listenAddress | Out-Null
+  Remove-PortProxyEntriesByListenPort -ListenPort $TransitVaultProxyPort
   netsh interface portproxy add v4tov4 listenport=$TransitVaultProxyPort listenaddress=$listenAddress connectport=8200 connectaddress=$transitIp | Out-Null
 
   $existingRule = Get-NetFirewallRule -DisplayName $TransitVaultProxyName -ErrorAction SilentlyContinue

@@ -144,6 +144,52 @@ def validate_wsl_host_bootstrap_contract(errors: list[str], repo_root: Path) -> 
         )
 
 
+def validate_windows_portproxy_reconciliation(errors: list[str], repo_root: Path) -> None:
+    template_path = (
+        repo_root
+        / "ansible"
+        / "roles"
+        / "wsl_host_stack"
+        / "templates"
+        / "openclaw-host-stack-windows-bootstrap.ps1.j2"
+    )
+    group_vars_path = repo_root / "ansible" / "group_vars" / "all" / "main.yml"
+    if not template_path.exists():
+        errors.append(f"{template_path}: missing Windows bootstrap template")
+        return
+
+    template = read_text(template_path)
+    required_snippets = (
+        "function Remove-PortProxyEntriesByListenPort",
+        "[int]::TryParse($parts[1], [ref]$parsedListenPort)",
+        "Remove-PortProxyEntriesByListenPort -ListenPort $port",
+        "Remove-PortProxyEntriesByListenPort -ListenPort $rule.ListenPort",
+        "Remove-PortProxyEntriesByListenPort -ListenPort $TransitVaultProxyPort",
+    )
+    for snippet in required_snippets:
+        if snippet not in template:
+            errors.append(
+                f"{template_path}: missing exact listen-port reconciliation contract: {snippet}"
+            )
+
+    forbidden_snippets = (
+        "foreach ($part in $parts[1..",
+        "Remove-ItemProperty",
+        "SYSTEM\\CurrentControlSet\\Services\\PortProxy",
+        "ListenAddressAliases",
+    )
+    for snippet in forbidden_snippets:
+        if snippet in template:
+            errors.append(
+                f"{template_path}: unsafe or obsolete portproxy behavior remains: {snippet}"
+            )
+
+    if group_vars_path.exists() and "listen_address_aliases:" in read_text(group_vars_path):
+        errors.append(
+            f"{group_vars_path}: listen-address aliases are obsolete when reconciliation is owned by exact listen port"
+        )
+
+
 def validate_legacy_operator_separation(errors: list[str], repo_root: Path) -> None:
     makefile_path = repo_root / "Makefile"
     runbooks_dir = repo_root / "docs" / "runbooks"
@@ -469,6 +515,7 @@ def main() -> int:
     validate_workflow_docs(errors, repo_root)
     validate_openproject_platform_admin_surface(errors, repo_root)
     validate_wsl_host_bootstrap_contract(errors, repo_root)
+    validate_windows_portproxy_reconciliation(errors, repo_root)
     validate_legacy_operator_separation(errors, repo_root)
     validate_readme_operator_surface(errors, repo_root)
     validate_component_index_coverage(errors, repo_root)

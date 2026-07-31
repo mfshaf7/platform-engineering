@@ -262,6 +262,7 @@ def main() -> int:
         == "contracts/orchestration/generation-retirement-manifest.schema.json"
         and retirement_manifest.get("digest_pin_required") is True
         and retirement_manifest.get("bounded_lifetime_required") is True
+        and retirement_manifest.get("maximum_lifetime_seconds") == 900
         and retirement_manifest.get("activation_manifest_binding_required") is True
         and retirement_manifest.get("generated_queue_binding_required") is True,
         "retirement manifest must be exact, digest-pinned, and generation-bound",
@@ -271,6 +272,7 @@ def main() -> int:
         start_ingress.get("required_state") == "drained"
         and start_ingress.get("active_replicas") == 0
         and start_ingress.get("in_flight_starts") == 0
+        and start_ingress.get("maximum_observation_age_seconds") == 300
         and start_ingress.get("evidence_ref_required") is True,
         "retirement must prove drained zero-replica start ingress",
         errors,
@@ -278,6 +280,7 @@ def main() -> int:
     require(
         ordinary_poller.get("required_state") == "drained"
         and ordinary_poller.get("active_replicas") == 0
+        and ordinary_poller.get("maximum_observation_age_seconds") == 300
         and ordinary_poller.get("evidence_ref_required") is True,
         "retirement must prove zero ordinary workflow pollers",
         errors,
@@ -300,6 +303,7 @@ def main() -> int:
         and retirement_receipt.get("schema_ref")
         == "contracts/orchestration/generation-retirement-receipt.schema.json"
         and retirement_receipt.get("accepted_outcome") == "retired"
+        and retirement_receipt.get("future_recorded_at_allowed") is False
         and retirement_receipt.get("required_before_fresh_activation") is True
         and retirement_receipt.get("retained_with_platform_evidence") is True,
         "fresh activation must be gated by a retained retirement receipt",

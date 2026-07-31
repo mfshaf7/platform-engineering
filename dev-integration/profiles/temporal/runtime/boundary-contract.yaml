@@ -99,6 +99,7 @@ generation_retirement:
     schema_ref: contracts/orchestration/generation-retirement-manifest.schema.json
     digest_pin_required: true
     bounded_lifetime_required: true
+    maximum_lifetime_seconds: 900
     activation_manifest_binding_required: true
     generated_queue_binding_required: true
   preconditions:
@@ -106,10 +107,12 @@ generation_retirement:
       required_state: drained
       active_replicas: 0
       in_flight_starts: 0
+      maximum_observation_age_seconds: 300
       evidence_ref_required: true
     ordinary_workflow_poller:
       required_state: drained
       active_replicas: 0
+      maximum_observation_age_seconds: 300
       evidence_ref_required: true
   one_shot_worker:
     owner_repo: operator-orchestration-service
@@ -122,6 +125,7 @@ generation_retirement:
     schema_owner_repo: operator-orchestration-service
     schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
     accepted_outcome: retired
+    future_recorded_at_allowed: false
     required_before_fresh_activation: true
     retained_with_platform_evidence: true
 secret_references:

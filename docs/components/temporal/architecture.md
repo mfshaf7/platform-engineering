@@ -112,7 +112,9 @@ For planned suspension or replacement, Platform owns the ordered boundary:
 1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
    starts
 2. scale ordinary OOS workflow pollers to zero and record that evidence
-3. issue a short-lived, digest-pinned retirement manifest for the old queue
+3. issue a digest-pinned retirement manifest for the old queue using drain
+   observations no more than five minutes old and a lifetime no longer than
+   fifteen minutes
 4. allow OOS to run one explicit one-shot cancel-and-drain worker
 5. verify the OOS receipt binds every observed cancellation target to a
    terminal projection and at least seven post-stop empty scans

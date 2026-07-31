@@ -83,9 +83,11 @@ For a planned retirement:
 
 The issuer requires explicit timestamps, evidence references, and zero counts;
 it derives the queue from the pinned activation-manifest digest and writes a
-mode-0600 JSON file atomically. The verifier rejects mismatched targets,
-digests, queues, drain evidence, cancellation and terminal counts, or fewer
-than seven post-stop empty scans.
+mode-0600 JSON file atomically. Drain observations must be no more than five
+minutes old and the manifest lifetime cannot exceed fifteen minutes. The
+verifier rejects future receipt times, mismatched targets, digests, queues,
+drain evidence, cancellation and terminal counts, or fewer than seven
+post-stop empty scans.
 
 This operator surface is source-valid now. It does not make the build-admitted
 profile launchable and must not be used as evidence that a retirement run has

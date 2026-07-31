@@ -129,6 +129,33 @@ Current build-admitted profile:
     until fresh Platform, Security, and workspace lifecycle gates make the
     profile `active`
 
+### Temporal Generation Retirement
+
+Temporal remains inactive, so there is no generation to retire now. Once the
+profile is active and a prior OOS workflow generation exists, use the
+Platform-owned procedure before suspension, replacement, or fresh activation:
+
+1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
+   starts
+2. prove zero ordinary OOS workflow pollers
+3. issue the old generation manifest using observations no more than five
+   minutes old and a lifetime no longer than fifteen minutes
+4. run the explicit OOS one-shot retirement worker against that manifest and
+   its exact digest
+5. verify and retain the OOS receipt before issuing any fresh activation
+
+The source-valid entrypoint is:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/generation_retirement.py --help
+```
+
+Use the exact command arguments and evidence rules in the
+[Temporal profile procedure](../../dev-integration/profiles/temporal/README.md)
+and the [Temporal operations guide](../components/temporal/operations.md).
+Unexpected activation-evidence loss is an incomplete fail-stop fence; it is
+never a substitute for this retirement procedure.
+
 ## 2. Use An Active Profile
 
 Run the shared operator commands from `platform-engineering/`:

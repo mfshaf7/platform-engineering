@@ -235,6 +235,33 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("must not overwrite", result.stderr)
 
+    def test_issue_rejects_stale_drain_evidence_or_long_authorization(self) -> None:
+        stale = self.issue_command()
+        stale[stale.index("--start-ingress-observed-at") + 1] = timestamp(
+            self.issued_at - timedelta(seconds=301)
+        )
+        stale_result = subprocess.run(stale, capture_output=True, text=True)
+        self.assertEqual(stale_result.returncode, 2)
+        self.assertIn("no more than 300 seconds old", stale_result.stderr)
+
+        long_lived = self.issue_command()
+        long_lived[long_lived.index("--expires-at") + 1] = timestamp(
+            self.issued_at + timedelta(seconds=901)
+        )
+        lifetime_result = subprocess.run(long_lived, capture_output=True, text=True)
+        self.assertEqual(lifetime_result.returncode, 2)
+        self.assertIn("must not exceed 900 seconds", lifetime_result.stderr)
+
+    def test_verify_rejects_future_receipt_time(self) -> None:
+        manifest, retirement_digest = self.issue()
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["recorded_at"] = timestamp(
+            datetime.now(timezone.utc) + timedelta(minutes=1)
+        )
+        result = self.verify(receipt, retirement_digest)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("must not be in the future", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

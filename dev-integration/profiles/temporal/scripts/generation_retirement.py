@@ -14,6 +14,8 @@ from typing import Any
 
 
 MAX_DOCUMENT_BYTES = 64 * 1024
+MAX_DRAIN_OBSERVATION_AGE_SECONDS = 300
+MAX_RETIREMENT_LIFETIME_SECONDS = 900
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{2,255}$")
 URI_RE = re.compile(
@@ -224,6 +226,8 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     expires_at = parse_timestamp(manifest["expires_at"], "retirement expires_at")
     if expires_at <= issued_at:
         raise ContractError("retirement expires_at must follow issued_at")
+    if (expires_at - issued_at).total_seconds() > MAX_RETIREMENT_LIFETIME_SECONDS:
+        raise ContractError("retirement evidence lifetime must not exceed 900 seconds")
 
     target = require_object(manifest["temporal_target"], "retirement temporal_target")
     require_exact_fields(
@@ -247,8 +251,11 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     require_equal(ingress["active_replicas"], 0, "start_ingress.active_replicas")
     require_equal(ingress["in_flight_starts"], 0, "start_ingress.in_flight_starts")
     require_uri(ingress["evidence_ref"], "start_ingress.evidence_ref")
-    if parse_timestamp(ingress["observed_at"], "start_ingress.observed_at") > issued_at:
-        raise ContractError("start ingress observation must not follow issuance")
+    require_fresh_observation(
+        parse_timestamp(ingress["observed_at"], "start_ingress.observed_at"),
+        issued_at,
+        "start ingress",
+    )
 
     poller = require_object(manifest["workflow_poller"], "workflow_poller")
     require_exact_fields(
@@ -259,8 +266,21 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     require_equal(poller["state"], "drained", "workflow_poller.state")
     require_equal(poller["active_replicas"], 0, "workflow_poller.active_replicas")
     require_uri(poller["evidence_ref"], "workflow_poller.evidence_ref")
-    if parse_timestamp(poller["observed_at"], "workflow_poller.observed_at") > issued_at:
-        raise ContractError("workflow poller observation must not follow issuance")
+    require_fresh_observation(
+        parse_timestamp(poller["observed_at"], "workflow_poller.observed_at"),
+        issued_at,
+        "workflow poller",
+    )
+
+
+def require_fresh_observation(
+    observed_at: datetime, issued_at: datetime, name: str
+) -> None:
+    age = (issued_at - observed_at).total_seconds()
+    if age < 0:
+        raise ContractError(f"{name} observation must not follow issuance")
+    if age > MAX_DRAIN_OBSERVATION_AGE_SECONDS:
+        raise ContractError(f"{name} observation must be no more than 300 seconds old")
 
 
 def atomic_write_json(path: Path, value: dict[str, Any]) -> bytes:
@@ -430,6 +450,8 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     issued_at = parse_timestamp(manifest["issued_at"], "retirement issued_at")
     if recorded_at < issued_at:
         raise ContractError("receipt recorded_at must not precede manifest issuance")
+    if recorded_at > datetime.now(timezone.utc):
+        raise ContractError("receipt recorded_at must not be in the future")
     return {
         "decision": "accepted",
         "receipt_digest": sha256_digest(receipt_raw),

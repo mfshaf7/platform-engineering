@@ -1,0 +1,155 @@
+schema_version: 1
+runtime:
+  kubernetes_namespace_source: dev-integration-session
+  temporal_namespace_pattern: governance-{operator}
+  local_only: true
+  public_ingress: false
+  direct_console_access: false
+  diagnostic_access: operator-local-port-forward
+  persistence:
+    storage_class: local-path
+    size: 10Gi
+    normal_down_preserves_history: true
+    reset_requires_confirmation: true
+identities:
+  temporal_runtime:
+    owner_repo: platform-engineering
+    service_account: temporal-runtime
+    credential_scope: runtime-only
+  temporal_postgresql:
+    owner_repo: platform-engineering
+    service_account: temporal-postgresql
+    credential_scope: database-only
+  oos_workflow_worker:
+    owner_repo: operator-orchestration-service
+    service_account: temporal-oos-worker
+    pod_label: orchestration.workspace/identity=oos-workflow-worker
+    credential_scope: workflow-definition-and-run-control
+  wgcf_activity_worker:
+    owner_repo: workspace-governance-control-fabric
+    service_account: temporal-wgcf-activity
+    pod_label: orchestration.workspace/identity=wgcf-activity-worker
+    credential_scope: bounded-validation-readiness-activities
+  human_diagnostic:
+    owner_repo: platform-engineering
+    service_account: temporal-diagnostic
+    credential_scope: operator-local-read-only
+database_identities:
+  postgresql_administration:
+    secret_name: temporal-postgresql
+    username_key: admin_username
+    password_key: admin_password
+    credential_scope: bootstrap-backup-restore
+    exposed_to_temporal_server: false
+  temporal_application:
+    secret_name: temporal-postgresql
+    username_key: username
+    password_key: password
+    credential_scope: temporal-and-visibility-databases
+    superuser: false
+task_queues:
+  - id: validation-readiness-run
+    name: oos.validation-readiness-run.v1
+    kind: workflow
+    owner_repo: operator-orchestration-service
+    worker_identity: oos_workflow_worker
+  - id: validation-readiness-activity
+    name: wgcf.validation-readiness.v1
+    kind: activity
+    owner_repo: workspace-governance-control-fabric
+    worker_identity: wgcf_activity_worker
+  - id: delivery-refinement-apply
+    name: oos.delivery-refinement-apply.v1
+    kind: workflow
+    owner_repo: operator-orchestration-service
+    worker_identity: oos_workflow_worker
+  - id: delivery-refinement-activity
+    name: delivery.refinement-apply.v1
+    kind: activity
+    owner_repo: operator-orchestration-service
+    worker_identity: oos_workflow_worker
+queue_policy:
+  activity_queue_pattern: "{owner}.{activity-set}.v{major}"
+  shared_worker_credentials_allowed: false
+  cross_owner_consumption_allowed: false
+  platform_owns_queue_business_logic: false
+  enforcement:
+    network_policy: restricts frontend reachability to admitted worker identities
+    worker_registration: each owner registers only its declared queues
+    activation_gate: runtime denial proof and fresh security acceptance
+secret_references:
+  postgresql:
+    secret_name: temporal-postgresql
+    keys:
+      - admin_username
+      - admin_password
+      - username
+      - password
+    rotation: regenerate only through an explicit reset after backup
+  worker_credentials:
+    source: owner-scoped-local-secret
+    rotation_owned_by: each-worker-owner
+    shared_long_lived_credential_allowed: false
+payload_policy:
+  allowed_fields:
+    - source_ref
+    - source_version
+    - definition_id
+    - definition_version
+    - run_id
+    - correlation_id
+    - causation_id
+    - bounded_decision
+    - status_code
+    - artifact_digest
+    - receipt_ref
+  denied_content:
+    - secret-values
+    - raw-operational-context
+    - raw-cgg-artifacts
+    - unbounded-logs
+    - command-output
+    - duplicated-business-records
+    - raw-prompts
+    - unconstrained-model-output
+visibility:
+  search_attribute_allowlist:
+    - CorrelationId
+    - CausationId
+    - DefinitionId
+    - DefinitionVersion
+    - SourceRef
+    - ReceiptRef
+    - StatusCode
+    - ArtifactDigest
+  workflow_history_retention: 7d
+observability:
+  metrics:
+    enabled: true
+    payload_bodies_allowed: false
+  logs:
+    level: info
+    payload_bodies_allowed: false
+  traces:
+    runtime_export_enabled: false
+    correlation_owned_by: operator-orchestration-service
+    payload_bodies_allowed: false
+  evidence_fields:
+    - request_ref
+    - run_id
+    - definition_id
+    - workflow_id
+    - activity_id
+    - attempt
+    - idempotency_key
+    - caller_id
+    - worker_id
+    - operator_id
+    - source_ref
+    - receipt_ref
+denied_paths:
+  - governance-console-to-temporal
+  - public-temporal-ui
+  - anonymous-temporal-namespace
+  - cross-owner-task-queue-consumption
+  - temporal-to-canonical-backend-general-credential

@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Temporal is the proposed platform-owned durable workflow runtime adapter for
-workflows whose waits, retries, restarts, reconciliation, or cross-owner
+Temporal is the build-admitted platform-owned durable workflow runtime adapter
+for workflows whose waits, retries, restarts, reconciliation, or cross-owner
 history must survive one request.
 
 Temporal does not own business workflow policy. `operator-orchestration-service`
@@ -17,21 +17,24 @@ and final orchestration receipts.
 - [operations.md](operations.md)
 - [release-governance.md](release-governance.md)
 - [ADR-017: Temporal Durable Workflow Runtime](../../decisions/adr/ADR-017-temporal-durable-workflow-runtime.md)
+- [Security build admission](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-07-31-temporal-durable-orchestration-build-admission.md)
 
 ## Current Live Footprint
 
 - intake classification: `proposed`
 - dev-integration profile: `temporal`
-- profile lifecycle: `proposed`
+- profile lifecycle: `build-admitted`
 - namespace: none
 - Argo application: none
 - runtime service: none
 - direct operator UI: none
-- approved image or version pin: none
+- source artifact pins: Temporal chart `1.2.0`, Temporal `1.31.2`,
+  diagnostic UI `2.52.1`, PostgreSQL `17.10-alpine3.24`
 - `stage` or `prod` deployment: not approved
 
-The profile is structurally defined so admission can be reviewed. It is not
-implementation authorization and is not self-serve launchable.
+The local runtime source and operator commands are implemented, but no runtime
+has been installed. Build admission is source authorization, not self-serve
+launch or workflow-execution authority.
 
 ## Owner Boundaries
 

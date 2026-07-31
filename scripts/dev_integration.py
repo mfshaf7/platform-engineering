@@ -15,15 +15,17 @@ import yaml
 
 ACTIONS = {
     "access": "access",
+    "backup": "backup",
     "up": "up",
     "status": "status",
     "smoke": "smoke",
     "down": "down",
     "reset": "reset",
+    "restore": "restore",
     "promote-check": "promote_check",
 }
 
-ACTIVE_ONLY_ACTIONS = {"access", "up", "smoke"}
+ACTIVE_ONLY_ACTIONS = {"access", "backup", "restore", "up", "smoke"}
 
 
 def load_yaml(path: Path) -> dict:
@@ -173,7 +175,7 @@ def smoke_testing(profile: dict) -> dict:
 
 def session_paths(workspace_root: Path, profile_id: str, operator: str) -> dict[str, Path]:
     base_root = workspace_root / ".dev-integration"
-    state_root = base_root / profile_id / operator
+    state_root = base_root / slugify(profile_id) / slugify(operator)
     sessions_root = base_root / "sessions"
     return {
         "base_root": base_root,
@@ -276,7 +278,9 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> N
         cmd = ["python3", str(command_path)]
     else:
         cmd = [str(command_path)]
-    subprocess.run(cmd, cwd=str(cwd), env=env, check=True, text=True)
+    result = subprocess.run(cmd, cwd=str(cwd), env=env, check=False, text=True)
+    if result.returncode:
+        raise SystemExit(result.returncode)
 
 
 def main() -> int:
@@ -332,6 +336,18 @@ def main() -> int:
 
     current_manifest_path = paths["current_manifest"]
     existing_manifest = load_yaml(current_manifest_path) if current_manifest_path.exists() else {}
+    existing_operator = existing_manifest.get("operator")
+    if existing_operator and existing_operator != operator:
+        raise SystemExit(
+            "Refusing dev-integration operator slug collision: "
+            f"{operator!r} maps to state already owned by {existing_operator!r}"
+        )
+    existing_profile_id = existing_manifest.get("profile_id")
+    if existing_profile_id and existing_profile_id != args.profile:
+        raise SystemExit(
+            "Refusing dev-integration profile slug collision: "
+            f"{args.profile!r} maps to state already owned by {existing_profile_id!r}"
+        )
     if existing_manifest.get("session_id") and args.action != "up":
         session_id = existing_manifest["session_id"]
     else:

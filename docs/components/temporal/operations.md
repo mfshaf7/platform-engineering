@@ -2,35 +2,36 @@
 
 ## Current Operational Posture
 
-Temporal is proposed and has no running platform footprint.
+Temporal is build-admitted and has no running platform footprint.
 
-After the workspace profile registry lands, the supported status check is:
+The supported status check is:
 
 ```bash
 make devint-status PROFILE=temporal
 ```
 
-All runtime-mutating profile scripts fail closed in the proposed lifecycle.
+Runtime launch, diagnostic access, backup, restore, and workflow execution fail
+closed while the profile is build-admitted.
 
-## Build-Admission Checks
+## Implemented Source Boundary
 
-Before implementation begins, confirm:
-
-- Platform accepts the persistent local-k3s runtime shape.
-- Security review covers identity, task queues, secrets, persistence, network
-  exposure, UI access, and workflow payload boundaries.
-- OOS owns the Temporal client, workers, definitions, run control, and
-  aggregate projection.
-- activity owners expose bounded and idempotent operations.
-- normal suspend preserves workflow history.
-- reset is explicit, local, and destructive only within the profile boundary.
-- shared smoke remains read-only.
+- immutable chart and image pins
+- operator-scoped Kubernetes and Temporal namespace rendering
+- 10Gi local-path PostgreSQL persistence
+- separate runtime, PostgreSQL, OOS, WGCF, and diagnostic identity references
+- explicit workflow and activity task queues
+- default-deny network policy and no public UI ingress
+- reference-only payload and search-attribute allowlists
+- read-only smoke, persistent suspend, explicit backup and restore, and
+  confirmed destructive reset
+- quiesced two-database backup with state-preserving completion and fail-safe
+  restore behavior
 
 ## Activation Checks
 
 Before the profile becomes `active`, prove:
 
-- owner runtime commands are implemented and runnable
+- owner runtime commands are runnable against the controlled runtime
 - PostgreSQL migration, persistence, backup, restore, and reset behavior
 - runtime and OOS worker restart survival
 - deterministic replay compatibility

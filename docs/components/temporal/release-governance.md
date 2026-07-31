@@ -2,28 +2,29 @@
 
 ## Current Release State
 
-Temporal is a proposed shared platform component.
+Temporal is a build-admitted shared platform component.
 
 There is currently no approved:
 
-- runtime implementation
 - dev-integration activation
-- image or chart pin
 - PostgreSQL deployment
-- operator access path
+- active operator access
 - Argo application
 - `stage` or `prod` deployment
 
-This component record and proposed profile do not change live state.
+The runtime source, artifact pins, and operator commands are implemented. They
+do not change live state.
 
 ## Build-Admission Gate
 
-Implementation may begin only after:
+The completed build-admission prerequisites are:
 
 - the workspace profile becomes `build-admitted`
 - Platform records persistent-runtime acceptance
 - Security records the required boundary review
 - implementation scope explicitly denies self-serve launch
+
+Build admission remains bounded to source implementation and validation.
 
 ## Dev-Integration Activation Gate
 

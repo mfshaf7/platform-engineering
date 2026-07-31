@@ -235,6 +235,14 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertEqual(unauthorized.returncode, 2)
         self.assertIn("within the manifest lifetime", unauthorized.stderr)
 
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["retirement_started_at"] = timestamp(
+            self.issued_at + timedelta(seconds=281)
+        )
+        stale_at_start = self.verify(receipt, retirement_digest)
+        self.assertEqual(stale_at_start.returncode, 2)
+        self.assertIn("old at retirement start", stale_at_start.stderr)
+
     def test_issue_refuses_to_overwrite_activation_evidence(self) -> None:
         command = self.issue_command()
         command[command.index("--output") + 1] = str(self.activation_path)

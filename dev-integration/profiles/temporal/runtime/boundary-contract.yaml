@@ -108,11 +108,13 @@ generation_retirement:
       active_replicas: 0
       in_flight_starts: 0
       maximum_observation_age_seconds: 300
+      observation_age_reference: one-shot-worker-start
       evidence_ref_required: true
     ordinary_workflow_poller:
       required_state: drained
       active_replicas: 0
       maximum_observation_age_seconds: 300
+      observation_age_reference: one-shot-worker-start
       evidence_ref_required: true
   one_shot_worker:
     owner_repo: operator-orchestration-service

@@ -256,6 +256,7 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
         parse_timestamp(ingress["observed_at"], "start_ingress.observed_at"),
         issued_at,
         "start ingress",
+        "issuance",
     )
 
     poller = require_object(manifest["workflow_poller"], "workflow_poller")
@@ -271,17 +272,26 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
         parse_timestamp(poller["observed_at"], "workflow_poller.observed_at"),
         issued_at,
         "workflow poller",
+        "issuance",
     )
 
 
 def require_fresh_observation(
-    observed_at: datetime, issued_at: datetime, name: str
+    observed_at: datetime,
+    reference_at: datetime,
+    name: str,
+    reference_name: str,
 ) -> None:
-    age = (issued_at - observed_at).total_seconds()
+    age = (reference_at - observed_at).total_seconds()
     if age < 0:
-        raise ContractError(f"{name} observation must not follow issuance")
+        raise ContractError(
+            f"{name} observation must not follow {reference_name}"
+        )
     if age > MAX_DRAIN_OBSERVATION_AGE_SECONDS:
-        raise ContractError(f"{name} observation must be no more than 300 seconds old")
+        raise ContractError(
+            f"{name} observation must be no more than 300 seconds old at "
+            f"{reference_name}"
+        )
 
 
 def atomic_write_json(path: Path, value: dict[str, Any]) -> bytes:
@@ -456,6 +466,24 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
         raise ContractError(
             "retirement_started_at must fall within the manifest lifetime"
         )
+    require_fresh_observation(
+        parse_timestamp(
+            manifest["start_ingress"]["observed_at"],
+            "start_ingress.observed_at",
+        ),
+        started_at,
+        "start ingress",
+        "retirement start",
+    )
+    require_fresh_observation(
+        parse_timestamp(
+            manifest["workflow_poller"]["observed_at"],
+            "workflow_poller.observed_at",
+        ),
+        started_at,
+        "workflow poller",
+        "retirement start",
+    )
     recorded_at = parse_timestamp(receipt["recorded_at"], "recorded_at")
     if recorded_at < started_at:
         raise ContractError("receipt recorded_at must not precede retirement start")

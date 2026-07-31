@@ -273,6 +273,8 @@ def main() -> int:
         and start_ingress.get("active_replicas") == 0
         and start_ingress.get("in_flight_starts") == 0
         and start_ingress.get("maximum_observation_age_seconds") == 300
+        and start_ingress.get("observation_age_reference")
+        == "one-shot-worker-start"
         and start_ingress.get("evidence_ref_required") is True,
         "retirement must prove drained zero-replica start ingress",
         errors,
@@ -281,6 +283,8 @@ def main() -> int:
         ordinary_poller.get("required_state") == "drained"
         and ordinary_poller.get("active_replicas") == 0
         and ordinary_poller.get("maximum_observation_age_seconds") == 300
+        and ordinary_poller.get("observation_age_reference")
+        == "one-shot-worker-start"
         and ordinary_poller.get("evidence_ref_required") is True,
         "retirement must prove zero ordinary workflow pollers",
         errors,

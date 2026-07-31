@@ -89,7 +89,8 @@ verifier rejects future receipt times, mismatched targets, digests, queues,
 drain evidence, cancellation and terminal counts, or fewer than seven
 post-stop empty scans. It also requires the OOS one-shot start timestamp to
 fall inside the manifest lifetime while allowing a valid drain to complete
-after that authorization window.
+after that authorization window. Both drained-state observations must still be
+no more than five minutes old when the one-shot worker starts.
 
 This operator surface is source-valid now. It does not make the build-admitted
 profile launchable and must not be used as evidence that a retirement run has

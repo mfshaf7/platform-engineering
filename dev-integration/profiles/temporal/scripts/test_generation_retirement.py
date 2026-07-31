@@ -216,6 +216,25 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertEqual(incomplete.returncode, 2)
         self.assertIn("post_stop_empty_scans", incomplete.stderr)
 
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["ordinary_poller_stopped"] = 1
+        wrong_type = self.verify(receipt, retirement_digest)
+        self.assertEqual(wrong_type.returncode, 2)
+        self.assertIn("ordinary_poller_stopped", wrong_type.stderr)
+
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["recorded_at"] = timestamp(self.issued_at - timedelta(seconds=1))
+        stale = self.verify(receipt, retirement_digest)
+        self.assertEqual(stale.returncode, 2)
+        self.assertIn("must not precede", stale.stderr)
+
+    def test_issue_refuses_to_overwrite_activation_evidence(self) -> None:
+        command = self.issue_command()
+        command[command.index("--output") + 1] = str(self.activation_path)
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("must not overwrite", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

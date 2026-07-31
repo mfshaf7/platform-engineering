@@ -135,7 +135,7 @@ def require_object(value: Any, name: str) -> dict[str, Any]:
 
 
 def require_equal(actual: Any, expected: Any, name: str) -> None:
-    if actual != expected:
+    if type(actual) is not type(expected) or actual != expected:
         raise ContractError(f"{name} must be {expected!r}")
 
 
@@ -277,6 +277,11 @@ def atomic_write_json(path: Path, value: dict[str, Any]) -> bytes:
         os.replace(temporary_name, path)
         temporary_name = None
         os.chmod(path, 0o600)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         if temporary_name is not None:
             Path(temporary_name).unlink(missing_ok=True)
@@ -284,8 +289,12 @@ def atomic_write_json(path: Path, value: dict[str, Any]) -> bytes:
 
 
 def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
+    activation_path = args.activation_manifest.resolve()
+    output_path = args.output.resolve()
+    if output_path == activation_path:
+        raise ContractError("retirement output must not overwrite activation evidence")
     activation_manifest, _ = load_pinned_json(
-        args.activation_manifest.resolve(), args.activation_digest
+        activation_path, args.activation_digest
     )
     target = validate_activation_manifest(activation_manifest)
     require_uri(args.retirement_id, "retirement_id")
@@ -352,9 +361,9 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
         },
     }
     validate_retirement_manifest(manifest)
-    raw = atomic_write_json(args.output.resolve(), manifest)
+    raw = atomic_write_json(output_path, manifest)
     return {
-        "manifest_path": str(args.output.resolve()),
+        "manifest_path": str(output_path),
         "retirement_evidence_digest": sha256_digest(raw),
         "retirement_id": manifest["retirement_id"],
         "workflow_task_queue": manifest["workflow_task_queue"],
@@ -417,7 +426,10 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     if cancel_count != terminal_count:
         raise ContractError("every cancellation target must have a terminal projection")
     require_integer(receipt["post_stop_empty_scans"], 7, "post_stop_empty_scans")
-    parse_timestamp(receipt["recorded_at"], "recorded_at")
+    recorded_at = parse_timestamp(receipt["recorded_at"], "recorded_at")
+    issued_at = parse_timestamp(manifest["issued_at"], "retirement issued_at")
+    if recorded_at < issued_at:
+        raise ContractError("receipt recorded_at must not precede manifest issuance")
     return {
         "decision": "accepted",
         "receipt_digest": sha256_digest(receipt_raw),

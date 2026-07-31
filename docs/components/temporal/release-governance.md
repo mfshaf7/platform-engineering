@@ -50,6 +50,8 @@ Local execution is not governed rollout evidence.
 - observability, retention, and redaction controls
 - security acceptance
 - successful `validation-readiness-run` proof
+- proof that activation-manifest digest rotation moves OOS polling to a new
+  workflow queue while a same-manifest restart retains the active queue
 
 ## Required Gates Before Production
 

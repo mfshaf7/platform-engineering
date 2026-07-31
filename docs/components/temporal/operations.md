@@ -43,7 +43,10 @@ Before the profile becomes `active`, prove:
 
 ## Initial Runtime Proof
 
-The first controlled execution is `validation-readiness-run`.
+The first controlled execution is `validation-readiness-run`. Its workflow
+worker polls only the queue generation derived from the currently accepted
+activation-manifest digest. A revoked digest is never reused; a fresh
+activation therefore cannot execute a late start retained on an older queue.
 
 It must:
 

@@ -171,12 +171,51 @@ def main() -> int:
         errors,
     )
     task_queues = boundary.get("task_queues", [])
-    queue_names = [entry.get("name") for entry in task_queues]
+    queue_names = [
+        entry.get("name") or entry.get("name_prefix") for entry in task_queues
+    ]
     require(len(queue_names) == len(set(queue_names)), "task queue names must be unique", errors)
     require(
         {"validation-readiness-run", "delivery-refinement-apply"}
         <= {entry.get("id") for entry in task_queues},
         "initial workflow task queues are incomplete",
+        errors,
+    )
+    validation_queue = next(
+        (
+            entry
+            for entry in task_queues
+            if entry.get("id") == "validation-readiness-run"
+        ),
+        {},
+    )
+    validation_generation = validation_queue.get("generation", {})
+    require(
+        validation_queue.get("name") is None
+        and validation_queue.get("name_prefix")
+        == "oos.validation-readiness-run.v1",
+        "validation-readiness workflow queue must use the admitted generated prefix",
+        errors,
+    )
+    require(
+        validation_generation.get("source")
+        == "activation-evidence-manifest-digest"
+        and validation_generation.get("suffix_encoding") == "sha256-hex",
+        "validation-readiness workflow queue must bind the activation manifest digest",
+        errors,
+    )
+    require(
+        validation_generation.get("active_restart_reuses_generation") is True
+        and validation_generation.get("revoked_digest_reuse_allowed") is False,
+        "activation queue generations must be restart-stable and revocation-final",
+        errors,
+    )
+    require(
+        boundary.get("queue_policy", {}).get(
+            "generated_workflow_queue_pattern"
+        )
+        == "{name-prefix}.{activation-manifest-digest-hex}",
+        "generated workflow queue pattern must remain activation-bound",
         errors,
     )
     require(

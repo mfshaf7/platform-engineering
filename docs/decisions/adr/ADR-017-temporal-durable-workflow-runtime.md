@@ -41,6 +41,9 @@ Use Temporal as the proposed durable runtime adapter behind OOS.
 - normal profile shutdown preserves workflow history; reset is explicit and
   destructive only within the local profile boundary.
 - the initial safe proof is `validation-readiness-run`.
+- activation-sensitive workflow polling is fenced by a task-queue generation
+  derived from the accepted Platform activation-manifest digest; a revoked
+  digest cannot be reused for reactivation.
 - the first business workflow is `delivery.refinement.apply`.
 
 The initial profile lifecycle is `proposed`. This ADR does not authorize

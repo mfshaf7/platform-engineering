@@ -87,7 +87,9 @@ mode-0600 JSON file atomically. Drain observations must be no more than five
 minutes old and the manifest lifetime cannot exceed fifteen minutes. The
 verifier rejects future receipt times, mismatched targets, digests, queues,
 drain evidence, cancellation and terminal counts, or fewer than seven
-post-stop empty scans.
+post-stop empty scans. It also requires the OOS one-shot start timestamp to
+fall inside the manifest lifetime while allowing a valid drain to complete
+after that authorization window.
 
 This operator surface is source-valid now. It does not make the build-admitted
 profile launchable and must not be used as evidence that a retirement run has

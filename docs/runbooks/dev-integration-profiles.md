@@ -142,7 +142,8 @@ Platform-owned procedure before suspension, replacement, or fresh activation:
    minutes old and a lifetime no longer than fifteen minutes
 4. run the explicit OOS one-shot retirement worker against that manifest and
    its exact digest
-5. verify and retain the OOS receipt before issuing any fresh activation
+5. verify the receipt proves that the one-shot worker started inside the
+   manifest lifetime, then retain it before issuing any fresh activation
 
 The source-valid entrypoint is:
 

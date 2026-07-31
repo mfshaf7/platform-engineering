@@ -83,6 +83,7 @@ RECEIPT_FIELDS = {
     "recorded_at",
     "retirement_evidence_digest",
     "retirement_id",
+    "retirement_started_at",
     "schema_version",
     "start_ingress_evidence_ref",
     "temporal_target",
@@ -446,10 +447,18 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     if cancel_count != terminal_count:
         raise ContractError("every cancellation target must have a terminal projection")
     require_integer(receipt["post_stop_empty_scans"], 7, "post_stop_empty_scans")
-    recorded_at = parse_timestamp(receipt["recorded_at"], "recorded_at")
     issued_at = parse_timestamp(manifest["issued_at"], "retirement issued_at")
-    if recorded_at < issued_at:
-        raise ContractError("receipt recorded_at must not precede manifest issuance")
+    expires_at = parse_timestamp(manifest["expires_at"], "retirement expires_at")
+    started_at = parse_timestamp(
+        receipt["retirement_started_at"], "retirement_started_at"
+    )
+    if started_at < issued_at or started_at >= expires_at:
+        raise ContractError(
+            "retirement_started_at must fall within the manifest lifetime"
+        )
+    recorded_at = parse_timestamp(receipt["recorded_at"], "recorded_at")
+    if recorded_at < started_at:
+        raise ContractError("receipt recorded_at must not precede retirement start")
     if recorded_at > datetime.now(timezone.utc):
         raise ContractError("receipt recorded_at must not be in the future")
     return {

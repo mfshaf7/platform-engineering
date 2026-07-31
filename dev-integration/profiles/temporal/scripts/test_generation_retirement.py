@@ -136,6 +136,7 @@ class GenerationRetirementTest(unittest.TestCase):
             "schema_version": 1,
             "receipt_id": "receipt:generation-retirement:test",
             "retirement_id": manifest["retirement_id"],
+            "retirement_started_at": timestamp(self.issued_at + timedelta(seconds=1)),
             "retirement_evidence_digest": retirement_digest,
             "activation_evidence_digest": manifest["activation_evidence_digest"],
             "activation_manifest_ref": manifest["activation_manifest_ref"],
@@ -228,6 +229,12 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertEqual(stale.returncode, 2)
         self.assertIn("must not precede", stale.stderr)
 
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["retirement_started_at"] = manifest["expires_at"]
+        unauthorized = self.verify(receipt, retirement_digest)
+        self.assertEqual(unauthorized.returncode, 2)
+        self.assertIn("within the manifest lifetime", unauthorized.stderr)
+
     def test_issue_refuses_to_overwrite_activation_evidence(self) -> None:
         command = self.issue_command()
         command[command.index("--output") + 1] = str(self.activation_path)
@@ -261,6 +268,21 @@ class GenerationRetirementTest(unittest.TestCase):
         result = self.verify(receipt, retirement_digest)
         self.assertEqual(result.returncode, 2)
         self.assertIn("must not be in the future", result.stderr)
+
+    def test_verify_accepts_completion_after_authorization_expiry(self) -> None:
+        manifest, _ = self.issue()
+        manifest["expires_at"] = timestamp(self.issued_at + timedelta(seconds=10))
+        retirement_raw = (json.dumps(manifest, indent=2) + "\n").encode()
+        self.retirement_path.write_bytes(retirement_raw)
+        retirement_digest = digest(retirement_raw)
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["retirement_started_at"] = timestamp(
+            self.issued_at + timedelta(seconds=1)
+        )
+
+        result = self.verify(receipt, retirement_digest)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

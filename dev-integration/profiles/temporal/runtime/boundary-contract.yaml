@@ -125,6 +125,7 @@ generation_retirement:
     schema_owner_repo: operator-orchestration-service
     schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
     accepted_outcome: retired
+    start_timestamp_required: true
     future_recorded_at_allowed: false
     required_before_fresh_activation: true
     retained_with_platform_evidence: true

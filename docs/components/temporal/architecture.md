@@ -117,7 +117,8 @@ For planned suspension or replacement, Platform owns the ordered boundary:
    fifteen minutes
 4. allow OOS to run one explicit one-shot cancel-and-drain worker
 5. verify the OOS receipt binds every observed cancellation target to a
-   terminal projection and at least seven post-stop empty scans
+   terminal projection, proves the one-shot worker started inside the manifest
+   lifetime, and records at least seven post-stop empty scans
 6. retain the receipt before issuing a fresh activation manifest and queue
 
 Platform owns the manifest and receipt-acceptance boundary. OOS owns the

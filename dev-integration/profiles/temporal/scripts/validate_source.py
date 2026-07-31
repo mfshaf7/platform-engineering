@@ -303,6 +303,7 @@ def main() -> int:
         and retirement_receipt.get("schema_ref")
         == "contracts/orchestration/generation-retirement-receipt.schema.json"
         and retirement_receipt.get("accepted_outcome") == "retired"
+        and retirement_receipt.get("start_timestamp_required") is True
         and retirement_receipt.get("future_recorded_at_allowed") is False
         and retirement_receipt.get("required_before_fresh_activation") is True
         and retirement_receipt.get("retained_with_platform_evidence") is True,

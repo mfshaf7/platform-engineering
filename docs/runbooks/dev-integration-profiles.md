@@ -114,7 +114,7 @@ Current active profiles:
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
 
-Current proposed profile:
+Current build-admitted profile:
 
 - `temporal`
   - owner repo: `platform-engineering`
@@ -122,11 +122,12 @@ Current proposed profile:
   - request record: `openproject://work_packages/707`
   - profile path:
     [platform-engineering/dev-integration/profiles/temporal/profile.yaml](../../dev-integration/profiles/temporal/profile.yaml)
-  - role: proposed persistent local-k3s runtime adapter behind OOS for durable
+  - role: source-defined persistent local-k3s runtime adapter behind OOS for durable
     scheduling, replay, timers, waits, and activity retry dispatch
-  - launch rule: status inspection is allowed after registry landing, but
-    implementation and self-serve launch remain denied until separate Platform,
-    Security, and workspace lifecycle gates pass
+  - launch rule: source implementation is authorized, but self-serve launch,
+    diagnostic access, backup, restore, and workflow execution remain denied
+    until fresh Platform, Security, and workspace lifecycle gates make the
+    profile `active`
 
 ## 2. Use An Active Profile
 
@@ -137,6 +138,8 @@ make devint-up PROFILE=<profile>
 make devint-status PROFILE=<profile>
 make devint-access PROFILE=<profile>
 make devint-smoke PROFILE=<profile>
+make devint-backup PROFILE=<profile>
+make devint-restore PROFILE=<profile> BACKUP_FILE=<path> CONFIRM=<profile-confirmation>
 make devint-promote-check PROFILE=<profile>
 make devint-reset PROFILE=<profile>
 make devint-down PROFILE=<profile>
@@ -157,6 +160,13 @@ Meaning:
   - for persistent ART profiles such as `accepted-idea-delivery`, this must
     stay read-only while still proving the optimized broker packet and closeout
     evidence surfaces that operators depend on
+- `devint-backup`
+  - captures an operator-local backup when a persistent profile implements the
+    optional backup contract
+- `devint-restore`
+  - restores an operator-local backup only for profiles that implement the
+    optional restore contract and only with the profile's explicit confirmation
+    value
 - `devint-promote-check`
   - renders the profile-owned governed handoff checklist that must be proven
     before calling the local slice ready for `stage`
@@ -176,6 +186,8 @@ State-model rule:
   - use `devint-reset` only when you intentionally want to destroy the local
     project history and rebuild from scratch
   - shared `devint-smoke` must stay read-only on the persistent working lane
+  - backup and restore are profile-specific optional actions; they do not
+    become available merely because a profile declares persistent state
   - if a workflow still needs mutating smoke, run that proof through a
     separate disposable companion profile instead
 

@@ -160,6 +160,7 @@ Shared operator entrypoints:
 
 - `devint-up`
 - `devint-status`
+- `devint-access`
 - `devint-smoke`
 - `devint-down`
 - `devint-reset`
@@ -167,6 +168,17 @@ Shared operator entrypoints:
 
 The shared runner dispatches those actions into the owner repo's concrete
 profile.
+
+Persistent profiles that retain safety-critical local state may additionally
+implement:
+
+- `devint-backup`
+- `devint-restore`
+
+Those actions are optional for profiles without a durable local data boundary.
+When implemented, both remain active-profile actions, backups stay
+operator-local, restore requires explicit confirmation, and neither action
+produces governed rollout evidence.
 
 ## Profile Admission
 

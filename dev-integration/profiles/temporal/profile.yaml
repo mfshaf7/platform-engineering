@@ -1,12 +1,14 @@
 schema_version: 1
 profile_id: temporal
 lane_class: governed-devint
-summary: Proposed persistent local-k3s profile for the platform-owned Temporal runtime behind OOS.
+summary: Build-admitted persistent local-k3s profile for the platform-owned Temporal runtime behind OOS.
 runtime:
   platform: local-k3s
   state_model: persistent
   namespace_pattern: devint-{profile}-{operator}
   state_root_template: .dev-integration/{profile}/{operator}
+  artifact_lock: dev-integration/profiles/temporal/runtime/artifact-lock.yaml
+  boundary_contract: dev-integration/profiles/temporal/runtime/boundary-contract.yaml
   components:
     - temporal-server
     - temporal-ui
@@ -15,7 +17,7 @@ persistence:
   justification: Durable workflow history must survive normal process and local runtime restarts so waits, retries, and reconciliation can resume safely.
   retained_data_scope: Operator-scoped workflow histories, runtime metadata, and reference-only search attributes for local dev-integration proof.
   suspend_resume_semantics: Normal down suspends runtime processes while preserving PostgreSQL and workflow history; up reconciles and resumes the same operator-scoped state.
-  storage_size_or_class: Requested 10Gi local-path PostgreSQL storage for the first local-k3s implementation; build admission must confirm the final class and capacity.
+  storage_size_or_class: 10Gi local-path PostgreSQL storage in the operator-scoped local-k3s namespace.
   reset_semantics: Reset is an explicit destructive action that may remove only the operator-scoped Temporal namespace and local profile state after confirmation.
   cutover_plan_when_upgrading: Not applicable to the first profile; any future state-model or storage migration requires a recorded export, compatibility, restore, and rollback plan.
 testing:
@@ -39,6 +41,8 @@ commands:
   smoke: dev-integration/profiles/temporal/scripts/smoke.sh
   down: dev-integration/profiles/temporal/scripts/down.sh
   reset: dev-integration/profiles/temporal/scripts/reset.sh
+  backup: dev-integration/profiles/temporal/scripts/backup.sh
+  restore: dev-integration/profiles/temporal/scripts/restore.sh
   promote_check: dev-integration/profiles/temporal/scripts/promote-check.sh
 session:
   required_artifacts:

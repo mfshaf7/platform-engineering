@@ -46,7 +46,7 @@ Activity owners retain their domain authority. For example, WGCF owns
 governance validation and readiness activity behavior, while OOS retains the
 aggregate workflow.
 
-## Proposed Dev-Integration Shape
+## Build-Admitted Dev-Integration Shape
 
 The first profile requests:
 
@@ -89,17 +89,27 @@ before runtime activation.
 - callers and workers must be authenticated before shared runtime admission
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied
+- PostgreSQL administration credentials are separate from the non-superuser
+  Temporal application identity and are not projected into Temporal pods
 
-Exact namespace, task-queue, ServiceAccount, and secret-delivery contracts are
-implementation work after build admission.
+NetworkPolicy restricts which admitted worker identities can reach the
+frontend. It does not interpret task-queue names. Queue ownership therefore
+also requires owner-specific worker registration, credentials, denial tests,
+and fresh Security acceptance before activation.
+
+The source-defined namespace, task-queue, ServiceAccount, secret-reference,
+payload, retention, and network contracts live under
+`dev-integration/profiles/temporal/runtime/`. They remain subject to operating
+proof and fresh Security acceptance before activation.
 
 ## Current Runtime Posture
 
 Allowed now:
 
-- source-defined component and profile contracts
+- source-defined and validated component, profile, persistence, identity,
+  queue, payload, and operator contracts
 - architecture and security review
-- proposed-profile status inspection after registry landing
+- build-admitted status inspection
 
 Denied now:
 

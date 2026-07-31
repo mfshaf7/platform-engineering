@@ -197,6 +197,8 @@ product-neutral.
   - `make devint-status PROFILE=<profile>`
   - `make devint-access PROFILE=<profile>`
   - `make devint-smoke PROFILE=<profile>`
+  - `make devint-backup PROFILE=<profile>`
+  - `make devint-restore PROFILE=<profile> BACKUP_FILE=<path> CONFIRM=<profile-confirmation>`
   - `make devint-down PROFILE=<profile>`
   - `make devint-reset PROFILE=<profile>`
   - `make devint-promote-check PROFILE=<profile>`

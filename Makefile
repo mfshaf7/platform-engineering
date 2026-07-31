@@ -30,6 +30,8 @@ help:
 	@printf "  devint-status Show the current local dev-integration profile state\n"
 	@printf "  devint-access Hold open the primary inspection surface for a local dev-integration profile\n"
 	@printf "  devint-smoke Run the smoke checks for a local dev-integration profile\n"
+	@printf "  devint-backup Capture an operator-local backup for a persistent profile that implements it\n"
+	@printf "  devint-restore Restore an operator-local backup for a persistent profile that implements it\n"
 	@printf "  devint-down Stop a local dev-integration profile while keeping local state\n"
 	@printf "  devint-reset Tear down a local dev-integration profile and remove local state\n"
 	@printf "  devint-promote-check Render the local handoff report required before governed stage rehearsal\n"
@@ -189,6 +191,17 @@ devint-smoke:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-smoke PROFILE=idea-workflow"; exit 1; }
 	python3 scripts/dev_integration.py smoke --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
+.PHONY: devint-backup
+devint-backup:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-backup PROFILE=temporal"; exit 1; }
+	DEVINT_BACKUP_FILE="$(BACKUP_FILE)" python3 scripts/dev_integration.py backup --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: devint-restore
+devint-restore:
+	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-restore PROFILE=temporal BACKUP_FILE=/path/to/backup.sql CONFIRM=restore-temporal"; exit 1; }
+	@test -n "$(BACKUP_FILE)" || { echo "BACKUP_FILE is required"; exit 1; }
+	DEVINT_BACKUP_FILE="$(BACKUP_FILE)" CONFIRM="$(CONFIRM)" python3 scripts/dev_integration.py restore --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
 .PHONY: devint-down
 devint-down:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-down PROFILE=idea-workflow"; exit 1; }
@@ -197,7 +210,7 @@ devint-down:
 .PHONY: devint-reset
 devint-reset:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-reset PROFILE=idea-workflow"; exit 1; }
-	python3 scripts/dev_integration.py reset --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+	CONFIRM="$(CONFIRM)" python3 scripts/dev_integration.py reset --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: devint-promote-check
 devint-promote-check:
@@ -314,6 +327,7 @@ validate:
 	python3 scripts/validate_environment_readiness.py status prod
 	python3 scripts/validate_single_host_scaling.py
 	python3 scripts/validate_observability_taxonomy.py
+	bash dev-integration/profiles/temporal/scripts/validate_chart.sh
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

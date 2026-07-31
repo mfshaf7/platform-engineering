@@ -182,6 +182,7 @@ For shared component architecture and operations, use:
 - [docs/components/workspace-governance-control-fabric/README.md](docs/components/workspace-governance-control-fabric/README.md)
 - [docs/components/context-governance-gateway/README.md](docs/components/context-governance-gateway/README.md)
 - [docs/components/governed-ai-gateway/README.md](docs/components/governed-ai-gateway/README.md)
+- [docs/components/temporal/README.md](docs/components/temporal/README.md)
 
 ## Operator Entrypoints
 

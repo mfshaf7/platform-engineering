@@ -20,6 +20,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-014-governed-active-stack-runtime-drill-and-restore.md](ADR-014-governed-active-stack-runtime-drill-and-restore.md)
 - [ADR-015-platform-observability-baseline-and-overlay-model.md](ADR-015-platform-observability-baseline-and-overlay-model.md)
 - [ADR-016-wgcf-validator-invocation-profile-gates.md](ADR-016-wgcf-validator-invocation-profile-gates.md)
+- [ADR-017-temporal-durable-workflow-runtime.md](ADR-017-temporal-durable-workflow-runtime.md)
 
 ## Rules
 

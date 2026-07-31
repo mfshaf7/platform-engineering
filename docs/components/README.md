@@ -33,6 +33,7 @@ yet. Use each component's `Current Live Footprint` section for live-state truth.
 | Workspace Governance Control Fabric | [README.md](workspace-governance-control-fabric/README.md) | [architecture.md](workspace-governance-control-fabric/architecture.md) | [access.md](workspace-governance-control-fabric/access.md) | [operations.md](workspace-governance-control-fabric/operations.md) |
 | Context Governance Gateway | [README.md](context-governance-gateway/README.md) | [architecture.md](context-governance-gateway/architecture.md) | [access.md](context-governance-gateway/access.md) | [operations.md](context-governance-gateway/operations.md) |
 | Governed AI Gateway | [README.md](governed-ai-gateway/README.md) | [architecture.md](governed-ai-gateway/architecture.md) | [access.md](governed-ai-gateway/access.md) | [operations.md](governed-ai-gateway/operations.md) |
+| Temporal | [README.md](temporal/README.md) | [architecture.md](temporal/architecture.md) | [access.md](temporal/access.md) | [operations.md](temporal/operations.md) |
 
 Each shared component directory should keep the same file contract:
 

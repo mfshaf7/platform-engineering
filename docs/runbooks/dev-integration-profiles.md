@@ -114,6 +114,20 @@ Current active profiles:
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
 
+Current proposed profile:
+
+- `temporal`
+  - owner repo: `platform-engineering`
+  - lane class: `governed-devint`
+  - request record: `openproject://work_packages/707`
+  - profile path:
+    [platform-engineering/dev-integration/profiles/temporal/profile.yaml](../../dev-integration/profiles/temporal/profile.yaml)
+  - role: proposed persistent local-k3s runtime adapter behind OOS for durable
+    scheduling, replay, timers, waits, and activity retry dispatch
+  - launch rule: status inspection is allowed after registry landing, but
+    implementation and self-serve launch remain denied until separate Platform,
+    Security, and workspace lifecycle gates pass
+
 ## 2. Use An Active Profile
 
 Run the shared operator commands from `platform-engineering/`:

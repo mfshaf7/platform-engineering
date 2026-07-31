@@ -21,7 +21,8 @@ The durable platform target is:
 - worker process for bounded background validation and receipt production
 - PostgreSQL for metadata, graph state, receipts, readiness decisions, and
   ledger records
-- Temporal for durable worker orchestration after worker activation is approved
+- bounded, idempotent governance activity operations that OOS-mediated durable
+  workflows may invoke after activity execution is approved
 - OPA/Rego for policy evaluation after policy-engine integration is approved
 - MinIO or S3 for full artifact custody when enterprise mode requires raw
   artifact preservation
@@ -56,7 +57,7 @@ Current denied posture:
 | Dependency | Platform role | Readiness rule |
 | --- | --- | --- |
 | PostgreSQL | Metadata, graph, receipt, readiness, and ledger state | Reuse the platform PostgreSQL pattern only after data ownership, backup, restore, and migration gates are defined for WGCF. |
-| Temporal | Durable validation and control workflow orchestration | Keep the worker Temporal-shaped but non-running until worker execution, identity, retry, and audit semantics are approved. |
+| OOS and Temporal orchestration path | OOS-owned aggregate workflows may dispatch bounded WGCF validation and readiness activities through the Platform-owned Temporal runtime. | Keep activity execution non-running until OOS workflow ownership, WGCF activity idempotency, identity, retry, audit, and runtime admission are approved. WGCF must not own aggregate orchestration. |
 | OPA/Rego | Policy evaluation engine | Use OPA as an evaluator of authority-backed policy inputs; do not move policy truth out of `workspace-governance`. |
 | MinIO/S3 | Full artifact custody for enterprise evidence | Add only when raw artifact retention, redaction, encryption, retention, and access policy are approved. |
 | Observability | Metrics, logs, traces, and operator health | Integrate with the existing platform observability model; do not introduce a custom observability backend. |

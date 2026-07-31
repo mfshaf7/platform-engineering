@@ -11,6 +11,8 @@ It owns:
 - bounded workflow APIs
 - workflow correlation and audit
 - OpenProject-facing workflow writes
+- admitted durable workflow definitions and versioning
+- aggregate run control, projection, and final receipts
 - future provider-agnostic AI-assist orchestration
 
 It does not own:
@@ -19,6 +21,7 @@ It does not own:
 - workspace contract mutation
 - platform rollout authority
 - governed AI policy
+- durable runtime lifecycle, persistence, or deployment
 
 The component now participates in governed stage and prod release control
 through release-state objects that point back to the shared deployment
@@ -44,6 +47,17 @@ The current admitted model is:
   id allowlist
 - the broker writes to the canonical OpenProject backlog project
 - the broker does not yet expose AI-assisted triage as a governed AI path
+- no Temporal runtime is connected or admitted
+
+The proposed durable model keeps Temporal replaceable behind OOS:
+
+- OOS accepts workflow requests and owns business workflow behavior
+- Temporal provides scheduling, replay, timers, persisted waits, and activity
+  retry dispatch
+- domain services retain authority over bounded activities
+- Governance Operations Console calls OOS and never calls Temporal directly
+
+See [../temporal/architecture.md](../temporal/architecture.md).
 
 ## Read With
 

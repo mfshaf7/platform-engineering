@@ -51,9 +51,13 @@ approved runtime shape for:
 
 - PostgreSQL metadata and receipt state
 - validator invocation profiles and cutover gates
-- Temporal-backed worker orchestration, when worker execution is activated
+- bounded, idempotent governance activity contracts for OOS-mediated durable
+  workflows, when activity execution is activated
 - OPA/Rego policy evaluation
 - MinIO or S3 artifact custody, when full artifact preservation is required
 - identity, secrets, network exposure, observability, backup, and rollback
 
 None of those dependencies are approved by this document alone.
+
+Temporal is a Platform-owned runtime adapter behind OOS. Its presence never
+makes WGCF the aggregate orchestrator.

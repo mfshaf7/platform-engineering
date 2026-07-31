@@ -39,8 +39,9 @@ Before platform deployment work starts, confirm:
 - PostgreSQL schema ownership, migrations, backup, restore, and rollback are
   defined
 - validator invocation profiles are approved for the intended lane
-- worker execution remains disabled unless Temporal runtime semantics are
-  approved
+- worker or activity execution remains disabled unless the OOS aggregate
+  workflow contract, WGCF activity boundary, Temporal runtime semantics,
+  identity, idempotency, retry, and audit behavior are approved
 - OPA inputs and policy ownership are defined without copying authority truth
   into WGCF
 - artifact custody is denied by default until MinIO or S3 retention and
@@ -75,3 +76,6 @@ If a future platform runtime fails:
 - workspace authority mismatch: `workspace-governance`
 - security boundary or acceptance issue: `security-architecture`
 - ART work-state or Review Packet transport issue: `operator-orchestration-service`
+- aggregate workflow definition or run-control issue:
+  `operator-orchestration-service`
+- Temporal runtime, persistence, or deployment issue: `platform-engineering`

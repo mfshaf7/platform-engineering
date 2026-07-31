@@ -37,6 +37,17 @@ Self-serve local launch requires:
 - OOS adapter and worker boundary
 - current security acceptance
 
+When a prior activation generation exists, fresh activation also requires:
+
+- zero active start-ingress replicas and zero in-flight starts
+- zero ordinary OOS workflow pollers
+- a Platform-issued manifest pinned to the prior activation digest and queue
+- an OOS retirement receipt accepted by the Platform verifier
+- a new activation-manifest digest that derives a different queue
+
+An initial activation has no prior-generation receipt. Unexpected activation
+loss is an incomplete fence and cannot satisfy this gate.
+
 Local execution is not governed rollout evidence.
 
 ## Required Gates Before Stage
@@ -52,6 +63,8 @@ Local execution is not governed rollout evidence.
 - successful `validation-readiness-run` proof
 - proof that activation-manifest digest rotation moves OOS polling to a new
   workflow queue while a same-manifest restart retains the active queue
+- proof that the old queue was retired through the ordered Platform/OOS
+  manifest and receipt handoff before that rotation
 
 ## Required Gates Before Production
 
@@ -70,7 +83,9 @@ Contract-only changes are reverted through their source PR.
 Future runtime rollback must distinguish:
 
 - suspend new OOS workflow starts
-- stop or roll back workers
+- drain start ingress and stop ordinary workflow pollers
+- run an authorized one-shot retirement worker for the old generation
+- retain and accept the retirement receipt before any fresh activation
 - roll back the Temporal artifact
 - preserve or restore compatible workflow history
 - suspend the profile or environment

@@ -210,12 +210,99 @@ def main() -> int:
         "activation queue generations must be restart-stable and revocation-final",
         errors,
     )
+    fresh_activation = validation_generation.get("fresh_activation", {})
+    require(
+        fresh_activation.get("initial_activation_requires_retirement_receipt")
+        is False
+        and fresh_activation.get(
+            "prior_generation_retirement_receipt_required"
+        )
+        is True
+        and fresh_activation.get("prior_digest_must_differ") is True,
+        "fresh activation must require the prior retirement receipt and a new digest",
+        errors,
+    )
     require(
         boundary.get("queue_policy", {}).get(
             "generated_workflow_queue_pattern"
         )
         == "{name-prefix}.{activation-manifest-digest-hex}",
         "generated workflow queue pattern must remain activation-bound",
+        errors,
+    )
+    retirement = boundary.get("generation_retirement", {})
+    retirement_manifest = retirement.get("manifest", {})
+    retirement_preconditions = retirement.get("preconditions", {})
+    start_ingress = retirement_preconditions.get("start_ingress", {})
+    ordinary_poller = retirement_preconditions.get(
+        "ordinary_workflow_poller", {}
+    )
+    one_shot_worker = retirement.get("one_shot_worker", {})
+    retirement_receipt = retirement.get("receipt", {})
+    unexpected_revocation = retirement.get("unexpected_revocation", {})
+    require(
+        retirement.get("owner_repo") == "platform-engineering"
+        and retirement.get("applies_to_queue") == "validation-readiness-run",
+        "generation retirement must remain a Platform-owned queue lifecycle control",
+        errors,
+    )
+    require(
+        unexpected_revocation.get("ordinary_worker_behavior")
+        == "immediate-fail-stop-unfenced"
+        and unexpected_revocation.get("automatic_retirement_claim_allowed")
+        is False,
+        "unexpected revocation must fail-stop without claiming clean retirement",
+        errors,
+    )
+    require(
+        retirement_manifest.get("issuer") == "platform-engineering"
+        and retirement_manifest.get("schema_owner_repo")
+        == "operator-orchestration-service"
+        and retirement_manifest.get("schema_ref")
+        == "contracts/orchestration/generation-retirement-manifest.schema.json"
+        and retirement_manifest.get("digest_pin_required") is True
+        and retirement_manifest.get("bounded_lifetime_required") is True
+        and retirement_manifest.get("activation_manifest_binding_required") is True
+        and retirement_manifest.get("generated_queue_binding_required") is True,
+        "retirement manifest must be exact, digest-pinned, and generation-bound",
+        errors,
+    )
+    require(
+        start_ingress.get("required_state") == "drained"
+        and start_ingress.get("active_replicas") == 0
+        and start_ingress.get("in_flight_starts") == 0
+        and start_ingress.get("evidence_ref_required") is True,
+        "retirement must prove drained zero-replica start ingress",
+        errors,
+    )
+    require(
+        ordinary_poller.get("required_state") == "drained"
+        and ordinary_poller.get("active_replicas") == 0
+        and ordinary_poller.get("evidence_ref_required") is True,
+        "retirement must prove zero ordinary workflow pollers",
+        errors,
+    )
+    require(
+        one_shot_worker.get("owner_repo")
+        == "operator-orchestration-service"
+        and one_shot_worker.get("cancellation_before_polling_required") is True
+        and one_shot_worker.get("terminal_projection_verification_required")
+        is True
+        and one_shot_worker.get("stop_before_residual_scan_required") is True
+        and one_shot_worker.get("residual_execution_restarts_drain_cycle") is True
+        and one_shot_worker.get("post_stop_empty_scans_required") == 7,
+        "one-shot retirement must cancel, drain, stop, and rescan the old generation",
+        errors,
+    )
+    require(
+        retirement_receipt.get("schema_owner_repo")
+        == "operator-orchestration-service"
+        and retirement_receipt.get("schema_ref")
+        == "contracts/orchestration/generation-retirement-receipt.schema.json"
+        and retirement_receipt.get("accepted_outcome") == "retired"
+        and retirement_receipt.get("required_before_fresh_activation") is True
+        and retirement_receipt.get("retained_with_platform_evidence") is True,
+        "fresh activation must be gated by a retained retirement receipt",
         errors,
     )
     require(

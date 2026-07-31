@@ -58,6 +58,10 @@ task_queues:
       suffix_encoding: sha256-hex
       active_restart_reuses_generation: true
       revoked_digest_reuse_allowed: false
+      fresh_activation:
+        initial_activation_requires_retirement_receipt: false
+        prior_generation_retirement_receipt_required: true
+        prior_digest_must_differ: true
   - id: validation-readiness-activity
     name: wgcf.validation-readiness.v1
     kind: activity
@@ -83,6 +87,43 @@ queue_policy:
     network_policy: restricts frontend reachability to admitted worker identities
     worker_registration: each owner registers only its declared queues
     activation_gate: runtime denial proof and fresh security acceptance
+generation_retirement:
+  owner_repo: platform-engineering
+  applies_to_queue: validation-readiness-run
+  unexpected_revocation:
+    ordinary_worker_behavior: immediate-fail-stop-unfenced
+    automatic_retirement_claim_allowed: false
+  manifest:
+    issuer: platform-engineering
+    schema_owner_repo: operator-orchestration-service
+    schema_ref: contracts/orchestration/generation-retirement-manifest.schema.json
+    digest_pin_required: true
+    bounded_lifetime_required: true
+    activation_manifest_binding_required: true
+    generated_queue_binding_required: true
+  preconditions:
+    start_ingress:
+      required_state: drained
+      active_replicas: 0
+      in_flight_starts: 0
+      evidence_ref_required: true
+    ordinary_workflow_poller:
+      required_state: drained
+      active_replicas: 0
+      evidence_ref_required: true
+  one_shot_worker:
+    owner_repo: operator-orchestration-service
+    cancellation_before_polling_required: true
+    terminal_projection_verification_required: true
+    stop_before_residual_scan_required: true
+    residual_execution_restarts_drain_cycle: true
+    post_stop_empty_scans_required: 7
+  receipt:
+    schema_owner_repo: operator-orchestration-service
+    schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
+    accepted_outcome: retired
+    required_before_fresh_activation: true
+    retained_with_platform_evidence: true
 secret_references:
   postgresql:
     secret_name: temporal-postgresql

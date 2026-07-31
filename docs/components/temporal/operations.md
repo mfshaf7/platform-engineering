@@ -26,6 +26,8 @@ closed while the profile is build-admitted.
   confirmed destructive reset
 - quiesced two-database backup with state-preserving completion and fail-safe
   restore behavior
+- digest-pinned workflow-generation retirement manifest issuance and OOS
+  receipt verification
 
 ## Activation Checks
 
@@ -60,6 +62,35 @@ It must:
 The first business workflow, `delivery.refinement.apply`, follows only after
 the safe proof and definition admission pass.
 
+## Planned Generation Retirement
+
+Do not use activation-evidence removal as a cleanup mechanism. An unexpected
+loss makes the ordinary OOS worker fail-stop with an incomplete fence; it does
+not authorize polling the old queue or claim its executions are retired.
+
+For a planned retirement:
+
+1. quiesce OOS start ingress
+2. prove start-ingress replicas and in-flight starts are both zero
+3. scale ordinary OOS workflow pollers to zero and retain that evidence
+4. issue the old generation's manifest with
+   `generation_retirement.py issue`
+5. mount the manifest read-only for the OOS `retire` one-shot command and pass
+   its exact digest
+6. retain the emitted receipt and run
+   `generation_retirement.py verify-receipt`
+7. issue no fresh activation until the verifier returns `accepted`
+
+The issuer requires explicit timestamps, evidence references, and zero counts;
+it derives the queue from the pinned activation-manifest digest and writes a
+mode-0600 JSON file atomically. The verifier rejects mismatched targets,
+digests, queues, drain evidence, cancellation and terminal counts, or fewer
+than seven post-stop empty scans.
+
+This operator surface is source-valid now. It does not make the build-admitted
+profile launchable and must not be used as evidence that a retirement run has
+already occurred.
+
 ## Common Failure Signals
 
 - proposed or build-admitted profile is treated as launchable
@@ -69,6 +100,8 @@ the safe proof and definition admission pass.
 - worker restart loses progress or duplicates a non-idempotent effect
 - task queues allow the wrong worker boundary
 - profile shutdown destroys persistent history
+- a fresh activation is issued without the prior generation's accepted
+  retirement receipt
 
 ## First Response
 
@@ -89,6 +122,8 @@ the safe proof and definition admission pass.
 - activity and final receipt references
 - persistence and restore evidence
 - security review reference
+- start-ingress and ordinary-poller drain evidence references
+- retirement manifest and receipt digests
 
 ## Related Procedures
 

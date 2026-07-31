@@ -100,6 +100,29 @@ frontend. It does not interpret task-queue names. Queue ownership therefore
 also requires owner-specific worker registration, credentials, denial tests,
 and fresh Security acceptance before activation.
 
+## Generation Retirement Boundary
+
+Activation revocation and clean generation retirement are different events.
+Unexpected loss or replacement of activation evidence makes an ordinary OOS
+worker fail-stop immediately. That protects the queue from continued polling,
+but it does not prove outstanding executions were drained.
+
+For planned suspension or replacement, Platform owns the ordered boundary:
+
+1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
+   starts
+2. scale ordinary OOS workflow pollers to zero and record that evidence
+3. issue a short-lived, digest-pinned retirement manifest for the old queue
+4. allow OOS to run one explicit one-shot cancel-and-drain worker
+5. verify the OOS receipt binds every observed cancellation target to a
+   terminal projection and at least seven post-stop empty scans
+6. retain the receipt before issuing a fresh activation manifest and queue
+
+Platform owns the manifest and receipt-acceptance boundary. OOS owns the
+one-shot worker and receipt production. Temporal remains the runtime, not the
+lifecycle authority. No separate lock service, coordination database, or
+automatic cleanup claim is introduced.
+
 The source-defined namespace, task-queue, ServiceAccount, secret-reference,
 payload, retention, and network contracts live under
 `dev-integration/profiles/temporal/runtime/`. They remain subject to operating
@@ -113,6 +136,8 @@ Allowed now:
   queue, payload, and operator contracts
 - architecture and security review
 - build-admitted status inspection
+- generation-retirement manifest preparation and receipt verification against
+  existing evidence
 
 Denied now:
 

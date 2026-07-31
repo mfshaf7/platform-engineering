@@ -54,6 +54,13 @@ make devint-status PROFILE=temporal
 bash dev-integration/profiles/temporal/scripts/validate_chart.sh
 ```
 
+The source-valid generation-retirement operator is also available for evidence
+preparation and receipt verification. It does not launch Temporal or OOS:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/generation_retirement.py --help
+```
+
 Runtime actions remain denied:
 
 ```bash
@@ -84,9 +91,20 @@ queue is derived as
 `oos.validation-readiness-run.v1.<activation-manifest-digest-hex>` so a
 revoked generation cannot be polled after reactivation. A restart under the
 same still-active manifest reuses its queue; reactivation requires a newly
-issued manifest and digest. The workflow must prove
-durability across worker or runtime restart and produce one correlated
-orchestration receipt without turning WGCF into the aggregate orchestrator.
+issued manifest and digest.
+
+Planned retirement is ordered rather than inferred from activation-evidence
+loss. Platform first drains OOS start ingress and proves zero active replicas
+and zero in-flight starts. It then proves zero ordinary OOS workflow pollers
+and issues a short-lived manifest pinned to the old activation digest, queue,
+Temporal target, and both drain evidence references. OOS alone runs the
+one-shot cancellation and drain worker. Platform verifies and retains the OOS
+receipt before any fresh activation can be issued. Unexpected evidence loss
+makes the ordinary worker fail-stop and never counts as a retirement receipt.
+
+The workflow must prove durability across worker or runtime restart and produce
+one correlated orchestration receipt without turning WGCF into the aggregate
+orchestrator.
 
 `delivery.refinement.apply` is the first business workflow after runtime and
 definition admission.

@@ -79,7 +79,12 @@ Once separately activated:
 
 ## Initial Proof
 
-The first controlled workflow is `validation-readiness-run`. It must prove
+The first controlled workflow is `validation-readiness-run`. Its OOS workflow
+queue is derived as
+`oos.validation-readiness-run.v1.<activation-manifest-digest-hex>` so a
+revoked generation cannot be polled after reactivation. A restart under the
+same still-active manifest reuses its queue; reactivation requires a newly
+issued manifest and digest. The workflow must prove
 durability across worker or runtime restart and produce one correlated
 orchestration receipt without turning WGCF into the aggregate orchestrator.
 

@@ -7,3 +7,4 @@ ansible/generated/
 terraform/modules/*/generated-*.txt
 .platform-drills/
 .dev-integration/
+.art/review-packets/

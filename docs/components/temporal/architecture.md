@@ -86,6 +86,9 @@ before runtime activation.
 
 - dev-integration namespaces are operator-scoped
 - task queues must identify the owning workflow or activity boundary
+- activation-sensitive workflow queues derive a one-way generation from the
+  accepted activation-manifest digest; same-manifest restarts reuse that
+  generation, while a revoked digest is never admitted again
 - callers and workers must be authenticated before shared runtime admission
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied

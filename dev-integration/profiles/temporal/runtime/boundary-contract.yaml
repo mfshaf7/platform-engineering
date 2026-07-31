@@ -49,10 +49,15 @@ database_identities:
     superuser: false
 task_queues:
   - id: validation-readiness-run
-    name: oos.validation-readiness-run.v1
+    name_prefix: oos.validation-readiness-run.v1
     kind: workflow
     owner_repo: operator-orchestration-service
     worker_identity: oos_workflow_worker
+    generation:
+      source: activation-evidence-manifest-digest
+      suffix_encoding: sha256-hex
+      active_restart_reuses_generation: true
+      revoked_digest_reuse_allowed: false
   - id: validation-readiness-activity
     name: wgcf.validation-readiness.v1
     kind: activity
@@ -70,6 +75,7 @@ task_queues:
     worker_identity: oos_workflow_worker
 queue_policy:
   activity_queue_pattern: "{owner}.{activity-set}.v{major}"
+  generated_workflow_queue_pattern: "{name-prefix}.{activation-manifest-digest-hex}"
   shared_worker_credentials_allowed: false
   cross_owner_consumption_allowed: false
   platform_owns_queue_business_logic: false

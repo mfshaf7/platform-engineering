@@ -127,20 +127,19 @@ undeclared runtime mutation itself.
 
 ### Fail-Stop Conditions
 
-When authorization expires, deny every new proof action, workflow or activity
-start, retry, verification mutation, scope expansion, and activation action.
+When any terminal stop condition triggers, deny every new proof action,
+workflow or activity start, retry, verification mutation, scope expansion, and
+activation action. This includes authorization expiry, source or artifact
+drift, target-scope mismatch, identity or queue denial failure, an unavailable
+baseline, unexpected side effects, evidence-custody failure, and restore
+failure.
+
 For an already-started run, continue only the fixed cleanup path: remove the
 scoped runtime, restore the exact captured baseline, record restore evidence,
-or record a governed exception. Cleanup stays bound to that run and restore
-scope and ends when restoration completes or the exception is recorded. It
-cannot preserve the runtime or reopen proof authority.
-
-Also stop new proof work and preserve evidence when a source or artifact digest
-differs, the target scope differs, an identity or queue denial fails, the
-baseline is unavailable, an unexpected side effect occurs, evidence custody
-fails, or exact-baseline restore fails. Do not retry outside a newly issued
-permit. A restore failure enters the governed exception path and does not
-authorize further proof work.
+or record a governed exception. Cleanup stays bound to that run and captured
+restore scope and ends when restoration completes or the exception is
+recorded. It cannot preserve the runtime, retry proof work, widen scope, or
+reopen proof authority. A restore failure enters the governed exception path.
 
 ### Required Evidence
 

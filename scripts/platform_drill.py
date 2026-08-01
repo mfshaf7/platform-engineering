@@ -144,7 +144,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             "maxRuns",
             "permitIssuer",
             "executor",
-            "expiryCleanupAuthority",
+            "terminalCleanupAuthority",
         }
         if not isinstance(authorization, dict):
             raise SystemExit(
@@ -180,18 +180,21 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit(
                     f"{path} authorization.{source_role} must bind Platform source review #792"
                 )
-        expiry_cleanup = authorization.get("expiryCleanupAuthority") or {}
-        expected_expiry_cleanup = {
+        terminal_cleanup = authorization.get("terminalCleanupAuthority") or {}
+        expected_terminal_cleanup = {
             "mode": "exact-baseline-restore-only",
             "appliesTo": "already-started-run",
+            "triggerScope": "any-triggered-stop-condition",
             "scopeBinding": "exact-captured-restore-scope",
             "newProofActionsDenied": True,
+            "scopeExpansionDenied": True,
+            "runtimeRetentionDenied": True,
             "permittedActions": CONTROLLED_PROOF_CLEANUP_ACTIONS,
             "terminationConditions": CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS,
         }
-        if expiry_cleanup != expected_expiry_cleanup:
+        if terminal_cleanup != expected_terminal_cleanup:
             raise SystemExit(
-                f"{path} authorization.expiryCleanupAuthority must preserve the fixed restore-only boundary"
+                f"{path} authorization.terminalCleanupAuthority must preserve the fixed restore-only boundary for every stop condition"
             )
 
     scope = payload["scope"]
@@ -804,8 +807,8 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             "securityReviewRef": authorization_contract["securityReviewRef"],
             "permitIssuer": copy.deepcopy(authorization_contract["permitIssuer"]),
             "executor": copy.deepcopy(authorization_contract["executor"]),
-            "expiryCleanupAuthority": copy.deepcopy(
-                authorization_contract["expiryCleanupAuthority"]
+            "terminalCleanupAuthority": copy.deepcopy(
+                authorization_contract["terminalCleanupAuthority"]
             ),
         }
     baseline_payload = build_baseline(contract, args.repo_root)

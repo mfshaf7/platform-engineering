@@ -24,11 +24,14 @@ authorization:
     ownerRepo: platform-engineering
     sourceReviewWorkItemRef: openproject://work_packages/792
     mergedSourceRequiredBeforeSecurityAuthorization: true
-  expiryCleanupAuthority:
+  terminalCleanupAuthority:
     mode: exact-baseline-restore-only
     appliesTo: already-started-run
+    triggerScope: any-triggered-stop-condition
     scopeBinding: exact-captured-restore-scope
     newProofActionsDenied: true
+    scopeExpansionDenied: true
+    runtimeRetentionDenied: true
     permittedActions:
       - remove-scoped-runtime
       - restore-exact-baseline

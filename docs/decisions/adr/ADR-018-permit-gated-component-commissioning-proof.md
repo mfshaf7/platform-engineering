@@ -38,8 +38,8 @@ This drill type:
 - records activation, verification, exceptions, and restoration through the
   shared runtime-drill model
 - restores every scoped surface to the attested exact baseline
-- denies new proof actions after expiry while preserving only run-bound,
-  exact-baseline cleanup authority for an already-started run
+- denies new proof actions after any terminal stop condition while preserving
+  only run-bound, exact-baseline cleanup authority for an already-started run
 - requires a separate post-run Security decision before any later lifecycle
   change
 

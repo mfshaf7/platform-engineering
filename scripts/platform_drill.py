@@ -881,7 +881,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
     source_enablement = contract.get("sourceEnablement") or {}
-    if source_enablement.get("snapshotAllowed") is False:
+    if contract.get("drillType") == "component-commissioning-proof":
         implementation_ref = str(
             source_enablement.get("implementationWorkItemRef") or "reviewed implementation"
         )
@@ -890,9 +890,14 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             if implementation_ref == "openproject://work_packages/792"
             else implementation_ref
         )
+        if contract.get("id") == "temporal-component-commissioning-proof":
+            raise SystemExit(
+                f"commissioning snapshot denied: contract-only until {implementation_label} "
+                "lands the reviewed permit issuer and proof executor"
+            )
         raise SystemExit(
-            f"commissioning snapshot denied: contract-only until {implementation_label} "
-            "lands the reviewed permit issuer and proof executor"
+            "commissioning snapshot denied: permit artifact validation and atomic "
+            f"consumption are not implemented for {implementation_label}"
         )
     evidence_template_path_value, evidence_template = evidence_template_payload(
         args.repo_root, profile_path, contract

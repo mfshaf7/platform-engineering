@@ -569,6 +569,50 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
                     + detail
                 )
 
+            generic_profile["sourceEnablement"]["status"] = "source-reviewed"
+            generic_profile["sourceEnablement"]["snapshotAllowed"] = True
+            generic_profile_path.write_text(
+                yaml.safe_dump(generic_profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            with tempfile.TemporaryDirectory(
+                prefix="generic-commissioning-denial-"
+            ) as output_root:
+                completed = subprocess.run(
+                    [
+                        "python3",
+                        str(validator),
+                        "snapshot",
+                        "--profile-path",
+                        str(generic_profile_path),
+                        "--run-id",
+                        "generic-source-reviewed-validation",
+                        "--operator",
+                        "validator",
+                        "--authorization-ref",
+                        "artifact://controlled-proof/validation-only",
+                        "--authorization-digest",
+                        "sha256:" + "a" * 64,
+                        "--output-root",
+                        output_root,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                detail = (completed.stderr or completed.stdout).strip()
+                if (
+                    completed.returncode == 0
+                    or "permit artifact validation and atomic consumption are not implemented"
+                    not in detail
+                ):
+                    errors.append(
+                        "generic commissioning snapshot must fail closed without a permit validator and consumer"
+                    )
+                if any(Path(output_root).iterdir()):
+                    errors.append(
+                        "denied generic commissioning snapshot created local state"
+                    )
+
         with tempfile.TemporaryDirectory(prefix="temporal-proof-denial-") as output_root:
             completed = subprocess.run(
                 [

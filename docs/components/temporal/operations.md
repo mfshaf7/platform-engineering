@@ -56,6 +56,22 @@ exception, restore, and evidence records. Promote bounded summaries and refs to
 the active ART and Security evidence surfaces; do not commit the raw local
 ledger.
 
+The snapshot starts with a pending baseline. Before activation, attest every
+scoped surface against operator-reviewable evidence:
+
+```bash
+make platform-drill ACTION=attest-baseline \
+  RUN=<run-dir> \
+  SURFACE=<temporal-runtime|oos-validation-readiness-worker|wgcf-readiness-activity-worker> \
+  ACTOR=<operator> \
+  EVIDENCE_REF=<durable-pre-run-evidence-ref> \
+  NOTE="<observed pre-run state>"
+```
+
+Run the command once for each scoped surface. The ledger keeps the baseline
+phase pending until all three attestations have non-empty evidence refs, and
+the `activate` action rejects an incomplete baseline.
+
 ### Preflight
 
 1. Confirm `make devint-status PROFILE=temporal` reports the expected
@@ -79,9 +95,9 @@ ledger.
 
 Only the reviewed issuer and executor may perform these steps:
 
-1. Create the drill snapshot with the permit reference and digest, complete the
-   baseline evidence refs, and revalidate the permit immediately before the
-   first mutation.
+1. Create the drill snapshot with the permit reference and digest, run
+   `attest-baseline` for every scoped surface, and revalidate the permit
+   immediately before the first mutation.
 2. Install only the scoped runtime and start only the exact OOS and WGCF
    workers bound by the permit.
 3. Run the required nominal, restart, replay, duplicate-suppression,
@@ -97,9 +113,10 @@ Only the reviewed issuer and executor may perform these steps:
    proof result to a separate post-run Security review. The pre-run permit is
    never activation evidence.
 
-Record activation, each verification result, supplemental evidence, and each
-restored surface through `make platform-drill ACTION=<activate|verify|record|restore>
-RUN=<run-dir> ...`. Blocked checks and restore exceptions must use one of
+Record each baseline attestation, activation, verification result,
+supplemental evidence, and restored surface through `make platform-drill
+ACTION=<attest-baseline|activate|verify|record|restore> RUN=<run-dir> ...`.
+Blocked checks and restore exceptions must use one of
 `remove`, `workaround`, `accept-risk`, or `defer` with justification, owner,
 and review date. The ledger records owner actions; it never performs an
 undeclared runtime mutation itself.

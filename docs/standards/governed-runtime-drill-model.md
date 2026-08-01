@@ -149,6 +149,11 @@ At minimum, that snapshot must capture the in-scope truth for:
 If the operator cannot prove what the pre-drill state was, the restore contract
 is already broken and the drill should stop.
 
+Creating a drill ledger does not itself attest the baseline. The ledger must
+remain pending until every scoped runtime surface has an operator-reviewable
+baseline evidence reference. Activation must fail closed while any required
+surface attestation is absent.
+
 ## Verification Pack Rule
 
 Each drill must use an explicit verification pack rather than an improvised

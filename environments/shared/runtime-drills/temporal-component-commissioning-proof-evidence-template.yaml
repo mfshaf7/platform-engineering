@@ -28,20 +28,29 @@ baselineAttestation:
       lane: devint
       ownerRepo: platform-engineering
       summary: Permit-bound Temporal runtime, PostgreSQL persistence, namespace, identities, and task queues.
+      status: pending
       evidenceRef: ""
       note: ""
+      updatedAt: ""
+      updatedBy: ""
     - id: oos-validation-readiness-worker
       lane: devint
       ownerRepo: operator-orchestration-service
       summary: OOS worker for the exact validation-readiness-run definition and queue generation.
+      status: pending
       evidenceRef: ""
       note: ""
+      updatedAt: ""
+      updatedBy: ""
     - id: wgcf-readiness-activity-worker
       lane: devint
       ownerRepo: workspace-governance-control-fabric
       summary: WGCF worker for the permit-bound validation and readiness activity queue.
+      status: pending
       evidenceRef: ""
       note: ""
+      updatedAt: ""
+      updatedBy: ""
 activationSummary:
   status: pending
   records: []

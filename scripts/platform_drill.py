@@ -290,6 +290,16 @@ def validate_evidence_template(path: Path, payload: dict[str, Any], contract: di
         raise SystemExit(
             f"{path} baselineAttestation.surfaceAttestations must match the contract surfaces exactly"
         )
+    for surface in surface_attestations:
+        surface_id = str(surface.get("id") or "").strip()
+        if str(surface.get("status") or "pending").strip() != "pending":
+            raise SystemExit(
+                f"{path} baseline surface {surface_id!r} status must start as pending"
+            )
+        if str(surface.get("evidenceRef") or "").strip():
+            raise SystemExit(
+                f"{path} baseline surface {surface_id!r} evidenceRef must start empty"
+            )
 
     activation = payload.get("activationSummary") or {}
     if str(activation.get("status") or "").strip() != "pending":
@@ -385,6 +395,17 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="optional surface ids activated by this note; defaults to all scoped surfaces",
     )
+
+    attest_baseline = subparsers.add_parser("attest-baseline")
+    attest_baseline.add_argument("--run", required=True, help="run directory created by snapshot")
+    attest_baseline.add_argument("--surface", required=True, help="scoped surface id")
+    attest_baseline.add_argument("--actor", required=True, help="operator or automation actor")
+    attest_baseline.add_argument(
+        "--evidence-ref",
+        required=True,
+        help="operator-reviewable evidence for the exact pre-run state",
+    )
+    attest_baseline.add_argument("--note", default="", help="baseline attestation note")
 
     verify = subparsers.add_parser("verify")
     verify.add_argument("--run", required=True, help="run directory created by snapshot")
@@ -568,7 +589,6 @@ def build_evidence(
     if authorization:
         evidence["run"]["authorizationRef"] = authorization["ref"]
         evidence["run"]["authorizationDigest"] = authorization["digest"]
-    evidence["baselineAttestation"]["captureStatus"] = "captured"
     evidence["baselineAttestation"]["sourceRepos"] = [
         {
             "repo": repo_name,
@@ -727,7 +747,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         "profilePath": str(profile_path),
         "evidenceTemplatePath": str(evidence_template_path_value),
         "phaseStatus": {
-            "baseline": "captured",
+            "baseline": "pending",
             "activation": "pending",
             "verification": "pending",
             "restore": "pending",
@@ -785,11 +805,14 @@ def load_run(
 def write_run(
     paths: dict[str, Path],
     run_payload: dict[str, Any],
+    baseline: dict[str, Any] | None = None,
     verification: dict[str, Any] | None = None,
     restore: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
 ) -> None:
     dump_yaml(paths["run"], run_payload)
+    if baseline is not None:
+        dump_yaml(paths["baseline"], baseline)
     if verification is not None:
         dump_yaml(paths["verification"], verification)
     if restore is not None:
@@ -798,17 +821,119 @@ def write_run(
         dump_yaml(paths["evidence"], evidence)
 
 
+def baseline_attestation_complete(
+    baseline: dict[str, Any], evidence: dict[str, Any]
+) -> bool:
+    baseline_surfaces = baseline.get("runtimeSurfaces") or []
+    evidence_surfaces = (evidence.get("baselineAttestation") or {}).get(
+        "surfaceAttestations"
+    ) or []
+    if not baseline_surfaces or not evidence_surfaces:
+        return False
+    baseline_by_id = {
+        str(surface.get("id") or "").strip(): surface for surface in baseline_surfaces
+    }
+    evidence_by_id = {
+        str(surface.get("id") or "").strip(): surface for surface in evidence_surfaces
+    }
+    if "" in baseline_by_id or "" in evidence_by_id:
+        return False
+    if set(baseline_by_id) != set(evidence_by_id):
+        return False
+    return all(
+        baseline_by_id[surface_id].get("baselineState") == "attested"
+        and bool(str(baseline_by_id[surface_id].get("evidenceRef") or "").strip())
+        and evidence_by_id[surface_id].get("status") == "attested"
+        and bool(str(evidence_by_id[surface_id].get("evidenceRef") or "").strip())
+        for surface_id in baseline_by_id
+    )
+
+
+def cmd_attest_baseline(args: argparse.Namespace) -> int:
+    _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    if run_payload.get("phaseStatus", {}).get("activation") != "pending":
+        raise SystemExit("baseline attestation denied after activation has been recorded")
+    actor = args.actor.strip()
+    if not actor:
+        raise SystemExit("--actor must not be blank")
+    surfaces = baseline.get("runtimeSurfaces") or []
+    target = next((surface for surface in surfaces if surface.get("id") == args.surface), None)
+    if target is None:
+        raise SystemExit(f"unknown baseline surface id {args.surface!r}")
+
+    evidence_ref = args.evidence_ref.strip()
+    if not evidence_ref:
+        raise SystemExit("--evidence-ref must not be blank")
+    updated_at = now_utc()
+    target["baselineState"] = "attested"
+    target["evidenceRef"] = evidence_ref
+    target["note"] = args.note.strip()
+    target["updatedAt"] = updated_at
+    target["updatedBy"] = actor
+
+    baseline_attestation = evidence.get("baselineAttestation") or {}
+    evidence_surfaces = baseline_attestation.get("surfaceAttestations") or []
+    evidence_target = next(
+        (surface for surface in evidence_surfaces if surface.get("id") == args.surface),
+        None,
+    )
+    if evidence_target is None:
+        raise SystemExit(f"evidence file is missing baseline surface {args.surface!r}")
+    evidence_target["status"] = "attested"
+    evidence_target["evidenceRef"] = evidence_ref
+    evidence_target["note"] = args.note.strip()
+    evidence_target["updatedAt"] = updated_at
+    evidence_target["updatedBy"] = actor
+
+    if baseline_attestation_complete(baseline, evidence):
+        run_payload["phaseStatus"]["baseline"] = "captured"
+        baseline_attestation["captureStatus"] = "captured"
+    else:
+        run_payload["phaseStatus"]["baseline"] = "in-progress"
+        baseline_attestation["captureStatus"] = "in-progress"
+    evidence["baselineAttestation"] = baseline_attestation
+    write_run(paths, run_payload, baseline=baseline, evidence=evidence)
+    print(
+        f"run_id={run_payload['run_id']} baseline_surface={args.surface} "
+        f"status={target['baselineState']}"
+    )
+    return 0
+
+
 def cmd_activate(args: argparse.Namespace) -> int:
     _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    actor = args.actor.strip()
+    if not actor:
+        raise SystemExit("--actor must not be blank")
+    baseline_surfaces = baseline.get("runtimeSurfaces") or []
+    if (
+        run_payload.get("phaseStatus", {}).get("baseline") != "captured"
+        or (evidence.get("baselineAttestation") or {}).get("captureStatus") != "captured"
+        or not baseline_attestation_complete(baseline, evidence)
+    ):
+        raise SystemExit(
+            "activation denied: attest every scoped baseline surface with evidence first"
+        )
+    known_surface_ids = {
+        str(surface.get("id"))
+        for surface in baseline_surfaces
+        if str(surface.get("id") or "").strip()
+    }
     scoped_surfaces = args.surface or [
         str(surface.get("id"))
-        for surface in (baseline.get("runtimeSurfaces") or [])
+        for surface in baseline_surfaces
         if str(surface.get("id") or "").strip()
     ]
+    unknown_surface_ids = set(scoped_surfaces) - known_surface_ids
+    if unknown_surface_ids:
+        raise SystemExit(
+            "activation contains unknown scoped surfaces: "
+            + ", ".join(sorted(unknown_surface_ids))
+        )
     run_payload.setdefault("activation", {})
     run_payload["activation"] = {
         "status": "recorded",
-        "actor": args.actor.strip(),
+        "actor": actor,
         "surfaces": scoped_surfaces,
         "note": args.note.strip(),
         "recordedAt": now_utc(),
@@ -819,7 +944,7 @@ def cmd_activate(args: argparse.Namespace) -> int:
     activation_summary.setdefault("records", [])
     activation_summary["records"].append(
         {
-            "actor": args.actor.strip(),
+            "actor": actor,
             "surfaces": scoped_surfaces,
             "note": args.note.strip(),
             "recordedAt": now_utc(),
@@ -975,6 +1100,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         pending_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "pending")
         blocked_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "blocked")
         pending_restore = sum(1 for surface in restore.get("surfaces", []) if surface.get("status") == "pending")
+        pending_baseline = sum(
+            1
+            for surface in baseline.get("runtimeSurfaces", [])
+            if surface.get("baselineState") != "attested"
+            or not str(surface.get("evidenceRef") or "").strip()
+        )
         summary = {
             "run_id": run_payload["run_id"],
             "profile_id": run_payload["profile_id"],
@@ -982,6 +1113,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             "phaseStatus": run_payload.get("phaseStatus", {}),
             "sourceRepoCount": len((baseline.get("sourceRepos") or {}).keys()),
             "runtimeSurfaceCount": len(baseline.get("runtimeSurfaces") or []),
+            "pendingBaselineCount": pending_baseline,
             "pendingCheckCount": pending_checks,
             "blockedCheckCount": blocked_checks,
             "pendingRestoreCount": pending_restore,
@@ -1003,6 +1135,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         )
         print(
             f"source_repos={summary['sourceRepoCount']} runtime_surfaces={summary['runtimeSurfaceCount']} "
+            f"pending_baseline={summary['pendingBaselineCount']} "
             f"pending_checks={summary['pendingCheckCount']} blocked_checks={summary['blockedCheckCount']} "
             f"pending_restore={summary['pendingRestoreCount']} evidence_records={summary['evidenceRecordCount']} "
             f"exceptions={summary['exceptionCount']}"
@@ -1040,6 +1173,8 @@ def main() -> int:
         return cmd_plan(args)
     if args.command == "snapshot":
         return cmd_snapshot(args)
+    if args.command == "attest-baseline":
+        return cmd_attest_baseline(args)
     if args.command == "activate":
         return cmd_activate(args)
     if args.command == "verify":

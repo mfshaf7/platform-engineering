@@ -140,6 +140,7 @@ generation_retirement:
     workflow_enforces_registration_update_id: true
     duplicate_registration_adds_history_event: false
     maximum_registration_count: 512
+    capacity_exhaustion_http_status: 409
     capacity_exhaustion_api_error: orchestration_generation_capacity_exhausted
     capacity_exhaustion_required_action: retire-and-activate-fresh-generation
     rejected_update_recorded_in_history: false

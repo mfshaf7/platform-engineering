@@ -390,6 +390,7 @@ def main() -> int:
         and start_registry.get("workflow_enforces_registration_update_id") is True
         and start_registry.get("duplicate_registration_adds_history_event") is False
         and start_registry.get("maximum_registration_count") == 512
+        and start_registry.get("capacity_exhaustion_http_status") == 409
         and start_registry.get("capacity_exhaustion_api_error")
         == "orchestration_generation_capacity_exhausted"
         and start_registry.get("capacity_exhaustion_required_action")

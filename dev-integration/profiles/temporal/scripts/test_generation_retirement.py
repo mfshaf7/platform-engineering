@@ -151,10 +151,19 @@ class GenerationRetirementTest(unittest.TestCase):
             "start_ingress_evidence_ref": manifest["start_ingress"]["evidence_ref"],
             "poller_evidence_ref": manifest["workflow_poller"]["evidence_ref"],
             "ordinary_poller_stopped": True,
-            "drain_cycle_count": 1,
+            "start_registry": {
+                **manifest["start_registry"],
+                "seal_ref": manifest["retirement_id"],
+                "sealed_at": timestamp(
+                    self.issued_at + timedelta(milliseconds=500)
+                ),
+                "result_digest": f"sha256:{'c' * 64}",
+                "registered_workflow_count": 3,
+                "matched_execution_count": 2,
+                "uncommitted_registration_count": 1,
+            },
             "cancel_signal_target_count": 2,
             "terminal_projection_count": 2,
-            "post_stop_empty_scans": 7,
             "outcome": "retired",
             "recorded_at": timestamp(datetime.now(timezone.utc)),
         }
@@ -184,10 +193,26 @@ class GenerationRetirementTest(unittest.TestCase):
             manifest["workflow_task_queue"],
             f"oos.validation-readiness-run.v1.{self.activation_digest.removeprefix('sha256:')}",
         )
+        self.assertEqual(
+            manifest["start_registry"],
+            {
+                "task_queue": (
+                    "oos.generation-start-registry.v1."
+                    f"{self.activation_digest.removeprefix('sha256:')}"
+                ),
+                "workflow_id": (
+                    "oos:generation-start-registry:v1:"
+                    f"{self.activation_digest.removeprefix('sha256:')}"
+                ),
+                "workflow_type": "generationStartRegistryV1",
+            },
+        )
         self.assertEqual(stat.S_IMODE(self.retirement_path.stat().st_mode), 0o600)
         result = self.verify(self.receipt(manifest, retirement_digest), retirement_digest)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["decision"], "accepted")
+        summary = json.loads(result.stdout)
+        self.assertEqual(summary["decision"], "accepted")
+        self.assertEqual(summary["start_registry"]["registered_workflow_count"], 3)
 
     def test_issue_rejects_nonzero_ingress_or_poller(self) -> None:
         replacements = [
@@ -212,10 +237,32 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertIn("terminal projection", mismatch.stderr)
 
         receipt = self.receipt(manifest, retirement_digest)
-        receipt["post_stop_empty_scans"] = 6
+        receipt["start_registry"]["uncommitted_registration_count"] = 0
         incomplete = self.verify(receipt, retirement_digest)
         self.assertEqual(incomplete.returncode, 2)
-        self.assertIn("post_stop_empty_scans", incomplete.stderr)
+        self.assertIn("cover every registration", incomplete.stderr)
+
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["start_registry"]["seal_ref"] = (
+            "platform-engineering://retirement/validation-readiness-run/v1/dev-integration/other"
+        )
+        wrong_seal = self.verify(receipt, retirement_digest)
+        self.assertEqual(wrong_seal.returncode, 2)
+        self.assertIn("start_registry.seal_ref", wrong_seal.stderr)
+
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["start_registry"]["sealed_at"] = timestamp(
+            self.issued_at - timedelta(milliseconds=1)
+        )
+        early_seal = self.verify(receipt, retirement_digest)
+        self.assertEqual(early_seal.returncode, 2)
+        self.assertIn("inside this authorization", early_seal.stderr)
+
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["cancel_signal_target_count"] = 3
+        excess_cancellation = self.verify(receipt, retirement_digest)
+        self.assertEqual(excess_cancellation.returncode, 2)
+        self.assertIn("exceed matched", excess_cancellation.stderr)
 
         receipt = self.receipt(manifest, retirement_digest)
         receipt["ordinary_poller_stopped"] = 1
@@ -249,6 +296,22 @@ class GenerationRetirementTest(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         self.assertIn("must not overwrite", result.stderr)
+
+    def test_verify_rejects_registry_identity_outside_activation_generation(self) -> None:
+        manifest, _ = self.issue()
+        manifest["start_registry"]["task_queue"] = (
+            f"oos.generation-start-registry.v1.{'d' * 64}"
+        )
+        retirement_raw = (json.dumps(manifest, indent=2) + "\n").encode()
+        self.retirement_path.write_bytes(retirement_raw)
+        retirement_digest = digest(retirement_raw)
+
+        result = self.verify(
+            self.receipt(manifest, retirement_digest), retirement_digest
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("start_registry.task_queue", result.stderr)
 
     def test_issue_rejects_stale_drain_evidence_or_long_authorization(self) -> None:
         stale = self.issue_command()

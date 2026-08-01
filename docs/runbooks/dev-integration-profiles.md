@@ -139,11 +139,14 @@ Platform-owned procedure before suspension, replacement, or fresh activation:
    starts
 2. prove zero ordinary OOS workflow pollers
 3. issue the old generation manifest using observations no more than five
-   minutes old and a lifetime no longer than fifteen minutes
-4. run the explicit OOS one-shot retirement worker against that manifest and
-   its exact digest
-5. verify the receipt proves that the one-shot worker started inside the
-   manifest lifetime and within five minutes of both drain observations, then
+   minutes old and a lifetime no longer than fifteen minutes; the issuer derives
+   both the business queue and durable start registry from the activation digest
+4. run the explicit OOS retirement command, which seals the registry,
+   reconciles and cancels exact registered workflow IDs, and starts the one-shot
+   worker only after revalidating the manifest
+5. verify the receipt accounts for every registration, proves every matched run
+   reached a terminal projection, and proves the one-shot worker started inside
+   the manifest lifetime and within five minutes of both drain observations;
    retain it before issuing any fresh activation
 
 The source-valid entrypoint is:

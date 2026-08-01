@@ -98,9 +98,11 @@ loss. Platform first drains OOS start ingress and proves zero active replicas
 and zero in-flight starts. It then proves zero ordinary OOS workflow pollers
 and issues a manifest lasting no more than fifteen minutes, using drain
 observations no more than five minutes old, pinned to the old activation
-digest, queue, Temporal target, and both drain evidence references. OOS alone
-runs the one-shot cancellation and drain worker. Platform verifies and retains
-the OOS receipt before any fresh activation can be issued. Unexpected evidence
+digest, business queue, generation start registry, Temporal target, and both
+drain evidence references. OOS seals the durable registry, reconciles its exact
+workflow IDs, and alone runs the one-shot cancellation and drain worker.
+Platform verifies and retains the OOS receipt before any fresh activation can
+be issued. Temporal Visibility remains diagnostic only. Unexpected evidence
 loss makes the ordinary worker fail-stop and never counts as a retirement
 receipt.
 

@@ -176,7 +176,11 @@ def main() -> int:
     ]
     require(len(queue_names) == len(set(queue_names)), "task queue names must be unique", errors)
     require(
-        {"validation-readiness-run", "delivery-refinement-apply"}
+        {
+            "validation-readiness-run",
+            "generation-start-registry",
+            "delivery-refinement-apply",
+        }
         <= {entry.get("id") for entry in task_queues},
         "initial workflow task queues are incomplete",
         errors,
@@ -190,6 +194,15 @@ def main() -> int:
         {},
     )
     validation_generation = validation_queue.get("generation", {})
+    registry_queue = next(
+        (
+            entry
+            for entry in task_queues
+            if entry.get("id") == "generation-start-registry"
+        ),
+        {},
+    )
+    registry_generation = registry_queue.get("generation", {})
     require(
         validation_queue.get("name") is None
         and validation_queue.get("name_prefix")
@@ -208,6 +221,19 @@ def main() -> int:
         validation_generation.get("active_restart_reuses_generation") is True
         and validation_generation.get("revoked_digest_reuse_allowed") is False,
         "activation queue generations must be restart-stable and revocation-final",
+        errors,
+    )
+    require(
+        registry_queue.get("name") is None
+        and registry_queue.get("name_prefix")
+        == "oos.generation-start-registry.v1"
+        and registry_queue.get("owner_repo")
+        == "operator-orchestration-service"
+        and registry_generation.get("source")
+        == "activation-evidence-manifest-digest"
+        and registry_generation.get("suffix_encoding") == "sha256-hex"
+        and registry_generation.get("polling_mode") == "retirement-only",
+        "generation start registry must use its OOS-owned digest-bound retirement queue",
         errors,
     )
     fresh_activation = validation_generation.get("fresh_activation", {})
@@ -237,6 +263,7 @@ def main() -> int:
     ordinary_poller = retirement_preconditions.get(
         "ordinary_workflow_poller", {}
     )
+    start_registry = retirement.get("start_registry", {})
     one_shot_worker = retirement.get("one_shot_worker", {})
     retirement_receipt = retirement.get("receipt", {})
     unexpected_revocation = retirement.get("unexpected_revocation", {})
@@ -264,7 +291,8 @@ def main() -> int:
         and retirement_manifest.get("bounded_lifetime_required") is True
         and retirement_manifest.get("maximum_lifetime_seconds") == 900
         and retirement_manifest.get("activation_manifest_binding_required") is True
-        and retirement_manifest.get("generated_queue_binding_required") is True,
+        and retirement_manifest.get("generated_queue_binding_required") is True
+        and retirement_manifest.get("start_registry_binding_required") is True,
         "retirement manifest must be exact, digest-pinned, and generation-bound",
         errors,
     )
@@ -290,15 +318,31 @@ def main() -> int:
         errors,
     )
     require(
+        start_registry.get("owner_repo") == "operator-orchestration-service"
+        and start_registry.get("workflow_type") == "generationStartRegistryV1"
+        and start_registry.get("workflow_id_pattern")
+        == "oos:generation-start-registry:v1:{activation-manifest-digest-hex}"
+        and start_registry.get("task_queue_pattern")
+        == "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
+        and start_registry.get("register_before_business_start_required") is True
+        and start_registry.get("seal_after_start_ingress_drain_required") is True
+        and start_registry.get("exact_workflow_id_reconciliation_required") is True
+        and start_registry.get("invalid_registration_count_allowed") == 0
+        and start_registry.get("visibility_authoritative_for_retirement") is False,
+        "generation retirement must use the exact durable OOS start registry",
+        errors,
+    )
+    require(
         one_shot_worker.get("owner_repo")
         == "operator-orchestration-service"
+        and one_shot_worker.get("registry_seal_before_reconciliation_required")
+        is True
         and one_shot_worker.get("cancellation_before_polling_required") is True
         and one_shot_worker.get("terminal_projection_verification_required")
         is True
-        and one_shot_worker.get("stop_before_residual_scan_required") is True
-        and one_shot_worker.get("residual_execution_restarts_drain_cycle") is True
-        and one_shot_worker.get("post_stop_empty_scans_required") == 7,
-        "one-shot retirement must cancel, drain, stop, and rescan the old generation",
+        and one_shot_worker.get("authorization_recheck")
+        == "immediately-before-worker-run",
+        "one-shot retirement must seal, reconcile, cancel, and reauthorize before polling",
         errors,
     )
     require(
@@ -307,6 +351,9 @@ def main() -> int:
         and retirement_receipt.get("schema_ref")
         == "contracts/orchestration/generation-retirement-receipt.schema.json"
         and retirement_receipt.get("accepted_outcome") == "retired"
+        and retirement_receipt.get("exact_registry_reconciliation_required") is True
+        and retirement_receipt.get("registry_result_digest_required") is True
+        and retirement_receipt.get("registry_seal_ref_binding_required") is True
         and retirement_receipt.get("start_timestamp_required") is True
         and retirement_receipt.get("future_recorded_at_allowed") is False
         and retirement_receipt.get("required_before_fresh_activation") is True
@@ -315,8 +362,10 @@ def main() -> int:
         errors,
     )
     require(
-        boundary.get("visibility", {}).get("workflow_history_retention") == "7d",
-        "workflow history retention must remain 7d for local proof",
+        boundary.get("visibility", {}).get("workflow_history_retention") == "7d"
+        and boundary.get("visibility", {}).get("retirement_authority")
+        == "diagnostics-only",
+        "Visibility must remain diagnostic while workflow history retention stays 7d",
         errors,
     )
     require(

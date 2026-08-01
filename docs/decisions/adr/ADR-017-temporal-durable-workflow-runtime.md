@@ -45,10 +45,10 @@ Use Temporal as the proposed durable runtime adapter behind OOS.
   derived from the accepted Platform activation-manifest digest; a revoked
   digest cannot be reused for reactivation.
 - clean generation retirement requires Platform to drain start ingress and
-  ordinary pollers, issue a digest-pinned short-lived manifest, and accept the
-  receipt produced by OOS's explicit one-shot cancel-and-drain worker before
-  any fresh activation; unexpected evidence loss remains an incomplete
-  fail-stop fence.
+  ordinary pollers, issue a digest-pinned short-lived manifest for the business
+  queue and generation start registry, and accept OOS's exact-registry
+  reconciliation receipt before any fresh activation; unexpected evidence loss
+  remains an incomplete fail-stop fence and Visibility remains diagnostic.
 - the first business workflow is `delivery.refinement.apply`.
 
 The initial profile lifecycle is `proposed`. This ADR does not authorize

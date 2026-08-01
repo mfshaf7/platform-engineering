@@ -114,18 +114,27 @@ For planned suspension or replacement, Platform owns the ordered boundary:
 2. scale ordinary OOS workflow pollers to zero and record that evidence
 3. issue a digest-pinned retirement manifest for the old queue using drain
    observations no more than five minutes old and a lifetime no longer than
-   fifteen minutes
-4. allow OOS to run one explicit one-shot cancel-and-drain worker
-5. verify the OOS receipt binds every observed cancellation target to a
-   terminal projection, proves the one-shot worker started inside the manifest
-   lifetime while both drain observations were no more than five minutes old,
-   and records at least seven post-stop empty scans
+   fifteen minutes; the manifest also identifies the digest-derived generation
+   start registry
+4. allow OOS to seal that registry, reconcile and cancel its exact registered
+   workflow IDs, and run one explicit one-shot worker on the retired business
+   queue
+5. verify the OOS receipt binds the registry seal to this retirement, accounts
+   for every registration as matched or uncommitted, proves a terminal
+   projection for every matched execution, and proves the one-shot worker
+   started inside the manifest lifetime while both drain observations were no
+   more than five minutes old
 6. retain the receipt before issuing a fresh activation manifest and queue
 
 Platform owns the manifest and receipt-acceptance boundary. OOS owns the
 one-shot worker and receipt production. Temporal remains the runtime, not the
 lifecycle authority. No separate lock service, coordination database, or
 automatic cleanup claim is introduced.
+
+Every admitted OOS business start writes its exact workflow ID to the durable
+registry before attempting the business workflow start. Temporal Visibility is
+retained for diagnostics, but eventual-consistency listing is not accepted as
+retirement authority.
 
 The source-defined namespace, task-queue, ServiceAccount, secret-reference,
 payload, retention, and network contracts live under

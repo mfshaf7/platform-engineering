@@ -16,6 +16,10 @@ from typing import Any
 MAX_DOCUMENT_BYTES = 64 * 1024
 MAX_DRAIN_OBSERVATION_AGE_SECONDS = 300
 MAX_RETIREMENT_LIFETIME_SECONDS = 900
+BUSINESS_WORKFLOW_QUEUE_PREFIX = "oos.validation-readiness-run.v1"
+START_REGISTRY_QUEUE_PREFIX = "oos.generation-start-registry.v1"
+START_REGISTRY_WORKFLOW_ID_PREFIX = "oos:generation-start-registry:v1"
+START_REGISTRY_WORKFLOW_TYPE = "generationStartRegistryV1"
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{2,255}$")
 URI_RE = re.compile(
@@ -63,6 +67,7 @@ RETIREMENT_FIELDS = {
     "retirement_id",
     "schema_version",
     "start_ingress",
+    "start_registry",
     "temporal_target",
     "workflow_poller",
     "workflow_task_queue",
@@ -73,12 +78,10 @@ RECEIPT_FIELDS = {
     "cancel_signal_target_count",
     "definition_id",
     "definition_version",
-    "drain_cycle_count",
     "environment",
     "ordinary_poller_stopped",
     "outcome",
     "poller_evidence_ref",
-    "post_stop_empty_scans",
     "receipt_id",
     "recorded_at",
     "retirement_evidence_digest",
@@ -86,6 +89,7 @@ RECEIPT_FIELDS = {
     "retirement_started_at",
     "schema_version",
     "start_ingress_evidence_ref",
+    "start_registry",
     "temporal_target",
     "terminal_projection_count",
     "workflow_task_queue",
@@ -166,6 +170,23 @@ def require_integer(value: Any, minimum: int, name: str) -> int:
     return value
 
 
+def generation_contract(activation_evidence_digest: str) -> dict[str, str]:
+    digest = require_digest(
+        activation_evidence_digest, "activation_evidence_digest"
+    )
+    digest_hex = digest.removeprefix("sha256:")
+    return {
+        "business_workflow_task_queue": (
+            f"{BUSINESS_WORKFLOW_QUEUE_PREFIX}.{digest_hex}"
+        ),
+        "registry_task_queue": f"{START_REGISTRY_QUEUE_PREFIX}.{digest_hex}",
+        "registry_workflow_id": (
+            f"{START_REGISTRY_WORKFLOW_ID_PREFIX}:{digest_hex}"
+        ),
+        "registry_workflow_type": START_REGISTRY_WORKFLOW_TYPE,
+    }
+
+
 def parse_timestamp(value: Any, name: str) -> datetime:
     if not isinstance(value, str) or not value.endswith("Z"):
         raise ContractError(f"{name} must be an RFC3339 UTC timestamp")
@@ -219,9 +240,12 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     require_equal(manifest["issued_by"], "platform-engineering", "issued_by")
     require_uri(manifest["reason_ref"], "reason_ref")
     require_uri(manifest["activation_manifest_ref"], "activation_manifest_ref")
-    digest = require_digest(manifest["activation_evidence_digest"], "activation_evidence_digest")
-    expected_queue = f"oos.validation-readiness-run.v1.{digest.removeprefix('sha256:')}"
-    require_equal(manifest["workflow_task_queue"], expected_queue, "workflow_task_queue")
+    generation = generation_contract(manifest["activation_evidence_digest"])
+    require_equal(
+        manifest["workflow_task_queue"],
+        generation["business_workflow_task_queue"],
+        "workflow_task_queue",
+    )
     require_identifier(manifest["workflow_task_queue"], "workflow_task_queue")
     issued_at = parse_timestamp(manifest["issued_at"], "retirement issued_at")
     expires_at = parse_timestamp(manifest["expires_at"], "retirement expires_at")
@@ -258,6 +282,30 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
         "start ingress",
         "issuance",
     )
+
+    registry = require_object(manifest["start_registry"], "start_registry")
+    require_exact_fields(
+        registry,
+        {"workflow_id", "workflow_type", "task_queue"},
+        "start_registry",
+    )
+    require_equal(
+        registry["workflow_id"],
+        generation["registry_workflow_id"],
+        "start_registry.workflow_id",
+    )
+    require_equal(
+        registry["workflow_type"],
+        generation["registry_workflow_type"],
+        "start_registry.workflow_type",
+    )
+    require_equal(
+        registry["task_queue"],
+        generation["registry_task_queue"],
+        "start_registry.task_queue",
+    )
+    require_identifier(registry["workflow_id"], "start_registry.workflow_id")
+    require_identifier(registry["task_queue"], "start_registry.task_queue")
 
     poller = require_object(manifest["workflow_poller"], "workflow_poller")
     require_exact_fields(
@@ -354,6 +402,7 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
     )
     if start_observed_at > issued_at or poller_observed_at > issued_at:
         raise ContractError("drain observations must not follow manifest issuance")
+    generation = generation_contract(args.activation_digest)
 
     manifest = {
         "schema_version": 1,
@@ -368,10 +417,7 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "reason_ref": args.reason_ref,
         "activation_manifest_ref": activation_manifest["manifest_id"],
         "activation_evidence_digest": args.activation_digest,
-        "workflow_task_queue": (
-            "oos.validation-readiness-run.v1."
-            f"{args.activation_digest.removeprefix('sha256:')}"
-        ),
+        "workflow_task_queue": generation["business_workflow_task_queue"],
         "temporal_target": {
             "address": target["address"],
             "namespace": target["namespace"],
@@ -383,6 +429,11 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "in_flight_starts": 0,
             "observed_at": args.start_ingress_observed_at,
             "evidence_ref": args.start_ingress_evidence_ref,
+        },
+        "start_registry": {
+            "workflow_id": generation["registry_workflow_id"],
+            "workflow_type": generation["registry_workflow_type"],
+            "task_queue": generation["registry_task_queue"],
         },
         "workflow_poller": {
             "state": "drained",
@@ -397,6 +448,7 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "manifest_path": str(output_path),
         "retirement_evidence_digest": sha256_digest(raw),
         "retirement_id": manifest["retirement_id"],
+        "start_registry": manifest["start_registry"],
         "workflow_task_queue": manifest["workflow_task_queue"],
     }
 
@@ -447,16 +499,6 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
         manifest["temporal_target"]["namespace"],
         "target namespace",
     )
-    require_integer(receipt["drain_cycle_count"], 1, "drain_cycle_count")
-    cancel_count = require_integer(
-        receipt["cancel_signal_target_count"], 0, "cancel_signal_target_count"
-    )
-    terminal_count = require_integer(
-        receipt["terminal_projection_count"], 0, "terminal_projection_count"
-    )
-    if cancel_count != terminal_count:
-        raise ContractError("every cancellation target must have a terminal projection")
-    require_integer(receipt["post_stop_empty_scans"], 7, "post_stop_empty_scans")
     issued_at = parse_timestamp(manifest["issued_at"], "retirement issued_at")
     expires_at = parse_timestamp(manifest["expires_at"], "retirement expires_at")
     started_at = parse_timestamp(
@@ -465,6 +507,69 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     if started_at < issued_at or started_at >= expires_at:
         raise ContractError(
             "retirement_started_at must fall within the manifest lifetime"
+        )
+
+    registry = require_object(receipt["start_registry"], "receipt start_registry")
+    require_exact_fields(
+        registry,
+        {
+            "workflow_id",
+            "workflow_type",
+            "task_queue",
+            "seal_ref",
+            "sealed_at",
+            "result_digest",
+            "registered_workflow_count",
+            "matched_execution_count",
+            "uncommitted_registration_count",
+        },
+        "receipt start_registry",
+    )
+    for field in ("workflow_id", "workflow_type", "task_queue"):
+        require_equal(
+            registry[field],
+            manifest["start_registry"][field],
+            f"start_registry.{field}",
+        )
+    require_equal(
+        registry["seal_ref"], manifest["retirement_id"], "start_registry.seal_ref"
+    )
+    require_digest(registry["result_digest"], "start_registry.result_digest")
+    sealed_at = parse_timestamp(registry["sealed_at"], "start_registry.sealed_at")
+    if sealed_at < issued_at or sealed_at > started_at:
+        raise ContractError(
+            "start_registry.sealed_at must fall inside this authorization before retirement start"
+        )
+    registered_count = require_integer(
+        registry["registered_workflow_count"],
+        0,
+        "start_registry.registered_workflow_count",
+    )
+    matched_count = require_integer(
+        registry["matched_execution_count"],
+        0,
+        "start_registry.matched_execution_count",
+    )
+    uncommitted_count = require_integer(
+        registry["uncommitted_registration_count"],
+        0,
+        "start_registry.uncommitted_registration_count",
+    )
+    if matched_count + uncommitted_count != registered_count:
+        raise ContractError(
+            "start registry reconciliation counts do not cover every registration"
+        )
+    cancel_count = require_integer(
+        receipt["cancel_signal_target_count"], 0, "cancel_signal_target_count"
+    )
+    terminal_count = require_integer(
+        receipt["terminal_projection_count"], 0, "terminal_projection_count"
+    )
+    if cancel_count > matched_count:
+        raise ContractError("cancellation targets exceed matched registry executions")
+    if terminal_count != matched_count:
+        raise ContractError(
+            "every matched registry execution must have a terminal projection"
         )
     require_fresh_observation(
         parse_timestamp(
@@ -494,6 +599,13 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
         "receipt_digest": sha256_digest(receipt_raw),
         "receipt_id": receipt["receipt_id"],
         "retirement_id": receipt["retirement_id"],
+        "start_registry": {
+            "workflow_id": registry["workflow_id"],
+            "result_digest": registry["result_digest"],
+            "registered_workflow_count": registered_count,
+            "matched_execution_count": matched_count,
+            "uncommitted_registration_count": uncommitted_count,
+        },
         "workflow_task_queue": receipt["workflow_task_queue"],
     }
 

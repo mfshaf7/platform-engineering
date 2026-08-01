@@ -37,10 +37,10 @@ has been installed. Build admission is source authorization, not self-serve
 launch or workflow-execution authority.
 
 The source also defines ordered generation retirement: Platform drains ingress
-and ordinary pollers, issues the old generation's digest-pinned manifest, and
-accepts the receipt from OOS's explicit one-shot worker before a fresh
-activation. This contract does not imply that any runtime or retirement run is
-currently active.
+and ordinary pollers, issues the old generation's digest-pinned business-queue
+and start-registry manifest, and accepts the exact-reconciliation receipt from
+OOS's explicit one-shot worker before a fresh activation. This contract does
+not imply that any runtime or retirement run is currently active.
 
 ## Owner Boundaries
 

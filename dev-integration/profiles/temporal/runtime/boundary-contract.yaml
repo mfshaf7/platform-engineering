@@ -67,6 +67,15 @@ task_queues:
     kind: activity
     owner_repo: workspace-governance-control-fabric
     worker_identity: wgcf_activity_worker
+  - id: generation-start-registry
+    name_prefix: oos.generation-start-registry.v1
+    kind: workflow
+    owner_repo: operator-orchestration-service
+    worker_identity: oos_workflow_worker
+    generation:
+      source: activation-evidence-manifest-digest
+      suffix_encoding: sha256-hex
+      polling_mode: retirement-only
   - id: delivery-refinement-apply
     name: oos.delivery-refinement-apply.v1
     kind: workflow
@@ -102,6 +111,7 @@ generation_retirement:
     maximum_lifetime_seconds: 900
     activation_manifest_binding_required: true
     generated_queue_binding_required: true
+    start_registry_binding_required: true
   preconditions:
     start_ingress:
       required_state: drained
@@ -116,17 +126,29 @@ generation_retirement:
       maximum_observation_age_seconds: 300
       observation_age_reference: one-shot-worker-start
       evidence_ref_required: true
+  start_registry:
+    owner_repo: operator-orchestration-service
+    workflow_type: generationStartRegistryV1
+    workflow_id_pattern: "oos:generation-start-registry:v1:{activation-manifest-digest-hex}"
+    task_queue_pattern: "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
+    register_before_business_start_required: true
+    seal_after_start_ingress_drain_required: true
+    exact_workflow_id_reconciliation_required: true
+    invalid_registration_count_allowed: 0
+    visibility_authoritative_for_retirement: false
   one_shot_worker:
     owner_repo: operator-orchestration-service
+    registry_seal_before_reconciliation_required: true
     cancellation_before_polling_required: true
     terminal_projection_verification_required: true
-    stop_before_residual_scan_required: true
-    residual_execution_restarts_drain_cycle: true
-    post_stop_empty_scans_required: 7
+    authorization_recheck: immediately-before-worker-run
   receipt:
     schema_owner_repo: operator-orchestration-service
     schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
     accepted_outcome: retired
+    exact_registry_reconciliation_required: true
+    registry_result_digest_required: true
+    registry_seal_ref_binding_required: true
     start_timestamp_required: true
     future_recorded_at_allowed: false
     required_before_fresh_activation: true
@@ -167,6 +189,7 @@ payload_policy:
     - raw-prompts
     - unconstrained-model-output
 visibility:
+  retirement_authority: diagnostics-only
   search_attribute_allowlist:
     - CorrelationId
     - CausationId

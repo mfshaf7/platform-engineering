@@ -128,9 +128,12 @@ Only the reviewed issuer and executor may perform these steps:
 6. Remove the scoped runtime and restore the captured exact baseline before
    declaring the proof complete.
 7. Verify the restored state against the pre-run evidence, emit a result that
-   validates against the controlled-proof result schema, then route that
-   artifact to a separate post-run Security review. The pre-run permit is never
-   activation evidence.
+   validates against the controlled-proof result schema with exactly one keyed
+   outcome for every authorized scenario, then route that artifact to a
+   separate post-run Security review. `passed` requires all scenarios and the
+   exact-baseline restore to pass without an exception; a governed restore
+   exception produces `stopped`. The pre-run permit is never activation
+   evidence.
 
 Record each baseline attestation, activation, verification result,
 supplemental evidence, and restored surface through `make platform-drill

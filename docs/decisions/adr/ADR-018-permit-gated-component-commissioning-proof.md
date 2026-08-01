@@ -35,7 +35,8 @@ This drill type:
   atomically consumes one authorization for one run before the first mutation
 - captures and binds the pre-run baseline by immutable digest before permit
   issuance and emits a schema-valid controlled-proof result artifact after
-  restoration
+  restoration with exact keyed coverage of every authorized scenario and no
+  passing outcome when restoration ends through an exception
 - creates a governed local ledger before mutation
 - keeps baseline capture pending until every scoped surface has an operator-
   reviewable evidence reference

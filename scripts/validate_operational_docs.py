@@ -602,7 +602,7 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
                 detail = (completed.stderr or completed.stdout).strip()
                 if (
                     completed.returncode == 0
-                    or "permit artifact validation and atomic consumption are not implemented"
+                    or "commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
                     not in detail
                 ):
                     errors.append(

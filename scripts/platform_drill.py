@@ -180,12 +180,9 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             )
         if not isinstance(source_enablement.get("snapshotAllowed"), bool):
             raise SystemExit(f"{path} sourceEnablement.snapshotAllowed must be boolean")
-        if (
-            source_enablement.get("status") == "contract-only"
-            and source_enablement.get("snapshotAllowed") is not False
-        ):
+        if source_enablement.get("snapshotAllowed") is not False:
             raise SystemExit(
-                f"{path} contract-only sourceEnablement must deny snapshot creation"
+                f"{path} commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
             )
         required_controls = source_enablement.get("requiredControls")
         if (

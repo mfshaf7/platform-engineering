@@ -3,6 +3,8 @@
 ## Status
 
 - Accepted
+- The shared drill taxonomy is extended by
+  [ADR-018](ADR-018-permit-gated-component-commissioning-proof.md).
 
 ## Context
 
@@ -47,11 +49,13 @@ That model makes these decisions explicit:
 - runtime drills use `runtime-drill` authority:
   - captured pre-drill baseline
   - scoped local source or runtime activation path
-- the shared runtime drill types are:
+- the shared runtime drill types established by this decision are:
   - `product-runtime-drill`
   - `active-stack-runtime-drill`
   - `environment-complete-runtime-drill`
   - `lifecycle-control-drill`
+- `component-commissioning-proof` is added by ADR-018 for a permit-gated,
+  lifecycle-neutral proof of one component and its exact participating workers
 - the initial active-stack drill scope for this workspace includes:
   - `OpenClaw`
   - `OpenProject`

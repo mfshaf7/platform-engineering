@@ -41,8 +41,8 @@ scope:
 preconditions:
   - id: exact-authorization-bound
     summary: Bind one unexpired permit reference and digest before the baseline snapshot is created.
-  - id: baseline-snapshot-captured
-    summary: Capture the exact non-running or existing pre-proof state before any scoped mutation.
+  - id: baseline-attestations-complete
+    summary: Capture the exact non-running or existing pre-proof state and bind an evidence ref for every scoped surface before any mutation.
   - id: source-state-declared
     summary: Record the exact source revisions and immutable runtime artifacts named by the permit.
   - id: security-and-operator-approval-bound

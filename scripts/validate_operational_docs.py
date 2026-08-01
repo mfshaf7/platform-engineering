@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import copy
 import re
 from pathlib import Path
 import subprocess
@@ -523,6 +524,51 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
             detail = (completed.stderr or completed.stdout).strip()
             errors.append(f"{profile_path}: runtime-drill profile invalid\n{detail}")
     if required_profile.exists():
+        temporal_profile = yaml.safe_load(required_profile.read_text(encoding="utf-8")) or {}
+        generic_profile = copy.deepcopy(temporal_profile)
+        generic_profile["id"] = "example-component-commissioning-proof"
+        generic_profile["title"] = "Example component commissioning proof"
+        generic_profile["sourceEnablement"]["implementationWorkItemRef"] = (
+            "openproject://work_packages/999"
+        )
+        generic_profile["authorization"]["targetProfileId"] = (
+            "example-component-dev-integration"
+        )
+        generic_profile["authorization"]["securityReviewRef"] = (
+            "security://reviews/example-component-commissioning-proof"
+        )
+        for source_role in ("permitIssuer", "executor"):
+            generic_profile["authorization"][source_role] = {
+                "ownerRepo": "example-component-owner",
+                "sourceReviewWorkItemRef": "openproject://work_packages/999",
+                "mergedSourceRequiredBeforeSecurityAuthorization": True,
+            }
+        with tempfile.TemporaryDirectory(prefix="generic-commissioning-profile-") as temp_dir:
+            generic_profile_path = Path(temp_dir) / "example-component-commissioning-proof.yaml"
+            generic_profile_path.write_text(
+                yaml.safe_dump(generic_profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                [
+                    "python3",
+                    str(validator),
+                    "plan",
+                    "--profile-path",
+                    str(generic_profile_path),
+                    "--format",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                detail = (completed.stderr or completed.stdout).strip()
+                errors.append(
+                    "component-commissioning-proof generic source binding is invalid\n"
+                    + detail
+                )
+
         with tempfile.TemporaryDirectory(prefix="temporal-proof-denial-") as output_root:
             completed = subprocess.run(
                 [

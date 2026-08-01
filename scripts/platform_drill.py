@@ -153,14 +153,87 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
 
     authorization = payload.get("authorization")
     if payload.get("drillType") == "component-commissioning-proof":
-        if payload.get("sourceEnablement") != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
+        source_enablement = payload.get("sourceEnablement")
+        required_source_enablement_fields = {
+            "status",
+            "implementationWorkItemRef",
+            "snapshotAllowed",
+            "requiredControls",
+        }
+        if not isinstance(source_enablement, dict):
             raise SystemExit(
-                f"{path} sourceEnablement must remain contract-only until Platform source review #792 lands"
+                f"{path} component-commissioning-proof requires sourceEnablement"
             )
-        if payload.get("resultArtifact") != CONTROLLED_PROOF_RESULT_ARTIFACT:
+        source_enablement_fields = set(source_enablement)
+        if source_enablement_fields != required_source_enablement_fields:
             raise SystemExit(
-                f"{path} resultArtifact must bind the controlled-runtime-proof-result schema"
+                f"{path} sourceEnablement keys must exactly be: "
+                + ", ".join(sorted(required_source_enablement_fields))
             )
+        if source_enablement.get("status") not in {"contract-only", "source-reviewed"}:
+            raise SystemExit(
+                f"{path} sourceEnablement.status must be contract-only or source-reviewed"
+            )
+        if not str(source_enablement.get("implementationWorkItemRef") or "").strip():
+            raise SystemExit(
+                f"{path} sourceEnablement.implementationWorkItemRef must not be empty"
+            )
+        if not isinstance(source_enablement.get("snapshotAllowed"), bool):
+            raise SystemExit(f"{path} sourceEnablement.snapshotAllowed must be boolean")
+        if (
+            source_enablement.get("status") == "contract-only"
+            and source_enablement.get("snapshotAllowed") is not False
+        ):
+            raise SystemExit(
+                f"{path} contract-only sourceEnablement must deny snapshot creation"
+            )
+        required_controls = source_enablement.get("requiredControls")
+        if (
+            not isinstance(required_controls, list)
+            or not required_controls
+            or any(
+                not isinstance(control, str) or not control.strip()
+                for control in required_controls
+            )
+            or len(required_controls) != len(set(required_controls))
+        ):
+            raise SystemExit(
+                f"{path} sourceEnablement.requiredControls must be a unique non-empty list"
+            )
+
+        result_artifact = payload.get("resultArtifact")
+        if not isinstance(result_artifact, dict):
+            raise SystemExit(
+                f"{path} component-commissioning-proof requires resultArtifact"
+            )
+        if set(result_artifact) != {
+            "required",
+            "artifactType",
+            "schemaRef",
+            "schemaVersion",
+        } or (
+            result_artifact.get("required") is not True
+            or not str(result_artifact.get("artifactType") or "").strip()
+            or not str(result_artifact.get("schemaRef") or "").strip()
+            or not isinstance(result_artifact.get("schemaVersion"), int)
+            or result_artifact.get("schemaVersion", 0) < 1
+        ):
+            raise SystemExit(
+                f"{path} resultArtifact must bind a required versioned result schema"
+            )
+
+        is_temporal_commissioning_profile = (
+            payload.get("id") == "temporal-component-commissioning-proof"
+        )
+        if is_temporal_commissioning_profile:
+            if source_enablement != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
+                raise SystemExit(
+                    f"{path} sourceEnablement must remain contract-only until Platform source review #792 lands"
+                )
+            if result_artifact != CONTROLLED_PROOF_RESULT_ARTIFACT:
+                raise SystemExit(
+                    f"{path} resultArtifact must bind the controlled-runtime-proof-result schema"
+                )
         required_authorization_fields = {
             "required",
             "artifactType",
@@ -198,16 +271,36 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         for key in ("schemaRef", "policyRef", "securityReviewRef", "targetProfileId"):
             if not str(authorization.get(key) or "").strip():
                 raise SystemExit(f"{path} authorization.{key} must not be empty")
-        expected_reviewed_source = {
-            "ownerRepo": "platform-engineering",
-            "sourceReviewWorkItemRef": "openproject://work_packages/792",
-            "mergedSourceRequiredBeforeSecurityAuthorization": True,
-        }
         for source_role in ("permitIssuer", "executor"):
-            if authorization.get(source_role) != expected_reviewed_source:
+            source_binding = authorization.get(source_role)
+            if not isinstance(source_binding, dict):
                 raise SystemExit(
-                    f"{path} authorization.{source_role} must bind Platform source review #792"
+                    f"{path} authorization.{source_role} must bind reviewed source"
                 )
+            if set(source_binding) != {
+                "ownerRepo",
+                "sourceReviewWorkItemRef",
+                "mergedSourceRequiredBeforeSecurityAuthorization",
+            } or (
+                not str(source_binding.get("ownerRepo") or "").strip()
+                or not str(source_binding.get("sourceReviewWorkItemRef") or "").strip()
+                or source_binding.get("mergedSourceRequiredBeforeSecurityAuthorization")
+                is not True
+            ):
+                raise SystemExit(
+                    f"{path} authorization.{source_role} must bind owner, source review work, and pre-authorization merge"
+                )
+        if is_temporal_commissioning_profile:
+            expected_reviewed_source = {
+                "ownerRepo": "platform-engineering",
+                "sourceReviewWorkItemRef": "openproject://work_packages/792",
+                "mergedSourceRequiredBeforeSecurityAuthorization": True,
+            }
+            for source_role in ("permitIssuer", "executor"):
+                if authorization.get(source_role) != expected_reviewed_source:
+                    raise SystemExit(
+                        f"{path} authorization.{source_role} must bind Platform source review #792"
+                    )
         terminal_cleanup = authorization.get("terminalCleanupAuthority") or {}
         expected_terminal_cleanup = {
             "mode": "exact-baseline-restore-only",
@@ -789,9 +882,17 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
     source_enablement = contract.get("sourceEnablement") or {}
     if source_enablement.get("snapshotAllowed") is False:
+        implementation_ref = str(
+            source_enablement.get("implementationWorkItemRef") or "reviewed implementation"
+        )
+        implementation_label = (
+            "ART #792"
+            if implementation_ref == "openproject://work_packages/792"
+            else implementation_ref
+        )
         raise SystemExit(
-            "commissioning snapshot denied: contract-only until ART #792 lands "
-            "the reviewed permit issuer and proof executor"
+            f"commissioning snapshot denied: contract-only until {implementation_label} "
+            "lands the reviewed permit issuer and proof executor"
         )
     evidence_template_path_value, evidence_template = evidence_template_payload(
         args.repo_root, profile_path, contract

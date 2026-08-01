@@ -36,6 +36,13 @@ The local runtime source and operator commands are implemented, but no runtime
 has been installed. Build admission is source authorization, not self-serve
 launch or workflow-execution authority.
 
+The source also defines ordered generation retirement: Platform drains ingress
+and ordinary pollers, issues the old generation's digest-pinned business-queue
+and start-registry manifest with a pinned OOS receipt verifier, and accepts the
+Ed25519-attested exact-reconciliation receipt from OOS's explicit one-shot
+worker before a fresh activation. This contract does not imply that any runtime
+or retirement run is currently active.
+
 ## Owner Boundaries
 
 - `workspace-governance` owns durable-orchestration authority and admission

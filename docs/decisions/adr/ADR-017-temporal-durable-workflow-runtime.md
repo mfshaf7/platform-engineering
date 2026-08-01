@@ -44,6 +44,14 @@ Use Temporal as the proposed durable runtime adapter behind OOS.
 - activation-sensitive workflow polling is fenced by a task-queue generation
   derived from the accepted Platform activation-manifest digest; a revoked
   digest cannot be reused for reactivation.
+- clean generation retirement requires Platform to drain start ingress and
+  both ordinary OOS queue pollers, issue a digest-pinned short-lived manifest
+  for the business queue, bounded generation start registry, and receipt
+  verifier, and accept OOS's Ed25519-attested exact-registry reconciliation
+  receipt before any fresh activation; the seal carries its manifest lifetime
+  and closes the registry only when handler time is still authorized;
+  unexpected evidence loss remains an
+  incomplete fail-stop fence and Visibility remains diagnostic.
 - the first business workflow is `delivery.refinement.apply`.
 
 The initial profile lifecycle is `proposed`. This ADR does not authorize
@@ -65,6 +73,7 @@ What becomes stricter:
 - task queues, identities, payloads, retention, and persistence require
   explicit controls
 - runtime activation requires Platform and Security admission
+- activation replacement requires ordered generation retirement evidence
 - stage and production still require governed release evidence
 
 Required follow-up:

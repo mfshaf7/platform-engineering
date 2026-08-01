@@ -58,11 +58,24 @@ task_queues:
       suffix_encoding: sha256-hex
       active_restart_reuses_generation: true
       revoked_digest_reuse_allowed: false
+      fresh_activation:
+        initial_activation_requires_retirement_receipt: false
+        prior_generation_retirement_receipt_required: true
+        prior_digest_must_differ: true
   - id: validation-readiness-activity
     name: wgcf.validation-readiness.v1
     kind: activity
     owner_repo: workspace-governance-control-fabric
     worker_identity: wgcf_activity_worker
+  - id: generation-start-registry
+    name_prefix: oos.generation-start-registry.v1
+    kind: workflow
+    owner_repo: operator-orchestration-service
+    worker_identity: oos_workflow_worker
+    generation:
+      source: activation-evidence-manifest-digest
+      suffix_encoding: sha256-hex
+      polling_mode: continuous-with-business-worker
   - id: delivery-refinement-apply
     name: oos.delivery-refinement-apply.v1
     kind: workflow
@@ -83,6 +96,104 @@ queue_policy:
     network_policy: restricts frontend reachability to admitted worker identities
     worker_registration: each owner registers only its declared queues
     activation_gate: runtime denial proof and fresh security acceptance
+generation_retirement:
+  owner_repo: platform-engineering
+  applies_to_queue: validation-readiness-run
+  unexpected_revocation:
+    ordinary_worker_behavior: immediate-fail-stop-unfenced
+    automatic_retirement_claim_allowed: false
+  manifest:
+    issuer: platform-engineering
+    schema_owner_repo: operator-orchestration-service
+    schema_ref: contracts/orchestration/generation-retirement-manifest.schema.json
+    digest_pin_required: true
+    bounded_lifetime_required: true
+    maximum_lifetime_seconds: 900
+    activation_manifest_binding_required: true
+    generated_queue_binding_required: true
+    start_registry_binding_required: true
+    receipt_verifier_binding_required: true
+    sealed_registry_resume_requires_exact_seal_authorization: true
+  preconditions:
+    start_ingress:
+      required_state: drained
+      active_replicas: 0
+      in_flight_starts: 0
+      maximum_observation_age_seconds: 300
+      observation_age_reference: one-shot-worker-start
+      evidence_ref_required: true
+    ordinary_workflow_poller:
+      required_state: drained
+      active_replicas: 0
+      maximum_observation_age_seconds: 300
+      observation_age_reference: one-shot-worker-start
+      evidence_ref_required: true
+  start_registry:
+    owner_repo: operator-orchestration-service
+    workflow_type: generationStartRegistryV1
+    workflow_id_pattern: "oos:generation-start-registry:v1:{activation-manifest-digest-hex}"
+    task_queue_pattern: "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
+    register_before_business_start_required: true
+    registration_mechanism: temporal-update-with-start
+    registration_update_id_scheme: business-workflow-id-prefixed-v1
+    registration_update_id_pattern: "oos:generation-start-registration:v1:{business-workflow-id}"
+    workflow_enforces_registration_update_id: true
+    duplicate_registration_adds_history_event: false
+    maximum_registration_count: 512
+    capacity_exhaustion_http_status: 409
+    capacity_exhaustion_api_error: orchestration_generation_capacity_exhausted
+    capacity_exhaustion_required_action: retire-and-activate-fresh-generation
+    rejected_update_recorded_in_history: false
+    continuous_registry_poller_required: true
+    seal_after_start_ingress_drain_required: true
+    seal_mechanism: temporal-update-with-start
+    seal_update_id_pattern: "oos:generation-start-registry-seal:v1:{retirement-evidence-digest-hex}"
+    workflow_enforces_seal_update_id: true
+    rejected_seal_update_recorded_in_history: false
+    seal_rejection_status: seal-not-authorized
+    seal_authorization_lifetime_in_payload_required: true
+    seal_handler_validates_authorization_before_mutation: true
+    expired_seal_closes_registry: false
+    exact_workflow_id_reconciliation_required: true
+    invalid_registration_count_allowed: 0
+    visibility_authoritative_for_retirement: false
+  one_shot_worker:
+    owner_repo: operator-orchestration-service
+    registry_seal_before_reconciliation_required: true
+    cancellation_before_polling_required: true
+    terminal_projection_verification_required: true
+    authorization_recheck:
+      - immediately-before-registry-worker-run
+      - immediately-before-registry-seal
+      - immediately-before-business-worker-run
+  receipt:
+    schema_owner_repo: operator-orchestration-service
+    schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
+    accepted_outcome: retired
+    exact_registry_reconciliation_required: true
+    registry_result_digest_required: true
+    registry_seal_ref_binding_required: true
+    registry_seal_authorization_digest_required: true
+    attestation:
+      algorithm: Ed25519
+      canonicalization: oos-canonical-json-v1
+      issuer: operator-orchestration-service
+      signed_content: receipt-without-attestation
+      canonical_value_domain: printable-ascii-safe-integer-json
+      object_key_order: ascending-ascii
+      array_order: preserved
+      whitespace: none
+      byte_encoding: utf-8
+      payload_digest: sha256
+      signature_encoding: base64
+      conformance_vector_ref: dev-integration/profiles/temporal/runtime/generation-retirement-canonicalization-v1.vector.json
+      manifest_pins_key_id_and_public_key_digest: true
+      private_key_owner_repo: operator-orchestration-service
+      verified_before_fresh_activation: true
+    start_timestamp_required: true
+    future_recorded_at_allowed: false
+    required_before_fresh_activation: true
+    retained_with_platform_evidence: true
 secret_references:
   postgresql:
     secret_name: temporal-postgresql
@@ -119,6 +230,7 @@ payload_policy:
     - raw-prompts
     - unconstrained-model-output
 visibility:
+  retirement_authority: diagnostics-only
   search_attribute_allowlist:
     - CorrelationId
     - CausationId

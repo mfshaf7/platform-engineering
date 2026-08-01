@@ -100,6 +100,64 @@ frontend. It does not interpret task-queue names. Queue ownership therefore
 also requires owner-specific worker registration, credentials, denial tests,
 and fresh Security acceptance before activation.
 
+## Generation Retirement Boundary
+
+Activation revocation and clean generation retirement are different events.
+Unexpected loss or replacement of activation evidence makes an ordinary OOS
+worker fail-stop immediately. That protects the queue from continued polling,
+but it does not prove outstanding executions were drained.
+
+For planned suspension or replacement, Platform owns the ordered boundary:
+
+1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
+   starts
+2. scale ordinary OOS workflow pollers to zero and record that evidence
+3. issue a digest-pinned retirement manifest for the old queues using drain
+   observations no more than five minutes old and a lifetime no longer than
+   fifteen minutes; the manifest also identifies the digest-derived generation
+   start registry and pins the OOS Ed25519 receipt verifier
+4. allow OOS to seal that registry, reconcile and cancel its exact registered
+   workflow IDs, and run one explicit one-shot worker on the retired business
+   queue
+5. verify the OOS receipt signature, bind the registry seal to this retirement, account
+   for every registration as matched or uncommitted, proves a terminal
+   projection for every matched execution, and proves the one-shot worker
+   started inside the manifest lifetime while both drain observations were no
+   more than five minutes old
+6. retain the receipt before issuing a fresh activation manifest and queues
+
+Platform owns the manifest and receipt-acceptance boundary. OOS owns the
+one-shot worker and receipt production. Temporal remains the runtime, not the
+lifecycle authority. No separate lock service, coordination database, or
+automatic cleanup claim is introduced.
+
+Every admitted OOS business start writes its exact workflow ID to the durable
+registry through Update-with-Start before attempting the business workflow
+start. The normal OOS process polls both generated queues, and the registry is
+bounded to 512 accepted registrations per generation. Capacity exhaustion is a
+stable OOS broker conflict requiring generation retirement and fresh
+activation. The Update ID is the
+versioned OOS registration prefix plus the business workflow ID, and the
+registry workflow validates it. Duplicate retries resolve the original Update;
+neither duplicates nor rejected Updates grow accepted history. Sealing uses an
+acknowledged Update-with-Start whose deterministic ID is derived from the
+retirement evidence digest. The registry independently validates that ID and
+handler time before mutation, so an expired Update returns
+`seal-not-authorized` without closing the registry or leaving the operator
+waiting. A post-seal retry requires a refreshed manifest bound to the exact
+prior seal authorization. Temporal Visibility is
+retained for diagnostics, but eventual-consistency listing is not accepted as
+retirement authority.
+
+The retirement manifest also pins `oos-canonical-json-v1` and
+`receipt-without-attestation`. The unsigned receipt uses recursively sorted
+ASCII object keys, preserved array order, printable-ASCII strings,
+JavaScript-safe integers, compact JSON, and UTF-8 bytes. The payload digest is
+SHA-256 over those exact bytes and the Ed25519 signature is standard base64.
+Platform and OOS test the same
+`generation-retirement-canonicalization-v1.vector.json` before this boundary
+can be accepted.
+
 The source-defined namespace, task-queue, ServiceAccount, secret-reference,
 payload, retention, and network contracts live under
 `dev-integration/profiles/temporal/runtime/`. They remain subject to operating
@@ -113,6 +171,8 @@ Allowed now:
   queue, payload, and operator contracts
 - architecture and security review
 - build-admitted status inspection
+- generation-retirement manifest preparation and receipt verification against
+  existing evidence
 
 Denied now:
 

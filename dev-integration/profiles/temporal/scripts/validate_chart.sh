@@ -16,6 +16,7 @@ source "${SCRIPT_DIR}/common.sh"
 need_cmd helm
 need_cmd python3
 need_cmd sha256sum
+python3 "${SCRIPT_DIR}/test_generation_retirement.py"
 render_runtime
 ensure_chart
 

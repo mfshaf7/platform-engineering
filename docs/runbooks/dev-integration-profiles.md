@@ -129,6 +129,52 @@ Current build-admitted profile:
     until fresh Platform, Security, and workspace lifecycle gates make the
     profile `active`
 
+### Temporal Generation Retirement
+
+Temporal remains inactive, so there is no generation to retire now. Once the
+profile is active and a prior OOS workflow generation exists, use the
+Platform-owned procedure before suspension, replacement, or fresh activation:
+
+1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
+   starts
+2. prove zero ordinary OOS workflow pollers for both generated queues
+3. issue the old generation manifest using observations no more than five
+   minutes old and a lifetime no longer than fifteen minutes; the issuer derives
+   both the business queue and durable start registry from the activation digest
+   and pins the OOS Ed25519 receipt verifier, canonicalization, and signed
+   content contract
+4. run the explicit OOS retirement command, which verifies its receipt key,
+   carries the exact manifest lifetime in an acknowledged seal
+   Update-with-Start with a deterministic authorization-derived ID, requires
+   the registry to validate that ID and handler time before mutation, seals the registry,
+   reconciles and cancels exact registered workflow IDs, and starts the one-shot
+   worker only after revalidating the manifest
+5. verify the receipt signature, account for every registration, prove every
+   matched run reached a terminal projection, and prove the one-shot worker
+   started inside the manifest lifetime and within five minutes of both drain
+   observations; retain it before issuing any fresh activation
+
+The registry workflow accepts only the deterministic registration Update ID
+derived from the business workflow ID. A full generation returns
+`409 orchestration_generation_capacity_exhausted` and must be retired before a
+fresh generation is activated. An expired seal Update returns
+`seal-not-authorized` and leaves the registry open for a fresh authorized
+retry. The verifier reproduces the versioned
+canonical UTF-8 receipt bytes and checks them against the published
+cross-language conformance vector.
+
+The source-valid entrypoint is:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/generation_retirement.py --help
+```
+
+Use the exact command arguments and evidence rules in the
+[Temporal profile procedure](../../dev-integration/profiles/temporal/README.md)
+and the [Temporal operations guide](../components/temporal/operations.md).
+Unexpected activation-evidence loss is an incomplete fail-stop fence; it is
+never a substitute for this retirement procedure.
+
 ## 2. Use An Active Profile
 
 Run the shared operator commands from `platform-engineering/`:

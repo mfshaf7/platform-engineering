@@ -26,6 +26,8 @@ closed while the profile is build-admitted.
   confirmed destructive reset
 - quiesced two-database backup with state-preserving completion and fail-safe
   restore behavior
+- digest-pinned workflow-generation retirement manifest issuance and OOS
+  receipt verification
 
 ## Activation Checks
 
@@ -60,6 +62,72 @@ It must:
 The first business workflow, `delivery.refinement.apply`, follows only after
 the safe proof and definition admission pass.
 
+## Planned Generation Retirement
+
+Do not use activation-evidence removal as a cleanup mechanism. An unexpected
+loss makes the ordinary OOS worker fail-stop with an incomplete fence; it does
+not authorize polling the old queue or claim its executions are retired.
+
+For a planned retirement:
+
+The source-valid issuer and verifier require Python 3 and the OpenSSL CLI. The
+OOS public key supplied to either command must be the exact key whose digest is
+pinned in the retirement manifest.
+
+1. quiesce OOS start ingress
+2. prove start-ingress replicas and in-flight starts are both zero
+3. scale ordinary OOS workflow pollers to zero and retain that evidence
+4. issue the old generation's manifest with
+   `generation_retirement.py issue`, including the OOS receipt key id and
+   public key
+5. mount the manifest read-only for the OOS `retire` one-shot command and pass
+   its exact digest
+6. retain the emitted receipt and run
+   `generation_retirement.py verify-receipt` with the pinned public key
+7. issue no fresh activation until the verifier returns `accepted`
+
+The issuer requires explicit timestamps, evidence references, and zero counts;
+it derives both the business queue and generation start registry from the
+pinned activation-manifest digest, pins the OOS Ed25519 receipt verifier, and
+writes a mode-0600 JSON file atomically. OOS serves both generated queues
+continuously during ordinary operation. Business starts register through
+Update-with-Start, with a maximum of 512 accepted registrations in one
+generation. A full generation returns the stable OOS
+`409 orchestration_generation_capacity_exhausted` response and must be retired
+before a fresh generation is activated. OOS uses and workflow-validates one
+deterministic Update ID per business workflow, so retries resolve the original
+Update; rejected Updates do not enter workflow history.
+Drain observations must be no more than five minutes old and the manifest
+lifetime cannot exceed fifteen minutes. The verifier rejects future receipt
+times, mismatched targets, digests, queues, registry identities or seals, and
+incomplete reconciliation counts, forged receipt signatures, or a verifier key
+whose bytes differ from the manifest pin. Every registry entry must be accounted for
+as a matched execution or an uncommitted business start, and every matched
+execution must have a terminal projection. It also requires the registry seal
+to belong to the exact retirement authorization and the OOS one-shot start
+timestamp to fall inside the manifest lifetime while allowing a valid drain to
+complete after that authorization window. The acknowledged seal
+Update-with-Start carries manifest issuance and expiry plus a deterministic
+authorization-derived Update ID. The registry independently checks that ID and
+handler time before mutation. An expired Update returns
+`seal-not-authorized` and leaves the registry open for a fresh authorized
+retry. A retry
+after the registry was sealed requires a refreshed manifest that explicitly
+resumes the exact authorization that sealed the registry and its original
+lifetime. Both drained-state
+observations must still be no more than five minutes old when the one-shot
+worker starts.
+
+Receipt verification is byte-exact. The manifest pins the canonicalization and
+signed-content identifiers, and the verifier reproduces the compact UTF-8 bytes
+from the receipt without its top-level `attestation`. The checked-in
+cross-language vector must pass before the source validator accepts this
+profile.
+
+This operator surface is source-valid now. It does not make the build-admitted
+profile launchable and must not be used as evidence that a retirement run has
+already occurred.
+
 ## Common Failure Signals
 
 - proposed or build-admitted profile is treated as launchable
@@ -69,6 +137,8 @@ the safe proof and definition admission pass.
 - worker restart loses progress or duplicates a non-idempotent effect
 - task queues allow the wrong worker boundary
 - profile shutdown destroys persistent history
+- a fresh activation is issued without the prior generation's accepted
+  retirement receipt
 
 ## First Response
 
@@ -89,6 +159,8 @@ the safe proof and definition admission pass.
 - activity and final receipt references
 - persistence and restore evidence
 - security review reference
+- start-ingress and ordinary-poller drain evidence references
+- retirement manifest and receipt digests
 
 ## Related Procedures
 

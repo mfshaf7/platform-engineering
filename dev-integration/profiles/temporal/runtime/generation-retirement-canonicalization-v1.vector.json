@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "vector_id": "oos-generation-retirement-receipt-canonicalization-v1",
+  "canonicalization": "oos-canonical-json-v1",
+  "signed_content": "receipt-without-attestation",
+  "payload": {
+    "schema_version": 1,
+    "receipt_id": "receipt:generation-retirement:vector-v1",
+    "retirement_id": "platform-engineering://retirement/validation-readiness-run/v1/dev-integration/vector",
+    "retirement_started_at": "2026-07-31T12:01:00.000Z",
+    "retirement_evidence_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "activation_evidence_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "activation_manifest_ref": "platform-engineering://activation/validation-readiness-run/v1/dev-integration",
+    "definition_id": "validation-readiness-run",
+    "definition_version": 1,
+    "environment": "dev-integration",
+    "workflow_task_queue": "oos.validation-readiness-run.v1.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "temporal_target": {
+      "address": "temporal-frontend.temporal.svc:7233",
+      "namespace": "default"
+    },
+    "start_ingress_evidence_ref": "platform-engineering://evidence/oos-start-ingress-drained/vector",
+    "poller_evidence_ref": "platform-engineering://evidence/oos-workflow-poller-drained/vector",
+    "ordinary_poller_stopped": true,
+    "start_registry": {
+      "registration_update_id_scheme": "business-workflow-id-prefixed-v1",
+      "workflow_id": "oos:generation-start-registry:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "workflow_type": "generationStartRegistryV1",
+      "task_queue": "oos.generation-start-registry.v1.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "seal_ref": "platform-engineering://retirement/validation-readiness-run/v1/dev-integration/vector",
+      "sealed_at": "2026-07-31T12:00:30.000Z",
+      "result_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seal_authorization_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "registered_workflow_count": 1,
+      "matched_execution_count": 1,
+      "uncommitted_registration_count": 0
+    },
+    "cancel_signal_target_count": 1,
+    "terminal_projection_count": 1,
+    "outcome": "retired",
+    "recorded_at": "2026-07-31T12:02:00.000Z"
+  },
+  "canonical_payload_base64": "eyJhY3RpdmF0aW9uX2V2aWRlbmNlX2RpZ2VzdCI6InNoYTI1NjpiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwiYWN0aXZhdGlvbl9tYW5pZmVzdF9yZWYiOiJwbGF0Zm9ybS1lbmdpbmVlcmluZzovL2FjdGl2YXRpb24vdmFsaWRhdGlvbi1yZWFkaW5lc3MtcnVuL3YxL2Rldi1pbnRlZ3JhdGlvbiIsImNhbmNlbF9zaWduYWxfdGFyZ2V0X2NvdW50IjoxLCJkZWZpbml0aW9uX2lkIjoidmFsaWRhdGlvbi1yZWFkaW5lc3MtcnVuIiwiZGVmaW5pdGlvbl92ZXJzaW9uIjoxLCJlbnZpcm9ubWVudCI6ImRldi1pbnRlZ3JhdGlvbiIsIm9yZGluYXJ5X3BvbGxlcl9zdG9wcGVkIjp0cnVlLCJvdXRjb21lIjoicmV0aXJlZCIsInBvbGxlcl9ldmlkZW5jZV9yZWYiOiJwbGF0Zm9ybS1lbmdpbmVlcmluZzovL2V2aWRlbmNlL29vcy13b3JrZmxvdy1wb2xsZXItZHJhaW5lZC92ZWN0b3IiLCJyZWNlaXB0X2lkIjoicmVjZWlwdDpnZW5lcmF0aW9uLXJldGlyZW1lbnQ6dmVjdG9yLXYxIiwicmVjb3JkZWRfYXQiOiIyMDI2LTA3LTMxVDEyOjAyOjAwLjAwMFoiLCJyZXRpcmVtZW50X2V2aWRlbmNlX2RpZ2VzdCI6InNoYTI1NjplZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlIiwicmV0aXJlbWVudF9pZCI6InBsYXRmb3JtLWVuZ2luZWVyaW5nOi8vcmV0aXJlbWVudC92YWxpZGF0aW9uLXJlYWRpbmVzcy1ydW4vdjEvZGV2LWludGVncmF0aW9uL3ZlY3RvciIsInJldGlyZW1lbnRfc3RhcnRlZF9hdCI6IjIwMjYtMDctMzFUMTI6MDE6MDAuMDAwWiIsInNjaGVtYV92ZXJzaW9uIjoxLCJzdGFydF9pbmdyZXNzX2V2aWRlbmNlX3JlZiI6InBsYXRmb3JtLWVuZ2luZWVyaW5nOi8vZXZpZGVuY2Uvb29zLXN0YXJ0LWluZ3Jlc3MtZHJhaW5lZC92ZWN0b3IiLCJzdGFydF9yZWdpc3RyeSI6eyJtYXRjaGVkX2V4ZWN1dGlvbl9jb3VudCI6MSwicmVnaXN0ZXJlZF93b3JrZmxvd19jb3VudCI6MSwicmVnaXN0cmF0aW9uX3VwZGF0ZV9pZF9zY2hlbWUiOiJidXNpbmVzcy13b3JrZmxvdy1pZC1wcmVmaXhlZC12MSIsInJlc3VsdF9kaWdlc3QiOiJzaGEyNTY6Y2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYyIsInNlYWxfYXV0aG9yaXphdGlvbl9kaWdlc3QiOiJzaGEyNTY6ZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZSIsInNlYWxfcmVmIjoicGxhdGZvcm0tZW5naW5lZXJpbmc6Ly9yZXRpcmVtZW50L3ZhbGlkYXRpb24tcmVhZGluZXNzLXJ1bi92MS9kZXYtaW50ZWdyYXRpb24vdmVjdG9yIiwic2VhbGVkX2F0IjoiMjAyNi0wNy0zMVQxMjowMDozMC4wMDBaIiwidGFza19xdWV1ZSI6Im9vcy5nZW5lcmF0aW9uLXN0YXJ0LXJlZ2lzdHJ5LnYxLmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJ1bmNvbW1pdHRlZF9yZWdpc3RyYXRpb25fY291bnQiOjAsIndvcmtmbG93X2lkIjoib29zOmdlbmVyYXRpb24tc3RhcnQtcmVnaXN0cnk6djE6YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsIndvcmtmbG93X3R5cGUiOiJnZW5lcmF0aW9uU3RhcnRSZWdpc3RyeVYxIn0sInRlbXBvcmFsX3RhcmdldCI6eyJhZGRyZXNzIjoidGVtcG9yYWwtZnJvbnRlbmQudGVtcG9yYWwuc3ZjOjcyMzMiLCJuYW1lc3BhY2UiOiJkZWZhdWx0In0sInRlcm1pbmFsX3Byb2plY3Rpb25fY291bnQiOjEsIndvcmtmbG93X3Rhc2tfcXVldWUiOiJvb3MudmFsaWRhdGlvbi1yZWFkaW5lc3MtcnVuLnYxLmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIifQ==",
+  "payload_digest": "sha256:442149634bb4eabbc9d1ab8b7715b2934088408a4f79d9719a10b7a782ffffca"
+}

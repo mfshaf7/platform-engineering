@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -9,6 +13,8 @@ import sys
 import tempfile
 
 import yaml
+
+from generation_retirement import ContractError, canonical_json
 
 
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -76,6 +82,43 @@ def main() -> int:
     profile = load_yaml(profile_root / "profile.yaml")
     lock = load_yaml(runtime_root / "artifact-lock.yaml")
     boundary = load_yaml(runtime_root / "boundary-contract.yaml")
+    vector_ref = (
+        boundary.get("generation_retirement", {})
+        .get("receipt", {})
+        .get("attestation", {})
+        .get("conformance_vector_ref")
+    )
+    vector_path = owner_repo_root / str(vector_ref or "")
+    require(
+        bool(vector_ref),
+        "retirement receipt conformance vector is required",
+        errors,
+    )
+    require(
+        vector_path.is_file(),
+        "retirement receipt conformance vector is missing",
+        errors,
+    )
+    if vector_path.is_file():
+        try:
+            vector = json.loads(vector_path.read_text(encoding="utf-8"))
+            encoded = base64.b64decode(
+                vector.get("canonical_payload_base64", ""), validate=True
+            )
+            require(
+                vector.get("schema_version") == 1
+                and vector.get("vector_id")
+                == "oos-generation-retirement-receipt-canonicalization-v1"
+                and vector.get("canonicalization") == "oos-canonical-json-v1"
+                and vector.get("signed_content") == "receipt-without-attestation"
+                and encoded == canonical_json(vector.get("payload"))
+                and vector.get("payload_digest")
+                == f"sha256:{hashlib.sha256(encoded).hexdigest()}",
+                "retirement receipt conformance vector is invalid",
+                errors,
+            )
+        except (binascii.Error, ContractError, json.JSONDecodeError, TypeError):
+            errors.append("retirement receipt conformance vector is invalid")
 
     require(profile.get("profile_id") == "temporal", "profile_id must be temporal", errors)
     require(
@@ -176,7 +219,11 @@ def main() -> int:
     ]
     require(len(queue_names) == len(set(queue_names)), "task queue names must be unique", errors)
     require(
-        {"validation-readiness-run", "delivery-refinement-apply"}
+        {
+            "validation-readiness-run",
+            "generation-start-registry",
+            "delivery-refinement-apply",
+        }
         <= {entry.get("id") for entry in task_queues},
         "initial workflow task queues are incomplete",
         errors,
@@ -190,6 +237,15 @@ def main() -> int:
         {},
     )
     validation_generation = validation_queue.get("generation", {})
+    registry_queue = next(
+        (
+            entry
+            for entry in task_queues
+            if entry.get("id") == "generation-start-registry"
+        ),
+        {},
+    )
+    registry_generation = registry_queue.get("generation", {})
     require(
         validation_queue.get("name") is None
         and validation_queue.get("name_prefix")
@@ -211,6 +267,32 @@ def main() -> int:
         errors,
     )
     require(
+        registry_queue.get("name") is None
+        and registry_queue.get("name_prefix")
+        == "oos.generation-start-registry.v1"
+        and registry_queue.get("owner_repo")
+        == "operator-orchestration-service"
+        and registry_generation.get("source")
+        == "activation-evidence-manifest-digest"
+        and registry_generation.get("suffix_encoding") == "sha256-hex"
+        and registry_generation.get("polling_mode")
+        == "continuous-with-business-worker",
+        "generation start registry must use its OOS-owned continuously polled digest-bound queue",
+        errors,
+    )
+    fresh_activation = validation_generation.get("fresh_activation", {})
+    require(
+        fresh_activation.get("initial_activation_requires_retirement_receipt")
+        is False
+        and fresh_activation.get(
+            "prior_generation_retirement_receipt_required"
+        )
+        is True
+        and fresh_activation.get("prior_digest_must_differ") is True,
+        "fresh activation must require the prior retirement receipt and a new digest",
+        errors,
+    )
+    require(
         boundary.get("queue_policy", {}).get(
             "generated_workflow_queue_pattern"
         )
@@ -218,9 +300,195 @@ def main() -> int:
         "generated workflow queue pattern must remain activation-bound",
         errors,
     )
+    retirement = boundary.get("generation_retirement", {})
+    retirement_manifest = retirement.get("manifest", {})
+    retirement_preconditions = retirement.get("preconditions", {})
+    start_ingress = retirement_preconditions.get("start_ingress", {})
+    ordinary_poller = retirement_preconditions.get(
+        "ordinary_workflow_poller", {}
+    )
+    start_registry = retirement.get("start_registry", {})
+    one_shot_worker = retirement.get("one_shot_worker", {})
+    retirement_receipt = retirement.get("receipt", {})
+    unexpected_revocation = retirement.get("unexpected_revocation", {})
     require(
-        boundary.get("visibility", {}).get("workflow_history_retention") == "7d",
-        "workflow history retention must remain 7d for local proof",
+        retirement.get("owner_repo") == "platform-engineering"
+        and retirement.get("applies_to_queue") == "validation-readiness-run",
+        "generation retirement must remain a Platform-owned queue lifecycle control",
+        errors,
+    )
+    require(
+        unexpected_revocation.get("ordinary_worker_behavior")
+        == "immediate-fail-stop-unfenced"
+        and unexpected_revocation.get("automatic_retirement_claim_allowed")
+        is False,
+        "unexpected revocation must fail-stop without claiming clean retirement",
+        errors,
+    )
+    require(
+        retirement_manifest.get("issuer") == "platform-engineering"
+        and retirement_manifest.get("schema_owner_repo")
+        == "operator-orchestration-service"
+        and retirement_manifest.get("schema_ref")
+        == "contracts/orchestration/generation-retirement-manifest.schema.json"
+        and retirement_manifest.get("digest_pin_required") is True
+        and retirement_manifest.get("bounded_lifetime_required") is True
+        and retirement_manifest.get("maximum_lifetime_seconds") == 900
+        and retirement_manifest.get("activation_manifest_binding_required") is True
+        and retirement_manifest.get("generated_queue_binding_required") is True
+        and retirement_manifest.get("start_registry_binding_required") is True,
+        "retirement manifest must be exact, digest-pinned, and generation-bound",
+        errors,
+    )
+    require(
+        retirement_manifest.get("receipt_verifier_binding_required") is True
+        and retirement_manifest.get(
+            "sealed_registry_resume_requires_exact_seal_authorization"
+        )
+        is True,
+        (
+            "retirement manifest must pin receipt verification and the exact "
+            "seal authorization"
+        ),
+        errors,
+    )
+    require(
+        start_ingress.get("required_state") == "drained"
+        and start_ingress.get("active_replicas") == 0
+        and start_ingress.get("in_flight_starts") == 0
+        and start_ingress.get("maximum_observation_age_seconds") == 300
+        and start_ingress.get("observation_age_reference")
+        == "one-shot-worker-start"
+        and start_ingress.get("evidence_ref_required") is True,
+        "retirement must prove drained zero-replica start ingress",
+        errors,
+    )
+    require(
+        ordinary_poller.get("required_state") == "drained"
+        and ordinary_poller.get("active_replicas") == 0
+        and ordinary_poller.get("maximum_observation_age_seconds") == 300
+        and ordinary_poller.get("observation_age_reference")
+        == "one-shot-worker-start"
+        and ordinary_poller.get("evidence_ref_required") is True,
+        "retirement must prove zero ordinary workflow pollers",
+        errors,
+    )
+    require(
+        start_registry.get("owner_repo") == "operator-orchestration-service"
+        and start_registry.get("workflow_type") == "generationStartRegistryV1"
+        and start_registry.get("workflow_id_pattern")
+        == "oos:generation-start-registry:v1:{activation-manifest-digest-hex}"
+        and start_registry.get("task_queue_pattern")
+        == "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
+        and start_registry.get("register_before_business_start_required") is True
+        and start_registry.get("registration_mechanism")
+        == "temporal-update-with-start"
+        and start_registry.get("registration_update_id_scheme")
+        == "business-workflow-id-prefixed-v1"
+        and start_registry.get("registration_update_id_pattern")
+        == "oos:generation-start-registration:v1:{business-workflow-id}"
+        and start_registry.get("workflow_enforces_registration_update_id") is True
+        and start_registry.get("duplicate_registration_adds_history_event") is False
+        and start_registry.get("maximum_registration_count") == 512
+        and start_registry.get("capacity_exhaustion_http_status") == 409
+        and start_registry.get("capacity_exhaustion_api_error")
+        == "orchestration_generation_capacity_exhausted"
+        and start_registry.get("capacity_exhaustion_required_action")
+        == "retire-and-activate-fresh-generation"
+        and start_registry.get("rejected_update_recorded_in_history") is False
+        and start_registry.get("continuous_registry_poller_required") is True
+        and start_registry.get("seal_after_start_ingress_drain_required") is True
+        and start_registry.get("seal_mechanism")
+        == "temporal-update-with-start"
+        and start_registry.get("seal_update_id_pattern")
+        == "oos:generation-start-registry-seal:v1:{retirement-evidence-digest-hex}"
+        and start_registry.get("workflow_enforces_seal_update_id") is True
+        and start_registry.get("rejected_seal_update_recorded_in_history")
+        is False
+        and start_registry.get("seal_rejection_status")
+        == "seal-not-authorized"
+        and start_registry.get(
+            "seal_authorization_lifetime_in_payload_required"
+        )
+        is True
+        and start_registry.get(
+            "seal_handler_validates_authorization_before_mutation"
+        )
+        is True
+        and start_registry.get("expired_seal_closes_registry") is False
+        and start_registry.get("exact_workflow_id_reconciliation_required") is True
+        and start_registry.get("invalid_registration_count_allowed") == 0
+        and start_registry.get("visibility_authoritative_for_retirement") is False,
+        "generation retirement must use the exact durable OOS start registry",
+        errors,
+    )
+    require(
+        one_shot_worker.get("owner_repo")
+        == "operator-orchestration-service"
+        and one_shot_worker.get("registry_seal_before_reconciliation_required")
+        is True
+        and one_shot_worker.get("cancellation_before_polling_required") is True
+        and one_shot_worker.get("terminal_projection_verification_required")
+        is True
+        and one_shot_worker.get("authorization_recheck")
+        == [
+            "immediately-before-registry-worker-run",
+            "immediately-before-registry-seal",
+            "immediately-before-business-worker-run",
+        ],
+        "one-shot retirement must seal, reconcile, cancel, and reauthorize before polling",
+        errors,
+    )
+    receipt_attestation = retirement_receipt.get("attestation", {})
+    require(
+        retirement_receipt.get("schema_owner_repo")
+        == "operator-orchestration-service"
+        and retirement_receipt.get("schema_ref")
+        == "contracts/orchestration/generation-retirement-receipt.schema.json"
+        and retirement_receipt.get("accepted_outcome") == "retired"
+        and retirement_receipt.get("exact_registry_reconciliation_required") is True
+        and retirement_receipt.get("registry_result_digest_required") is True
+        and retirement_receipt.get("registry_seal_ref_binding_required") is True
+        and retirement_receipt.get(
+            "registry_seal_authorization_digest_required"
+        )
+        is True
+        and receipt_attestation.get("algorithm") == "Ed25519"
+        and receipt_attestation.get("canonicalization")
+        == "oos-canonical-json-v1"
+        and receipt_attestation.get("issuer")
+        == "operator-orchestration-service"
+        and receipt_attestation.get("signed_content")
+        == "receipt-without-attestation"
+        and receipt_attestation.get("canonical_value_domain")
+        == "printable-ascii-safe-integer-json"
+        and receipt_attestation.get("object_key_order") == "ascending-ascii"
+        and receipt_attestation.get("array_order") == "preserved"
+        and receipt_attestation.get("whitespace") == "none"
+        and receipt_attestation.get("byte_encoding") == "utf-8"
+        and receipt_attestation.get("payload_digest") == "sha256"
+        and receipt_attestation.get("signature_encoding") == "base64"
+        and receipt_attestation.get("conformance_vector_ref")
+        == "dev-integration/profiles/temporal/runtime/generation-retirement-canonicalization-v1.vector.json"
+        and receipt_attestation.get(
+            "manifest_pins_key_id_and_public_key_digest"
+        )
+        is True
+        and receipt_attestation.get("private_key_owner_repo")
+        == "operator-orchestration-service"
+        and receipt_attestation.get("verified_before_fresh_activation") is True
+        and retirement_receipt.get("start_timestamp_required") is True
+        and retirement_receipt.get("future_recorded_at_allowed") is False
+        and retirement_receipt.get("required_before_fresh_activation") is True
+        and retirement_receipt.get("retained_with_platform_evidence") is True,
+        "fresh activation must be gated by a retained retirement receipt",
+        errors,
+    )
+    require(
+        boundary.get("visibility", {}).get("workflow_history_retention") == "7d"
+        and boundary.get("visibility", {}).get("retirement_authority")
+        == "diagnostics-only",
+        "Visibility must remain diagnostic while workflow history retention stays 7d",
         errors,
     )
     require(

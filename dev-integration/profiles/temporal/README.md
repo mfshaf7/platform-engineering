@@ -54,6 +54,13 @@ make devint-status PROFILE=temporal
 bash dev-integration/profiles/temporal/scripts/validate_chart.sh
 ```
 
+The source-valid generation-retirement operator is also available for evidence
+preparation and receipt verification. It does not launch Temporal or OOS:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/generation_retirement.py --help
+```
+
 Runtime actions remain denied:
 
 ```bash
@@ -84,9 +91,38 @@ queue is derived as
 `oos.validation-readiness-run.v1.<activation-manifest-digest-hex>` so a
 revoked generation cannot be polled after reactivation. A restart under the
 same still-active manifest reuses its queue; reactivation requires a newly
-issued manifest and digest. The workflow must prove
-durability across worker or runtime restart and produce one correlated
-orchestration receipt without turning WGCF into the aggregate orchestrator.
+issued manifest and digest.
+
+Planned retirement is ordered rather than inferred from activation-evidence
+loss. Platform first drains OOS start ingress and proves zero active replicas
+and zero in-flight starts. It then proves zero ordinary OOS workflow pollers
+and issues a manifest lasting no more than fifteen minutes, using drain
+observations no more than five minutes old, pinned to the old activation
+digest, business queue, generation start registry, Temporal target, and both
+drain evidence references. It also pins the OOS Ed25519 receipt verifier. The
+ordinary OOS process serves both generated queues continuously, and each
+business start registers through Update-with-Start before it can start. The
+workflow enforces one deterministic Update ID per business workflow, so retries
+do not grow accepted history. OOS caps a generation at 512 registrations and
+returns `409 orchestration_generation_capacity_exhausted` when rotation is
+required. It verifies its receipt key before mutation, sends an acknowledged
+seal Update-with-Start with a deterministic authorization-derived ID, validates
+handler time before closing the durable registry, and reconciles its exact
+workflow IDs. OOS alone runs the one-shot
+cancellation and drain worker. Platform verifies the
+receipt signature and retains the OOS receipt before any fresh activation can
+be issued. The manifest pins the exact canonical JSON and signed-content
+contract, and both repos prove it with the same byte vector. A post-seal retry
+uses an explicit refreshed manifest bound to the
+exact prior seal authorization. An expired Update returns
+`seal-not-authorized` and leaves the registry open for a fresh authorized seal.
+Temporal Visibility remains diagnostic only.
+Unexpected evidence loss makes the ordinary worker fail-stop and never counts
+as a retirement receipt.
+
+The workflow must prove durability across worker or runtime restart and produce
+one correlated orchestration receipt without turning WGCF into the aggregate
+orchestrator.
 
 `delivery.refinement.apply` is the first business workflow after runtime and
 definition admission.

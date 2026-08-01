@@ -209,6 +209,14 @@ restoring the baseline, the work is no longer a drill. It must be reclassified
 as a governed change and follow the normal approval, rollout, and evidence
 path.
 
+For an expiring permit-gated drill, expiry denies every new proof action and
+retry. If the run already started, only restore-only cleanup authority survives:
+remove the scoped runtime, restore the exact captured baseline, record restore
+evidence, or record a governed exception. That authority stays bound to the
+started run and captured restore scope and terminates when restoration completes
+or the exception is recorded. It cannot widen scope, retain the runtime, or
+restart proof execution.
+
 ## Restore Proof Rule
 
 Restore is not complete from operator intention alone.

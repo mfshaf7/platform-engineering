@@ -20,16 +20,18 @@ commissioning proof. The proof is not a normal profile launch and does not
 change the profile from `build-admitted`.
 
 Current availability is contract-only. No permit issuer or proof executor is
-active, so operators must stop after preflight until those implementations are
-reviewed, the exact permit is Security-authorized, and the operator explicitly
-approves it. The ordinary `devint-up`, access, smoke, backup, restore, and
-workflow commands remain denied and cannot substitute for this procedure.
+active, so operators must stop after preflight until ART #792 lands the exact
+reviewed executor source, the exact permit is Security-authorized against that
+revision, and the operator explicitly approves it. The ordinary `devint-up`,
+access, smoke, backup, restore, and workflow commands remain denied and cannot
+substitute for this procedure.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 
 - [machine-readable drill profile](../../../environments/shared/runtime-drills/temporal-component-commissioning-proof.yaml)
 - [evidence-pack template](../../../environments/shared/runtime-drills/temporal-component-commissioning-proof-evidence-template.yaml)
 - [runtime-drill standard](../../standards/governed-runtime-drill-model.md)
+- [Security contract review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-01-temporal-controlled-commissioning-proof-contract.md)
 
 Inspect the profile before authorization:
 
@@ -76,18 +78,20 @@ the `activate` action rejects an incomplete baseline.
 
 1. Confirm `make devint-status PROFILE=temporal` reports the expected
    build-admitted, non-running baseline.
-2. Run the drill `plan` command and validate one unexpired permit against the Workspace Governance
-   `controlled-runtime-proof-authorization` schema.
-3. Confirm the permit binds exactly one `validation-readiness-run` version,
+2. Run the drill `plan` command and validate one unexpired permit against the
+   Workspace Governance `controlled-runtime-proof-authorization` schema.
+3. Confirm ART #792 is complete and the permit binds the exact merged executor
+   source revision and its finalized Review Packet.
+4. Confirm the permit binds exactly one `validation-readiness-run` version,
    every source revision, immutable runtime image and artifact digest,
    namespace, identity, task queue, scenario, and permitted action.
-4. Confirm the permit carries Platform issuance, a separate Security
+5. Confirm the permit carries Platform issuance, a separate Security
    authorization reference, explicit operator approval, evidence custody, and
    `exact-baseline` restore.
-5. Compare every permit binding with the checked-out Platform, OOS, and WGCF
+6. Compare every permit binding with the checked-out Platform, OOS, and WGCF
    source and the current orchestration allowlist. A schema-valid but stale or
    mismatched permit is denied.
-6. Capture the exact pre-run baseline, including the expected absence or
+7. Capture the exact pre-run baseline, including the expected absence or
    presence of namespaces, workloads, storage, credentials, and operator-local
    state. Do not start if the baseline cannot be proven.
 
@@ -123,12 +127,20 @@ undeclared runtime mutation itself.
 
 ### Fail-Stop Conditions
 
-Stop immediately and preserve evidence when the authorization expires, a
-source or artifact digest differs, the target scope differs, an identity or
-queue denial fails, the baseline is unavailable, an unexpected side effect
-occurs, evidence custody fails, or exact-baseline restore fails. Do not retry
-outside a newly issued permit and do not leave a partial runtime in place as a
-workaround.
+When authorization expires, deny every new proof action, workflow or activity
+start, retry, verification mutation, scope expansion, and activation action.
+For an already-started run, continue only the fixed cleanup path: remove the
+scoped runtime, restore the exact captured baseline, record restore evidence,
+or record a governed exception. Cleanup stays bound to that run and restore
+scope and ends when restoration completes or the exception is recorded. It
+cannot preserve the runtime or reopen proof authority.
+
+Also stop new proof work and preserve evidence when a source or artifact digest
+differs, the target scope differs, an identity or queue denial fails, the
+baseline is unavailable, an unexpected side effect occurs, evidence custody
+fails, or exact-baseline restore fails. Do not retry outside a newly issued
+permit. A restore failure enters the governed exception path and does not
+authorize further proof work.
 
 ### Required Evidence
 

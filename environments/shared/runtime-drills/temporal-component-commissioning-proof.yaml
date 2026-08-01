@@ -12,9 +12,27 @@ authorization:
   artifactType: controlled-runtime-proof-authorization
   schemaRef: https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-authorization.schema.json
   policyRef: https://github.com/mfshaf7/workspace-governance/blob/main/contracts/developer-integration-policy.yaml#controlled_proof
+  securityReviewRef: https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-01-temporal-controlled-commissioning-proof-contract.md
   targetProfileId: temporal
   targetProfileLifecycle: build-admitted
   maxRuns: 1
+  executor:
+    ownerRepo: platform-engineering
+    sourceReviewWorkItemRef: openproject://work_packages/792
+    mergedSourceRequiredBeforeSecurityAuthorization: true
+  expiryCleanupAuthority:
+    mode: exact-baseline-restore-only
+    appliesTo: already-started-run
+    scopeBinding: exact-captured-restore-scope
+    newProofActionsDenied: true
+    permittedActions:
+      - remove-scoped-runtime
+      - restore-exact-baseline
+      - record-restore-evidence
+      - record-governed-exception
+    terminationConditions:
+      - exact-baseline-restored
+      - governed-exception-recorded
 scope:
   sourceRepos:
     - platform-engineering

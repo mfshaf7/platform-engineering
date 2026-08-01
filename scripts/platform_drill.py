@@ -21,6 +21,16 @@ PHASES = {"baseline", "activation", "verification", "restore", "general"}
 PROFILE_ALIASES = {
     "full-platform-runtime-drill": "environment-complete-runtime-drill",
 }
+CONTROLLED_PROOF_CLEANUP_ACTIONS = [
+    "remove-scoped-runtime",
+    "restore-exact-baseline",
+    "record-restore-evidence",
+    "record-governed-exception",
+]
+CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS = [
+    "exact-baseline-restored",
+    "governed-exception-recorded",
+]
 
 
 def now_utc() -> str:
@@ -128,9 +138,12 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             "artifactType",
             "schemaRef",
             "policyRef",
+            "securityReviewRef",
             "targetProfileId",
             "targetProfileLifecycle",
             "maxRuns",
+            "executor",
+            "expiryCleanupAuthority",
         }
         if not isinstance(authorization, dict):
             raise SystemExit(
@@ -153,9 +166,31 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         for key, expected in expected_authorization.items():
             if authorization.get(key) != expected:
                 raise SystemExit(f"{path} authorization.{key} must be {expected!r}")
-        for key in ("schemaRef", "policyRef", "targetProfileId"):
+        for key in ("schemaRef", "policyRef", "securityReviewRef", "targetProfileId"):
             if not str(authorization.get(key) or "").strip():
                 raise SystemExit(f"{path} authorization.{key} must not be empty")
+        executor = authorization.get("executor") or {}
+        if executor != {
+            "ownerRepo": "platform-engineering",
+            "sourceReviewWorkItemRef": "openproject://work_packages/792",
+            "mergedSourceRequiredBeforeSecurityAuthorization": True,
+        }:
+            raise SystemExit(
+                f"{path} authorization.executor must bind Platform source review #792"
+            )
+        expiry_cleanup = authorization.get("expiryCleanupAuthority") or {}
+        expected_expiry_cleanup = {
+            "mode": "exact-baseline-restore-only",
+            "appliesTo": "already-started-run",
+            "scopeBinding": "exact-captured-restore-scope",
+            "newProofActionsDenied": True,
+            "permittedActions": CONTROLLED_PROOF_CLEANUP_ACTIONS,
+            "terminationConditions": CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS,
+        }
+        if expiry_cleanup != expected_expiry_cleanup:
+            raise SystemExit(
+                f"{path} authorization.expiryCleanupAuthority must preserve the fixed restore-only boundary"
+            )
 
     scope = payload["scope"]
     if not isinstance(scope, dict):
@@ -764,6 +799,11 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
                 "targetProfileLifecycle"
             ],
             "maxRuns": authorization_contract["maxRuns"],
+            "securityReviewRef": authorization_contract["securityReviewRef"],
+            "executor": copy.deepcopy(authorization_contract["executor"]),
+            "expiryCleanupAuthority": copy.deepcopy(
+                authorization_contract["expiryCleanupAuthority"]
+            ),
         }
     baseline_payload = build_baseline(contract, args.repo_root)
     dump_yaml(paths["run"], manifest)

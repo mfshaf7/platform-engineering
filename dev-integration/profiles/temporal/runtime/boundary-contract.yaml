@@ -75,7 +75,7 @@ task_queues:
     generation:
       source: activation-evidence-manifest-digest
       suffix_encoding: sha256-hex
-      polling_mode: retirement-only
+      polling_mode: continuous-with-business-worker
   - id: delivery-refinement-apply
     name: oos.delivery-refinement-apply.v1
     kind: workflow
@@ -112,6 +112,8 @@ generation_retirement:
     activation_manifest_binding_required: true
     generated_queue_binding_required: true
     start_registry_binding_required: true
+    receipt_verifier_binding_required: true
+    sealed_registry_resume_requires_exact_seal_authorization: true
   preconditions:
     start_ingress:
       required_state: drained
@@ -132,6 +134,10 @@ generation_retirement:
     workflow_id_pattern: "oos:generation-start-registry:v1:{activation-manifest-digest-hex}"
     task_queue_pattern: "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
     register_before_business_start_required: true
+    registration_mechanism: temporal-update-with-start
+    maximum_registration_count: 512
+    rejected_update_recorded_in_history: false
+    continuous_registry_poller_required: true
     seal_after_start_ingress_drain_required: true
     exact_workflow_id_reconciliation_required: true
     invalid_registration_count_allowed: 0
@@ -141,7 +147,10 @@ generation_retirement:
     registry_seal_before_reconciliation_required: true
     cancellation_before_polling_required: true
     terminal_projection_verification_required: true
-    authorization_recheck: immediately-before-worker-run
+    authorization_recheck:
+      - immediately-before-registry-worker-run
+      - immediately-before-registry-seal
+      - immediately-before-business-worker-run
   receipt:
     schema_owner_repo: operator-orchestration-service
     schema_ref: contracts/orchestration/generation-retirement-receipt.schema.json
@@ -149,6 +158,13 @@ generation_retirement:
     exact_registry_reconciliation_required: true
     registry_result_digest_required: true
     registry_seal_ref_binding_required: true
+    registry_seal_authorization_digest_required: true
+    attestation:
+      algorithm: Ed25519
+      issuer: operator-orchestration-service
+      manifest_pins_key_id_and_public_key_digest: true
+      private_key_owner_repo: operator-orchestration-service
+      verified_before_fresh_activation: true
     start_timestamp_required: true
     future_recorded_at_allowed: false
     required_before_fresh_activation: true

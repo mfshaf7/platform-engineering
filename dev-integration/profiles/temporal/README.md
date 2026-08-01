@@ -99,12 +99,17 @@ and zero in-flight starts. It then proves zero ordinary OOS workflow pollers
 and issues a manifest lasting no more than fifteen minutes, using drain
 observations no more than five minutes old, pinned to the old activation
 digest, business queue, generation start registry, Temporal target, and both
-drain evidence references. OOS seals the durable registry, reconciles its exact
-workflow IDs, and alone runs the one-shot cancellation and drain worker.
-Platform verifies and retains the OOS receipt before any fresh activation can
-be issued. Temporal Visibility remains diagnostic only. Unexpected evidence
-loss makes the ordinary worker fail-stop and never counts as a retirement
-receipt.
+drain evidence references. It also pins the OOS Ed25519 receipt verifier. The
+ordinary OOS process serves both generated queues continuously, and each
+business start registers through Update-with-Start before it can start. OOS
+caps a generation at 512 registrations, verifies its receipt key before
+mutation, seals the durable registry, reconciles its exact workflow IDs, and
+alone runs the one-shot cancellation and drain worker. Platform verifies the
+receipt signature and retains the OOS receipt before any fresh activation can
+be issued. A post-seal retry uses an explicit refreshed manifest bound to the
+exact prior seal authorization. Temporal Visibility remains diagnostic only.
+Unexpected evidence loss makes the ordinary worker fail-stop and never counts
+as a retirement receipt.
 
 The workflow must prove durability across worker or runtime restart and produce
 one correlated orchestration receipt without turning WGCF into the aggregate

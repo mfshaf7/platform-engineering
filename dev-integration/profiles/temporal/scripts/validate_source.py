@@ -232,8 +232,9 @@ def main() -> int:
         and registry_generation.get("source")
         == "activation-evidence-manifest-digest"
         and registry_generation.get("suffix_encoding") == "sha256-hex"
-        and registry_generation.get("polling_mode") == "retirement-only",
-        "generation start registry must use its OOS-owned digest-bound retirement queue",
+        and registry_generation.get("polling_mode")
+        == "continuous-with-business-worker",
+        "generation start registry must use its OOS-owned continuously polled digest-bound queue",
         errors,
     )
     fresh_activation = validation_generation.get("fresh_activation", {})
@@ -297,6 +298,18 @@ def main() -> int:
         errors,
     )
     require(
+        retirement_manifest.get("receipt_verifier_binding_required") is True
+        and retirement_manifest.get(
+            "sealed_registry_resume_requires_exact_seal_authorization"
+        )
+        is True,
+        (
+            "retirement manifest must pin receipt verification and the exact "
+            "seal authorization"
+        ),
+        errors,
+    )
+    require(
         start_ingress.get("required_state") == "drained"
         and start_ingress.get("active_replicas") == 0
         and start_ingress.get("in_flight_starts") == 0
@@ -325,6 +338,11 @@ def main() -> int:
         and start_registry.get("task_queue_pattern")
         == "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
         and start_registry.get("register_before_business_start_required") is True
+        and start_registry.get("registration_mechanism")
+        == "temporal-update-with-start"
+        and start_registry.get("maximum_registration_count") == 512
+        and start_registry.get("rejected_update_recorded_in_history") is False
+        and start_registry.get("continuous_registry_poller_required") is True
         and start_registry.get("seal_after_start_ingress_drain_required") is True
         and start_registry.get("exact_workflow_id_reconciliation_required") is True
         and start_registry.get("invalid_registration_count_allowed") == 0
@@ -341,10 +359,15 @@ def main() -> int:
         and one_shot_worker.get("terminal_projection_verification_required")
         is True
         and one_shot_worker.get("authorization_recheck")
-        == "immediately-before-worker-run",
+        == [
+            "immediately-before-registry-worker-run",
+            "immediately-before-registry-seal",
+            "immediately-before-business-worker-run",
+        ],
         "one-shot retirement must seal, reconcile, cancel, and reauthorize before polling",
         errors,
     )
+    receipt_attestation = retirement_receipt.get("attestation", {})
     require(
         retirement_receipt.get("schema_owner_repo")
         == "operator-orchestration-service"
@@ -354,6 +377,20 @@ def main() -> int:
         and retirement_receipt.get("exact_registry_reconciliation_required") is True
         and retirement_receipt.get("registry_result_digest_required") is True
         and retirement_receipt.get("registry_seal_ref_binding_required") is True
+        and retirement_receipt.get(
+            "registry_seal_authorization_digest_required"
+        )
+        is True
+        and receipt_attestation.get("algorithm") == "Ed25519"
+        and receipt_attestation.get("issuer")
+        == "operator-orchestration-service"
+        and receipt_attestation.get(
+            "manifest_pins_key_id_and_public_key_digest"
+        )
+        is True
+        and receipt_attestation.get("private_key_owner_repo")
+        == "operator-orchestration-service"
+        and receipt_attestation.get("verified_before_fresh_activation") is True
         and retirement_receipt.get("start_timestamp_required") is True
         and retirement_receipt.get("future_recorded_at_allowed") is False
         and retirement_receipt.get("required_before_fresh_activation") is True

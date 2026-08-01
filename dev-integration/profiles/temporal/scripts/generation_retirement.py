@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -9,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import subprocess
 import tempfile
 from typing import Any
 
@@ -16,6 +19,8 @@ from typing import Any
 MAX_DOCUMENT_BYTES = 64 * 1024
 MAX_DRAIN_OBSERVATION_AGE_SECONDS = 300
 MAX_RETIREMENT_LIFETIME_SECONDS = 900
+MAX_REGISTRY_STARTS = 512
+MAX_PUBLIC_KEY_BYTES = 16 * 1024
 BUSINESS_WORKFLOW_QUEUE_PREFIX = "oos.validation-readiness-run.v1"
 START_REGISTRY_QUEUE_PREFIX = "oos.generation-start-registry.v1"
 START_REGISTRY_WORKFLOW_ID_PREFIX = "oos:generation-start-registry:v1"
@@ -63,7 +68,9 @@ RETIREMENT_FIELDS = {
     "issued_at",
     "issued_by",
     "profile_id",
+    "receipt_verification",
     "reason_ref",
+    "registry_seal_resume",
     "retirement_id",
     "schema_version",
     "start_ingress",
@@ -73,6 +80,7 @@ RETIREMENT_FIELDS = {
     "workflow_task_queue",
 }
 RECEIPT_FIELDS = {
+    "attestation",
     "activation_evidence_digest",
     "activation_manifest_ref",
     "cancel_signal_target_count",
@@ -126,6 +134,32 @@ def load_pinned_json(path: Path, expected_digest: str) -> tuple[dict[str, Any], 
     if sha256_digest(raw) != expected_digest:
         raise ContractError(f"{path} does not match its configured digest")
     return value, raw
+
+
+def load_ed25519_public_key(path: Path) -> bytes:
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise ContractError(f"cannot read receipt public key {path}: {exc}") from exc
+    if not raw or len(raw) > MAX_PUBLIC_KEY_BYTES:
+        raise ContractError("receipt public key has an invalid size")
+    result = subprocess.run(
+        ["openssl", "pkey", "-pubin", "-in", str(path), "-text", "-noout"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or "ED25519" not in result.stdout.upper():
+        raise ContractError("receipt public key must be a valid Ed25519 public key")
+    return raw
+
+
+def canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
 
 
 def require_exact_fields(value: dict[str, Any], expected: set[str], name: str) -> None:
@@ -254,6 +288,48 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     if (expires_at - issued_at).total_seconds() > MAX_RETIREMENT_LIFETIME_SECONDS:
         raise ContractError("retirement evidence lifetime must not exceed 900 seconds")
 
+    verification = require_object(
+        manifest["receipt_verification"], "receipt_verification"
+    )
+    require_exact_fields(
+        verification,
+        {"algorithm", "issuer", "key_id", "public_key_digest"},
+        "receipt_verification",
+    )
+    require_equal(verification["algorithm"], "Ed25519", "receipt algorithm")
+    require_equal(
+        verification["issuer"],
+        "operator-orchestration-service",
+        "receipt issuer",
+    )
+    require_identifier(verification["key_id"], "receipt key_id")
+    require_digest(verification["public_key_digest"], "receipt public_key_digest")
+
+    resume = manifest["registry_seal_resume"]
+    if resume is not None:
+        resume = require_object(resume, "registry_seal_resume")
+        require_exact_fields(
+            resume,
+            {"expires_at", "issued_at", "retirement_evidence_digest"},
+            "registry_seal_resume",
+        )
+        require_digest(
+            resume["retirement_evidence_digest"],
+            "registry_seal_resume.retirement_evidence_digest",
+        )
+        resume_issued_at = parse_timestamp(
+            resume["issued_at"], "registry_seal_resume.issued_at"
+        )
+        resume_expires_at = parse_timestamp(
+            resume["expires_at"], "registry_seal_resume.expires_at"
+        )
+        if (
+            resume_expires_at <= resume_issued_at
+            or (resume_expires_at - resume_issued_at).total_seconds()
+            > MAX_RETIREMENT_LIFETIME_SECONDS
+        ):
+            raise ContractError("registry seal resume lifetime is invalid")
+
     target = require_object(manifest["temporal_target"], "retirement temporal_target")
     require_exact_fields(
         target,
@@ -367,6 +443,37 @@ def atomic_write_json(path: Path, value: dict[str, Any]) -> bytes:
     return raw
 
 
+def resolve_registry_seal_resume(
+    args: argparse.Namespace,
+    activation_evidence_digest: str,
+) -> dict[str, Any] | None:
+    manifest_path = args.resume_seal_manifest
+    manifest_digest = args.resume_seal_digest
+    if (manifest_path is None) != (manifest_digest is None):
+        raise ContractError(
+            "resume seal manifest and digest must be supplied together"
+        )
+    if manifest_path is None:
+        return None
+
+    prior, _ = load_pinned_json(manifest_path.resolve(), manifest_digest)
+    validate_retirement_manifest(prior)
+    require_equal(prior["retirement_id"], args.retirement_id, "resume retirement_id")
+    require_equal(
+        prior["activation_evidence_digest"],
+        activation_evidence_digest,
+        "resume activation_evidence_digest",
+    )
+    prior_resume = prior["registry_seal_resume"]
+    if prior_resume is not None:
+        return dict(prior_resume)
+    return {
+        "retirement_evidence_digest": manifest_digest,
+        "issued_at": prior["issued_at"],
+        "expires_at": prior["expires_at"],
+    }
+
+
 def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
     activation_path = args.activation_manifest.resolve()
     output_path = args.output.resolve()
@@ -380,6 +487,8 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
     require_uri(args.reason_ref, "reason_ref")
     require_uri(args.start_ingress_evidence_ref, "start_ingress_evidence_ref")
     require_uri(args.workflow_poller_evidence_ref, "workflow_poller_evidence_ref")
+    require_identifier(args.receipt_key_id, "receipt_key_id")
+    receipt_public_key = load_ed25519_public_key(args.receipt_public_key.resolve())
     if args.start_ingress_active_replicas != 0:
         raise ContractError("start ingress active replicas must be zero")
     if args.in_flight_starts != 0:
@@ -403,6 +512,10 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if start_observed_at > issued_at or poller_observed_at > issued_at:
         raise ContractError("drain observations must not follow manifest issuance")
     generation = generation_contract(args.activation_digest)
+    registry_seal_resume = resolve_registry_seal_resume(
+        args,
+        args.activation_digest,
+    )
 
     manifest = {
         "schema_version": 1,
@@ -414,7 +527,14 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "issued_at": args.issued_at,
         "expires_at": args.expires_at,
         "issued_by": "platform-engineering",
+        "receipt_verification": {
+            "algorithm": "Ed25519",
+            "issuer": "operator-orchestration-service",
+            "key_id": args.receipt_key_id,
+            "public_key_digest": sha256_digest(receipt_public_key),
+        },
         "reason_ref": args.reason_ref,
+        "registry_seal_resume": registry_seal_resume,
         "activation_manifest_ref": activation_manifest["manifest_id"],
         "activation_evidence_digest": args.activation_digest,
         "workflow_task_queue": generation["business_workflow_task_queue"],
@@ -453,6 +573,71 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def verify_receipt_attestation(
+    receipt: dict[str, Any],
+    manifest: dict[str, Any],
+    public_key_path: Path,
+) -> None:
+    verification = manifest["receipt_verification"]
+    public_key_raw = load_ed25519_public_key(public_key_path)
+    require_equal(
+        sha256_digest(public_key_raw),
+        verification["public_key_digest"],
+        "receipt public-key digest",
+    )
+    attestation = require_object(receipt["attestation"], "receipt attestation")
+    require_exact_fields(
+        attestation,
+        {"algorithm", "issuer", "key_id", "payload_digest", "signature"},
+        "receipt attestation",
+    )
+    for field in ("algorithm", "issuer", "key_id"):
+        require_equal(
+            attestation[field],
+            verification[field],
+            f"receipt attestation {field}",
+        )
+    payload = dict(receipt)
+    del payload["attestation"]
+    payload_raw = canonical_json(payload)
+    require_equal(
+        attestation["payload_digest"],
+        sha256_digest(payload_raw),
+        "receipt attestation payload_digest",
+    )
+    try:
+        signature = base64.b64decode(attestation["signature"], validate=True)
+    except (binascii.Error, TypeError) as exc:
+        raise ContractError("receipt attestation signature is not valid base64") from exc
+    if len(signature) != 64:
+        raise ContractError("receipt attestation signature is not Ed25519-sized")
+
+    with tempfile.TemporaryDirectory() as temporary:
+        payload_path = Path(temporary) / "payload.json"
+        signature_path = Path(temporary) / "signature.bin"
+        payload_path.write_bytes(payload_raw)
+        signature_path.write_bytes(signature)
+        result = subprocess.run(
+            [
+                "openssl",
+                "pkeyutl",
+                "-verify",
+                "-pubin",
+                "-inkey",
+                str(public_key_path),
+                "-rawin",
+                "-in",
+                str(payload_path),
+                "-sigfile",
+                str(signature_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode != 0:
+        raise ContractError("receipt attestation signature verification failed")
+
+
 def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     manifest, _ = load_pinned_json(
         args.retirement_manifest.resolve(), args.retirement_digest
@@ -460,6 +645,11 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     validate_retirement_manifest(manifest)
     receipt, receipt_raw = load_json(args.receipt.resolve())
     require_exact_fields(receipt, RECEIPT_FIELDS, "retirement receipt")
+    verify_receipt_attestation(
+        receipt,
+        manifest,
+        args.receipt_public_key.resolve(),
+    )
     require_equal(receipt["schema_version"], 1, "receipt schema_version")
     require_identifier(receipt["receipt_id"], "receipt_id")
     require_equal(receipt["retirement_id"], manifest["retirement_id"], "retirement_id")
@@ -522,6 +712,7 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
             "registered_workflow_count",
             "matched_execution_count",
             "uncommitted_registration_count",
+            "seal_authorization_digest",
         },
         "receipt start_registry",
     )
@@ -534,17 +725,48 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
     require_equal(
         registry["seal_ref"], manifest["retirement_id"], "start_registry.seal_ref"
     )
+    require_digest(
+        registry["seal_authorization_digest"],
+        "start_registry.seal_authorization_digest",
+    )
     require_digest(registry["result_digest"], "start_registry.result_digest")
     sealed_at = parse_timestamp(registry["sealed_at"], "start_registry.sealed_at")
-    if sealed_at < issued_at or sealed_at > started_at:
+    seal_issued_at = issued_at
+    seal_expires_at = expires_at
+    if registry["seal_authorization_digest"] != args.retirement_digest:
+        resume = manifest["registry_seal_resume"]
+        if resume is None:
+            raise ContractError(
+                "start registry seal is not authorized by this manifest"
+            )
+        require_equal(
+            registry["seal_authorization_digest"],
+            resume["retirement_evidence_digest"],
+            "start_registry.seal_authorization_digest",
+        )
+        seal_issued_at = parse_timestamp(
+            resume["issued_at"], "registry_seal_resume.issued_at"
+        )
+        seal_expires_at = parse_timestamp(
+            resume["expires_at"], "registry_seal_resume.expires_at"
+        )
+    if (
+        sealed_at < seal_issued_at
+        or sealed_at >= seal_expires_at
+        or sealed_at > started_at
+    ):
         raise ContractError(
-            "start_registry.sealed_at must fall inside this authorization before retirement start"
+            "start_registry.sealed_at must fall inside its seal authorization before retirement start"
         )
     registered_count = require_integer(
         registry["registered_workflow_count"],
         0,
         "start_registry.registered_workflow_count",
     )
+    if registered_count > MAX_REGISTRY_STARTS:
+        raise ContractError(
+            f"start registry cannot exceed {MAX_REGISTRY_STARTS} registrations"
+        )
     matched_count = require_integer(
         registry["matched_execution_count"],
         0,
@@ -623,6 +845,10 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--activation-digest", required=True)
     issue.add_argument("--retirement-id", required=True)
     issue.add_argument("--reason-ref", required=True)
+    issue.add_argument("--receipt-key-id", required=True)
+    issue.add_argument("--receipt-public-key", type=Path, required=True)
+    issue.add_argument("--resume-seal-manifest", type=Path)
+    issue.add_argument("--resume-seal-digest")
     issue.add_argument("--issued-at", required=True)
     issue.add_argument("--expires-at", required=True)
     issue.add_argument("--start-ingress-active-replicas", type=int, required=True)
@@ -642,6 +868,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--retirement-manifest", type=Path, required=True)
     verify.add_argument("--retirement-digest", required=True)
     verify.add_argument("--receipt", type=Path, required=True)
+    verify.add_argument("--receipt-public-key", type=Path, required=True)
     verify.set_defaults(handler=verify_receipt)
     return parser
 

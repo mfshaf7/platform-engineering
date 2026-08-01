@@ -70,30 +70,43 @@ not authorize polling the old queue or claim its executions are retired.
 
 For a planned retirement:
 
+The source-valid issuer and verifier require Python 3 and the OpenSSL CLI. The
+OOS public key supplied to either command must be the exact key whose digest is
+pinned in the retirement manifest.
+
 1. quiesce OOS start ingress
 2. prove start-ingress replicas and in-flight starts are both zero
 3. scale ordinary OOS workflow pollers to zero and retain that evidence
 4. issue the old generation's manifest with
-   `generation_retirement.py issue`
+   `generation_retirement.py issue`, including the OOS receipt key id and
+   public key
 5. mount the manifest read-only for the OOS `retire` one-shot command and pass
    its exact digest
 6. retain the emitted receipt and run
-   `generation_retirement.py verify-receipt`
+   `generation_retirement.py verify-receipt` with the pinned public key
 7. issue no fresh activation until the verifier returns `accepted`
 
 The issuer requires explicit timestamps, evidence references, and zero counts;
 it derives both the business queue and generation start registry from the
-pinned activation-manifest digest and writes a mode-0600 JSON file atomically.
+pinned activation-manifest digest, pins the OOS Ed25519 receipt verifier, and
+writes a mode-0600 JSON file atomically. OOS serves both generated queues
+continuously during ordinary operation. Business starts register through
+Update-with-Start, with a maximum of 512 accepted registrations in one
+generation; rejected updates do not enter workflow history.
 Drain observations must be no more than five minutes old and the manifest
 lifetime cannot exceed fifteen minutes. The verifier rejects future receipt
 times, mismatched targets, digests, queues, registry identities or seals, and
-incomplete reconciliation counts. Every registry entry must be accounted for
+incomplete reconciliation counts, forged receipt signatures, or a verifier key
+whose bytes differ from the manifest pin. Every registry entry must be accounted for
 as a matched execution or an uncommitted business start, and every matched
 execution must have a terminal projection. It also requires the registry seal
 to belong to the exact retirement authorization and the OOS one-shot start
 timestamp to fall inside the manifest lifetime while allowing a valid drain to
-complete after that authorization window. Both drained-state observations must
-still be no more than five minutes old when the one-shot worker starts.
+complete after that authorization window. A retry after the registry was sealed
+requires a refreshed manifest that explicitly resumes the exact authorization
+that sealed the registry and its original lifetime. Both drained-state
+observations must still be no more than five minutes old when the one-shot
+worker starts.
 
 This operator surface is source-valid now. It does not make the build-admitted
 profile launchable and must not be used as evidence that a retirement run has

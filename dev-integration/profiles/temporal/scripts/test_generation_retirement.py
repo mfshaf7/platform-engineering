@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -41,6 +42,33 @@ class GenerationRetirementTest(unittest.TestCase):
         self.activation_path.write_bytes(activation_raw)
         self.activation_digest = digest(activation_raw)
         self.retirement_path = self.root / "retirement.json"
+        self.receipt_private_key = self.root / "receipt-private.pem"
+        self.receipt_public_key = self.root / "receipt-public.pem"
+        subprocess.run(
+            [
+                "openssl",
+                "genpkey",
+                "-algorithm",
+                "ED25519",
+                "-out",
+                str(self.receipt_private_key),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "openssl",
+                "pkey",
+                "-in",
+                str(self.receipt_private_key),
+                "-pubout",
+                "-out",
+                str(self.receipt_public_key),
+            ],
+            check=True,
+            capture_output=True,
+        )
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -100,6 +128,10 @@ class GenerationRetirementTest(unittest.TestCase):
             "platform-engineering://retirement/validation-readiness-run/v1/dev-integration/test",
             "--reason-ref",
             "platform-engineering://decisions/temporal-generation-retirement/test",
+            "--receipt-key-id",
+            "oos-retirement-receipt-test",
+            "--receipt-public-key",
+            str(self.receipt_public_key),
             "--issued-at",
             timestamp(self.issued_at),
             "--expires-at",
@@ -154,6 +186,7 @@ class GenerationRetirementTest(unittest.TestCase):
             "start_registry": {
                 **manifest["start_registry"],
                 "seal_ref": manifest["retirement_id"],
+                "seal_authorization_digest": retirement_digest,
                 "sealed_at": timestamp(
                     self.issued_at + timedelta(milliseconds=500)
                 ),
@@ -168,9 +201,52 @@ class GenerationRetirementTest(unittest.TestCase):
             "recorded_at": timestamp(datetime.now(timezone.utc)),
         }
 
-    def verify(self, receipt: dict, retirement_digest: str) -> subprocess.CompletedProcess[str]:
+    def attest_receipt(self, receipt: dict) -> dict:
+        payload = dict(receipt)
+        payload.pop("attestation", None)
+        payload_raw = json.dumps(
+            payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+        payload_path = self.root / "receipt-payload.json"
+        signature_path = self.root / "receipt-signature.bin"
+        payload_path.write_bytes(payload_raw)
+        subprocess.run(
+            [
+                "openssl",
+                "pkeyutl",
+                "-sign",
+                "-inkey",
+                str(self.receipt_private_key),
+                "-rawin",
+                "-in",
+                str(payload_path),
+                "-out",
+                str(signature_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        return {
+            **payload,
+            "attestation": {
+                "algorithm": "Ed25519",
+                "issuer": "operator-orchestration-service",
+                "key_id": "oos-retirement-receipt-test",
+                "payload_digest": digest(payload_raw),
+                "signature": base64.b64encode(signature_path.read_bytes()).decode(),
+            },
+        }
+
+    def verify(
+        self,
+        receipt: dict,
+        retirement_digest: str,
+        *,
+        attest: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
         receipt_path = self.root / "receipt.json"
-        receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        value = self.attest_receipt(receipt) if attest else receipt
+        receipt_path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
         return subprocess.run(
             [
                 sys.executable,
@@ -182,6 +258,8 @@ class GenerationRetirementTest(unittest.TestCase):
                 retirement_digest,
                 "--receipt",
                 str(receipt_path),
+                "--receipt-public-key",
+                str(self.receipt_public_key),
             ],
             capture_output=True,
             text=True,
@@ -256,7 +334,7 @@ class GenerationRetirementTest(unittest.TestCase):
         )
         early_seal = self.verify(receipt, retirement_digest)
         self.assertEqual(early_seal.returncode, 2)
-        self.assertIn("inside this authorization", early_seal.stderr)
+        self.assertIn("inside its seal authorization", early_seal.stderr)
 
         receipt = self.receipt(manifest, retirement_digest)
         receipt["cancel_signal_target_count"] = 3
@@ -354,6 +432,66 @@ class GenerationRetirementTest(unittest.TestCase):
         result = self.verify(receipt, retirement_digest)
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_verify_rejects_a_forged_receipt(self) -> None:
+        manifest, retirement_digest = self.issue()
+        receipt = self.attest_receipt(self.receipt(manifest, retirement_digest))
+        receipt["terminal_projection_count"] = 1
+        payload = dict(receipt)
+        payload.pop("attestation")
+        payload_raw = json.dumps(
+            payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode()
+        receipt["attestation"]["payload_digest"] = digest(payload_raw)
+
+        result = self.verify(receipt, retirement_digest, attest=False)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("signature verification failed", result.stderr)
+
+    def test_verify_rejects_registry_counts_above_generation_capacity(self) -> None:
+        manifest, retirement_digest = self.issue()
+        receipt = self.receipt(manifest, retirement_digest)
+        receipt["start_registry"]["registered_workflow_count"] = 513
+        receipt["start_registry"]["matched_execution_count"] = 513
+        receipt["start_registry"]["uncommitted_registration_count"] = 0
+        receipt["terminal_projection_count"] = 513
+
+        result = self.verify(receipt, retirement_digest)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("cannot exceed 512 registrations", result.stderr)
+
+    def test_refreshed_manifest_resumes_the_original_registry_seal(self) -> None:
+        initial_manifest, initial_digest = self.issue()
+        initial_path = self.root / "initial-retirement.json"
+        initial_path.write_bytes(self.retirement_path.read_bytes())
+        command = self.issue_command(
+            "--resume-seal-manifest",
+            str(initial_path),
+            "--resume-seal-digest",
+            initial_digest,
+        )
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        refreshed_digest = json.loads(result.stdout)["retirement_evidence_digest"]
+        refreshed_manifest = json.loads(
+            self.retirement_path.read_text(encoding="utf-8")
+        )
+        self.assertNotEqual(refreshed_digest, initial_digest)
+        self.assertEqual(
+            refreshed_manifest["registry_seal_resume"],
+            {
+                "retirement_evidence_digest": initial_digest,
+                "issued_at": initial_manifest["issued_at"],
+                "expires_at": initial_manifest["expires_at"],
+            },
+        )
+        receipt = self.receipt(refreshed_manifest, refreshed_digest)
+        receipt["start_registry"]["seal_authorization_digest"] = initial_digest
+
+        verification = self.verify(receipt, refreshed_digest)
+
+        self.assertEqual(verification.returncode, 0, verification.stderr)
 
 
 if __name__ == "__main__":

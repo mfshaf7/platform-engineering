@@ -41,8 +41,9 @@ When a prior activation generation exists, fresh activation also requires:
 
 - zero active start-ingress replicas and zero in-flight starts
 - zero ordinary OOS workflow pollers
-- a Platform-issued manifest pinned to the prior activation digest and queue
-- an OOS retirement receipt accepted by the Platform verifier
+- a Platform-issued manifest pinned to the prior activation digest, both OOS
+  queues, and the OOS receipt verifier key
+- an Ed25519-attested OOS retirement receipt accepted by the Platform verifier
 - a new activation-manifest digest that derives a different queue
 
 An initial activation has no prior-generation receipt. Unexpected activation
@@ -83,9 +84,10 @@ Contract-only changes are reverted through their source PR.
 Future runtime rollback must distinguish:
 
 - suspend new OOS workflow starts
-- drain start ingress and stop ordinary workflow pollers
+- drain start ingress and stop both ordinary OOS queue pollers
 - run an authorized one-shot retirement worker for the old generation
-- retain and accept the retirement receipt before any fresh activation
+- retain and cryptographically verify the retirement receipt before any fresh
+  activation
 - roll back the Temporal artifact
 - preserve or restore compatible workflow history
 - suspend the profile or environment

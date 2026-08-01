@@ -27,9 +27,9 @@ This drill type:
 - uses `runtime-drill` authority and does not change component lifecycle
 - requires an exact, unexpired authorization artifact issued by Platform,
   separately authorized by Security, and explicitly accepted by the operator
-- binds its component, the exact reviewed executor revision, source revisions,
-  immutable artifacts, identities, queues, scenarios, permitted actions,
-  evidence owner, expiry, and run limit
+- binds its component, the exact reviewed permit-issuer and executor revisions,
+  source revisions, immutable artifacts, identities, queues, scenarios,
+  permitted actions, evidence owner, expiry, and run limit
 - creates a governed local ledger before mutation
 - keeps baseline capture pending until every scoped surface has an operator-
   reviewable evidence reference
@@ -61,8 +61,8 @@ What becomes simpler:
 What becomes stricter:
 
 - every scoped baseline surface must be attested before activation
-- the executor source must be reviewed before Security authorizes a permit, and
-  the issuer and executor must validate one exact authorization artifact
+- the permit-issuer and executor source must be reviewed before Security
+  authorizes a permit, and both must validate one exact authorization artifact
 - the proof must stop on scope drift and restore the captured baseline
 - normal profile commands remain denied until a later governed lifecycle
   decision

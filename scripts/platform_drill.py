@@ -142,6 +142,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             "targetProfileId",
             "targetProfileLifecycle",
             "maxRuns",
+            "permitIssuer",
             "executor",
             "expiryCleanupAuthority",
         }
@@ -169,15 +170,16 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         for key in ("schemaRef", "policyRef", "securityReviewRef", "targetProfileId"):
             if not str(authorization.get(key) or "").strip():
                 raise SystemExit(f"{path} authorization.{key} must not be empty")
-        executor = authorization.get("executor") or {}
-        if executor != {
+        expected_reviewed_source = {
             "ownerRepo": "platform-engineering",
             "sourceReviewWorkItemRef": "openproject://work_packages/792",
             "mergedSourceRequiredBeforeSecurityAuthorization": True,
-        }:
-            raise SystemExit(
-                f"{path} authorization.executor must bind Platform source review #792"
-            )
+        }
+        for source_role in ("permitIssuer", "executor"):
+            if authorization.get(source_role) != expected_reviewed_source:
+                raise SystemExit(
+                    f"{path} authorization.{source_role} must bind Platform source review #792"
+                )
         expiry_cleanup = authorization.get("expiryCleanupAuthority") or {}
         expected_expiry_cleanup = {
             "mode": "exact-baseline-restore-only",
@@ -800,6 +802,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             ],
             "maxRuns": authorization_contract["maxRuns"],
             "securityReviewRef": authorization_contract["securityReviewRef"],
+            "permitIssuer": copy.deepcopy(authorization_contract["permitIssuer"]),
             "executor": copy.deepcopy(authorization_contract["executor"]),
             "expiryCleanupAuthority": copy.deepcopy(
                 authorization_contract["expiryCleanupAuthority"]

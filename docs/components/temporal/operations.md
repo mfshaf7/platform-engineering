@@ -21,10 +21,10 @@ change the profile from `build-admitted`.
 
 Current availability is contract-only. No permit issuer or proof executor is
 active, so operators must stop after preflight until ART #792 lands the exact
-reviewed executor source, the exact permit is Security-authorized against that
-revision, and the operator explicitly approves it. The ordinary `devint-up`,
-access, smoke, backup, restore, and workflow commands remain denied and cannot
-substitute for this procedure.
+reviewed issuer and executor source, the exact permit is Security-authorized
+against those revisions, and the operator explicitly approves it. The ordinary
+`devint-up`, access, smoke, backup, restore, and workflow commands remain denied
+and cannot substitute for this procedure.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 
@@ -80,8 +80,8 @@ the `activate` action rejects an incomplete baseline.
    build-admitted, non-running baseline.
 2. Run the drill `plan` command and validate one unexpired permit against the
    Workspace Governance `controlled-runtime-proof-authorization` schema.
-3. Confirm ART #792 is complete and the permit binds the exact merged executor
-   source revision and its finalized Review Packet.
+3. Confirm ART #792 is complete and the permit binds the exact merged issuer
+   and executor source revisions and their finalized Review Packet.
 4. Confirm the permit binds exactly one `validation-readiness-run` version,
    every source revision, immutable runtime image and artifact digest,
    namespace, identity, task queue, scenario, and permitted action.

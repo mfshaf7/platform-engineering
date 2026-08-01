@@ -16,6 +16,10 @@ authorization:
   targetProfileId: temporal
   targetProfileLifecycle: build-admitted
   maxRuns: 1
+  permitIssuer:
+    ownerRepo: platform-engineering
+    sourceReviewWorkItemRef: openproject://work_packages/792
+    mergedSourceRequiredBeforeSecurityAuthorization: true
   executor:
     ownerRepo: platform-engineering
     sourceReviewWorkItemRef: openproject://work_packages/792

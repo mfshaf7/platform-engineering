@@ -68,6 +68,7 @@ Use these drill types when the workflow is a `runtime-drill`.
 | `active-stack-runtime-drill` | exercises the current operator-critical mixed-lane stack without claiming estate-complete environment coverage |
 | `environment-complete-runtime-drill` | exercises every admitted lane and product environment declared in scope for that environment class |
 | `lifecycle-control-drill` | exercises runtime state transitions and bounded control behavior without claiming full functional verification |
+| `component-commissioning-proof` | exercises one exact build-admitted component scope under an expiring permit, then restores the exact baseline without activating the component lifecycle |
 
 Do not call an OpenClaw-only drill an active-stack drill just because it
 touches prod.

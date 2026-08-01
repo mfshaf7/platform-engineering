@@ -490,6 +490,39 @@ def validate_openproject_platform_admin_surface(errors: list[str], repo_root: Pa
         )
 
 
+def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
+    profiles_root = repo_root / "environments" / "shared" / "runtime-drills"
+    required_profile = profiles_root / "temporal-component-commissioning-proof.yaml"
+    if not required_profile.exists():
+        errors.append(f"{required_profile}: missing Temporal commissioning drill profile")
+    profile_paths = sorted(
+        path
+        for path in profiles_root.glob("*.yaml")
+        if not path.name.endswith("-evidence-template.yaml")
+    )
+    if not profile_paths:
+        errors.append(f"{profiles_root}: no runtime-drill profiles found")
+        return
+    validator = repo_root / "scripts" / "platform_drill.py"
+    for profile_path in profile_paths:
+        completed = subprocess.run(
+            [
+                "python3",
+                str(validator),
+                "plan",
+                "--profile-path",
+                str(profile_path),
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()
+            errors.append(f"{profile_path}: runtime-drill profile invalid\n{detail}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate workflow docs coverage and operational doc freshness markers."
@@ -514,6 +547,7 @@ def main() -> int:
     validate_doc_truth_markers(errors, repo_root)
     validate_workflow_docs(errors, repo_root)
     validate_openproject_platform_admin_surface(errors, repo_root)
+    validate_runtime_drill_profiles(errors, repo_root)
     validate_wsl_host_bootstrap_contract(errors, repo_root)
     validate_windows_portproxy_reconciliation(errors, repo_root)
     validate_legacy_operator_separation(errors, repo_root)

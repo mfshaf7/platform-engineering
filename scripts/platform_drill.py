@@ -121,6 +121,42 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     if missing:
         raise SystemExit(f"{path} is missing required keys: {', '.join(missing)}")
 
+    authorization = payload.get("authorization")
+    if payload.get("drillType") == "component-commissioning-proof":
+        required_authorization_fields = {
+            "required",
+            "artifactType",
+            "schemaRef",
+            "policyRef",
+            "targetProfileId",
+            "targetProfileLifecycle",
+            "maxRuns",
+        }
+        if not isinstance(authorization, dict):
+            raise SystemExit(
+                f"{path} component-commissioning-proof requires an authorization object"
+            )
+        missing_authorization = sorted(
+            required_authorization_fields - authorization.keys()
+        )
+        if missing_authorization:
+            raise SystemExit(
+                f"{path} authorization is missing required keys: "
+                + ", ".join(missing_authorization)
+            )
+        expected_authorization = {
+            "required": True,
+            "artifactType": "controlled-runtime-proof-authorization",
+            "targetProfileLifecycle": "build-admitted",
+            "maxRuns": 1,
+        }
+        for key, expected in expected_authorization.items():
+            if authorization.get(key) != expected:
+                raise SystemExit(f"{path} authorization.{key} must be {expected!r}")
+        for key in ("schemaRef", "policyRef", "targetProfileId"):
+            if not str(authorization.get(key) or "").strip():
+                raise SystemExit(f"{path} authorization.{key} must not be empty")
+
     scope = payload["scope"]
     if not isinstance(scope, dict):
         raise SystemExit(f"{path} field scope must be an object")
@@ -290,6 +326,13 @@ def validate_evidence_template(path: Path, payload: dict[str, Any], contract: di
     final_assessment = payload.get("finalAssessment") or {}
     if str(final_assessment.get("outcome") or "").strip() != "pending":
         raise SystemExit(f"{path} finalAssessment.outcome must start as pending")
+    if (contract.get("authorization") or {}).get("required"):
+        run_template = payload.get("run") or {}
+        for field in ("authorizationRef", "authorizationDigest"):
+            if field not in run_template:
+                raise SystemExit(
+                    f"{path} run template must include {field} for an authorized drill"
+                )
     return payload
 
 
@@ -316,6 +359,16 @@ def parse_args() -> argparse.Namespace:
     snapshot.add_argument("--run-id", default="", help="optional stable run identifier")
     snapshot.add_argument("--operator", default="", help="operator running the drill")
     snapshot.add_argument("--note", default="", help="optional note for the snapshot record")
+    snapshot.add_argument(
+        "--authorization-ref",
+        default="",
+        help="durable reference to the exact authorization artifact",
+    )
+    snapshot.add_argument(
+        "--authorization-digest",
+        default="",
+        help="sha256 digest of the exact authorization artifact",
+    )
     snapshot.add_argument(
         "--output-root",
         default="",
@@ -511,6 +564,10 @@ def build_evidence(
         "contractPath": "contract.yaml",
         "evidenceOwner": contract["evidenceOwner"],
     }
+    authorization = run_manifest.get("authorization") or {}
+    if authorization:
+        evidence["run"]["authorizationRef"] = authorization["ref"]
+        evidence["run"]["authorizationDigest"] = authorization["digest"]
     evidence["baselineAttestation"]["captureStatus"] = "captured"
     evidence["baselineAttestation"]["sourceRepos"] = [
         {
@@ -638,6 +695,16 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         args.repo_root, profile_path, contract
     )
     run_id = args.run_id.strip() or default_run_id(contract["id"])
+    authorization_contract = contract.get("authorization") or {}
+    authorization_ref = args.authorization_ref.strip()
+    authorization_digest = args.authorization_digest.strip()
+    if authorization_contract.get("required"):
+        if not authorization_ref:
+            raise SystemExit("--authorization-ref is required for this drill profile")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", authorization_digest):
+            raise SystemExit(
+                "--authorization-digest must be a lowercase sha256:<64-hex> digest"
+            )
     run_dir = output_root(args.repo_root, args.output_root) / contract["id"] / run_id
     if run_dir.exists():
         raise SystemExit(f"run directory already exists: {run_dir}")
@@ -667,6 +734,17 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         },
         "evidenceRecords": [],
     }
+    if authorization_contract.get("required"):
+        manifest["authorization"] = {
+            "artifactType": authorization_contract["artifactType"],
+            "ref": authorization_ref,
+            "digest": authorization_digest,
+            "targetProfileId": authorization_contract["targetProfileId"],
+            "targetProfileLifecycle": authorization_contract[
+                "targetProfileLifecycle"
+            ],
+            "maxRuns": authorization_contract["maxRuns"],
+        }
     baseline_payload = build_baseline(contract, args.repo_root)
     dump_yaml(paths["run"], manifest)
     dump_yaml(paths["baseline"], baseline_payload)

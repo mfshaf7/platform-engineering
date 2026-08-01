@@ -25,11 +25,42 @@ reviewed, the exact permit is Security-authorized, and the operator explicitly
 approves it. The ordinary `devint-up`, access, smoke, backup, restore, and
 workflow commands remain denied and cannot substitute for this procedure.
 
+The commissioning procedure is governed by the shared runtime-drill ledger:
+
+- [machine-readable drill profile](../../../environments/shared/runtime-drills/temporal-component-commissioning-proof.yaml)
+- [evidence-pack template](../../../environments/shared/runtime-drills/temporal-component-commissioning-proof-evidence-template.yaml)
+- [runtime-drill standard](../../standards/governed-runtime-drill-model.md)
+
+Inspect the profile before authorization:
+
+```bash
+make platform-drill ACTION=plan PROFILE=temporal-component-commissioning-proof
+```
+
+After receiving the exact authorization artifact, create the governed ledger
+and bind its durable reference and digest before any runtime mutation:
+
+```bash
+make platform-drill ACTION=snapshot \
+  PROFILE=temporal-component-commissioning-proof \
+  RUN_ID=<run-id> \
+  OPERATOR=<operator> \
+  AUTHORIZATION_REF=<durable-authorization-ref> \
+  AUTHORIZATION_DIGEST=sha256:<authorization-digest> \
+  NOTE="<proof purpose>"
+```
+
+The resulting `.platform-drills/temporal-component-commissioning-proof/<run-id>/`
+directory is the local run ledger. It contains the baseline, verification,
+exception, restore, and evidence records. Promote bounded summaries and refs to
+the active ART and Security evidence surfaces; do not commit the raw local
+ledger.
+
 ### Preflight
 
 1. Confirm `make devint-status PROFILE=temporal` reports the expected
    build-admitted, non-running baseline.
-2. Validate one unexpired permit against the Workspace Governance
+2. Run the drill `plan` command and validate one unexpired permit against the Workspace Governance
    `controlled-runtime-proof-authorization` schema.
 3. Confirm the permit binds exactly one `validation-readiness-run` version,
    every source revision, immutable runtime image and artifact digest,
@@ -48,7 +79,9 @@ workflow commands remain denied and cannot substitute for this procedure.
 
 Only the reviewed issuer and executor may perform these steps:
 
-1. Revalidate the permit immediately before the first mutation.
+1. Create the drill snapshot with the permit reference and digest, complete the
+   baseline evidence refs, and revalidate the permit immediately before the
+   first mutation.
 2. Install only the scoped runtime and start only the exact OOS and WGCF
    workers bound by the permit.
 3. Run the required nominal, restart, replay, duplicate-suppression,
@@ -63,6 +96,13 @@ Only the reviewed issuer and executor may perform these steps:
 7. Verify the restored state against the pre-run evidence, then route the
    proof result to a separate post-run Security review. The pre-run permit is
    never activation evidence.
+
+Record activation, each verification result, supplemental evidence, and each
+restored surface through `make platform-drill ACTION=<activate|verify|record|restore>
+RUN=<run-dir> ...`. Blocked checks and restore exceptions must use one of
+`remove`, `workaround`, `accept-risk`, or `defer` with justification, owner,
+and review date. The ledger records owner actions; it never performs an
+undeclared runtime mutation itself.
 
 ### Fail-Stop Conditions
 

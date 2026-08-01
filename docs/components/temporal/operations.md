@@ -13,6 +13,79 @@ make devint-status PROFILE=temporal
 Runtime launch, diagnostic access, backup, restore, and workflow execution fail
 closed while the profile is build-admitted.
 
+## Controlled Commissioning Proof
+
+This section is the primary Platform operator surface for a bounded Temporal
+commissioning proof. The proof is not a normal profile launch and does not
+change the profile from `build-admitted`.
+
+Current availability is contract-only. No permit issuer or proof executor is
+active, so operators must stop after preflight until those implementations are
+reviewed, the exact permit is Security-authorized, and the operator explicitly
+approves it. The ordinary `devint-up`, access, smoke, backup, restore, and
+workflow commands remain denied and cannot substitute for this procedure.
+
+### Preflight
+
+1. Confirm `make devint-status PROFILE=temporal` reports the expected
+   build-admitted, non-running baseline.
+2. Validate one unexpired permit against the Workspace Governance
+   `controlled-runtime-proof-authorization` schema.
+3. Confirm the permit binds exactly one `validation-readiness-run` version,
+   every source revision, immutable runtime image and artifact digest,
+   namespace, identity, task queue, scenario, and permitted action.
+4. Confirm the permit carries Platform issuance, a separate Security
+   authorization reference, explicit operator approval, evidence custody, and
+   `exact-baseline` restore.
+5. Compare every permit binding with the checked-out Platform, OOS, and WGCF
+   source and the current orchestration allowlist. A schema-valid but stale or
+   mismatched permit is denied.
+6. Capture the exact pre-run baseline, including the expected absence or
+   presence of namespaces, workloads, storage, credentials, and operator-local
+   state. Do not start if the baseline cannot be proven.
+
+### Bounded Execution
+
+Only the reviewed issuer and executor may perform these steps:
+
+1. Revalidate the permit immediately before the first mutation.
+2. Install only the scoped runtime and start only the exact OOS and WGCF
+   workers bound by the permit.
+3. Run the required nominal, restart, replay, duplicate-suppression,
+   cancellation, dependency-failure, identity-denial, payload-boundary,
+   backup/restore, and exact-baseline-restore scenarios.
+4. Execute at most one permitted `validation-readiness-run`; no business
+   definition or unrelated diagnostic action is allowed.
+5. Preserve correlated Platform, OOS, and WGCF receipts and the bounded logs
+   required by the permit's evidence owner.
+6. Remove the scoped runtime and restore the captured exact baseline before
+   declaring the proof complete.
+7. Verify the restored state against the pre-run evidence, then route the
+   proof result to a separate post-run Security review. The pre-run permit is
+   never activation evidence.
+
+### Fail-Stop Conditions
+
+Stop immediately and preserve evidence when the authorization expires, a
+source or artifact digest differs, the target scope differs, an identity or
+queue denial fails, the baseline is unavailable, an unexpected side effect
+occurs, evidence custody fails, or exact-baseline restore fails. Do not retry
+outside a newly issued permit and do not leave a partial runtime in place as a
+workaround.
+
+### Required Evidence
+
+- permit id and digest plus Platform, Security, and operator approval refs
+- exact source revisions, images, artifacts, namespace, identities, and queues
+- scenario outcomes, correlated run and activity receipts, and bounded logs
+- pre-run baseline, backup, removal, restore, and post-restore verification
+- stop-condition or exception decision when the run does not finish normally
+- separate post-run Security decision before any later lifecycle change
+
+Successful completion proves only the permitted local commissioning scope. It
+does not make the profile self-serve, activate a workflow definition, or create
+stage or production evidence.
+
 ## Implemented Source Boundary
 
 - immutable chart and image pins

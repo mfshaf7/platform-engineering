@@ -128,6 +128,11 @@ Current build-admitted profile:
     diagnostic access, backup, restore, and workflow execution remain denied
     until fresh Platform, Security, and workspace lifecycle gates make the
     profile `active`
+  - controlled commissioning: the bounded proof remains non-self-serve and is
+    unavailable until its issuer and executor are reviewed and an exact permit
+    is approved; use the
+    [Temporal controlled commissioning procedure](../components/temporal/operations.md#controlled-commissioning-proof)
+    as the primary Platform operator surface
 
 ### Temporal Generation Retirement
 

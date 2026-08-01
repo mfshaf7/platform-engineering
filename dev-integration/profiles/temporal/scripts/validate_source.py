@@ -398,6 +398,15 @@ def main() -> int:
         and start_registry.get("rejected_update_recorded_in_history") is False
         and start_registry.get("continuous_registry_poller_required") is True
         and start_registry.get("seal_after_start_ingress_drain_required") is True
+        and start_registry.get("seal_mechanism")
+        == "temporal-update-with-start"
+        and start_registry.get("seal_update_id_pattern")
+        == "oos:generation-start-registry-seal:v1:{retirement-evidence-digest-hex}"
+        and start_registry.get("workflow_enforces_seal_update_id") is True
+        and start_registry.get("rejected_seal_update_recorded_in_history")
+        is False
+        and start_registry.get("seal_rejection_status")
+        == "seal-not-authorized"
         and start_registry.get(
             "seal_authorization_lifetime_in_payload_required"
         )

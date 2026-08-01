@@ -139,10 +139,12 @@ stable OOS broker conflict requiring generation retirement and fresh
 activation. The Update ID is the
 versioned OOS registration prefix plus the business workflow ID, and the
 registry workflow validates it. Duplicate retries resolve the original Update;
-neither duplicates nor rejected Updates grow accepted history. The seal signal
-carries the exact manifest lifetime, and the registry validates handler time
-before mutation so an expired signal remains retryable rather than closing the
-registry. A post-seal retry requires a refreshed manifest bound to the exact
+neither duplicates nor rejected Updates grow accepted history. Sealing uses an
+acknowledged Update-with-Start whose deterministic ID is derived from the
+retirement evidence digest. The registry independently validates that ID and
+handler time before mutation, so an expired Update returns
+`seal-not-authorized` without closing the registry or leaving the operator
+waiting. A post-seal retry requires a refreshed manifest bound to the exact
 prior seal authorization. Temporal Visibility is
 retained for diagnostics, but eventual-consistency listing is not accepted as
 retirement authority.

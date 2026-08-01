@@ -106,9 +106,12 @@ as a matched execution or an uncommitted business start, and every matched
 execution must have a terminal projection. It also requires the registry seal
 to belong to the exact retirement authorization and the OOS one-shot start
 timestamp to fall inside the manifest lifetime while allowing a valid drain to
-complete after that authorization window. The seal signal carries the manifest
-issuance and expiry, and the registry checks handler time before mutation. An
-expired signal leaves the registry open for a fresh authorized retry. A retry
+complete after that authorization window. The acknowledged seal
+Update-with-Start carries manifest issuance and expiry plus a deterministic
+authorization-derived Update ID. The registry independently checks that ID and
+handler time before mutation. An expired Update returns
+`seal-not-authorized` and leaves the registry open for a fresh authorized
+retry. A retry
 after the registry was sealed requires a refreshed manifest that explicitly
 resumes the exact authorization that sealed the registry and its original
 lifetime. Both drained-state

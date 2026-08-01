@@ -92,7 +92,9 @@ pinned activation-manifest digest, pins the OOS Ed25519 receipt verifier, and
 writes a mode-0600 JSON file atomically. OOS serves both generated queues
 continuously during ordinary operation. Business starts register through
 Update-with-Start, with a maximum of 512 accepted registrations in one
-generation; rejected updates do not enter workflow history.
+generation. OOS uses and workflow-validates one deterministic Update ID per
+business workflow, so retries resolve the original Update; rejected Updates do
+not enter workflow history.
 Drain observations must be no more than five minutes old and the manifest
 lifetime cannot exceed fifteen minutes. The verifier rejects future receipt
 times, mismatched targets, digests, queues, registry identities or seals, and
@@ -107,6 +109,12 @@ requires a refreshed manifest that explicitly resumes the exact authorization
 that sealed the registry and its original lifetime. Both drained-state
 observations must still be no more than five minutes old when the one-shot
 worker starts.
+
+Receipt verification is byte-exact. The manifest pins the canonicalization and
+signed-content identifiers, and the verifier reproduces the compact UTF-8 bytes
+from the receipt without its top-level `attestation`. The checked-in
+cross-language vector must pass before the source validator accepts this
+profile.
 
 This operator surface is source-valid now. It does not make the build-admitted
 profile launchable and must not be used as evidence that a retirement run has

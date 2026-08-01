@@ -134,11 +134,23 @@ automatic cleanup claim is introduced.
 Every admitted OOS business start writes its exact workflow ID to the durable
 registry through Update-with-Start before attempting the business workflow
 start. The normal OOS process polls both generated queues, and the registry is
-bounded to 512 accepted registrations per generation. Rejected updates do not
-enter workflow history. A post-seal retry requires a refreshed manifest bound
+bounded to 512 accepted registrations per generation. The Update ID is the
+versioned OOS registration prefix plus the business workflow ID, and the
+registry workflow validates it. Duplicate retries resolve the original Update;
+neither duplicates nor rejected Updates grow accepted history. A post-seal
+retry requires a refreshed manifest bound
 to the exact prior seal authorization. Temporal Visibility is
 retained for diagnostics, but eventual-consistency listing is not accepted as
 retirement authority.
+
+The retirement manifest also pins `oos-canonical-json-v1` and
+`receipt-without-attestation`. The unsigned receipt uses recursively sorted
+ASCII object keys, preserved array order, printable-ASCII strings,
+JavaScript-safe integers, compact JSON, and UTF-8 bytes. The payload digest is
+SHA-256 over those exact bytes and the Ed25519 signature is standard base64.
+Platform and OOS test the same
+`generation-retirement-canonicalization-v1.vector.json` before this boundary
+can be accepted.
 
 The source-defined namespace, task-queue, ServiceAccount, secret-reference,
 payload, retention, and network contracts live under

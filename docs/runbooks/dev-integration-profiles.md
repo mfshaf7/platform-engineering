@@ -141,7 +141,8 @@ Platform-owned procedure before suspension, replacement, or fresh activation:
 3. issue the old generation manifest using observations no more than five
    minutes old and a lifetime no longer than fifteen minutes; the issuer derives
    both the business queue and durable start registry from the activation digest
-   and pins the OOS Ed25519 receipt verifier
+   and pins the OOS Ed25519 receipt verifier, canonicalization, and signed
+   content contract
 4. run the explicit OOS retirement command, which verifies its receipt key,
    seals the registry,
    reconciles and cancels exact registered workflow IDs, and starts the one-shot
@@ -150,6 +151,11 @@ Platform-owned procedure before suspension, replacement, or fresh activation:
    reached a terminal projection, and proves the one-shot worker started inside
    the manifest lifetime and within five minutes of both drain observations;
    retain it before issuing any fresh activation
+
+The registry workflow accepts only the deterministic registration Update ID
+derived from the business workflow ID. The verifier reproduces the versioned
+canonical UTF-8 receipt bytes and checks them against the published
+cross-language conformance vector.
 
 The source-valid entrypoint is:
 

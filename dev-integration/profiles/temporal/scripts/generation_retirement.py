@@ -21,10 +21,14 @@ MAX_DRAIN_OBSERVATION_AGE_SECONDS = 300
 MAX_RETIREMENT_LIFETIME_SECONDS = 900
 MAX_REGISTRY_STARTS = 512
 MAX_PUBLIC_KEY_BYTES = 16 * 1024
+MAX_SAFE_JSON_INTEGER = 9_007_199_254_740_991
 BUSINESS_WORKFLOW_QUEUE_PREFIX = "oos.validation-readiness-run.v1"
 START_REGISTRY_QUEUE_PREFIX = "oos.generation-start-registry.v1"
 START_REGISTRY_WORKFLOW_ID_PREFIX = "oos:generation-start-registry:v1"
 START_REGISTRY_WORKFLOW_TYPE = "generationStartRegistryV1"
+START_REGISTRY_UPDATE_ID_SCHEME = "business-workflow-id-prefixed-v1"
+RECEIPT_CANONICALIZATION = "oos-canonical-json-v1"
+RECEIPT_SIGNED_CONTENT = "receipt-without-attestation"
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{2,255}$")
 URI_RE = re.compile(
@@ -154,12 +158,41 @@ def load_ed25519_public_key(path: Path) -> bytes:
 
 
 def canonical_json(value: Any) -> bytes:
+    validate_canonical_json_value(value)
     return json.dumps(
         value,
-        ensure_ascii=True,
+        ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
-    ).encode()
+    ).encode("utf-8")
+
+
+def validate_canonical_json_value(value: Any) -> None:
+    if value is None or isinstance(value, bool):
+        return
+    if isinstance(value, int):
+        if abs(value) > MAX_SAFE_JSON_INTEGER:
+            raise ContractError("canonical JSON integers must be JavaScript-safe")
+        return
+    if isinstance(value, str):
+        if any(
+            ord(character) < 0x20 or ord(character) > 0x7E
+            for character in value
+        ):
+            raise ContractError("canonical JSON strings must use printable ASCII")
+        return
+    if isinstance(value, list):
+        for item in value:
+            validate_canonical_json_value(item)
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ContractError("canonical JSON object keys must be strings")
+            validate_canonical_json_value(key)
+            validate_canonical_json_value(item)
+        return
+    raise ContractError("canonical JSON contains an unsupported value")
 
 
 def require_exact_fields(value: dict[str, Any], expected: set[str], name: str) -> None:
@@ -218,6 +251,7 @@ def generation_contract(activation_evidence_digest: str) -> dict[str, str]:
             f"{START_REGISTRY_WORKFLOW_ID_PREFIX}:{digest_hex}"
         ),
         "registry_workflow_type": START_REGISTRY_WORKFLOW_TYPE,
+        "registration_update_id_scheme": START_REGISTRY_UPDATE_ID_SCHEME,
     }
 
 
@@ -293,10 +327,22 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     )
     require_exact_fields(
         verification,
-        {"algorithm", "issuer", "key_id", "public_key_digest"},
+        {
+            "algorithm",
+            "canonicalization",
+            "issuer",
+            "key_id",
+            "public_key_digest",
+            "signed_content",
+        },
         "receipt_verification",
     )
     require_equal(verification["algorithm"], "Ed25519", "receipt algorithm")
+    require_equal(
+        verification["canonicalization"],
+        RECEIPT_CANONICALIZATION,
+        "receipt canonicalization",
+    )
     require_equal(
         verification["issuer"],
         "operator-orchestration-service",
@@ -304,6 +350,11 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     )
     require_identifier(verification["key_id"], "receipt key_id")
     require_digest(verification["public_key_digest"], "receipt public_key_digest")
+    require_equal(
+        verification["signed_content"],
+        RECEIPT_SIGNED_CONTENT,
+        "receipt signed_content",
+    )
 
     resume = manifest["registry_seal_resume"]
     if resume is not None:
@@ -362,7 +413,12 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
     registry = require_object(manifest["start_registry"], "start_registry")
     require_exact_fields(
         registry,
-        {"workflow_id", "workflow_type", "task_queue"},
+        {
+            "registration_update_id_scheme",
+            "workflow_id",
+            "workflow_type",
+            "task_queue",
+        },
         "start_registry",
     )
     require_equal(
@@ -379,6 +435,11 @@ def validate_retirement_manifest(manifest: dict[str, Any]) -> None:
         registry["task_queue"],
         generation["registry_task_queue"],
         "start_registry.task_queue",
+    )
+    require_equal(
+        registry["registration_update_id_scheme"],
+        generation["registration_update_id_scheme"],
+        "start_registry.registration_update_id_scheme",
     )
     require_identifier(registry["workflow_id"], "start_registry.workflow_id")
     require_identifier(registry["task_queue"], "start_registry.task_queue")
@@ -529,9 +590,11 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "issued_by": "platform-engineering",
         "receipt_verification": {
             "algorithm": "Ed25519",
+            "canonicalization": RECEIPT_CANONICALIZATION,
             "issuer": "operator-orchestration-service",
             "key_id": args.receipt_key_id,
             "public_key_digest": sha256_digest(receipt_public_key),
+            "signed_content": RECEIPT_SIGNED_CONTENT,
         },
         "reason_ref": args.reason_ref,
         "registry_seal_resume": registry_seal_resume,
@@ -551,6 +614,9 @@ def issue_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "evidence_ref": args.start_ingress_evidence_ref,
         },
         "start_registry": {
+            "registration_update_id_scheme": generation[
+                "registration_update_id_scheme"
+            ],
             "workflow_id": generation["registry_workflow_id"],
             "workflow_type": generation["registry_workflow_type"],
             "task_queue": generation["registry_task_queue"],
@@ -588,10 +654,24 @@ def verify_receipt_attestation(
     attestation = require_object(receipt["attestation"], "receipt attestation")
     require_exact_fields(
         attestation,
-        {"algorithm", "issuer", "key_id", "payload_digest", "signature"},
+        {
+            "algorithm",
+            "canonicalization",
+            "issuer",
+            "key_id",
+            "payload_digest",
+            "signature",
+            "signed_content",
+        },
         "receipt attestation",
     )
-    for field in ("algorithm", "issuer", "key_id"):
+    for field in (
+        "algorithm",
+        "canonicalization",
+        "issuer",
+        "key_id",
+        "signed_content",
+    ):
         require_equal(
             attestation[field],
             verification[field],
@@ -711,12 +791,18 @@ def verify_receipt(args: argparse.Namespace) -> dict[str, Any]:
             "result_digest",
             "registered_workflow_count",
             "matched_execution_count",
+            "registration_update_id_scheme",
             "uncommitted_registration_count",
             "seal_authorization_digest",
         },
         "receipt start_registry",
     )
-    for field in ("workflow_id", "workflow_type", "task_queue"):
+    for field in (
+        "registration_update_id_scheme",
+        "workflow_id",
+        "workflow_type",
+        "task_queue",
+    ):
         require_equal(
             registry[field],
             manifest["start_registry"][field],

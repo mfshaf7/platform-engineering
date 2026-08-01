@@ -12,8 +12,10 @@ import sys
 import tempfile
 import unittest
 
-
 SCRIPT = Path(__file__).with_name("generation_retirement.py")
+sys.path.insert(0, str(SCRIPT.parent))
+
+from generation_retirement import ContractError, canonical_json  # noqa: E402
 
 
 def digest(raw: bytes) -> str:
@@ -204,9 +206,7 @@ class GenerationRetirementTest(unittest.TestCase):
     def attest_receipt(self, receipt: dict) -> dict:
         payload = dict(receipt)
         payload.pop("attestation", None)
-        payload_raw = json.dumps(
-            payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-        ).encode()
+        payload_raw = canonical_json(payload)
         payload_path = self.root / "receipt-payload.json"
         signature_path = self.root / "receipt-signature.bin"
         payload_path.write_bytes(payload_raw)
@@ -230,10 +230,12 @@ class GenerationRetirementTest(unittest.TestCase):
             **payload,
             "attestation": {
                 "algorithm": "Ed25519",
+                "canonicalization": "oos-canonical-json-v1",
                 "issuer": "operator-orchestration-service",
                 "key_id": "oos-retirement-receipt-test",
                 "payload_digest": digest(payload_raw),
                 "signature": base64.b64encode(signature_path.read_bytes()).decode(),
+                "signed_content": "receipt-without-attestation",
             },
         }
 
@@ -274,6 +276,9 @@ class GenerationRetirementTest(unittest.TestCase):
         self.assertEqual(
             manifest["start_registry"],
             {
+                "registration_update_id_scheme": (
+                    "business-workflow-id-prefixed-v1"
+                ),
                 "task_queue": (
                     "oos.generation-start-registry.v1."
                     f"{self.activation_digest.removeprefix('sha256:')}"
@@ -291,6 +296,27 @@ class GenerationRetirementTest(unittest.TestCase):
         summary = json.loads(result.stdout)
         self.assertEqual(summary["decision"], "accepted")
         self.assertEqual(summary["start_registry"]["registered_workflow_count"], 3)
+
+    def test_canonicalization_matches_the_published_oos_vector(self) -> None:
+        vector_path = (
+            SCRIPT.parent.parent
+            / "runtime"
+            / "generation-retirement-canonicalization-v1.vector.json"
+        )
+        vector = json.loads(vector_path.read_text(encoding="utf-8"))
+        payload_raw = canonical_json(vector["payload"])
+
+        self.assertEqual(vector["canonicalization"], "oos-canonical-json-v1")
+        self.assertEqual(vector["signed_content"], "receipt-without-attestation")
+        self.assertEqual(
+            base64.b64encode(payload_raw).decode(),
+            vector["canonical_payload_base64"],
+        )
+        self.assertEqual(digest(payload_raw), vector["payload_digest"])
+        with self.assertRaisesRegex(ContractError, "printable ASCII"):
+            canonical_json({"value": "non-ascii-\u00e9"})
+        with self.assertRaisesRegex(ContractError, "JavaScript-safe"):
+            canonical_json({"value": 9_007_199_254_740_992})
 
     def test_issue_rejects_nonzero_ingress_or_poller(self) -> None:
         replacements = [
@@ -439,15 +465,23 @@ class GenerationRetirementTest(unittest.TestCase):
         receipt["terminal_projection_count"] = 1
         payload = dict(receipt)
         payload.pop("attestation")
-        payload_raw = json.dumps(
-            payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
-        ).encode()
+        payload_raw = canonical_json(payload)
         receipt["attestation"]["payload_digest"] = digest(payload_raw)
 
         result = self.verify(receipt, retirement_digest, attest=False)
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("signature verification failed", result.stderr)
+
+    def test_verify_rejects_an_unpinned_signature_encoding_contract(self) -> None:
+        manifest, retirement_digest = self.issue()
+        receipt = self.attest_receipt(self.receipt(manifest, retirement_digest))
+        receipt["attestation"]["canonicalization"] = "unspecified-json"
+
+        result = self.verify(receipt, retirement_digest, attest=False)
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("attestation canonicalization", result.stderr)
 
     def test_verify_rejects_registry_counts_above_generation_capacity(self) -> None:
         manifest, retirement_digest = self.issue()

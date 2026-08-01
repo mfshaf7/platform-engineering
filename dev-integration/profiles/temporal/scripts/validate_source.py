@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -9,6 +13,8 @@ import sys
 import tempfile
 
 import yaml
+
+from generation_retirement import ContractError, canonical_json
 
 
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -76,6 +82,43 @@ def main() -> int:
     profile = load_yaml(profile_root / "profile.yaml")
     lock = load_yaml(runtime_root / "artifact-lock.yaml")
     boundary = load_yaml(runtime_root / "boundary-contract.yaml")
+    vector_ref = (
+        boundary.get("generation_retirement", {})
+        .get("receipt", {})
+        .get("attestation", {})
+        .get("conformance_vector_ref")
+    )
+    vector_path = owner_repo_root / str(vector_ref or "")
+    require(
+        bool(vector_ref),
+        "retirement receipt conformance vector is required",
+        errors,
+    )
+    require(
+        vector_path.is_file(),
+        "retirement receipt conformance vector is missing",
+        errors,
+    )
+    if vector_path.is_file():
+        try:
+            vector = json.loads(vector_path.read_text(encoding="utf-8"))
+            encoded = base64.b64decode(
+                vector.get("canonical_payload_base64", ""), validate=True
+            )
+            require(
+                vector.get("schema_version") == 1
+                and vector.get("vector_id")
+                == "oos-generation-retirement-receipt-canonicalization-v1"
+                and vector.get("canonicalization") == "oos-canonical-json-v1"
+                and vector.get("signed_content") == "receipt-without-attestation"
+                and encoded == canonical_json(vector.get("payload"))
+                and vector.get("payload_digest")
+                == f"sha256:{hashlib.sha256(encoded).hexdigest()}",
+                "retirement receipt conformance vector is invalid",
+                errors,
+            )
+        except (binascii.Error, ContractError, json.JSONDecodeError, TypeError):
+            errors.append("retirement receipt conformance vector is invalid")
 
     require(profile.get("profile_id") == "temporal", "profile_id must be temporal", errors)
     require(
@@ -340,6 +383,12 @@ def main() -> int:
         and start_registry.get("register_before_business_start_required") is True
         and start_registry.get("registration_mechanism")
         == "temporal-update-with-start"
+        and start_registry.get("registration_update_id_scheme")
+        == "business-workflow-id-prefixed-v1"
+        and start_registry.get("registration_update_id_pattern")
+        == "oos:generation-start-registration:v1:{business-workflow-id}"
+        and start_registry.get("workflow_enforces_registration_update_id") is True
+        and start_registry.get("duplicate_registration_adds_history_event") is False
         and start_registry.get("maximum_registration_count") == 512
         and start_registry.get("rejected_update_recorded_in_history") is False
         and start_registry.get("continuous_registry_poller_required") is True
@@ -382,8 +431,22 @@ def main() -> int:
         )
         is True
         and receipt_attestation.get("algorithm") == "Ed25519"
+        and receipt_attestation.get("canonicalization")
+        == "oos-canonical-json-v1"
         and receipt_attestation.get("issuer")
         == "operator-orchestration-service"
+        and receipt_attestation.get("signed_content")
+        == "receipt-without-attestation"
+        and receipt_attestation.get("canonical_value_domain")
+        == "printable-ascii-safe-integer-json"
+        and receipt_attestation.get("object_key_order") == "ascending-ascii"
+        and receipt_attestation.get("array_order") == "preserved"
+        and receipt_attestation.get("whitespace") == "none"
+        and receipt_attestation.get("byte_encoding") == "utf-8"
+        and receipt_attestation.get("payload_digest") == "sha256"
+        and receipt_attestation.get("signature_encoding") == "base64"
+        and receipt_attestation.get("conformance_vector_ref")
+        == "dev-integration/profiles/temporal/runtime/generation-retirement-canonicalization-v1.vector.json"
         and receipt_attestation.get(
             "manifest_pins_key_id_and_public_key_digest"
         )

@@ -135,6 +135,10 @@ generation_retirement:
     task_queue_pattern: "oos.generation-start-registry.v1.{activation-manifest-digest-hex}"
     register_before_business_start_required: true
     registration_mechanism: temporal-update-with-start
+    registration_update_id_scheme: business-workflow-id-prefixed-v1
+    registration_update_id_pattern: "oos:generation-start-registration:v1:{business-workflow-id}"
+    workflow_enforces_registration_update_id: true
+    duplicate_registration_adds_history_event: false
     maximum_registration_count: 512
     rejected_update_recorded_in_history: false
     continuous_registry_poller_required: true
@@ -161,7 +165,17 @@ generation_retirement:
     registry_seal_authorization_digest_required: true
     attestation:
       algorithm: Ed25519
+      canonicalization: oos-canonical-json-v1
       issuer: operator-orchestration-service
+      signed_content: receipt-without-attestation
+      canonical_value_domain: printable-ascii-safe-integer-json
+      object_key_order: ascending-ascii
+      array_order: preserved
+      whitespace: none
+      byte_encoding: utf-8
+      payload_digest: sha256
+      signature_encoding: base64
+      conformance_vector_ref: dev-integration/profiles/temporal/runtime/generation-retirement-canonicalization-v1.vector.json
       manifest_pins_key_id_and_public_key_digest: true
       private_key_owner_repo: operator-orchestration-service
       verified_before_fresh_activation: true

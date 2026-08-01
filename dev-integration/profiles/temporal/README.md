@@ -103,15 +103,18 @@ drain evidence references. It also pins the OOS Ed25519 receipt verifier. The
 ordinary OOS process serves both generated queues continuously, and each
 business start registers through Update-with-Start before it can start. The
 workflow enforces one deterministic Update ID per business workflow, so retries
-do not grow accepted history. OOS caps a generation at 512 registrations,
-verifies its receipt key before
-mutation, seals the durable registry, reconciles its exact workflow IDs, and
-alone runs the one-shot cancellation and drain worker. Platform verifies the
+do not grow accepted history. OOS caps a generation at 512 registrations and
+returns `409 orchestration_generation_capacity_exhausted` when rotation is
+required. It verifies its receipt key before mutation, carries the manifest
+lifetime in the seal signal, validates handler time before closing the durable
+registry, and reconciles its exact workflow IDs. OOS alone runs the one-shot
+cancellation and drain worker. Platform verifies the
 receipt signature and retains the OOS receipt before any fresh activation can
 be issued. The manifest pins the exact canonical JSON and signed-content
 contract, and both repos prove it with the same byte vector. A post-seal retry
 uses an explicit refreshed manifest bound to the
-exact prior seal authorization. Temporal Visibility remains diagnostic only.
+exact prior seal authorization. An expired signal leaves the registry open for
+a fresh authorized seal. Temporal Visibility remains diagnostic only.
 Unexpected evidence loss makes the ordinary worker fail-stop and never counts
 as a retirement receipt.
 

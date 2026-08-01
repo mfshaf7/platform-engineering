@@ -140,9 +140,14 @@ generation_retirement:
     workflow_enforces_registration_update_id: true
     duplicate_registration_adds_history_event: false
     maximum_registration_count: 512
+    capacity_exhaustion_api_error: orchestration_generation_capacity_exhausted
+    capacity_exhaustion_required_action: retire-and-activate-fresh-generation
     rejected_update_recorded_in_history: false
     continuous_registry_poller_required: true
     seal_after_start_ingress_drain_required: true
+    seal_authorization_lifetime_in_payload_required: true
+    seal_handler_validates_authorization_before_mutation: true
+    expired_seal_closes_registry: false
     exact_workflow_id_reconciliation_required: true
     invalid_registration_count_allowed: 0
     visibility_authoritative_for_retirement: false

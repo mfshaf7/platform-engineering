@@ -144,16 +144,20 @@ Platform-owned procedure before suspension, replacement, or fresh activation:
    and pins the OOS Ed25519 receipt verifier, canonicalization, and signed
    content contract
 4. run the explicit OOS retirement command, which verifies its receipt key,
-   seals the registry,
+   carries the exact manifest lifetime in the seal signal, requires the
+   registry to validate handler time before mutation, seals the registry,
    reconciles and cancels exact registered workflow IDs, and starts the one-shot
    worker only after revalidating the manifest
-5. verify the receipt signature, accounts for every registration, proves every matched run
-   reached a terminal projection, and proves the one-shot worker started inside
-   the manifest lifetime and within five minutes of both drain observations;
-   retain it before issuing any fresh activation
+5. verify the receipt signature, account for every registration, prove every
+   matched run reached a terminal projection, and prove the one-shot worker
+   started inside the manifest lifetime and within five minutes of both drain
+   observations; retain it before issuing any fresh activation
 
 The registry workflow accepts only the deterministic registration Update ID
-derived from the business workflow ID. The verifier reproduces the versioned
+derived from the business workflow ID. A full generation returns
+`409 orchestration_generation_capacity_exhausted` and must be retired before a
+fresh generation is activated. An expired seal signal leaves the registry open
+for a fresh authorized retry. The verifier reproduces the versioned
 canonical UTF-8 receipt bytes and checks them against the published
 cross-language conformance vector.
 

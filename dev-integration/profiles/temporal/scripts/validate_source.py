@@ -390,9 +390,22 @@ def main() -> int:
         and start_registry.get("workflow_enforces_registration_update_id") is True
         and start_registry.get("duplicate_registration_adds_history_event") is False
         and start_registry.get("maximum_registration_count") == 512
+        and start_registry.get("capacity_exhaustion_api_error")
+        == "orchestration_generation_capacity_exhausted"
+        and start_registry.get("capacity_exhaustion_required_action")
+        == "retire-and-activate-fresh-generation"
         and start_registry.get("rejected_update_recorded_in_history") is False
         and start_registry.get("continuous_registry_poller_required") is True
         and start_registry.get("seal_after_start_ingress_drain_required") is True
+        and start_registry.get(
+            "seal_authorization_lifetime_in_payload_required"
+        )
+        is True
+        and start_registry.get(
+            "seal_handler_validates_authorization_before_mutation"
+        )
+        is True
+        and start_registry.get("expired_seal_closes_registry") is False
         and start_registry.get("exact_workflow_id_reconciliation_required") is True
         and start_registry.get("invalid_registration_count_allowed") == 0
         and start_registry.get("visibility_authoritative_for_retirement") is False,

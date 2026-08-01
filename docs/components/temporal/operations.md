@@ -92,9 +92,11 @@ pinned activation-manifest digest, pins the OOS Ed25519 receipt verifier, and
 writes a mode-0600 JSON file atomically. OOS serves both generated queues
 continuously during ordinary operation. Business starts register through
 Update-with-Start, with a maximum of 512 accepted registrations in one
-generation. OOS uses and workflow-validates one deterministic Update ID per
-business workflow, so retries resolve the original Update; rejected Updates do
-not enter workflow history.
+generation. A full generation returns the stable OOS
+`409 orchestration_generation_capacity_exhausted` response and must be retired
+before a fresh generation is activated. OOS uses and workflow-validates one
+deterministic Update ID per business workflow, so retries resolve the original
+Update; rejected Updates do not enter workflow history.
 Drain observations must be no more than five minutes old and the manifest
 lifetime cannot exceed fifteen minutes. The verifier rejects future receipt
 times, mismatched targets, digests, queues, registry identities or seals, and
@@ -104,9 +106,12 @@ as a matched execution or an uncommitted business start, and every matched
 execution must have a terminal projection. It also requires the registry seal
 to belong to the exact retirement authorization and the OOS one-shot start
 timestamp to fall inside the manifest lifetime while allowing a valid drain to
-complete after that authorization window. A retry after the registry was sealed
-requires a refreshed manifest that explicitly resumes the exact authorization
-that sealed the registry and its original lifetime. Both drained-state
+complete after that authorization window. The seal signal carries the manifest
+issuance and expiry, and the registry checks handler time before mutation. An
+expired signal leaves the registry open for a fresh authorized retry. A retry
+after the registry was sealed requires a refreshed manifest that explicitly
+resumes the exact authorization that sealed the registry and its original
+lifetime. Both drained-state
 observations must still be no more than five minutes old when the one-shot
 worker starts.
 

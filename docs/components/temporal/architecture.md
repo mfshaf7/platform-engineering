@@ -134,12 +134,16 @@ automatic cleanup claim is introduced.
 Every admitted OOS business start writes its exact workflow ID to the durable
 registry through Update-with-Start before attempting the business workflow
 start. The normal OOS process polls both generated queues, and the registry is
-bounded to 512 accepted registrations per generation. The Update ID is the
+bounded to 512 accepted registrations per generation. Capacity exhaustion is a
+stable OOS broker conflict requiring generation retirement and fresh
+activation. The Update ID is the
 versioned OOS registration prefix plus the business workflow ID, and the
 registry workflow validates it. Duplicate retries resolve the original Update;
-neither duplicates nor rejected Updates grow accepted history. A post-seal
-retry requires a refreshed manifest bound
-to the exact prior seal authorization. Temporal Visibility is
+neither duplicates nor rejected Updates grow accepted history. The seal signal
+carries the exact manifest lifetime, and the registry validates handler time
+before mutation so an expired signal remains retryable rather than closing the
+registry. A post-seal retry requires a refreshed manifest bound to the exact
+prior seal authorization. Temporal Visibility is
 retained for diagnostics, but eventual-consistency listing is not accepted as
 retirement authority.
 

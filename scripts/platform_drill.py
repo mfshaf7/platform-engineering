@@ -31,6 +31,26 @@ CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS = [
     "exact-baseline-restored",
     "governed-exception-recorded",
 ]
+CONTROLLED_PROOF_SOURCE_ENABLEMENT = {
+    "status": "contract-only",
+    "implementationWorkItemRef": "openproject://work_packages/792",
+    "snapshotAllowed": False,
+    "requiredControls": [
+        "capture-preauthorization-baseline-artifact",
+        "validate-authorization-artifact-and-digest",
+        "enforce-semantic-binding-uniqueness",
+        "verify-rfc8785-claims-approval-bindings",
+        "consume-authorization-atomically",
+        "verify-immutable-baseline-digest",
+        "emit-controlled-proof-result",
+    ],
+}
+CONTROLLED_PROOF_RESULT_ARTIFACT = {
+    "required": True,
+    "artifactType": "controlled-runtime-proof-result",
+    "schemaRef": "https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json",
+    "schemaVersion": 1,
+}
 
 
 def now_utc() -> str:
@@ -133,6 +153,14 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
 
     authorization = payload.get("authorization")
     if payload.get("drillType") == "component-commissioning-proof":
+        if payload.get("sourceEnablement") != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
+            raise SystemExit(
+                f"{path} sourceEnablement must remain contract-only until Platform source review #792 lands"
+            )
+        if payload.get("resultArtifact") != CONTROLLED_PROOF_RESULT_ARTIFACT:
+            raise SystemExit(
+                f"{path} resultArtifact must bind the controlled-runtime-proof-result schema"
+            )
         required_authorization_fields = {
             "required",
             "artifactType",
@@ -712,6 +740,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
         "restoreMode": contract["restoreMode"],
         "profilePath": str(profile_path),
         "evidenceTemplatePath": str(evidence_template_path_value),
+        "availability": (contract.get("sourceEnablement") or {}).get("status", "available"),
+        "snapshotAllowed": (contract.get("sourceEnablement") or {}).get(
+            "snapshotAllowed", True
+        ),
     }
     if args.format == "json":
         print(json.dumps(summary, indent=2))
@@ -727,6 +759,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"source_repos={', '.join(summary['sourceRepos'])}")
     print(f"surface_count={summary['surfaceCount']} check_count={summary['checkCount']}")
     print(f"restore_mode={summary['restoreMode']} evidence_owner={summary['evidenceOwner']}")
+    print(
+        f"availability={summary['availability']} "
+        f"snapshot_allowed={str(bool(summary['snapshotAllowed'])).lower()}"
+    )
     print(f"profile_path={summary['profilePath']}")
     print(f"evidence_template_path={summary['evidenceTemplatePath']}")
     print("preconditions:")
@@ -751,6 +787,12 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    source_enablement = contract.get("sourceEnablement") or {}
+    if source_enablement.get("snapshotAllowed") is False:
+        raise SystemExit(
+            "commissioning snapshot denied: contract-only until ART #792 lands "
+            "the reviewed permit issuer and proof executor"
+        )
     evidence_template_path_value, evidence_template = evidence_template_payload(
         args.repo_root, profile_path, contract
     )

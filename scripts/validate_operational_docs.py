@@ -3,6 +3,7 @@ import argparse
 import re
 from pathlib import Path
 import subprocess
+import tempfile
 
 import yaml
 
@@ -521,6 +522,38 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout).strip()
             errors.append(f"{profile_path}: runtime-drill profile invalid\n{detail}")
+    if required_profile.exists():
+        with tempfile.TemporaryDirectory(prefix="temporal-proof-denial-") as output_root:
+            completed = subprocess.run(
+                [
+                    "python3",
+                    str(validator),
+                    "snapshot",
+                    "--profile-path",
+                    str(required_profile),
+                    "--run-id",
+                    "contract-only-validation",
+                    "--operator",
+                    "validator",
+                    "--authorization-ref",
+                    "artifact://controlled-proof/validation-only",
+                    "--authorization-digest",
+                    "sha256:" + "a" * 64,
+                    "--output-root",
+                    output_root,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            detail = (completed.stderr or completed.stdout).strip()
+            if completed.returncode == 0 or "contract-only until ART #792" not in detail:
+                errors.append(
+                    f"{required_profile}: commissioning snapshot must fail closed until #792"
+                )
+            if any(Path(output_root).iterdir()):
+                errors.append(
+                    f"{required_profile}: denied commissioning snapshot created local state"
+                )
 
 
 def main() -> int:

@@ -30,6 +30,12 @@ This drill type:
 - binds its component, the exact reviewed permit-issuer and executor revisions,
   source revisions, immutable artifacts, identities, queues, scenarios,
   permitted actions, evidence owner, expiry, and run limit
+- rejects conflicting logical bindings, binds both approvals to an RFC 8785
+  digest of every authorization field outside the approval envelope, and
+  atomically consumes one authorization for one run before the first mutation
+- captures and binds the pre-run baseline by immutable digest before permit
+  issuance and emits a schema-valid controlled-proof result artifact after
+  restoration
 - creates a governed local ledger before mutation
 - keeps baseline capture pending until every scoped surface has an operator-
   reviewable evidence reference
@@ -62,7 +68,8 @@ What becomes stricter:
 
 - every scoped baseline surface must be attested before activation
 - the permit-issuer and executor source must be reviewed before Security
-  authorizes a permit, and both must validate one exact authorization artifact
+  authorizes a permit, and both must validate and atomically consume one exact
+  authorization artifact
 - the proof must stop on scope drift and restore the captured baseline
 - normal profile commands remain denied until a later governed lifecycle
   decision
@@ -90,3 +97,6 @@ Security, runtime-drill, and restore evidence.
 - [ADR-017](ADR-017-temporal-durable-workflow-runtime.md)
 - [governed runtime-drill model](../../standards/governed-runtime-drill-model.md)
 - [Temporal operations](../../components/temporal/operations.md)
+- [Security contract review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-01-temporal-controlled-commissioning-proof-contract.md)
+- [authorization schema](https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-authorization.schema.json)
+- [result schema](https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json)

@@ -7,6 +7,18 @@ targetEnvironment: dev-integration
 targetLanes:
   - devint
 evidenceOwner: platform-engineering
+sourceEnablement:
+  status: contract-only
+  implementationWorkItemRef: openproject://work_packages/792
+  snapshotAllowed: false
+  requiredControls:
+    - capture-preauthorization-baseline-artifact
+    - validate-authorization-artifact-and-digest
+    - enforce-semantic-binding-uniqueness
+    - verify-rfc8785-claims-approval-bindings
+    - consume-authorization-atomically
+    - verify-immutable-baseline-digest
+    - emit-controlled-proof-result
 authorization:
   required: true
   artifactType: controlled-runtime-proof-authorization
@@ -40,6 +52,11 @@ authorization:
     terminationConditions:
       - exact-baseline-restored
       - governed-exception-recorded
+resultArtifact:
+  required: true
+  artifactType: controlled-runtime-proof-result
+  schemaRef: https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json
+  schemaVersion: 1
 scope:
   sourceRepos:
     - platform-engineering
@@ -65,9 +82,9 @@ scope:
       summary: WGCF worker for the permit-bound validation and readiness activity queue.
 preconditions:
   - id: exact-authorization-bound
-    summary: Bind one unexpired permit reference and digest before the baseline snapshot is created.
+    summary: Bind one unexpired permit whose baseline reference and digest match the immutable artifact captured before issuance.
   - id: baseline-attestations-complete
-    summary: Capture the exact non-running or existing pre-proof state and bind an evidence ref for every scoped surface before any mutation.
+    summary: Import and verify the pre-issued baseline artifact and operator-reviewable evidence for every scoped surface before any mutation.
   - id: source-state-declared
     summary: Record the exact source revisions and immutable runtime artifacts named by the permit.
   - id: security-and-operator-approval-bound

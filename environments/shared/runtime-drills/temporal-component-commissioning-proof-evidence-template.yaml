@@ -1,0 +1,195 @@
+schema_version: 1
+id: temporal-component-commissioning-proof-evidence
+title: Temporal controlled component commissioning proof evidence pack
+run:
+  runId: ""
+  profileId: ""
+  title: ""
+  authorityType: ""
+  drillType: ""
+  createdAt: ""
+  createdBy: ""
+  runDir: ""
+  contractPath: ""
+  evidenceOwner: ""
+  authorizationRef: ""
+  authorizationDigest: ""
+authoritativeArtifacts:
+  runManifest: run.yaml
+  baselineSnapshot: baseline.yaml
+  verificationLedger: verification.yaml
+  restoreLedger: restore.yaml
+  evidencePack: evidence.yaml
+baselineAttestation:
+  captureStatus: pending
+  sourceRepos: []
+  surfaceAttestations:
+    - id: temporal-runtime
+      lane: devint
+      ownerRepo: platform-engineering
+      summary: Permit-bound Temporal runtime, PostgreSQL persistence, namespace, identities, and task queues.
+      status: pending
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: oos-validation-readiness-worker
+      lane: devint
+      ownerRepo: operator-orchestration-service
+      summary: OOS worker for the exact validation-readiness-run definition and queue generation.
+      status: pending
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: wgcf-readiness-activity-worker
+      lane: devint
+      ownerRepo: workspace-governance-control-fabric
+      summary: WGCF worker for the permit-bound validation and readiness activity queue.
+      status: pending
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+activationSummary:
+  status: pending
+  records: []
+verificationResults:
+  checks:
+    - id: permit-and-scope-bindings
+      category: authorization
+      summary: The run and every participating owner match the exact permit reference, digest, scope, and validity window.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: nominal-orchestration-receipt
+      category: orchestration
+      summary: One validation-readiness-run completes with correlated OOS and WGCF receipts.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: restart-and-replay
+      category: durability
+      summary: Worker and Temporal restarts preserve deterministic progress and replay compatibility.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: idempotency-and-control
+      category: control
+      summary: Duplicate suppression and cancellation preserve one bounded, reviewable outcome.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: dependency-and-identity-failures
+      category: failure-boundary
+      summary: Unavailable dependency, wrong identity, and wrong queue attempts fail closed without extra effects.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: payload-boundary
+      category: data-boundary
+      summary: Workflow and activity payloads remain reference-only, bounded, and free of raw secret or context material.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: backup-and-restore
+      category: persistence
+      summary: The permit-bound backup and restore scenario preserves the expected Temporal persistence state.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: exact-baseline-restore
+      category: restore
+      summary: Every scoped runtime and worker surface matches the captured pre-proof baseline after removal and restore.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      evidenceRef: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+exceptionRegister:
+  entries: []
+supplementalRecords: []
+restoreAttestation:
+  restoreMode: exact-baseline
+  surfaces:
+    - id: temporal-runtime
+      summary: Remove the scoped runtime and restore namespace, storage, credential, and operator-local state to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: oos-validation-readiness-worker
+      summary: Restore the OOS worker, queue polling, and process state to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+    - id: wgcf-readiness-activity-worker
+      summary: Restore the WGCF activity worker, queue polling, and process state to the captured baseline.
+      status: pending
+      decision: null
+      justification: ""
+      owner: ""
+      reviewOn: ""
+      note: ""
+      updatedAt: ""
+      updatedBy: ""
+finalAssessment:
+  outcome: pending
+  recordedAt: ""
+  recordedBy: ""
+  note: ""

@@ -86,8 +86,8 @@ scope:
       kind: host-control
       summary: Required host bridge surfaces used by OpenClaw stage/runtime control.
 preconditions:
-  - id: baseline-snapshot-captured
-    summary: Capture the pre-drill baseline before any activation or lifecycle change.
+  - id: baseline-attestations-complete
+    summary: Capture the snapshot and bind an evidence ref for every scoped pre-drill surface before activation or lifecycle change.
   - id: local-source-state-declared
     summary: Record the exact local repo refs or worktrees that back the drill authority.
   - id: estate-scope-acknowledged

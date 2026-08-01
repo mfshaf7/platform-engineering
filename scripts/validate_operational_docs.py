@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import copy
 import re
 from pathlib import Path
 import subprocess
+import tempfile
 
 import yaml
 
@@ -490,6 +492,160 @@ def validate_openproject_platform_admin_surface(errors: list[str], repo_root: Pa
         )
 
 
+def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
+    profiles_root = repo_root / "environments" / "shared" / "runtime-drills"
+    required_profile = profiles_root / "temporal-component-commissioning-proof.yaml"
+    if not required_profile.exists():
+        errors.append(f"{required_profile}: missing Temporal commissioning drill profile")
+    profile_paths = sorted(
+        path
+        for path in profiles_root.glob("*.yaml")
+        if not path.name.endswith("-evidence-template.yaml")
+    )
+    if not profile_paths:
+        errors.append(f"{profiles_root}: no runtime-drill profiles found")
+        return
+    validator = repo_root / "scripts" / "platform_drill.py"
+    for profile_path in profile_paths:
+        completed = subprocess.run(
+            [
+                "python3",
+                str(validator),
+                "plan",
+                "--profile-path",
+                str(profile_path),
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout).strip()
+            errors.append(f"{profile_path}: runtime-drill profile invalid\n{detail}")
+    if required_profile.exists():
+        temporal_profile = yaml.safe_load(required_profile.read_text(encoding="utf-8")) or {}
+        generic_profile = copy.deepcopy(temporal_profile)
+        generic_profile["id"] = "example-component-commissioning-proof"
+        generic_profile["title"] = "Example component commissioning proof"
+        generic_profile["sourceEnablement"]["implementationWorkItemRef"] = (
+            "openproject://work_packages/999"
+        )
+        generic_profile["authorization"]["targetProfileId"] = (
+            "example-component-dev-integration"
+        )
+        generic_profile["authorization"]["securityReviewRef"] = (
+            "security://reviews/example-component-commissioning-proof"
+        )
+        for source_role in ("permitIssuer", "executor"):
+            generic_profile["authorization"][source_role] = {
+                "ownerRepo": "example-component-owner",
+                "sourceReviewWorkItemRef": "openproject://work_packages/999",
+                "mergedSourceRequiredBeforeSecurityAuthorization": True,
+            }
+        with tempfile.TemporaryDirectory(prefix="generic-commissioning-profile-") as temp_dir:
+            generic_profile_path = Path(temp_dir) / "example-component-commissioning-proof.yaml"
+            generic_profile_path.write_text(
+                yaml.safe_dump(generic_profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                [
+                    "python3",
+                    str(validator),
+                    "plan",
+                    "--profile-path",
+                    str(generic_profile_path),
+                    "--format",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                detail = (completed.stderr or completed.stdout).strip()
+                errors.append(
+                    "component-commissioning-proof generic source binding is invalid\n"
+                    + detail
+                )
+
+            generic_profile["sourceEnablement"]["status"] = "source-reviewed"
+            generic_profile["sourceEnablement"]["snapshotAllowed"] = True
+            generic_profile_path.write_text(
+                yaml.safe_dump(generic_profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            with tempfile.TemporaryDirectory(
+                prefix="generic-commissioning-denial-"
+            ) as output_root:
+                completed = subprocess.run(
+                    [
+                        "python3",
+                        str(validator),
+                        "snapshot",
+                        "--profile-path",
+                        str(generic_profile_path),
+                        "--run-id",
+                        "generic-source-reviewed-validation",
+                        "--operator",
+                        "validator",
+                        "--authorization-ref",
+                        "artifact://controlled-proof/validation-only",
+                        "--authorization-digest",
+                        "sha256:" + "a" * 64,
+                        "--output-root",
+                        output_root,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                detail = (completed.stderr or completed.stdout).strip()
+                if (
+                    completed.returncode == 0
+                    or "commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
+                    not in detail
+                ):
+                    errors.append(
+                        "generic commissioning snapshot must fail closed without a permit validator and consumer"
+                    )
+                if any(Path(output_root).iterdir()):
+                    errors.append(
+                        "denied generic commissioning snapshot created local state"
+                    )
+
+        with tempfile.TemporaryDirectory(prefix="temporal-proof-denial-") as output_root:
+            completed = subprocess.run(
+                [
+                    "python3",
+                    str(validator),
+                    "snapshot",
+                    "--profile-path",
+                    str(required_profile),
+                    "--run-id",
+                    "contract-only-validation",
+                    "--operator",
+                    "validator",
+                    "--authorization-ref",
+                    "artifact://controlled-proof/validation-only",
+                    "--authorization-digest",
+                    "sha256:" + "a" * 64,
+                    "--output-root",
+                    output_root,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            detail = (completed.stderr or completed.stdout).strip()
+            if completed.returncode == 0 or "contract-only until ART #792" not in detail:
+                errors.append(
+                    f"{required_profile}: commissioning snapshot must fail closed until #792"
+                )
+            if any(Path(output_root).iterdir()):
+                errors.append(
+                    f"{required_profile}: denied commissioning snapshot created local state"
+                )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate workflow docs coverage and operational doc freshness markers."
@@ -514,6 +670,7 @@ def main() -> int:
     validate_doc_truth_markers(errors, repo_root)
     validate_workflow_docs(errors, repo_root)
     validate_openproject_platform_admin_surface(errors, repo_root)
+    validate_runtime_drill_profiles(errors, repo_root)
     validate_wsl_host_bootstrap_contract(errors, repo_root)
     validate_windows_portproxy_reconciliation(errors, repo_root)
     validate_legacy_operator_separation(errors, repo_root)

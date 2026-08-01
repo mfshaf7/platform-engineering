@@ -45,7 +45,7 @@ Compatibility note:
 ## Operator Entrypoints
 
 ```bash
-make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill
+make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill
 ```
 
 Direct script form:
@@ -63,7 +63,7 @@ make platform-drill ACTION=plan PROFILE=full-platform-runtime-drill
 ## Minimum Flow
 
 1. Plan the drill and read the declared surfaces.
-2. Capture the baseline before activation.
+2. Capture the snapshot and attest every scoped baseline surface before activation.
 3. Activate only through the declared owner controls.
 4. Record verification results for every required environment-complete check.
 5. Hold the runtime window open until required manual testing is finished.
@@ -97,6 +97,16 @@ and the authoritative files:
 - `verification.yaml`
 - `restore.yaml`
 - `evidence.yaml`
+
+For every surface returned by `ACTION=plan`, attest its exact pre-run state:
+
+```bash
+make platform-drill ACTION=attest-baseline RUN=<run-dir> SURFACE=<surface-id> ACTOR=<operator> EVIDENCE_REF="<durable-pre-run-evidence-ref>" NOTE="<observed state>"
+```
+
+Repeat the command once per surface. Snapshot creation leaves the baseline
+pending, and activation is denied until every scoped attestation has an
+operator-reviewable evidence ref.
 
 ## Verification Rule
 

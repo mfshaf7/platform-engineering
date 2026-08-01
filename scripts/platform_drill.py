@@ -21,6 +21,36 @@ PHASES = {"baseline", "activation", "verification", "restore", "general"}
 PROFILE_ALIASES = {
     "full-platform-runtime-drill": "environment-complete-runtime-drill",
 }
+CONTROLLED_PROOF_CLEANUP_ACTIONS = [
+    "remove-scoped-runtime",
+    "restore-exact-baseline",
+    "record-restore-evidence",
+    "record-governed-exception",
+]
+CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS = [
+    "exact-baseline-restored",
+    "governed-exception-recorded",
+]
+CONTROLLED_PROOF_SOURCE_ENABLEMENT = {
+    "status": "contract-only",
+    "implementationWorkItemRef": "openproject://work_packages/792",
+    "snapshotAllowed": False,
+    "requiredControls": [
+        "capture-preauthorization-baseline-artifact",
+        "validate-authorization-artifact-and-digest",
+        "enforce-semantic-binding-uniqueness",
+        "verify-rfc8785-claims-approval-bindings",
+        "consume-authorization-atomically",
+        "verify-immutable-baseline-digest",
+        "emit-controlled-proof-result",
+    ],
+}
+CONTROLLED_PROOF_RESULT_ARTIFACT = {
+    "required": True,
+    "artifactType": "controlled-runtime-proof-result",
+    "schemaRef": "https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json",
+    "schemaVersion": 1,
+}
 
 
 def now_utc() -> str:
@@ -120,6 +150,170 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     missing = sorted(required_top_level - payload.keys())
     if missing:
         raise SystemExit(f"{path} is missing required keys: {', '.join(missing)}")
+
+    authorization = payload.get("authorization")
+    if payload.get("drillType") == "component-commissioning-proof":
+        source_enablement = payload.get("sourceEnablement")
+        required_source_enablement_fields = {
+            "status",
+            "implementationWorkItemRef",
+            "snapshotAllowed",
+            "requiredControls",
+        }
+        if not isinstance(source_enablement, dict):
+            raise SystemExit(
+                f"{path} component-commissioning-proof requires sourceEnablement"
+            )
+        source_enablement_fields = set(source_enablement)
+        if source_enablement_fields != required_source_enablement_fields:
+            raise SystemExit(
+                f"{path} sourceEnablement keys must exactly be: "
+                + ", ".join(sorted(required_source_enablement_fields))
+            )
+        if source_enablement.get("status") not in {"contract-only", "source-reviewed"}:
+            raise SystemExit(
+                f"{path} sourceEnablement.status must be contract-only or source-reviewed"
+            )
+        if not str(source_enablement.get("implementationWorkItemRef") or "").strip():
+            raise SystemExit(
+                f"{path} sourceEnablement.implementationWorkItemRef must not be empty"
+            )
+        if not isinstance(source_enablement.get("snapshotAllowed"), bool):
+            raise SystemExit(f"{path} sourceEnablement.snapshotAllowed must be boolean")
+        if source_enablement.get("snapshotAllowed") is not False:
+            raise SystemExit(
+                f"{path} commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
+            )
+        required_controls = source_enablement.get("requiredControls")
+        if (
+            not isinstance(required_controls, list)
+            or not required_controls
+            or any(
+                not isinstance(control, str) or not control.strip()
+                for control in required_controls
+            )
+            or len(required_controls) != len(set(required_controls))
+        ):
+            raise SystemExit(
+                f"{path} sourceEnablement.requiredControls must be a unique non-empty list"
+            )
+
+        result_artifact = payload.get("resultArtifact")
+        if not isinstance(result_artifact, dict):
+            raise SystemExit(
+                f"{path} component-commissioning-proof requires resultArtifact"
+            )
+        if set(result_artifact) != {
+            "required",
+            "artifactType",
+            "schemaRef",
+            "schemaVersion",
+        } or (
+            result_artifact.get("required") is not True
+            or not str(result_artifact.get("artifactType") or "").strip()
+            or not str(result_artifact.get("schemaRef") or "").strip()
+            or not isinstance(result_artifact.get("schemaVersion"), int)
+            or result_artifact.get("schemaVersion", 0) < 1
+        ):
+            raise SystemExit(
+                f"{path} resultArtifact must bind a required versioned result schema"
+            )
+
+        is_temporal_commissioning_profile = (
+            payload.get("id") == "temporal-component-commissioning-proof"
+        )
+        if is_temporal_commissioning_profile:
+            if source_enablement != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
+                raise SystemExit(
+                    f"{path} sourceEnablement must remain contract-only until Platform source review #792 lands"
+                )
+            if result_artifact != CONTROLLED_PROOF_RESULT_ARTIFACT:
+                raise SystemExit(
+                    f"{path} resultArtifact must bind the controlled-runtime-proof-result schema"
+                )
+        required_authorization_fields = {
+            "required",
+            "artifactType",
+            "schemaRef",
+            "policyRef",
+            "securityReviewRef",
+            "targetProfileId",
+            "targetProfileLifecycle",
+            "maxRuns",
+            "permitIssuer",
+            "executor",
+            "terminalCleanupAuthority",
+        }
+        if not isinstance(authorization, dict):
+            raise SystemExit(
+                f"{path} component-commissioning-proof requires an authorization object"
+            )
+        missing_authorization = sorted(
+            required_authorization_fields - authorization.keys()
+        )
+        if missing_authorization:
+            raise SystemExit(
+                f"{path} authorization is missing required keys: "
+                + ", ".join(missing_authorization)
+            )
+        expected_authorization = {
+            "required": True,
+            "artifactType": "controlled-runtime-proof-authorization",
+            "targetProfileLifecycle": "build-admitted",
+            "maxRuns": 1,
+        }
+        for key, expected in expected_authorization.items():
+            if authorization.get(key) != expected:
+                raise SystemExit(f"{path} authorization.{key} must be {expected!r}")
+        for key in ("schemaRef", "policyRef", "securityReviewRef", "targetProfileId"):
+            if not str(authorization.get(key) or "").strip():
+                raise SystemExit(f"{path} authorization.{key} must not be empty")
+        for source_role in ("permitIssuer", "executor"):
+            source_binding = authorization.get(source_role)
+            if not isinstance(source_binding, dict):
+                raise SystemExit(
+                    f"{path} authorization.{source_role} must bind reviewed source"
+                )
+            if set(source_binding) != {
+                "ownerRepo",
+                "sourceReviewWorkItemRef",
+                "mergedSourceRequiredBeforeSecurityAuthorization",
+            } or (
+                not str(source_binding.get("ownerRepo") or "").strip()
+                or not str(source_binding.get("sourceReviewWorkItemRef") or "").strip()
+                or source_binding.get("mergedSourceRequiredBeforeSecurityAuthorization")
+                is not True
+            ):
+                raise SystemExit(
+                    f"{path} authorization.{source_role} must bind owner, source review work, and pre-authorization merge"
+                )
+        if is_temporal_commissioning_profile:
+            expected_reviewed_source = {
+                "ownerRepo": "platform-engineering",
+                "sourceReviewWorkItemRef": "openproject://work_packages/792",
+                "mergedSourceRequiredBeforeSecurityAuthorization": True,
+            }
+            for source_role in ("permitIssuer", "executor"):
+                if authorization.get(source_role) != expected_reviewed_source:
+                    raise SystemExit(
+                        f"{path} authorization.{source_role} must bind Platform source review #792"
+                    )
+        terminal_cleanup = authorization.get("terminalCleanupAuthority") or {}
+        expected_terminal_cleanup = {
+            "mode": "exact-baseline-restore-only",
+            "appliesTo": "already-started-run",
+            "triggerScope": "any-triggered-stop-condition",
+            "scopeBinding": "exact-captured-restore-scope",
+            "newProofActionsDenied": True,
+            "scopeExpansionDenied": True,
+            "runtimeRetentionDenied": True,
+            "permittedActions": CONTROLLED_PROOF_CLEANUP_ACTIONS,
+            "terminationConditions": CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS,
+        }
+        if terminal_cleanup != expected_terminal_cleanup:
+            raise SystemExit(
+                f"{path} authorization.terminalCleanupAuthority must preserve the fixed restore-only boundary for every stop condition"
+            )
 
     scope = payload["scope"]
     if not isinstance(scope, dict):
@@ -254,6 +448,16 @@ def validate_evidence_template(path: Path, payload: dict[str, Any], contract: di
         raise SystemExit(
             f"{path} baselineAttestation.surfaceAttestations must match the contract surfaces exactly"
         )
+    for surface in surface_attestations:
+        surface_id = str(surface.get("id") or "").strip()
+        if str(surface.get("status") or "pending").strip() != "pending":
+            raise SystemExit(
+                f"{path} baseline surface {surface_id!r} status must start as pending"
+            )
+        if str(surface.get("evidenceRef") or "").strip():
+            raise SystemExit(
+                f"{path} baseline surface {surface_id!r} evidenceRef must start empty"
+            )
 
     activation = payload.get("activationSummary") or {}
     if str(activation.get("status") or "").strip() != "pending":
@@ -290,6 +494,13 @@ def validate_evidence_template(path: Path, payload: dict[str, Any], contract: di
     final_assessment = payload.get("finalAssessment") or {}
     if str(final_assessment.get("outcome") or "").strip() != "pending":
         raise SystemExit(f"{path} finalAssessment.outcome must start as pending")
+    if (contract.get("authorization") or {}).get("required"):
+        run_template = payload.get("run") or {}
+        for field in ("authorizationRef", "authorizationDigest"):
+            if field not in run_template:
+                raise SystemExit(
+                    f"{path} run template must include {field} for an authorized drill"
+                )
     return payload
 
 
@@ -317,6 +528,16 @@ def parse_args() -> argparse.Namespace:
     snapshot.add_argument("--operator", default="", help="operator running the drill")
     snapshot.add_argument("--note", default="", help="optional note for the snapshot record")
     snapshot.add_argument(
+        "--authorization-ref",
+        default="",
+        help="durable reference to the exact authorization artifact",
+    )
+    snapshot.add_argument(
+        "--authorization-digest",
+        default="",
+        help="sha256 digest of the exact authorization artifact",
+    )
+    snapshot.add_argument(
         "--output-root",
         default="",
         help="optional drill-state root; defaults to <repo>/.platform-drills",
@@ -332,6 +553,17 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="optional surface ids activated by this note; defaults to all scoped surfaces",
     )
+
+    attest_baseline = subparsers.add_parser("attest-baseline")
+    attest_baseline.add_argument("--run", required=True, help="run directory created by snapshot")
+    attest_baseline.add_argument("--surface", required=True, help="scoped surface id")
+    attest_baseline.add_argument("--actor", required=True, help="operator or automation actor")
+    attest_baseline.add_argument(
+        "--evidence-ref",
+        required=True,
+        help="operator-reviewable evidence for the exact pre-run state",
+    )
+    attest_baseline.add_argument("--note", default="", help="baseline attestation note")
 
     verify = subparsers.add_parser("verify")
     verify.add_argument("--run", required=True, help="run directory created by snapshot")
@@ -511,7 +743,10 @@ def build_evidence(
         "contractPath": "contract.yaml",
         "evidenceOwner": contract["evidenceOwner"],
     }
-    evidence["baselineAttestation"]["captureStatus"] = "captured"
+    authorization = run_manifest.get("authorization") or {}
+    if authorization:
+        evidence["run"]["authorizationRef"] = authorization["ref"]
+        evidence["run"]["authorizationDigest"] = authorization["digest"]
     evidence["baselineAttestation"]["sourceRepos"] = [
         {
             "repo": repo_name,
@@ -595,6 +830,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
         "restoreMode": contract["restoreMode"],
         "profilePath": str(profile_path),
         "evidenceTemplatePath": str(evidence_template_path_value),
+        "availability": (contract.get("sourceEnablement") or {}).get("status", "available"),
+        "snapshotAllowed": (contract.get("sourceEnablement") or {}).get(
+            "snapshotAllowed", True
+        ),
     }
     if args.format == "json":
         print(json.dumps(summary, indent=2))
@@ -610,6 +849,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"source_repos={', '.join(summary['sourceRepos'])}")
     print(f"surface_count={summary['surfaceCount']} check_count={summary['checkCount']}")
     print(f"restore_mode={summary['restoreMode']} evidence_owner={summary['evidenceOwner']}")
+    print(
+        f"availability={summary['availability']} "
+        f"snapshot_allowed={str(bool(summary['snapshotAllowed'])).lower()}"
+    )
     print(f"profile_path={summary['profilePath']}")
     print(f"evidence_template_path={summary['evidenceTemplatePath']}")
     print("preconditions:")
@@ -634,10 +877,39 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    source_enablement = contract.get("sourceEnablement") or {}
+    if contract.get("drillType") == "component-commissioning-proof":
+        implementation_ref = str(
+            source_enablement.get("implementationWorkItemRef") or "reviewed implementation"
+        )
+        implementation_label = (
+            "ART #792"
+            if implementation_ref == "openproject://work_packages/792"
+            else implementation_ref
+        )
+        if contract.get("id") == "temporal-component-commissioning-proof":
+            raise SystemExit(
+                f"commissioning snapshot denied: contract-only until {implementation_label} "
+                "lands the reviewed permit issuer and proof executor"
+            )
+        raise SystemExit(
+            "commissioning snapshot denied: permit artifact validation and atomic "
+            f"consumption are not implemented for {implementation_label}"
+        )
     evidence_template_path_value, evidence_template = evidence_template_payload(
         args.repo_root, profile_path, contract
     )
     run_id = args.run_id.strip() or default_run_id(contract["id"])
+    authorization_contract = contract.get("authorization") or {}
+    authorization_ref = args.authorization_ref.strip()
+    authorization_digest = args.authorization_digest.strip()
+    if authorization_contract.get("required"):
+        if not authorization_ref:
+            raise SystemExit("--authorization-ref is required for this drill profile")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", authorization_digest):
+            raise SystemExit(
+                "--authorization-digest must be a lowercase sha256:<64-hex> digest"
+            )
     run_dir = output_root(args.repo_root, args.output_root) / contract["id"] / run_id
     if run_dir.exists():
         raise SystemExit(f"run directory already exists: {run_dir}")
@@ -660,13 +932,30 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
         "profilePath": str(profile_path),
         "evidenceTemplatePath": str(evidence_template_path_value),
         "phaseStatus": {
-            "baseline": "captured",
+            "baseline": "pending",
             "activation": "pending",
             "verification": "pending",
             "restore": "pending",
         },
         "evidenceRecords": [],
     }
+    if authorization_contract.get("required"):
+        manifest["authorization"] = {
+            "artifactType": authorization_contract["artifactType"],
+            "ref": authorization_ref,
+            "digest": authorization_digest,
+            "targetProfileId": authorization_contract["targetProfileId"],
+            "targetProfileLifecycle": authorization_contract[
+                "targetProfileLifecycle"
+            ],
+            "maxRuns": authorization_contract["maxRuns"],
+            "securityReviewRef": authorization_contract["securityReviewRef"],
+            "permitIssuer": copy.deepcopy(authorization_contract["permitIssuer"]),
+            "executor": copy.deepcopy(authorization_contract["executor"]),
+            "terminalCleanupAuthority": copy.deepcopy(
+                authorization_contract["terminalCleanupAuthority"]
+            ),
+        }
     baseline_payload = build_baseline(contract, args.repo_root)
     dump_yaml(paths["run"], manifest)
     dump_yaml(paths["baseline"], baseline_payload)
@@ -707,11 +996,14 @@ def load_run(
 def write_run(
     paths: dict[str, Path],
     run_payload: dict[str, Any],
+    baseline: dict[str, Any] | None = None,
     verification: dict[str, Any] | None = None,
     restore: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
 ) -> None:
     dump_yaml(paths["run"], run_payload)
+    if baseline is not None:
+        dump_yaml(paths["baseline"], baseline)
     if verification is not None:
         dump_yaml(paths["verification"], verification)
     if restore is not None:
@@ -720,17 +1012,119 @@ def write_run(
         dump_yaml(paths["evidence"], evidence)
 
 
+def baseline_attestation_complete(
+    baseline: dict[str, Any], evidence: dict[str, Any]
+) -> bool:
+    baseline_surfaces = baseline.get("runtimeSurfaces") or []
+    evidence_surfaces = (evidence.get("baselineAttestation") or {}).get(
+        "surfaceAttestations"
+    ) or []
+    if not baseline_surfaces or not evidence_surfaces:
+        return False
+    baseline_by_id = {
+        str(surface.get("id") or "").strip(): surface for surface in baseline_surfaces
+    }
+    evidence_by_id = {
+        str(surface.get("id") or "").strip(): surface for surface in evidence_surfaces
+    }
+    if "" in baseline_by_id or "" in evidence_by_id:
+        return False
+    if set(baseline_by_id) != set(evidence_by_id):
+        return False
+    return all(
+        baseline_by_id[surface_id].get("baselineState") == "attested"
+        and bool(str(baseline_by_id[surface_id].get("evidenceRef") or "").strip())
+        and evidence_by_id[surface_id].get("status") == "attested"
+        and bool(str(evidence_by_id[surface_id].get("evidenceRef") or "").strip())
+        for surface_id in baseline_by_id
+    )
+
+
+def cmd_attest_baseline(args: argparse.Namespace) -> int:
+    _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    if run_payload.get("phaseStatus", {}).get("activation") != "pending":
+        raise SystemExit("baseline attestation denied after activation has been recorded")
+    actor = args.actor.strip()
+    if not actor:
+        raise SystemExit("--actor must not be blank")
+    surfaces = baseline.get("runtimeSurfaces") or []
+    target = next((surface for surface in surfaces if surface.get("id") == args.surface), None)
+    if target is None:
+        raise SystemExit(f"unknown baseline surface id {args.surface!r}")
+
+    evidence_ref = args.evidence_ref.strip()
+    if not evidence_ref:
+        raise SystemExit("--evidence-ref must not be blank")
+    updated_at = now_utc()
+    target["baselineState"] = "attested"
+    target["evidenceRef"] = evidence_ref
+    target["note"] = args.note.strip()
+    target["updatedAt"] = updated_at
+    target["updatedBy"] = actor
+
+    baseline_attestation = evidence.get("baselineAttestation") or {}
+    evidence_surfaces = baseline_attestation.get("surfaceAttestations") or []
+    evidence_target = next(
+        (surface for surface in evidence_surfaces if surface.get("id") == args.surface),
+        None,
+    )
+    if evidence_target is None:
+        raise SystemExit(f"evidence file is missing baseline surface {args.surface!r}")
+    evidence_target["status"] = "attested"
+    evidence_target["evidenceRef"] = evidence_ref
+    evidence_target["note"] = args.note.strip()
+    evidence_target["updatedAt"] = updated_at
+    evidence_target["updatedBy"] = actor
+
+    if baseline_attestation_complete(baseline, evidence):
+        run_payload["phaseStatus"]["baseline"] = "captured"
+        baseline_attestation["captureStatus"] = "captured"
+    else:
+        run_payload["phaseStatus"]["baseline"] = "in-progress"
+        baseline_attestation["captureStatus"] = "in-progress"
+    evidence["baselineAttestation"] = baseline_attestation
+    write_run(paths, run_payload, baseline=baseline, evidence=evidence)
+    print(
+        f"run_id={run_payload['run_id']} baseline_surface={args.surface} "
+        f"status={target['baselineState']}"
+    )
+    return 0
+
+
 def cmd_activate(args: argparse.Namespace) -> int:
     _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    actor = args.actor.strip()
+    if not actor:
+        raise SystemExit("--actor must not be blank")
+    baseline_surfaces = baseline.get("runtimeSurfaces") or []
+    if (
+        run_payload.get("phaseStatus", {}).get("baseline") != "captured"
+        or (evidence.get("baselineAttestation") or {}).get("captureStatus") != "captured"
+        or not baseline_attestation_complete(baseline, evidence)
+    ):
+        raise SystemExit(
+            "activation denied: attest every scoped baseline surface with evidence first"
+        )
+    known_surface_ids = {
+        str(surface.get("id"))
+        for surface in baseline_surfaces
+        if str(surface.get("id") or "").strip()
+    }
     scoped_surfaces = args.surface or [
         str(surface.get("id"))
-        for surface in (baseline.get("runtimeSurfaces") or [])
+        for surface in baseline_surfaces
         if str(surface.get("id") or "").strip()
     ]
+    unknown_surface_ids = set(scoped_surfaces) - known_surface_ids
+    if unknown_surface_ids:
+        raise SystemExit(
+            "activation contains unknown scoped surfaces: "
+            + ", ".join(sorted(unknown_surface_ids))
+        )
     run_payload.setdefault("activation", {})
     run_payload["activation"] = {
         "status": "recorded",
-        "actor": args.actor.strip(),
+        "actor": actor,
         "surfaces": scoped_surfaces,
         "note": args.note.strip(),
         "recordedAt": now_utc(),
@@ -741,7 +1135,7 @@ def cmd_activate(args: argparse.Namespace) -> int:
     activation_summary.setdefault("records", [])
     activation_summary["records"].append(
         {
-            "actor": args.actor.strip(),
+            "actor": actor,
             "surfaces": scoped_surfaces,
             "note": args.note.strip(),
             "recordedAt": now_utc(),
@@ -897,6 +1291,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         pending_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "pending")
         blocked_checks = sum(1 for check in verification.get("checks", []) if check.get("status") == "blocked")
         pending_restore = sum(1 for surface in restore.get("surfaces", []) if surface.get("status") == "pending")
+        pending_baseline = sum(
+            1
+            for surface in baseline.get("runtimeSurfaces", [])
+            if surface.get("baselineState") != "attested"
+            or not str(surface.get("evidenceRef") or "").strip()
+        )
         summary = {
             "run_id": run_payload["run_id"],
             "profile_id": run_payload["profile_id"],
@@ -904,6 +1304,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             "phaseStatus": run_payload.get("phaseStatus", {}),
             "sourceRepoCount": len((baseline.get("sourceRepos") or {}).keys()),
             "runtimeSurfaceCount": len(baseline.get("runtimeSurfaces") or []),
+            "pendingBaselineCount": pending_baseline,
             "pendingCheckCount": pending_checks,
             "blockedCheckCount": blocked_checks,
             "pendingRestoreCount": pending_restore,
@@ -925,6 +1326,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         )
         print(
             f"source_repos={summary['sourceRepoCount']} runtime_surfaces={summary['runtimeSurfaceCount']} "
+            f"pending_baseline={summary['pendingBaselineCount']} "
             f"pending_checks={summary['pendingCheckCount']} blocked_checks={summary['blockedCheckCount']} "
             f"pending_restore={summary['pendingRestoreCount']} evidence_records={summary['evidenceRecordCount']} "
             f"exceptions={summary['exceptionCount']}"
@@ -962,6 +1364,8 @@ def main() -> int:
         return cmd_plan(args)
     if args.command == "snapshot":
         return cmd_snapshot(args)
+    if args.command == "attest-baseline":
+        return cmd_attest_baseline(args)
     if args.command == "activate":
         return cmd_activate(args)
     if args.command == "verify":

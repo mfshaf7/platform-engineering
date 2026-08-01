@@ -30,7 +30,7 @@ The contract and evidence model live here:
 The shared operator entrypoint is:
 
 ```bash
-make platform-drill ACTION=<plan|snapshot|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill
+make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill
 ```
 
 The entrypoint runs:
@@ -102,6 +102,16 @@ Inspect a captured run:
 ```bash
 make platform-drill ACTION=status RUN=<run-dir>
 ```
+
+Attest the exact pre-run state for each surface listed by the profile before
+any owner activation:
+
+```bash
+make platform-drill ACTION=attest-baseline RUN=<run-dir> SURFACE=<surface-id> ACTOR=<operator> EVIDENCE_REF="<durable-pre-run-evidence-ref>" NOTE="<observed state>"
+```
+
+Repeat this action once for every scoped surface. Activation remains denied
+until the baseline ledger and evidence pack both contain every attestation.
 
 Record that live activation for a scoped surface occurred through its owning
 operator path:
@@ -187,6 +197,16 @@ The directory contains:
 - `verification.yaml`
 - `restore.yaml`
 - `evidence.yaml`
+
+For every surface returned by `ACTION=plan`, record the exact pre-run state
+before using an owner command:
+
+```bash
+make platform-drill ACTION=attest-baseline RUN=<run-dir> SURFACE=<surface-id> ACTOR=<operator> EVIDENCE_REF="<durable-pre-run-evidence-ref>" NOTE="<observed state>"
+```
+
+The snapshot alone is not a completed baseline. `ACTION=activate` fails closed
+until every scoped surface has an operator-reviewable evidence ref.
 
 Do not activate stage or prod first and capture the baseline later. That would
 destroy the exact-baseline restore model.

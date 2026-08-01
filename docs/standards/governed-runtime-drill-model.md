@@ -68,6 +68,7 @@ Use these drill types when the workflow is a `runtime-drill`.
 | `active-stack-runtime-drill` | exercises the current operator-critical mixed-lane stack without claiming estate-complete environment coverage |
 | `environment-complete-runtime-drill` | exercises every admitted lane and product environment declared in scope for that environment class |
 | `lifecycle-control-drill` | exercises runtime state transitions and bounded control behavior without claiming full functional verification |
+| `component-commissioning-proof` | exercises one exact build-admitted component scope under an expiring permit, then restores the exact baseline without activating the component lifecycle |
 
 Do not call an OpenClaw-only drill an active-stack drill just because it
 touches prod.
@@ -148,6 +149,11 @@ At minimum, that snapshot must capture the in-scope truth for:
 If the operator cannot prove what the pre-drill state was, the restore contract
 is already broken and the drill should stop.
 
+Creating a drill ledger does not itself attest the baseline. The ledger must
+remain pending until every scoped runtime surface has an operator-reviewable
+baseline evidence reference. Activation must fail closed while any required
+surface attestation is absent.
+
 ## Verification Pack Rule
 
 Each drill must use an explicit verification pack rather than an improvised
@@ -202,6 +208,14 @@ If the operator deliberately decides to keep the post-drill state instead of
 restoring the baseline, the work is no longer a drill. It must be reclassified
 as a governed change and follow the normal approval, rollout, and evidence
 path.
+
+For an expiring permit-gated drill, expiry denies every new proof action and
+retry. If the run already started, only restore-only cleanup authority survives:
+remove the scoped runtime, restore the exact captured baseline, record restore
+evidence, or record a governed exception. That authority stays bound to the
+started run and captured restore scope and terminates when restoration completes
+or the exception is recorded. It cannot widen scope, retain the runtime, or
+restart proof execution.
 
 ## Restore Proof Rule
 

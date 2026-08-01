@@ -147,11 +147,22 @@ def load_ed25519_public_key(path: Path) -> bytes:
         raise ContractError(f"cannot read receipt public key {path}: {exc}") from exc
     if not raw or len(raw) > MAX_PUBLIC_KEY_BYTES:
         raise ContractError("receipt public key has an invalid size")
-    result = subprocess.run(
-        ["openssl", "pkey", "-pubin", "-in", str(path), "-text", "-noout"],
-        capture_output=True,
-        text=True,
-    )
+    with tempfile.TemporaryDirectory() as temporary:
+        snapshot_path = Path(temporary) / "public-key.pem"
+        snapshot_path.write_bytes(raw)
+        result = subprocess.run(
+            [
+                "openssl",
+                "pkey",
+                "-pubin",
+                "-in",
+                str(snapshot_path),
+                "-text",
+                "-noout",
+            ],
+            capture_output=True,
+            text=True,
+        )
     if result.returncode != 0 or "ED25519" not in result.stdout.upper():
         raise ContractError("receipt public key must be a valid Ed25519 public key")
     return raw
@@ -693,8 +704,10 @@ def verify_receipt_attestation(
         raise ContractError("receipt attestation signature is not Ed25519-sized")
 
     with tempfile.TemporaryDirectory() as temporary:
+        public_key_snapshot_path = Path(temporary) / "public-key.pem"
         payload_path = Path(temporary) / "payload.json"
         signature_path = Path(temporary) / "signature.bin"
+        public_key_snapshot_path.write_bytes(public_key_raw)
         payload_path.write_bytes(payload_raw)
         signature_path.write_bytes(signature)
         result = subprocess.run(
@@ -704,7 +717,7 @@ def verify_receipt_attestation(
                 "-verify",
                 "-pubin",
                 "-inkey",
-                str(public_key_path),
+                str(public_key_snapshot_path),
                 "-rawin",
                 "-in",
                 str(payload_path),

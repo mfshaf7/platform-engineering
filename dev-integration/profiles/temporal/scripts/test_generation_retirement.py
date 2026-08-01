@@ -11,10 +11,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPT = Path(__file__).with_name("generation_retirement.py")
 sys.path.insert(0, str(SCRIPT.parent))
 
+import generation_retirement as generation_retirement_module  # noqa: E402
 from generation_retirement import ContractError, canonical_json  # noqa: E402
 
 
@@ -472,6 +474,53 @@ class GenerationRetirementTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("signature verification failed", result.stderr)
+
+    def test_verification_uses_the_pinned_public_key_snapshot(self) -> None:
+        manifest, retirement_digest = self.issue()
+        receipt = self.attest_receipt(self.receipt(manifest, retirement_digest))
+        pinned_public_key = self.receipt_public_key.read_bytes()
+        replacement_private_key = self.root / "replacement-private.pem"
+        replacement_public_key = self.root / "replacement-public.pem"
+        subprocess.run(
+            [
+                "openssl",
+                "genpkey",
+                "-algorithm",
+                "ED25519",
+                "-out",
+                str(replacement_private_key),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "openssl",
+                "pkey",
+                "-in",
+                str(replacement_private_key),
+                "-pubout",
+                "-out",
+                str(replacement_public_key),
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+        def load_then_replace(_path: Path) -> bytes:
+            self.receipt_public_key.write_bytes(replacement_public_key.read_bytes())
+            return pinned_public_key
+
+        with mock.patch.object(
+            generation_retirement_module,
+            "load_ed25519_public_key",
+            side_effect=load_then_replace,
+        ):
+            generation_retirement_module.verify_receipt_attestation(
+                receipt,
+                manifest,
+                self.receipt_public_key,
+            )
 
     def test_verify_rejects_an_unpinned_signature_encoding_contract(self) -> None:
         manifest, retirement_digest = self.issue()

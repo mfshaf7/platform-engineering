@@ -22,6 +22,7 @@ sys.path.insert(0, str(PROFILE_ROOT))
 
 import controlled_proof.authority as authority_module  # noqa: E402
 import controlled_proof.execution as execution_module  # noqa: E402
+import controlled_proof.model as model_module  # noqa: E402
 from controlled_proof.authority import (  # noqa: E402
     EXPECTED_BASELINE_STATES,
     EXPECTED_RUNTIME_IDENTITIES,
@@ -1445,6 +1446,18 @@ class ControlledProofTests(unittest.TestCase):
         with self.assertRaisesRegex(ControlledProofError, "refusing to overwrite"):
             write_json_atomic(target, {"value": "replacement"})
         self.assertEqual(read_bounded_json(target), {"value": "original"})
+
+    def test_exclusive_writer_never_exposes_a_partial_final_artifact(self) -> None:
+        target = self.root / "exclusive.json"
+        with mock.patch.object(
+            model_module.os,
+            "link",
+            side_effect=OSError("injected atomic-link failure"),
+        ):
+            with self.assertRaisesRegex(OSError, "injected"):
+                create_json_exclusive(target, {"value": "stable"})
+        self.assertFalse(target.exists())
+        self.assertEqual(list(self.root.glob(".exclusive.json.*")), [])
 
     def test_bounded_reader_returns_digest_of_the_validated_bytes(self) -> None:
         target = self.root / "bounded.json"

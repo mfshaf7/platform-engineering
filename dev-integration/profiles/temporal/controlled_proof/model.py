@@ -375,33 +375,37 @@ def create_json_exclusive(
 ) -> str:
     destination = _private_artifact_destination(path)
     rendered = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        dir=destination.parent,
+        text=True,
+    )
+    temporary_path = Path(temporary_name)
     try:
-        descriptor = os.open(
-            destination,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
-        )
-    except FileExistsError as exc:
-        raise ControlledProofError(
-            conflict_message
-            or (
-                "authorization was already consumed: "
-                f"{payload.get('authorization_id', 'unknown')}"
-            )
-        ) from exc
-    try:
+        os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(rendered)
             handle.flush()
             os.fsync(handle.fileno())
+        try:
+            os.link(temporary_path, destination)
+        except FileExistsError as exc:
+            raise ControlledProofError(
+                conflict_message
+                or (
+                    "authorization was already consumed: "
+                    f"{payload.get('authorization_id', 'unknown')}"
+                )
+            ) from exc
+        temporary_path.unlink()
+        os.chmod(destination, 0o600)
         directory_fd = os.open(destination.parent, os.O_RDONLY)
         try:
             os.fsync(directory_fd)
         finally:
             os.close(directory_fd)
-    except Exception:
-        destination.unlink(missing_ok=True)
-        raise
+    finally:
+        temporary_path.unlink(missing_ok=True)
     return sha256_bytes(rendered)
 
 

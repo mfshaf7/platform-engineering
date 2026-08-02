@@ -42,8 +42,12 @@ This drill type:
   execution claim, atomic operator-scope lease, output root, namespaces, and
   collision-resistant state root before every internal shell mutation
 - executes runtime shell actions from a detached clean checkout of the
-  permit-bound Platform revision and releases the scope lease only after
+  permit-bound Platform revision, byte-attests the complete executed profile
+  independently of Git index state, and releases the scope lease only after
   successful runtime-surface restore verification
+- serializes execution setup per authorization, persists owner contexts before
+  claim acquisition, and permits only an exact claim/context retry while the
+  original operator-scope lease remains active
 - stops new proof work on source drift while allowing only terminal restore and
   cleanup to validate the immutable authority and historical Security artifact
   without requiring current checkouts to remain at their pre-drift revisions

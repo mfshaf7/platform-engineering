@@ -88,6 +88,7 @@ def controlled_subprocess_environment(
         "TZ": "UTC",
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_CONFIG_SYSTEM": "/dev/null",
+        "GIT_NO_REPLACE_OBJECTS": "1",
         "GIT_OPTIONAL_LOCKS": "0",
     }
     if overrides:

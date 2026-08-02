@@ -100,7 +100,11 @@ before runtime activation.
   verification releases the lease
 - runtime shell actions execute from a detached clean checkout of the
   permit-bound Platform revision, including bounded cleanup after current
-  checkout drift
+  checkout drift; the complete Temporal profile is byte-attested against the
+  commit tree and extra files are denied independently of Git index state
+- one per-authorization execution lock serializes context preparation, claim
+  acquisition, and exact retry; owner contexts are idempotent and the same
+  active claim may resume only its bound output root and operator-scope lease
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied
 - PostgreSQL administration credentials are separate from the non-superuser

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import os
+import stat
 import sys
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Iterator
 
 from .authority import (
+    ContractSet,
     OWNER_RUNTIME_IMAGES,
     GitSourceResolver,
     LocalBaselineProbe,
+    authorization_storage_key,
     assemble_claims,
     capture_baseline,
     claim_execution,
@@ -76,6 +83,66 @@ def _validate_execution_output_root(
         raise ControlledProofError(
             "controlled proof output root must equal the canonical Platform run output"
         )
+
+
+@contextmanager
+def _execution_lock(
+    platform_root: Path,
+    authorization_id: str,
+) -> Iterator[None]:
+    lock_root = (
+        platform_root / ".platform-drills" / "_controlled-proof-execution-locks"
+    )
+    if lock_root.is_symlink():
+        raise ControlledProofError(
+            "controlled proof execution lock root must not be a symlink"
+        )
+    lock_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root_stat = lock_root.stat()
+    if (
+        not stat.S_ISDIR(root_stat.st_mode)
+        or root_stat.st_uid != os.geteuid()
+        or root_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        raise ControlledProofError(
+            "controlled proof execution lock root must be private and operator-owned"
+        )
+    lock_path = lock_root / f"{authorization_storage_key(authorization_id)}.lock"
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_RDWR
+            | os.O_CREAT
+            | os.O_CLOEXEC
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+    except OSError as exc:
+        raise ControlledProofError(
+            "controlled proof execution lock is unavailable"
+        ) from exc
+    try:
+        lock_stat = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(lock_stat.st_mode)
+            or lock_stat.st_uid != os.geteuid()
+            or lock_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        ):
+            raise ControlledProofError(
+                "controlled proof execution lock must be private and operator-owned"
+            )
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ControlledProofError(
+                "controlled proof execution is already active for this authorization"
+            ) from exc
+        yield
+    finally:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
 
 
 def _add_workspace(parser: argparse.ArgumentParser) -> None:
@@ -301,17 +368,39 @@ def execute_command(args: argparse.Namespace) -> int:
         _path(args.consumption_receipt),
         expected_digest=args.consumption_receipt_digest,
     )
+    platform_root = workspace_root / "platform-engineering"
+    with _execution_lock(platform_root, authorization["authorization_id"]):
+        return _execute_authorized_command(
+            args=args,
+            workspace_root=workspace_root,
+            platform_root=platform_root,
+            contracts=contracts,
+            authorization_path=authorization_path,
+            authorization=authorization,
+            baseline=baseline,
+            receipt=receipt,
+        )
+
+
+def _execute_authorized_command(
+    *,
+    args: argparse.Namespace,
+    workspace_root: Path,
+    platform_root: Path,
+    contracts: ContractSet,
+    authorization_path: Path,
+    authorization: dict[str, Any],
+    baseline: dict[str, Any],
+    receipt: dict[str, Any],
+) -> int:
     output_root = _path(args.output_root)
     _validate_execution_output_root(
         workspace_root,
         authorization,
         output_root,
     )
-    if output_root.exists() or output_root.is_symlink():
-        raise ControlledProofError(
-            "controlled proof output root must not exist before execution"
-        )
-    platform_root = workspace_root / "platform-engineering"
+    if output_root.is_symlink():
+        raise ControlledProofError("controlled proof output root must not be a symlink")
     consumption_root = (
         platform_root / ".platform-drills" / "_controlled-proof-consumptions"
     )
@@ -322,6 +411,15 @@ def execute_command(args: argparse.Namespace) -> int:
         raise ControlledProofError(
             "execution requires the canonical Platform consumption receipt"
         )
+    contexts = project_owner_contexts(
+        authorization=authorization,
+        authorization_digest=args.authorization_digest,
+        consumption_receipt=receipt,
+        consumption_receipt_digest=args.consumption_receipt_digest,
+        baseline=baseline,
+        output_root=output_root / "owner-contexts",
+        contracts=contracts,
+    )
     execution_claim, execution_claim_path, execution_claim_digest = claim_execution(
         authorization=authorization,
         authorization_digest=args.authorization_digest,
@@ -332,15 +430,6 @@ def execute_command(args: argparse.Namespace) -> int:
         execution_root=(
             platform_root / ".platform-drills" / "_controlled-proof-executions"
         ),
-        contracts=contracts,
-    )
-    contexts = project_owner_contexts(
-        authorization=authorization,
-        authorization_digest=args.authorization_digest,
-        consumption_receipt=receipt,
-        consumption_receipt_digest=args.consumption_receipt_digest,
-        baseline=baseline,
-        output_root=output_root / "owner-contexts",
         contracts=contracts,
     )
     control = LocalK3sRuntimeControl(

@@ -39,6 +39,16 @@ runtime:
         matching-interrupted-claim-resume-allowed: true
         cross-authorization-sharing-allowed: false
         release: after-successful-scoped-baseline-verification
+      execution_setup_transaction:
+        lock: per-authorization-local-filesystem-lock
+        owner-context-persistence: idempotent-before-claim
+        exact-active-claim-resume: same-output-root-and-scope-lease-only
+        concurrent-exact-resume: denied
+      executor_source_integrity:
+        scope: complete-temporal-profile-tree
+        evidence: permit-bound-commit-blob-bytes
+        git-index-state-trusted: false
+        additional-files-allowed: false
       snapshot_transaction:
         lock: per-authorization-local-filesystem-lock
         receipt-resume: exact-matching-uncommitted-snapshot-only

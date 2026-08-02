@@ -52,4 +52,6 @@ internal runtime script rejects caller flags and identifiers unless the full
 source-controlled Security approval, consumed permit, execution claim, and
 exact operator-scope lease revalidate first. The script itself is loaded from
 the clean permit-bound Platform revision rather than the mutable current
-checkout.
+checkout. Its complete profile tree is compared byte-for-byte with the exact
+commit and may contain no extra files, so Git index flags cannot hide executor
+changes. One per-authorization lock serializes initial setup and exact retry.

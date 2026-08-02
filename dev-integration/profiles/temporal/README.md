@@ -70,7 +70,9 @@ the clean permit-bound `security-architecture` revision, and every internal
 runtime mutation revalidates the full consumed authority and collision-
 resistant runtime scope. One atomic lease prevents concurrent authorizations
 from sharing that scope, and runtime shell actions execute from a detached
-checkout of the permit-bound Platform revision:
+checkout whose complete Temporal profile is verified byte-for-byte against the
+permit-bound Platform revision. Exact retries are serialized and may resume
+only the same owner contexts, execution claim, output root, and active lease:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help

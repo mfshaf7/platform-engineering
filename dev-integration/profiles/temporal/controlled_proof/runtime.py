@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import secrets
 import shutil
 import socket
+import stat
 import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -82,6 +84,7 @@ RUNTIME_SCRIPT_ACTIONS = {
 TERMINAL_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
 WGCF_RECEIPT_PREFIX = "wgcf-controlled-proof://receipts/"
 WGCF_RECEIPT_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
+PERMIT_BOUND_EXECUTOR_TREE = PurePosixPath("dev-integration/profiles/temporal")
 
 
 class _NoRedirectHandler(urlrequest.HTTPRedirectHandler):
@@ -1046,6 +1049,40 @@ class LocalK3sRuntimeControl:
         expected_revision = self.authorization["executor"]["source_revision"]
         head = self._run(
             ["git", "-C", str(snapshot), "rev-parse", "HEAD"],
+            env={"GIT_NO_REPLACE_OBJECTS": "1"},
+            allow_expired=allow_expired,
+        ).stdout
+        object_format = self._run(
+            ["git", "-C", str(snapshot), "rev-parse", "--show-object-format"],
+            env={"GIT_NO_REPLACE_OBJECTS": "1"},
+            allow_expired=allow_expired,
+        ).stdout
+        self._run(
+            [
+                "git",
+                "-C",
+                str(snapshot),
+                "fsck",
+                "--strict",
+                "--no-dangling",
+                expected_revision,
+            ],
+            env={"GIT_NO_REPLACE_OBJECTS": "1"},
+            allow_expired=allow_expired,
+        )
+        tree_listing = self._run(
+            [
+                "git",
+                "-C",
+                str(snapshot),
+                "ls-tree",
+                "-r",
+                "--full-tree",
+                expected_revision,
+                "--",
+                str(PERMIT_BOUND_EXECUTOR_TREE),
+            ],
+            env={"GIT_NO_REPLACE_OBJECTS": "1"},
             allow_expired=allow_expired,
         ).stdout
         status = self._run(
@@ -1055,14 +1092,115 @@ class LocalK3sRuntimeControl:
                 str(snapshot),
                 "status",
                 "--short",
-                "--untracked-files=no",
+                "--untracked-files=all",
             ],
+            env={"GIT_NO_REPLACE_OBJECTS": "1"},
             allow_expired=allow_expired,
         ).stdout
         if head != expected_revision or status:
             raise ControlledProofError(
                 "permit-bound Platform executor snapshot changed during execution"
             )
+        self._assert_executor_tree_bytes(
+            snapshot=snapshot,
+            object_format=object_format,
+            tree_listing=tree_listing,
+        )
+
+    @staticmethod
+    def _assert_executor_tree_bytes(
+        *,
+        snapshot: Path,
+        object_format: str,
+        tree_listing: str,
+    ) -> None:
+        if object_format not in {"sha1", "sha256"}:
+            raise ControlledProofError("permit-bound Git object format is unsupported")
+
+        expected_files: dict[PurePosixPath, tuple[str, str]] = {}
+        for line in tree_listing.splitlines():
+            metadata, separator, raw_path = line.partition("\t")
+            fields = metadata.split()
+            if separator != "\t" or len(fields) != 3:
+                raise ControlledProofError("permit-bound executor tree is malformed")
+            mode, object_type, object_id = fields
+            relative = PurePosixPath(raw_path)
+            if (
+                object_type != "blob"
+                or mode not in {"100644", "100755"}
+                or relative.is_absolute()
+                or ".." in relative.parts
+                or not relative.is_relative_to(PERMIT_BOUND_EXECUTOR_TREE)
+            ):
+                raise ControlledProofError("permit-bound executor tree is outside policy")
+            expected_files[relative] = (mode, object_id)
+        if not expected_files:
+            raise ControlledProofError("permit-bound executor tree is empty")
+
+        snapshot_root = snapshot.resolve()
+        profile_root = snapshot.joinpath(*PERMIT_BOUND_EXECUTOR_TREE.parts)
+        current_path = snapshot
+        for part in PERMIT_BOUND_EXECUTOR_TREE.parts:
+            current_path /= part
+            if current_path.is_symlink() or not current_path.is_dir():
+                raise ControlledProofError(
+                    "permit-bound executor tree contains an invalid directory"
+                )
+        for current_root, directory_names, file_names in os.walk(
+            profile_root,
+            topdown=True,
+            followlinks=False,
+        ):
+            current = Path(current_root)
+            for name in [*directory_names, *file_names]:
+                candidate = current / name
+                if candidate.is_symlink():
+                    raise ControlledProofError(
+                        "permit-bound executor tree contains a symbolic link"
+                    )
+            for name in file_names:
+                relative = PurePosixPath((current / name).relative_to(snapshot).as_posix())
+                if relative not in expected_files:
+                    raise ControlledProofError(
+                        "permit-bound executor tree contains an untracked file"
+                    )
+
+        for relative, (expected_mode, expected_object_id) in expected_files.items():
+            path = snapshot.joinpath(*relative.parts)
+            try:
+                resolved_parent = path.parent.resolve(strict=True)
+                descriptor = os.open(
+                    path,
+                    os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+                )
+            except OSError as exc:
+                raise ControlledProofError(
+                    f"permit-bound executor file is unavailable: {relative}"
+                ) from exc
+            try:
+                file_stat = os.fstat(descriptor)
+                if (
+                    not stat.S_ISREG(file_stat.st_mode)
+                    or not resolved_parent.is_relative_to(snapshot_root)
+                ):
+                    raise ControlledProofError(
+                        f"permit-bound executor path is not a regular file: {relative}"
+                    )
+                with os.fdopen(descriptor, "rb", closefd=False) as handle:
+                    content = handle.read()
+            finally:
+                os.close(descriptor)
+
+            hasher = hashlib.new(object_format)
+            hasher.update(f"blob {len(content)}\0".encode("ascii"))
+            hasher.update(content)
+            executable = bool(file_stat.st_mode & 0o111)
+            if hasher.hexdigest() != expected_object_id or executable != (
+                expected_mode == "100755"
+            ):
+                raise ControlledProofError(
+                    f"permit-bound executor bytes changed during execution: {relative}"
+                )
 
     def _run(
         self,

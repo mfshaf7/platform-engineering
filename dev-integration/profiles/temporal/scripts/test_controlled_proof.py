@@ -21,6 +21,7 @@ REPO_ROOT = PROFILE_ROOT.parents[2]
 sys.path.insert(0, str(PROFILE_ROOT))
 
 import controlled_proof.authority as authority_module  # noqa: E402
+import controlled_proof.execution as execution_module  # noqa: E402
 from controlled_proof.authority import (  # noqa: E402
     EXPECTED_BASELINE_STATES,
     EXPECTED_RUNTIME_IDENTITIES,
@@ -44,6 +45,7 @@ from controlled_proof.authority import (  # noqa: E402
 )
 from controlled_proof.cli import (  # noqa: E402
     _canonical_execution_output_root,
+    _execution_lock,
     _validate_execution_output_root,
     validate_claims_command,
 )
@@ -718,6 +720,100 @@ class ControlledProofTests(unittest.TestCase):
             / "controlled-proof-runtime.sh",
         )
         self.assertNotEqual(expected_temporal_namespace, "governance-alice-example")
+
+    def test_executor_snapshot_rejects_index_hidden_and_ignored_changes(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+        )
+        snapshot = control.platform_executor_snapshot
+        script_path = (
+            snapshot
+            / "dev-integration"
+            / "profiles"
+            / "temporal"
+            / "scripts"
+            / "controlled-proof-runtime.sh"
+        )
+        ignore_path = (
+            snapshot
+            / "dev-integration"
+            / "profiles"
+            / "temporal"
+            / ".gitignore"
+        )
+        script_path.parent.mkdir(parents=True)
+        script_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        script_path.chmod(0o755)
+        ignore_path.write_text("scripts/sitecustomize.py\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q"], cwd=snapshot, check=True)
+        subprocess.run(["git", "add", "."], cwd=snapshot, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Controlled Proof Test",
+                "-c",
+                "user.email=controlled-proof@example.invalid",
+                "commit",
+                "-qm",
+                "executor snapshot",
+            ],
+            cwd=snapshot,
+            check=True,
+        )
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=snapshot,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        control.authorization["executor"]["source_revision"] = revision
+        control._assert_platform_executor_snapshot()
+
+        relative_script = script_path.relative_to(snapshot)
+        subprocess.run(
+            ["git", "update-index", "--assume-unchanged", str(relative_script)],
+            cwd=snapshot,
+            check=True,
+        )
+        script_path.write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
+        with self.assertRaisesRegex(ControlledProofError, "executor bytes changed"):
+            control._assert_platform_executor_snapshot()
+
+        subprocess.run(
+            ["git", "update-index", "--no-assume-unchanged", str(relative_script)],
+            cwd=snapshot,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "--", str(relative_script)],
+            cwd=snapshot,
+            check=True,
+        )
+        ignored_injection = script_path.parent / "sitecustomize.py"
+        ignored_injection.write_text("raise RuntimeError('injected')\n", encoding="utf-8")
+        with self.assertRaisesRegex(ControlledProofError, "untracked file"):
+            control._assert_platform_executor_snapshot()
 
     def test_runtime_renderer_preserves_exact_collision_resistant_scope(self) -> None:
         operator_id = "alice.example"
@@ -1532,12 +1628,65 @@ class ControlledProofTests(unittest.TestCase):
                 run_dir, execution_claim_path
             )
 
-    def test_controlled_execution_claim_is_single_use(self) -> None:
+    def test_controlled_execution_claim_resumes_only_the_exact_binding(self) -> None:
         fixture = ProofFixture(self.root)
         output_root = self.root / "claimed-output"
-        fixture.claim_for(output_root)
-        with self.assertRaisesRegex(ControlledProofError, "already claimed"):
+        first_claim, first_path, first_digest = fixture.claim_for(output_root)
+        resumed_claim, resumed_path, resumed_digest = fixture.claim_for(output_root)
+        self.assertEqual(resumed_claim, first_claim)
+        self.assertEqual(resumed_path, first_path)
+        self.assertEqual(resumed_digest, first_digest)
+        with self.assertRaisesRegex(ControlledProofError, "different bindings"):
             fixture.claim_for(self.root / "other-output")
+
+    def test_owner_context_projection_resumes_after_partial_persistence(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "resumable-owner-contexts"
+        original_write = execution_module.write_json_atomic
+        write_count = 0
+
+        def fail_second_write(path, payload):
+            nonlocal write_count
+            write_count += 1
+            if write_count == 2:
+                raise OSError("injected context persistence failure")
+            return original_write(path, payload)
+
+        with mock.patch.object(
+            execution_module,
+            "write_json_atomic",
+            side_effect=fail_second_write,
+        ):
+            with self.assertRaisesRegex(OSError, "injected"):
+                project_owner_contexts(
+                    authorization=fixture.authorization,
+                    authorization_digest=fixture.authorization_digest,
+                    consumption_receipt=fixture.consumption,
+                    consumption_receipt_digest=fixture.consumption_digest,
+                    baseline=fixture.baseline,
+                    output_root=output_root,
+                    contracts=fixture.contracts,
+                )
+
+        resumed = project_owner_contexts(
+            authorization=fixture.authorization,
+            authorization_digest=fixture.authorization_digest,
+            consumption_receipt=fixture.consumption,
+            consumption_receipt_digest=fixture.consumption_digest,
+            baseline=fixture.baseline,
+            output_root=output_root,
+            contracts=fixture.contracts,
+        )
+        self.assertEqual(resumed.oos, read_bounded_json(resumed.oos_path))
+        self.assertEqual(resumed.wgcf, read_bounded_json(resumed.wgcf_path))
+
+    def test_execution_lock_serializes_exact_authorization_resume(self) -> None:
+        platform_root = self.root / "platform-engineering"
+        authorization_id = "platform-controlled-proof://authorizations/session-001"
+        with _execution_lock(platform_root, authorization_id):
+            with self.assertRaisesRegex(ControlledProofError, "already active"):
+                with _execution_lock(platform_root, authorization_id):
+                    self.fail("concurrent execution lock unexpectedly acquired")
 
     def test_operator_scope_lease_denies_a_second_authorization_until_release(
         self,

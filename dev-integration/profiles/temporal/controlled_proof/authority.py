@@ -1467,16 +1467,78 @@ def claim_execution(
     authorization_key = authorization_storage_key(authorization["authorization_id"])
     execution_root = execution_root.expanduser().resolve()
     claim_path = execution_root / f"{authorization_key}.json"
-    if claim_path.exists() or claim_path.is_symlink():
-        raise ControlledProofError(
-            "controlled proof execution was already claimed for authorization "
-            f"{authorization['authorization_id']}"
-        )
     lease_root = execution_root.parent / "_controlled-proof-scope-leases"
     output_root_digest = sha256_bytes(
         str(output_root.expanduser().resolve()).encode("utf-8")
     )
     lease_path = execution_scope_lease_path(operator_scope, lease_root)
+    expected_claim_fields = {
+        "schema_version": 2,
+        "execution_claim_id": (
+            f"platform-controlled-proof://execution-claims/{authorization_key}"
+        ),
+        "authorization_id": authorization["authorization_id"],
+        "authorization_digest": authorization_digest,
+        "consumption_receipt_ref": consumption_receipt["receipt_id"],
+        "consumption_receipt_digest": consumption_receipt_digest,
+        "commissioning_session_id": authorization["commissioning_session"][
+            "commissioning_session_id"
+        ],
+        "executor_source_revision": authorization["executor"]["source_revision"],
+        "output_root_digest": output_root_digest,
+        "operator_scope": operator_scope,
+        "scope_lease_ref": execution_scope_lease_ref(operator_scope),
+    }
+
+    def resume_existing_claim() -> tuple[dict[str, Any], Path, str]:
+        existing_claim, existing_digest = read_bounded_json_with_digest(claim_path)
+        require_exact_keys(
+            existing_claim,
+            {
+                *expected_claim_fields,
+                "scope_lease_digest",
+                "claimed_at",
+            },
+            "execution claim",
+        )
+        mismatched_claim = [
+            field
+            for field, expected_value in expected_claim_fields.items()
+            if existing_claim.get(field) != expected_value
+        ]
+        if mismatched_claim:
+            raise ControlledProofError(
+                "controlled proof execution was already claimed with different bindings: "
+                + ", ".join(mismatched_claim)
+            )
+        existing_claimed_time = parse_timestamp(
+            existing_claim["claimed_at"], "execution claimed_at"
+        )
+        if (
+            existing_claimed_time < consumed_time
+            or (
+                expires_time - existing_claimed_time
+            ).total_seconds() <= TERMINAL_CLEANUP_START_RESERVE_SECONDS
+        ):
+            raise ControlledProofError(
+                "existing execution claim is outside permit authority"
+            )
+        normalize_digest(existing_claim["scope_lease_digest"], "scope lease digest")
+        validate_execution_scope_lease(
+            authorization=authorization,
+            authorization_digest=authorization_digest,
+            consumption_receipt=consumption_receipt,
+            consumption_receipt_digest=consumption_receipt_digest,
+            execution_claim=existing_claim,
+            output_root=output_root,
+            operator_scope=operator_scope,
+            lease_root=lease_root,
+        )
+        return existing_claim, claim_path, existing_digest
+
+    if claim_path.exists() or claim_path.is_symlink():
+        return resume_existing_claim()
+
     lease = {
         "schema_version": 1,
         "lease_id": execution_scope_lease_ref(operator_scope),
@@ -1516,6 +1578,7 @@ def claim_execution(
                 f"controlled proof operator scope is already leased: {operator_scope}"
             )
         claimed_timestamp = existing_lease["acquired_at"]
+        lease = existing_lease
         claimed_time = parse_timestamp(claimed_timestamp, "execution scope acquired_at")
         if claimed_time < consumed_time or claimed_time >= expires_time:
             raise ControlledProofError(
@@ -1541,14 +1604,19 @@ def claim_execution(
         "scope_lease_digest": lease_digest,
         "claimed_at": claimed_timestamp,
     }
-    claim_digest = create_json_exclusive(
-        claim_path,
-        claim,
-        conflict_message=(
-            "controlled proof execution was already claimed for authorization "
-            f"{authorization['authorization_id']}"
-        ),
-    )
+    try:
+        claim_digest = create_json_exclusive(
+            claim_path,
+            claim,
+            conflict_message=(
+                "controlled proof execution was already claimed for authorization "
+                f"{authorization['authorization_id']}"
+            ),
+        )
+    except ControlledProofError:
+        if not claim_path.is_file() or claim_path.is_symlink():
+            raise
+        return resume_existing_claim()
     return claim, claim_path, claim_digest
 
 

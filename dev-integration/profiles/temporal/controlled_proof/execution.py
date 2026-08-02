@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +25,7 @@ from .model import (
     operator_scope_id,
     parse_timestamp,
     read_bounded_json,
+    read_bounded_json_with_digest,
     require_exact_keys,
     sha256_bytes,
     sha256_file,
@@ -98,7 +101,41 @@ def project_owner_contexts(
         consumption_receipt_digest,
         contracts,
     )
-    session_started_at = started_at or now_utc()
+    output_root = output_root.expanduser().absolute()
+    if output_root.is_symlink():
+        raise ControlledProofError("owner context root must not be a symbolic link")
+    output_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    output_root_stat = output_root.stat()
+    if (
+        not stat.S_ISDIR(output_root_stat.st_mode)
+        or output_root_stat.st_uid != os.geteuid()
+        or output_root_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        raise ControlledProofError(
+            "owner context root must be private and operator-owned"
+        )
+    output_root = output_root.resolve()
+    oos_path = output_root / "oos-execution-context.json"
+    wgcf_path = output_root / "wgcf-owner-context.json"
+    existing_oos: dict[str, Any] | None = None
+    existing_oos_digest: str | None = None
+    if oos_path.exists() or oos_path.is_symlink():
+        existing_oos, existing_oos_digest = read_bounded_json_with_digest(oos_path)
+        existing_session = existing_oos.get("commissioning_session")
+        if not isinstance(existing_session, dict) or not isinstance(
+            existing_session.get("started_at"), str
+        ):
+            raise ControlledProofError(
+                "existing OOS execution context does not bind a session start"
+            )
+        existing_started_at = existing_session["started_at"]
+        if started_at is not None and started_at != existing_started_at:
+            raise ControlledProofError(
+                "existing owner contexts use a different session start"
+            )
+        session_started_at = existing_started_at
+    else:
+        session_started_at = started_at or now_utc()
     consumed_at = parse_timestamp(consumption_receipt["consumed_at"], "consumed_at")
     session_started = parse_timestamp(session_started_at, "session started_at")
     expires_at = parse_timestamp(
@@ -209,10 +246,14 @@ def project_owner_contexts(
     }
     validate_schema(oos_context, contracts.oos_context, "OOS execution context")
 
-    output_root = output_root.resolve()
-    output_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    oos_path = output_root / "oos-execution-context.json"
-    oos_digest = write_json_atomic(oos_path, oos_context)
+    if existing_oos is not None:
+        if existing_oos != oos_context or existing_oos_digest is None:
+            raise ControlledProofError(
+                "existing OOS execution context does not match this authorization"
+            )
+        oos_digest = existing_oos_digest
+    else:
+        oos_digest = write_json_atomic(oos_path, oos_context)
 
     wgcf_context = {
         "schema_version": 1,
@@ -248,8 +289,14 @@ def project_owner_contexts(
         "source_revisions": oos_context["source_revisions"],
     }
     validate_schema(wgcf_context, contracts.wgcf_context, "WGCF owner context")
-    wgcf_path = output_root / "wgcf-owner-context.json"
-    wgcf_digest = write_json_atomic(wgcf_path, wgcf_context)
+    if wgcf_path.exists() or wgcf_path.is_symlink():
+        existing_wgcf, wgcf_digest = read_bounded_json_with_digest(wgcf_path)
+        if existing_wgcf != wgcf_context:
+            raise ControlledProofError(
+                "existing WGCF owner context does not match this authorization"
+            )
+    else:
+        wgcf_digest = write_json_atomic(wgcf_path, wgcf_context)
     return ProjectedContexts(
         oos=oos_context,
         oos_path=oos_path,

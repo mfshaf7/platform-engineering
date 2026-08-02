@@ -197,10 +197,19 @@ atomically acquires the canonical lease for that operator scope. Another
 authorization for the same scope is denied before it can prepare or clean up a
 runtime. The lease is released only after successful scoped baseline
 verification.
+The execute command holds one filesystem lock for the exact authorization.
+It projects or revalidates the immutable owner contexts before acquiring the
+claim and may resume only an identical existing claim with the same canonical
+output root and still-active scope lease. A partial owner-context write is
+therefore recoverable before runtime mutation without opening concurrent
+execution.
 Setting environment flags or plausible identifiers cannot bypass that gate.
 Before its first mutation the executor creates a detached, clean checkout of
 the permit-bound Platform revision. Every runtime shell action, including
-terminal cleanup after current-checkout drift, runs from that checkout. The
+terminal cleanup after current-checkout drift, runs from that checkout. Before
+each action, every tracked byte in the complete Temporal profile is compared
+with the permit-bound commit tree and any additional file is denied; mutable
+Git index flags are not accepted as integrity evidence. The
 executor installs only the permit-bound local runtime, projects immutable
 OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
 the final 120 seconds of the authorization window for starting exact-baseline

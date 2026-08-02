@@ -119,7 +119,20 @@ class FakeSourceResolver:
     def add_file(self, repo: str, relative_path: str, content: bytes) -> None:
         self.source_files[(repo, self.revisions[repo], relative_path)] = content
 
-    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes:
+    def read_file(
+        self,
+        repo: str,
+        revision: str,
+        relative_path: str,
+        *,
+        require_current_checkout: bool = True,
+    ) -> bytes:
+        if require_current_checkout:
+            current_revision, dirty = self.revision(repo)
+            if dirty or current_revision != revision:
+                raise ControlledProofError(
+                    "source artifact repo is not clean at its bound revision"
+                )
         try:
             return self.source_files[(repo, revision, relative_path)]
         except KeyError as exc:
@@ -614,6 +627,10 @@ class ControlledProofTests(unittest.TestCase):
             operator_scoped_dns_label("governance", "alice.example"),
             operator_scoped_dns_label("governance", "alice-example"),
         )
+        self.assertNotEqual(
+            operator_scoped_dns_label("governance", "Alice"),
+            operator_scoped_dns_label("governance", "alice"),
+        )
 
     def test_runtime_adapter_propagates_exact_collision_resistant_scope(self) -> None:
         fixture = ProofFixture(self.root / "fixture", operator_id="alice.example")
@@ -740,6 +757,39 @@ class ControlledProofTests(unittest.TestCase):
             )
         )
         self.assertNotEqual(temporal_namespace, "governance-alice-example")
+
+    def test_state_root_guard_accepts_exact_collision_resistant_scope(self) -> None:
+        operator_id = "Alice"
+        operator_scope = operator_scope_id(operator_id)
+        workspace_root = self.root / "workspace"
+        owner_root = workspace_root / "platform-engineering"
+        state_root = owner_root / ".dev-integration" / "temporal" / operator_scope
+        environment = controlled_subprocess_environment(
+            {
+                "CONTROLLED_PROOF_OPERATOR_SCOPE": operator_scope,
+                "DEVINT_OPERATOR": operator_id,
+                "DEVINT_PROFILE_ID": "temporal",
+                "DEVINT_STATE_ROOT": str(state_root),
+                "DEVINT_WORKSPACE_ROOT": str(owner_root),
+                "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": operator_scoped_dns_label(
+                    "governance", operator_id
+                ),
+            }
+        )
+        completed = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; assert_state_root_boundary',
+                "state-root-boundary-test",
+                str(PROFILE_ROOT / "scripts" / "common.sh"),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_temporal_restart_scenario_restarts_runtime_once(self) -> None:
         fixture = ProofFixture(self.root)
@@ -988,6 +1038,42 @@ class ControlledProofTests(unittest.TestCase):
                 operator_scope=operator_scope_id("alice.example"),
                 source_resolver=fixture.source,
             )
+
+        fixture.source.revisions["security-architecture"] = "f" * 40
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "source artifact repo is not clean at its bound revision",
+        ):
+            validate_runtime_action_binding(
+                action="prepare",
+                workspace_root=workspace_root,
+                bindings=bindings,
+                output_root=output_root,
+                kubernetes_namespace=operator_scoped_dns_label(
+                    "devint-temporal", "alice.example"
+                ),
+                temporal_namespace=expected_temporal_namespace,
+                state_root=controlled_runtime_state_root(
+                    workspace_root, "alice.example"
+                ),
+                operator_scope=operator_scope_id("alice.example"),
+                source_resolver=fixture.source,
+            )
+        validate_runtime_action_binding(
+            action="cleanup",
+            workspace_root=workspace_root,
+            bindings=bindings,
+            output_root=output_root,
+            kubernetes_namespace=operator_scoped_dns_label(
+                "devint-temporal", "alice.example"
+            ),
+            temporal_namespace=expected_temporal_namespace,
+            state_root=controlled_runtime_state_root(
+                workspace_root, "alice.example"
+            ),
+            operator_scope=operator_scope_id("alice.example"),
+            source_resolver=fixture.source,
+        )
 
     def test_claims_builder_derives_the_complete_reviewed_scope(self) -> None:
         fixture = ProofFixture(self.root)

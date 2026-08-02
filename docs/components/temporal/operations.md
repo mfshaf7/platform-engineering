@@ -190,10 +190,13 @@ The executor installs only the permit-bound local runtime, projects immutable
 OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
 the final 120 seconds of the authorization window for starting exact-baseline
 restore; normal proof commands are denied once that reserve is reached. A
-scenario failure stops new proof work; cleanup still removes the scoped runtime
-and verifies the exact baseline. If exact restoration or its terminal
-verification fails, the executor emits an immutable stopped-result draft and no
-final result.
+scenario failure stops new proof work; terminal restore and cleanup still
+validate the immutable permit, approvals, canonical consumption receipt,
+execution claim, exact scope, and historical Security artifact at the permit-
+bound revision before removing the scoped runtime. Current checkout drift or
+permit expiry cannot authorize new proof work and cannot prevent that bounded
+removal. If exact restoration or its terminal verification fails, the executor
+emits an immutable stopped-result draft and no final result.
 
 Record one governed exception against the run's exact captured restore scope.
 The controlled action requires the executor-created draft and cannot claim a
@@ -235,9 +238,9 @@ credentials, command output, and unbounded logs are not promoted as evidence.
 
 - immutable chart and image pins
 - collision-resistant operator-scoped Kubernetes and Temporal namespace rendering;
-  simple DNS-safe operator IDs remain readable, while lossy normalization or
-  truncation adds a deterministic SHA-256 suffix, and that exact scope also owns
-  the operator-local runtime state root
+  simple lowercase DNS-safe operator IDs remain readable, while case changes,
+  lossy normalization, or truncation add a deterministic SHA-256 suffix, and
+  that exact scope also owns the operator-local runtime state root
 - source-controlled Security approval provenance and complete consumed-authority
   revalidation before every internal runtime script mutation
 - 10Gi local-path PostgreSQL persistence

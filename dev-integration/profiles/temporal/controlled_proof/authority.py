@@ -227,7 +227,14 @@ class BaselineProbe(Protocol):
 class SourceResolver(Protocol):
     def revision(self, repo: str) -> tuple[str, bool]: ...
 
-    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes: ...
+    def read_file(
+        self,
+        repo: str,
+        revision: str,
+        relative_path: str,
+        *,
+        require_current_checkout: bool = True,
+    ) -> bytes: ...
 
 
 class GitSourceResolver:
@@ -246,18 +253,28 @@ class GitSourceResolver:
         )
         return commit, dirty
 
-    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes:
+    def read_file(
+        self,
+        repo: str,
+        revision: str,
+        relative_path: str,
+        *,
+        require_current_checkout: bool = True,
+    ) -> bytes:
         if repo not in WORKSPACE_REPOS:
             raise ControlledProofError(f"source repo is outside the proof boundary: {repo}")
         if REVISION_RE.fullmatch(revision) is None:
             raise ControlledProofError(f"source revision is invalid: {repo}")
         source_path = _source_relative_path(relative_path)
-        current_revision, dirty = self.revision(repo)
-        if dirty or current_revision != revision:
-            raise ControlledProofError(
-                f"source artifact repo is not clean at its bound revision: {repo}"
-            )
         repo_root = self.workspace_root / repo
+        if not (repo_root / ".git").exists():
+            raise ControlledProofError(f"source repo is unavailable: {repo}")
+        if require_current_checkout:
+            current_revision, dirty = self.revision(repo)
+            if dirty or current_revision != revision:
+                raise ControlledProofError(
+                    f"source artifact repo is not clean at its bound revision: {repo}"
+                )
         object_ref = f"{revision}:{source_path}"
         size_text = _run_checked(
             ["git", "-C", str(repo_root), "cat-file", "-s", object_ref]
@@ -789,6 +806,7 @@ def validate_approval(
     contracts: ContractSet,
     *,
     source_resolver: SourceResolver,
+    allow_source_checkout_drift: bool = False,
 ) -> None:
     validate_schema(approval, contracts.approval, f"{expected_role} artifact")
     if approval["approval_role"] != expected_role:
@@ -811,6 +829,7 @@ def validate_approval(
             approval,
             claims=claims,
             source_resolver=source_resolver,
+            allow_source_checkout_drift=allow_source_checkout_drift,
         )
 
 
@@ -819,6 +838,7 @@ def _validate_security_approval_provenance(
     *,
     claims: dict[str, Any],
     source_resolver: SourceResolver,
+    allow_source_checkout_drift: bool,
 ) -> None:
     provenance = approval.get("source_provenance")
     if not isinstance(provenance, dict):
@@ -843,6 +863,7 @@ def _validate_security_approval_provenance(
             "security-architecture",
             expected_revision,
             source_path,
+            require_current_checkout=not allow_source_checkout_drift,
         ),
         label="source-controlled security authorization",
     )
@@ -862,7 +883,7 @@ def validate_authorization(
     operator_approval_path: Path,
     security_approval_path: Path,
     at_time: datetime | None = None,
-    allow_expired_cleanup: bool = False,
+    allow_terminal_cleanup: bool = False,
 ) -> None:
     validate_schema(authorization, contracts.authorization, "authorization")
     validate_authorization_semantics(authorization)
@@ -887,6 +908,7 @@ def validate_authorization(
         claims_digest,
         contracts,
         source_resolver=source_resolver,
+        allow_source_checkout_drift=allow_terminal_cleanup,
     )
     validate_approval(
         security,
@@ -895,6 +917,7 @@ def validate_authorization(
         claims_digest,
         contracts,
         source_resolver=source_resolver,
+        allow_source_checkout_drift=allow_terminal_cleanup,
     )
     if operator["approval_id"] != approvals["operator_approval_ref"]:
         raise ControlledProofError("operator approval reference does not match its artifact")
@@ -919,13 +942,16 @@ def validate_authorization(
     expected_sources = {item["repo"]: item["commit"] for item in authorization["scope"]["source_revisions"]}
     baseline_sources = {item["repo"]: item["commit"] for item in baseline["source_revisions"]}
     for repo in WORKSPACE_REPOS:
-        current_revision, dirty = source_resolver.revision(repo)
-        if dirty:
-            raise ControlledProofError(f"authorization source repo is dirty: {repo}")
-        if expected_sources.get(repo) != current_revision:
-            raise ControlledProofError(f"authorization source revision drifted: {repo}")
-        if baseline_sources.get(repo) != current_revision:
-            raise ControlledProofError(f"baseline source revision drifted: {repo}")
+        if baseline_sources.get(repo) != expected_sources.get(repo):
+            raise ControlledProofError(
+                f"baseline source revision does not match authorization: {repo}"
+            )
+        if not allow_terminal_cleanup:
+            current_revision, dirty = source_resolver.revision(repo)
+            if dirty:
+                raise ControlledProofError(f"authorization source repo is dirty: {repo}")
+            if expected_sources.get(repo) != current_revision:
+                raise ControlledProofError(f"authorization source revision drifted: {repo}")
 
     permit_revision = authorization["permit_issuer"]["source_revision"]
     executor_revision = authorization["executor"]["source_revision"]
@@ -959,7 +985,7 @@ def validate_authorization(
             raise ControlledProofError(f"{label} is future-dated")
     if issued_at >= expires_at:
         raise ControlledProofError("authorization issue time does not precede expiry")
-    if current < issued_at or (current >= expires_at and not allow_expired_cleanup):
+    if current < issued_at or (current >= expires_at and not allow_terminal_cleanup):
         raise ControlledProofError("authorization is not currently valid")
 
 

@@ -23,6 +23,13 @@ runtime:
       self_declared_role_allowed: false
     runtime_action_gate:
       revalidate_before_every_shell-mutation: true
+      terminal_cleanup:
+        actions:
+          - restore-baseline
+          - cleanup
+        current-checkout-drift-allowed: true
+        permit-bound-historical-security-artifact-required: true
+        new-proof-mutations-allowed: false
       required_bindings:
         - authorization-and-digest
         - operator-approval

@@ -78,7 +78,7 @@ RUNTIME_SCRIPT_ACTIONS = {
     "restore-baseline",
     "cleanup",
 }
-EXPIRED_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
+TERMINAL_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
 WGCF_RECEIPT_PREFIX = "wgcf-controlled-proof://receipts/"
 WGCF_RECEIPT_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -209,7 +209,7 @@ def validate_runtime_action_binding(
         source_resolver=source_resolver or GitSourceResolver(workspace_root),
         operator_approval_path=bindings.operator_approval_path,
         security_approval_path=bindings.security_approval_path,
-        allow_expired_cleanup=action in EXPIRED_CLEANUP_ACTIONS,
+        allow_terminal_cleanup=action in TERMINAL_CLEANUP_ACTIONS,
     )
     consumption_receipt = read_bounded_json(
         bindings.consumption_receipt_path,

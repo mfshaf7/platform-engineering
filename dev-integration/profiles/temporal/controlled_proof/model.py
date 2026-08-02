@@ -115,14 +115,14 @@ def operator_scoped_dns_label(prefix: str, operator_id: str) -> str:
     if re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", prefix) is None:
         raise ControlledProofError("controlled resource prefix is not a DNS label")
     operator = require_identifier(operator_id, "operator_id")
-    canonical_operator = operator.lower()
-    slug = re.sub(r"[^a-z0-9-]+", "-", canonical_operator)
+    normalized_operator = operator.lower()
+    slug = re.sub(r"[^a-z0-9-]+", "-", normalized_operator)
     slug = re.sub(r"-{2,}", "-", slug).strip("-")
     if not slug:
         raise ControlledProofError("operator id does not produce a DNS label")
 
     candidate = f"{prefix}-{slug}"
-    if len(candidate) <= 63 and slug == canonical_operator:
+    if len(candidate) <= 63 and slug == operator:
         return candidate
 
     suffix = hashlib.sha256(operator.encode("utf-8")).hexdigest()[:12]

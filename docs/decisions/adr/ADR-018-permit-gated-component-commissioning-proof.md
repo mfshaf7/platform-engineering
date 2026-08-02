@@ -39,6 +39,9 @@ This drill type:
 - revalidates the permit, both approvals, canonical consumption receipt,
   execution claim, output root, namespaces, and collision-resistant state root
   before every internal shell mutation
+- stops new proof work on source drift while allowing only terminal restore and
+  cleanup to validate the immutable authority and historical Security artifact
+  without requiring current checkouts to remain at their pre-drift revisions
 - captures and binds the pre-run baseline by immutable digest before permit
   issuance and emits a schema-valid controlled-proof result artifact after
   restoration with exact keyed coverage of every authorized scenario and no
@@ -81,6 +84,7 @@ What becomes stricter:
   Platform can issue the permit, and the internal runtime adapter cannot trust
   caller-supplied environment flags as proof of authority
 - the proof must stop on scope drift and restore the captured baseline
+- case-only operator-ID differences receive distinct collision-resistant scope
 - normal profile commands remain denied until a later governed lifecycle
   decision
 

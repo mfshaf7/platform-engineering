@@ -68,7 +68,9 @@ profile active and refuses execution without the separate per-run Security and
 operator approvals. The Security approval must match an exact JSON artifact in
 the clean permit-bound `security-architecture` revision, and every internal
 runtime mutation revalidates the full consumed authority and collision-
-resistant runtime scope:
+resistant runtime scope. One atomic lease prevents concurrent authorizations
+from sharing that scope, and runtime shell actions execute from a detached
+checkout of the permit-bound Platform revision:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help

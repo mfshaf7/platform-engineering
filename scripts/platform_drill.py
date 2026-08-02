@@ -3,13 +3,18 @@ from __future__ import annotations
 
 import argparse
 import copy
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Any
 
 import yaml
@@ -42,7 +47,11 @@ CONTROLLED_PROOF_SOURCE_ENABLEMENT = {
         "enforce-semantic-binding-uniqueness",
         "verify-rfc8785-claims-approval-bindings",
         "consume-authorization-atomically",
+        "resume-only-exact-uncommitted-snapshot",
+        "lease-operator-scope-before-execution-claim",
+        "execute-runtime-actions-from-permit-bound-source",
         "verify-immutable-baseline-digest",
+        "verify-runtime-scoped-restore",
         "emit-controlled-proof-result",
     ],
 }
@@ -79,6 +88,66 @@ def load_yaml(path: Path) -> dict[str, Any]:
 def dump_yaml(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def dump_yaml_exclusive(path: Path, payload: dict[str, Any]) -> None:
+    """Commit a YAML artifact without exposing a partial destination file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    rendered = yaml.safe_dump(payload, sort_keys=False).encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary_path, path)
+        except FileExistsError as exc:
+            raise SystemExit(f"snapshot commit already exists: {path}") from exc
+        temporary_path.unlink()
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@contextmanager
+def controlled_snapshot_lock(repo_root: Path, authorization_ref: str):
+    """Serialize one controlled snapshot transaction per authorization."""
+
+    lock_key = hashlib.sha256(authorization_ref.encode("utf-8")).hexdigest()
+    lock_root = (
+        repo_root / ".platform-drills" / "_controlled-proof-snapshot-locks"
+    ).resolve()
+    lock_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = lock_root / f"{lock_key}.lock"
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+    except OSError as exc:
+        raise SystemExit("controlled snapshot lock is unavailable") from exc
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise SystemExit(
+                "controlled snapshot is already in progress for this authorization"
+            ) from exc
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
@@ -665,6 +734,63 @@ def input_artifact_path(raw: str) -> Path:
     return Path(raw).expanduser().absolute()
 
 
+def consume_or_resume_controlled_authorization(
+    *,
+    authorization: dict[str, Any],
+    authorization_digest: str,
+    consumption_root: Path,
+    contracts: Any,
+) -> tuple[dict[str, Any], Path, str]:
+    """Resume only the exact receipt created by an interrupted snapshot."""
+
+    from controlled_proof.authority import (  # noqa: PLC0415
+        consume_authorization,
+        consumption_receipt_path,
+    )
+    from controlled_proof.execution import validate_consumption_binding  # noqa: PLC0415
+    from controlled_proof.model import read_bounded_json_with_digest  # noqa: PLC0415
+
+    receipt_path = consumption_receipt_path(
+        authorization["authorization_id"], consumption_root
+    )
+    if receipt_path.exists() or receipt_path.is_symlink():
+        receipt, receipt_digest = read_bounded_json_with_digest(receipt_path)
+        validate_consumption_binding(
+            authorization,
+            authorization_digest,
+            receipt,
+            receipt_digest,
+            contracts,
+        )
+        return receipt, receipt_path, receipt_digest
+    return consume_authorization(
+        authorization=authorization,
+        authorization_digest=authorization_digest,
+        executor_source_revision=authorization["executor"]["source_revision"],
+        consumption_root=consumption_root,
+        contracts=contracts,
+    )
+
+
+def recover_incomplete_controlled_run(
+    run_dir: Path,
+    execution_claim_path: Path,
+) -> None:
+    """Remove an uncommitted snapshot only before execution ownership exists."""
+
+    if not run_dir.exists() and not run_dir.is_symlink():
+        return
+    if (run_dir / "run.yaml").exists():
+        raise SystemExit(f"run directory already exists: {run_dir}")
+    if run_dir.is_symlink() or not run_dir.is_dir():
+        raise SystemExit(f"incomplete run path is not a directory: {run_dir}")
+    if execution_claim_path.exists() or execution_claim_path.is_symlink():
+        raise SystemExit(
+            "incomplete snapshot cannot be rebuilt after execution was claimed"
+        )
+    shutil.rmtree(run_dir)
+
+
 def prepare_controlled_proof_snapshot(
     args: argparse.Namespace,
     contract: dict[str, Any],
@@ -677,7 +803,6 @@ def prepare_controlled_proof_snapshot(
 
     from controlled_proof.authority import (  # noqa: PLC0415
         GitSourceResolver,
-        consume_authorization,
         load_contracts,
         validate_authorization,
     )
@@ -738,8 +863,10 @@ def prepare_controlled_proof_snapshot(
         / ".platform-drills"
         / contract["id"]
         / commissioning_session_id
-    ).resolve()
-    if canonical_run_dir.exists():
+    ).absolute()
+    if canonical_run_dir.is_symlink():
+        raise SystemExit(f"run directory must not be a symbolic link: {canonical_run_dir}")
+    if (canonical_run_dir / "run.yaml").exists():
         raise SystemExit(f"run directory already exists: {canonical_run_dir}")
 
     workspace_root = args.repo_root.resolve().parent
@@ -761,10 +888,9 @@ def prepare_controlled_proof_snapshot(
     consumption_root = (
         args.repo_root / ".platform-drills" / "_controlled-proof-consumptions"
     ).resolve()
-    receipt, receipt_path, receipt_digest = consume_authorization(
+    receipt, receipt_path, receipt_digest = consume_or_resume_controlled_authorization(
         authorization=authorization,
         authorization_digest=args.authorization_digest,
-        executor_source_revision=authorization["executor"]["source_revision"],
         consumption_root=consumption_root,
         contracts=contracts,
     )
@@ -1039,6 +1165,20 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    if contract.get("id") == "temporal-component-commissioning-proof":
+        authorization_ref = str(args.authorization_ref).strip()
+        if not authorization_ref:
+            raise SystemExit("--authorization-ref is required for this drill profile")
+        with controlled_snapshot_lock(args.repo_root, authorization_ref):
+            return _cmd_snapshot(args, profile_path, contract)
+    return _cmd_snapshot(args, profile_path, contract)
+
+
+def _cmd_snapshot(
+    args: argparse.Namespace,
+    profile_path: Path,
+    contract: dict[str, Any],
+) -> int:
     source_enablement = contract.get("sourceEnablement") or {}
     if contract.get("drillType") == "component-commissioning-proof":
         implementation_ref = str(
@@ -1083,7 +1223,20 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     run_state_root = output_root(args.repo_root, args.output_root)
     run_dir = run_state_root / contract["id"] / run_id
     if run_dir.exists():
-        raise SystemExit(f"run directory already exists: {run_dir}")
+        if controlled_proof is None or (run_dir / "run.yaml").exists():
+            raise SystemExit(f"run directory already exists: {run_dir}")
+        from controlled_proof.authority import authorization_storage_key  # noqa: PLC0415
+
+        authorization_key = authorization_storage_key(
+            controlled_proof["authorization_id"]
+        )
+        execution_claim_path = (
+            args.repo_root
+            / ".platform-drills"
+            / "_controlled-proof-executions"
+            / f"{authorization_key}.json"
+        )
+        recover_incomplete_controlled_run(run_dir, execution_claim_path)
     run_dir.mkdir(parents=True, exist_ok=False)
     paths = run_paths(run_dir)
     shutil.copy2(profile_path, paths["contract"])
@@ -1170,7 +1323,6 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             surface["baselineState"] = "attested"
             surface["evidenceRef"] = imported["evidence_ref"]
             surface["note"] = f"immutable state: {imported['state']}"
-    dump_yaml(paths["run"], manifest)
     dump_yaml(paths["baseline"], baseline_payload)
     dump_yaml(paths["verification"], build_verification(contract))
     dump_yaml(paths["restore"], build_restore(contract))
@@ -1191,6 +1343,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             surface["evidenceRef"] = imported["evidence_ref"]
             surface["note"] = f"immutable state: {imported['state']}"
     dump_yaml(paths["evidence"], evidence_payload)
+    dump_yaml_exclusive(paths["run"], manifest)
     print(f"run_id={run_id}")
     print(f"run_dir={run_dir}")
     print(f"profile={contract['id']}")

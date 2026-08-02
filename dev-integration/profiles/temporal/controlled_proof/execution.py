@@ -9,6 +9,7 @@ from typing import Any, Protocol
 from .authority import (
     ContractSet,
     authorization_storage_key,
+    execution_scope_lease_ref,
     validate_authorization_semantics,
 )
 from .model import (
@@ -19,6 +20,7 @@ from .model import (
     create_json_exclusive,
     normalize_digest,
     now_utc,
+    operator_scope_id,
     parse_timestamp,
     read_bounded_json,
     require_exact_keys,
@@ -290,6 +292,7 @@ def validate_execution_claim_binding(
     execution_claim: dict[str, Any],
     execution_claim_digest: str,
     output_root: Path,
+    operator_scope: str | None = None,
 ) -> None:
     require_exact_keys(
         execution_claim,
@@ -303,11 +306,14 @@ def validate_execution_claim_binding(
             "commissioning_session_id",
             "executor_source_revision",
             "output_root_digest",
+            "operator_scope",
+            "scope_lease_ref",
+            "scope_lease_digest",
             "claimed_at",
         },
         "execution claim",
     )
-    if execution_claim["schema_version"] != 1:
+    if execution_claim["schema_version"] != 2:
         raise ControlledProofError("execution claim schema version is unsupported")
     expected = {
         "execution_claim_id": (
@@ -325,7 +331,12 @@ def validate_execution_claim_binding(
         "output_root_digest": sha256_bytes(
             str(output_root.expanduser().resolve()).encode("utf-8")
         ),
+        "scope_lease_ref": execution_scope_lease_ref(
+            execution_claim["operator_scope"]
+        ),
     }
+    if operator_scope is not None:
+        expected["operator_scope"] = operator_scope
     mismatched = [
         field
         for field, expected_value in expected.items()
@@ -337,6 +348,7 @@ def validate_execution_claim_binding(
             + ", ".join(mismatched)
         )
     normalize_digest(execution_claim_digest, "execution claim digest")
+    normalize_digest(execution_claim["scope_lease_digest"], "scope lease digest")
     claimed_at = parse_timestamp(execution_claim["claimed_at"], "execution claimed_at")
     consumed_at = parse_timestamp(
         consumption_receipt["consumed_at"], "consumption consumed_at"
@@ -394,6 +406,7 @@ class ControlledProofExecutor:
             execution_claim=self.execution_claim,
             execution_claim_digest=self.execution_claim_digest,
             output_root=self.output_root,
+            operator_scope=operator_scope_id(self.baseline["operator_id"]),
         )
         scenarios = self.authorization["commissioning_session"]["scenario_executions"]
         scenario_outcomes: list[dict[str, Any]] = []

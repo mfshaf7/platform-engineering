@@ -58,10 +58,12 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
   --evidence-root <local-evidence-root>/baseline-evidence
 ```
 
-Capture refuses dirty owner repos, a running Temporal footprint, operator-local
-Temporal state, an enabled OOS controlled worker, or an enabled WGCF controlled
-worker. The resulting baseline and three evidence files are immutable permit
-inputs. Do not edit or recapture them under the same identity.
+Capture refuses dirty owner repos, a running operator-scoped Temporal footprint,
+operator-local Temporal state, or an installed operator-scoped OOS or WGCF
+controlled worker. The resulting baseline and three runtime-surface evidence
+files are immutable permit inputs. Source revisions remain authorization inputs;
+they are not runtime surfaces that terminal cleanup later attempts to restore.
+Do not edit or recapture the baseline under the same identity.
 
 ### 2. Assemble And Approve One Claims Set
 
@@ -152,12 +154,17 @@ make platform-drill ACTION=snapshot \
   NOTE="<proof purpose>"
 ```
 
-This is the atomic single-use point. It writes one exclusive consumption
-receipt before any runtime mutation and imports the already-attested baseline
-into `.platform-drills/temporal-component-commissioning-proof/<commissioning-session-id>/`.
+This is the atomic single-use point. A per-authorization local lock serializes
+snapshot creation. The command writes one exclusive consumption receipt before
+any runtime mutation, imports the already-attested baseline into
+`.platform-drills/temporal-component-commissioning-proof/<commissioning-session-id>/`,
+and writes `run.yaml` last as the snapshot commit marker.
 The run id must equal the permit's commissioning session id; omitting `RUN_ID`
-selects that id automatically. A custom drill-state root is denied. Every second
-snapshot for the same authorization is denied. Do not use generic
+selects that id automatically. A custom drill-state root is denied. If the
+process stops after receipt creation but before `run.yaml` is committed, the
+same command may reuse only that exact matching receipt and rebuild the partial
+directory, provided no execution claim exists. A committed run or claimed
+execution remains single-use and is denied. Do not use generic
 `attest-baseline`, `activate`, `verify`, or `record` actions for this controlled
 proof. Generic successful restore attestations are denied as well.
 
@@ -185,8 +192,16 @@ ledger; an alternate path is denied. Before every internal shell mutation, the
 executor revalidates the permit and source-controlled approvals, the canonical
 single-use consumption receipt, execution claim, output root, collision-
 resistant operator state root, Kubernetes namespace, and Temporal namespace.
+Before the persistent authorization execution claim is created, the executor
+atomically acquires the canonical lease for that operator scope. Another
+authorization for the same scope is denied before it can prepare or clean up a
+runtime. The lease is released only after successful scoped baseline
+verification.
 Setting environment flags or plausible identifiers cannot bypass that gate.
-The executor installs only the permit-bound local runtime, projects immutable
+Before its first mutation the executor creates a detached, clean checkout of
+the permit-bound Platform revision. Every runtime shell action, including
+terminal cleanup after current-checkout drift, runs from that checkout. The
+executor installs only the permit-bound local runtime, projects immutable
 OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
 the final 120 seconds of the authorization window for starting exact-baseline
 restore; normal proof commands are denied once that reserve is reached. A
@@ -195,7 +210,10 @@ validate the immutable permit, approvals, canonical consumption receipt,
 execution claim, exact scope, and historical Security artifact at the permit-
 bound revision before removing the scoped runtime. Current checkout drift or
 permit expiry cannot authorize new proof work and cannot prevent that bounded
-removal. If exact restoration or its terminal verification fails, the executor
+removal. Terminal verification checks the captured operator-scoped namespace,
+deployments, and local runtime state; it does not require current source
+checkouts to equal the pre-proof revisions. If exact restoration or its
+terminal verification fails, the executor
 emits an immutable stopped-result draft and no final result.
 
 Record one governed exception against the run's exact captured restore scope.

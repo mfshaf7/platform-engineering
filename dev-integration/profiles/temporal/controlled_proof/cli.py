@@ -328,6 +328,7 @@ def execute_command(args: argparse.Namespace) -> int:
         consumption_receipt=receipt,
         consumption_receipt_digest=args.consumption_receipt_digest,
         output_root=output_root,
+        operator_id=baseline["operator_id"],
         execution_root=(
             platform_root / ".platform-drills" / "_controlled-proof-executions"
         ),

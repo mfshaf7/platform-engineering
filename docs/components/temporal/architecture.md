@@ -95,6 +95,12 @@ before runtime activation.
 - controlled commissioning accepts a Security decision only from the exact
   permit-bound `security-architecture` source revision and revalidates the
   consumed permit and execution claim before every internal runtime mutation
+- one atomic lease owns each collision-resistant operator scope; another
+  authorization cannot prepare or clean up that scope until successful restore
+  verification releases the lease
+- runtime shell actions execute from a detached clean checkout of the
+  permit-bound Platform revision, including bounded cleanup after current
+  checkout drift
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied
 - PostgreSQL administration credentials are separate from the non-superuser
@@ -133,8 +139,9 @@ For planned suspension or replacement, Platform owns the ordered boundary:
 
 Platform owns the manifest and receipt-acceptance boundary. OOS owns the
 one-shot worker and receipt production. Temporal remains the runtime, not the
-lifecycle authority. No separate lock service, coordination database, or
-automatic cleanup claim is introduced.
+lifecycle authority. The local commissioning ledger uses an operator-scope
+lease; no external lock service, coordination database, or automatic cleanup
+claim is introduced.
 
 Every admitted OOS business start writes its exact workflow ID to the durable
 registry through Update-with-Start before attempting the business workflow

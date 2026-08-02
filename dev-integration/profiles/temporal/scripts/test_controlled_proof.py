@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest import mock
 
 import yaml
 
@@ -19,6 +20,7 @@ PROFILE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROFILE_ROOT.parents[2]
 sys.path.insert(0, str(PROFILE_ROOT))
 
+import controlled_proof.authority as authority_module  # noqa: E402
 from controlled_proof.authority import (  # noqa: E402
     EXPECTED_BASELINE_STATES,
     EXPECTED_RUNTIME_IDENTITIES,
@@ -32,9 +34,11 @@ from controlled_proof.authority import (  # noqa: E402
     claim_execution,
     consume_authorization,
     controlled_runtime_state_root,
+    execution_scope_lease_path,
     issue_permit,
     load_contracts,
     prepare_claims,
+    release_execution_scope_lease,
     reviewed_contract_source_revisions,
     validate_authorization,
 )
@@ -440,6 +444,7 @@ class ProofFixture:
             consumption_receipt=self.consumption,
             consumption_receipt_digest=self.consumption_digest,
             output_root=output_root,
+            operator_id=self.baseline["operator_id"],
             execution_root=self.root / "execution-claims",
             contracts=self.contracts,
         )
@@ -639,6 +644,7 @@ class ControlledProofTests(unittest.TestCase):
         class RecordingRunner:
             def __init__(self) -> None:
                 self.environment: dict[str, str] = {}
+                self.commands: list[list[str]] = []
 
             def run(
                 self,
@@ -648,11 +654,16 @@ class ControlledProofTests(unittest.TestCase):
                 input_text: str | None = None,
                 timeout: float = 600,
             ) -> CommandResult:
-                del command, input_text, timeout
+                del input_text, timeout
+                self.commands.append(command)
                 self.environment = dict(env or {})
                 return CommandResult(stdout="", stderr="", returncode=0)
 
         runner = RecordingRunner()
+        output_root = self.root / "output"
+        _claim, execution_claim_path, execution_claim_digest = fixture.claim_for(
+            output_root
+        )
         artifacts = RuntimeArtifactBindings(
             authorization_path=fixture.authorization_path,
             authorization_digest=fixture.authorization_digest,
@@ -662,19 +673,21 @@ class ControlledProofTests(unittest.TestCase):
             baseline_evidence_root=fixture.evidence_root,
             consumption_receipt_path=fixture.consumption_path,
             consumption_receipt_digest=fixture.consumption_digest,
-            execution_claim_path=self.root / "execution-claim.json",
-            execution_claim_digest=DIGEST,
+            execution_claim_path=execution_claim_path,
+            execution_claim_digest=execution_claim_digest,
         )
         control = LocalK3sRuntimeControl(
             authorization=fixture.authorization,
             baseline=fixture.baseline,
             contexts=fixture.contexts,
             artifacts=artifacts,
-            output_root=self.root / "output",
+            output_root=output_root,
             workspace_root=workspace_root,
             runner=runner,
         )
-        control._runtime_script("prepare")
+        control.platform_executor_snapshot.mkdir(parents=True)
+        with mock.patch.object(control, "_assert_platform_executor_snapshot"):
+            control._runtime_script("prepare")
 
         expected_temporal_namespace = operator_scoped_dns_label(
             "governance", "alice.example"
@@ -690,6 +703,19 @@ class ControlledProofTests(unittest.TestCase):
         self.assertEqual(
             runner.environment["CONTROLLED_PROOF_OPERATOR_SCOPE"],
             operator_scope_id("alice.example"),
+        )
+        self.assertEqual(
+            runner.environment["CONTROLLED_PROOF_WORKSPACE_ROOT"],
+            str(workspace_root),
+        )
+        self.assertEqual(
+            Path(runner.commands[-1][1]),
+            control.platform_executor_snapshot
+            / "dev-integration"
+            / "profiles"
+            / "temporal"
+            / "scripts"
+            / "controlled-proof-runtime.sh",
         )
         self.assertNotEqual(expected_temporal_namespace, "governance-alice-example")
 
@@ -984,6 +1010,7 @@ class ControlledProofTests(unittest.TestCase):
             consumption_receipt=consumption,
             consumption_receipt_digest=consumption_digest,
             output_root=output_root,
+            operator_id=fixture.baseline["operator_id"],
             execution_root=(
                 platform_root / ".platform-drills" / "_controlled-proof-executions"
             ),
@@ -1073,6 +1100,40 @@ class ControlledProofTests(unittest.TestCase):
             ),
             operator_scope=operator_scope_id("alice.example"),
             source_resolver=fixture.source,
+        )
+
+    def test_terminal_baseline_verification_is_independent_of_checkout_state(
+        self,
+    ) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace-without-source-checkouts",
+        )
+        with mock.patch(
+            "controlled_proof.runtime.LocalBaselineProbe",
+            return_value=FakeProbe(),
+        ):
+            restored = control._verify_baseline(fixture.baseline)
+        self.assertEqual(
+            [item["surface_id"] for item in restored], list(SURFACE_ORDER)
         )
 
     def test_claims_builder_derives_the_complete_reviewed_scope(self) -> None:
@@ -1428,12 +1489,151 @@ class ControlledProofTests(unittest.TestCase):
                 contracts=fixture.contracts,
             )
 
+    def test_snapshot_can_resume_the_exact_canonical_consumption_receipt(self) -> None:
+        fixture = ProofFixture(self.root)
+        receipt, receipt_path, receipt_digest = (
+            platform_drill.consume_or_resume_controlled_authorization(
+                authorization=fixture.authorization,
+                authorization_digest=fixture.authorization_digest,
+                consumption_root=self.root / "consumptions",
+                contracts=fixture.contracts,
+            )
+        )
+        self.assertEqual(receipt, fixture.consumption)
+        self.assertEqual(receipt_path, fixture.consumption_path)
+        self.assertEqual(receipt_digest, fixture.consumption_digest)
+
+    def test_controlled_snapshot_lock_serializes_one_authorization(self) -> None:
+        authorization_ref = "platform-controlled-proof://authorizations/session-001"
+        with platform_drill.controlled_snapshot_lock(
+            self.root, authorization_ref
+        ):
+            with self.assertRaisesRegex(SystemExit, "already in progress"):
+                with platform_drill.controlled_snapshot_lock(
+                    self.root, authorization_ref
+                ):
+                    self.fail("a second snapshot lock must not be acquired")
+
+    def test_incomplete_snapshot_is_rebuilt_only_before_execution_claim(self) -> None:
+        run_dir = self.root / "run"
+        execution_claim_path = self.root / "executions" / "claim.json"
+        run_dir.mkdir()
+        (run_dir / "baseline.yaml").write_text("partial: true\n", encoding="utf-8")
+        platform_drill.recover_incomplete_controlled_run(
+            run_dir, execution_claim_path
+        )
+        self.assertFalse(run_dir.exists())
+
+        run_dir.mkdir()
+        execution_claim_path.parent.mkdir()
+        execution_claim_path.write_text("{}\n", encoding="utf-8")
+        with self.assertRaisesRegex(SystemExit, "after execution was claimed"):
+            platform_drill.recover_incomplete_controlled_run(
+                run_dir, execution_claim_path
+            )
+
     def test_controlled_execution_claim_is_single_use(self) -> None:
         fixture = ProofFixture(self.root)
         output_root = self.root / "claimed-output"
         fixture.claim_for(output_root)
         with self.assertRaisesRegex(ControlledProofError, "already claimed"):
             fixture.claim_for(self.root / "other-output")
+
+    def test_operator_scope_lease_denies_a_second_authorization_until_release(
+        self,
+    ) -> None:
+        fixture = ProofFixture(self.root)
+        first_output = self.root / "first-output"
+        first_claim, _first_path, first_digest = fixture.claim_for(first_output)
+
+        second = copy.deepcopy(fixture.authorization)
+        second["authorization_id"] = (
+            "platform-controlled-proof://authorizations/session-002"
+        )
+        second["commissioning_session"]["commissioning_session_id"] = "session-002"
+        for index, scenario in enumerate(
+            second["commissioning_session"]["scenario_executions"], start=1
+        ):
+            scenario["scenario_execution_id"] = (
+                f"session-002:{index:02d}:{scenario['scenario_id']}"
+            )
+        second["evidence"]["verification_pack_ref"] = (
+            "artifact://controlled-proof/verification/session-002"
+        )
+        second_path = self.root / "second-authorization.json"
+        second_digest = write_json_atomic(second_path, second)
+        second_receipt, _second_receipt_path, second_receipt_digest = (
+            consume_authorization(
+                authorization=second,
+                authorization_digest=second_digest,
+                executor_source_revision=REVISION,
+                consumption_root=self.root / "second-consumptions",
+                contracts=fixture.contracts,
+            )
+        )
+        second_output = self.root / "second-output"
+        with self.assertRaisesRegex(ControlledProofError, "scope is already leased"):
+            claim_execution(
+                authorization=second,
+                authorization_digest=second_digest,
+                consumption_receipt=second_receipt,
+                consumption_receipt_digest=second_receipt_digest,
+                output_root=second_output,
+                operator_id=fixture.baseline["operator_id"],
+                execution_root=self.root / "execution-claims",
+                contracts=fixture.contracts,
+            )
+
+        release_execution_scope_lease(
+            authorization=fixture.authorization,
+            authorization_digest=fixture.authorization_digest,
+            consumption_receipt=fixture.consumption,
+            consumption_receipt_digest=fixture.consumption_digest,
+            execution_claim=first_claim,
+            output_root=first_output,
+            operator_scope=operator_scope_id(fixture.baseline["operator_id"]),
+            lease_root=self.root / "_controlled-proof-scope-leases",
+        )
+        second_claim, _second_path, _second_digest = claim_execution(
+            authorization=second,
+            authorization_digest=second_digest,
+            consumption_receipt=second_receipt,
+            consumption_receipt_digest=second_receipt_digest,
+            output_root=second_output,
+            operator_id=fixture.baseline["operator_id"],
+            execution_root=self.root / "execution-claims",
+            contracts=fixture.contracts,
+        )
+        self.assertEqual(second_claim["authorization_id"], second["authorization_id"])
+
+    def test_interrupted_execution_claim_resumes_its_exact_scope_lease(self) -> None:
+        fixture = ProofFixture(self.root)
+        output_root = self.root / "resumed-output"
+        original_create = authority_module.create_json_exclusive
+        call_count = 0
+
+        def fail_after_lease(path, payload, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise OSError("injected claim persistence failure")
+            return original_create(path, payload, **kwargs)
+
+        with mock.patch.object(
+            authority_module,
+            "create_json_exclusive",
+            side_effect=fail_after_lease,
+        ):
+            with self.assertRaisesRegex(OSError, "injected"):
+                fixture.claim_for(output_root)
+
+        lease_path = execution_scope_lease_path(
+            operator_scope_id(fixture.baseline["operator_id"]),
+            self.root / "_controlled-proof-scope-leases",
+        )
+        lease = read_bounded_json(lease_path)
+        claim, _claim_path, _claim_digest = fixture.claim_for(output_root)
+        self.assertEqual(claim["claimed_at"], lease["acquired_at"])
 
     def test_execution_claim_preserves_exact_restore_start_reserve(self) -> None:
         fixture = ProofFixture(self.root)
@@ -1450,6 +1650,7 @@ class ControlledProofTests(unittest.TestCase):
                 consumption_receipt=fixture.consumption,
                 consumption_receipt_digest=fixture.consumption_digest,
                 output_root=self.root / "late-output",
+                operator_id=fixture.baseline["operator_id"],
                 execution_root=self.root / "late-execution",
                 contracts=fixture.contracts,
                 claimed_at=claimed_at,

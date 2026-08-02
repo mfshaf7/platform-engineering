@@ -50,4 +50,6 @@ fresh Security acceptance before activation.
 The source-reviewed commissioning adapter is not an alternate access path. Its
 internal runtime script rejects caller flags and identifiers unless the full
 source-controlled Security approval, consumed permit, execution claim, and
-exact operator scope revalidate first.
+exact operator-scope lease revalidate first. The script itself is loaded from
+the clean permit-bound Platform revision rather than the mutable current
+checkout.

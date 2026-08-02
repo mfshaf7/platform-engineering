@@ -28,8 +28,22 @@ runtime:
           - restore-baseline
           - cleanup
         current-checkout-drift-allowed: true
+        executor_source: detached-clean-permit-bound-platform-revision
         permit-bound-historical-security-artifact-required: true
         new-proof-mutations-allowed: false
+        restore_verification_scope: operator-scoped-runtime-surfaces-only
+        source-checkout-restoration-required: false
+      execution_scope_lease:
+        key: collision-resistant-operator-scope
+        acquisition: atomic-before-execution-claim
+        matching-interrupted-claim-resume-allowed: true
+        cross-authorization-sharing-allowed: false
+        release: after-successful-scoped-baseline-verification
+      snapshot_transaction:
+        lock: per-authorization-local-filesystem-lock
+        receipt-resume: exact-matching-uncommitted-snapshot-only
+        commit_marker: run.yaml
+        recovery-after-execution-claim: denied
       required_bindings:
         - authorization-and-digest
         - operator-approval
@@ -37,6 +51,7 @@ runtime:
         - baseline-and-evidence-root
         - canonical-single-use-consumption-receipt-and-digest
         - canonical-execution-claim-and-digest
+        - canonical-operator-scope-lease-and-digest
         - canonical-output-root
         - exact-kubernetes-namespace
         - exact-temporal-namespace

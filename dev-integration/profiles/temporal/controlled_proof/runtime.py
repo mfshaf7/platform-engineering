@@ -27,7 +27,9 @@ from .authority import (
     consumption_receipt_path,
     controlled_runtime_state_root,
     load_contracts,
+    release_execution_scope_lease,
     validate_authorization,
+    validate_execution_scope_lease,
     validate_runtime_bindings,
     validate_vendored_contracts,
 )
@@ -58,7 +60,6 @@ from .model import (
 )
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_SCRIPT = PROFILE_ROOT / "scripts" / "controlled-proof-runtime.sh"
 OOS_API_DEPLOYMENT = "controlled-proof-oos-api"
 OOS_WORKER_DEPLOYMENT = "controlled-proof-oos-worker"
 WGCF_WORKER_DEPLOYMENT = "controlled-proof-wgcf-worker"
@@ -257,6 +258,22 @@ def validate_runtime_action_binding(
         execution_claim=execution_claim,
         execution_claim_digest=bindings.execution_claim_digest,
         output_root=output_root,
+        operator_scope=operator_scope,
+    )
+    validate_execution_scope_lease(
+        authorization=authorization,
+        authorization_digest=bindings.authorization_digest,
+        consumption_receipt=consumption_receipt,
+        consumption_receipt_digest=bindings.consumption_receipt_digest,
+        execution_claim=execution_claim,
+        output_root=output_root,
+        operator_scope=operator_scope,
+        lease_root=(
+            workspace_root
+            / "platform-engineering"
+            / ".platform-drills"
+            / "_controlled-proof-scope-leases"
+        ),
     )
 
     baseline = read_bounded_json(
@@ -596,6 +613,26 @@ class LocalK3sRuntimeControl:
         self.api_url = ""
         self.port_forward: subprocess.Popen[str] | None = None
         self.restored = False
+        self.execution_scope_lease_root = (
+            self.workspace_root
+            / "platform-engineering"
+            / ".platform-drills"
+            / "_controlled-proof-scope-leases"
+        )
+        self.consumption_receipt = read_bounded_json(
+            artifacts.consumption_receipt_path,
+            expected_digest=artifacts.consumption_receipt_digest,
+        )
+        self.execution_claim = read_bounded_json(
+            artifacts.execution_claim_path,
+            expected_digest=artifacts.execution_claim_digest,
+        )
+        self.platform_executor_snapshot = (
+            self.output_root
+            / "runtime"
+            / "source-snapshots"
+            / "platform-engineering"
+        )
         self.workspace_governance_snapshot = (
             self.output_root
             / "runtime"
@@ -624,6 +661,7 @@ class LocalK3sRuntimeControl:
             raise ControlledProofError("runtime contexts changed before preparation")
         self.assert_current()
         self._require_tools()
+        self._prepare_platform_executor_snapshot()
         self._runtime_script("prepare")
         self._prepare_workspace_governance_snapshot()
         manifest = _owner_runtime_manifest(
@@ -762,7 +800,8 @@ class LocalK3sRuntimeControl:
         if baseline != self.baseline:
             raise ControlledProofError("restore baseline changed after permit validation")
         self._stop_port_forward()
-        self._runtime_script("restore-baseline", allow_expired=True)
+        if self.platform_executor_snapshot.exists():
+            self._runtime_script("restore-baseline", allow_expired=True)
         restored = self._verify_baseline(baseline)
         payload = {
             "schema_version": 1,
@@ -783,13 +822,6 @@ class LocalK3sRuntimeControl:
         }
 
     def _verify_baseline(self, baseline: dict[str, Any]) -> list[dict[str, str]]:
-        resolver = GitSourceResolver(self.workspace_root)
-        for item in baseline["source_revisions"]:
-            revision, dirty = resolver.revision(item["repo"])
-            if dirty or revision != item["commit"]:
-                raise ControlledProofError(
-                    f"exact baseline restore did not recover source {item['repo']}"
-                )
         probe = LocalBaselineProbe(self.workspace_root, self.operator_id)
         restored: list[dict[str, str]] = []
         expected = {
@@ -817,11 +849,21 @@ class LocalK3sRuntimeControl:
 
     def cleanup(self) -> None:
         self._stop_port_forward()
-        if not self.restored:
+        if not self.restored and self.platform_executor_snapshot.exists():
             self._runtime_script("cleanup", allow_expired=True)
         self._verify_baseline(self.baseline)
+        release_execution_scope_lease(
+            authorization=self.authorization,
+            authorization_digest=self.artifacts.authorization_digest,
+            consumption_receipt=self.consumption_receipt,
+            consumption_receipt_digest=self.artifacts.consumption_receipt_digest,
+            execution_claim=self.execution_claim,
+            output_root=self.output_root,
+            operator_scope=self.operator_scope,
+            lease_root=self.execution_scope_lease_root,
+        )
         if self.workspace_governance_snapshot.parent.exists():
-            shutil.rmtree(self.workspace_governance_snapshot.parent)
+            shutil.rmtree(self.workspace_governance_snapshot.parent, ignore_errors=True)
 
     def _control(
         self,
@@ -915,6 +957,15 @@ class LocalK3sRuntimeControl:
         )
 
     def _runtime_script(self, action: str, *, allow_expired: bool = False) -> None:
+        self._assert_platform_executor_snapshot(allow_expired=allow_expired)
+        runtime_script = (
+            self.platform_executor_snapshot
+            / "dev-integration"
+            / "profiles"
+            / "temporal"
+            / "scripts"
+            / "controlled-proof-runtime.sh"
+        )
         env = {
             "CONTROLLED_PROOF_AUTHORIZATION_PATH": str(
                 self.artifacts.authorization_path
@@ -946,6 +997,8 @@ class LocalK3sRuntimeControl:
             ),
             "CONTROLLED_PROOF_OUTPUT_ROOT": str(self.output_root),
             "CONTROLLED_PROOF_OPERATOR_SCOPE": self.operator_scope,
+            "CONTROLLED_PROOF_WORKSPACE_ROOT": str(self.workspace_root),
+            "PYTHONDONTWRITEBYTECODE": "1",
             "DEVINT_OPERATOR": self.operator_id,
             "DEVINT_PROFILE_ID": "temporal",
             "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
@@ -956,11 +1009,60 @@ class LocalK3sRuntimeControl:
             "DEVINT_KUBECTL": "k3s kubectl",
         }
         self._run(
-            ["bash", str(RUNTIME_SCRIPT), action],
+            ["bash", str(runtime_script), action],
             env=env,
             timeout=900,
             allow_expired=allow_expired,
         )
+
+    def _prepare_platform_executor_snapshot(self) -> None:
+        snapshot = self.platform_executor_snapshot
+        if snapshot.exists() or snapshot.is_symlink():
+            raise ControlledProofError("Platform executor source snapshot already exists")
+        snapshot.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        source = self.workspace_root / "platform-engineering"
+        expected_revision = self.authorization["executor"]["source_revision"]
+        self._run(
+            [
+                "git",
+                "clone",
+                "--no-hardlinks",
+                "--no-checkout",
+                str(source),
+                str(snapshot),
+            ]
+        )
+        self._run(
+            ["git", "-C", str(snapshot), "checkout", "--detach", expected_revision]
+        )
+        self._assert_platform_executor_snapshot()
+
+    def _assert_platform_executor_snapshot(
+        self, *, allow_expired: bool = False
+    ) -> None:
+        snapshot = self.platform_executor_snapshot
+        if not snapshot.is_dir() or snapshot.is_symlink():
+            raise ControlledProofError("permit-bound Platform executor snapshot is unavailable")
+        expected_revision = self.authorization["executor"]["source_revision"]
+        head = self._run(
+            ["git", "-C", str(snapshot), "rev-parse", "HEAD"],
+            allow_expired=allow_expired,
+        ).stdout
+        status = self._run(
+            [
+                "git",
+                "-C",
+                str(snapshot),
+                "status",
+                "--short",
+                "--untracked-files=no",
+            ],
+            allow_expired=allow_expired,
+        ).stdout
+        if head != expected_revision or status:
+            raise ControlledProofError(
+                "permit-bound Platform executor snapshot changed during execution"
+            )
 
     def _run(
         self,

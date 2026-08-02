@@ -27,13 +27,14 @@ require_controlled_executor() {
     CONTROLLED_PROOF_EXECUTION_CLAIM_PATH \
     CONTROLLED_PROOF_EXECUTION_CLAIM_DIGEST \
     CONTROLLED_PROOF_OUTPUT_ROOT \
-    CONTROLLED_PROOF_OPERATOR_SCOPE; do
+    CONTROLLED_PROOF_OPERATOR_SCOPE \
+    CONTROLLED_PROOF_WORKSPACE_ROOT; do
     [[ -n "${!required_name:-}" ]] || \
       refuse "controlled proof runtime is missing a permit-bound artifact"
   done
 
   python3 "${PROFILE_ROOT}/scripts/controlled_proof.py" verify-runtime-action \
-    --workspace-root "$(dirname "${OWNER_REPO_ROOT}")" \
+    --workspace-root "${CONTROLLED_PROOF_WORKSPACE_ROOT}" \
     --action "${ACTION}" \
     --authorization "${CONTROLLED_PROOF_AUTHORIZATION_PATH}" \
     --authorization-digest "${CONTROLLED_PROOF_AUTHORIZATION_DIGEST}" \

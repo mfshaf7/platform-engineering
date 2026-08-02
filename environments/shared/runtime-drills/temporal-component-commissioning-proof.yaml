@@ -17,7 +17,11 @@ sourceEnablement:
     - enforce-semantic-binding-uniqueness
     - verify-rfc8785-claims-approval-bindings
     - consume-authorization-atomically
+    - resume-only-exact-uncommitted-snapshot
+    - lease-operator-scope-before-execution-claim
+    - execute-runtime-actions-from-permit-bound-source
     - verify-immutable-baseline-digest
+    - verify-runtime-scoped-restore
     - emit-controlled-proof-result
 authorization:
   required: true
@@ -165,6 +169,6 @@ restoreScope:
     - id: temporal-runtime
       summary: Remove the scoped runtime and restore namespace, storage, credential, and operator-local state to the captured baseline.
     - id: oos-validation-readiness-worker
-      summary: Restore the OOS worker, queue polling, and process state to the captured baseline.
+      summary: Remove the operator-scoped OOS worker deployment and restore its captured absent runtime state.
     - id: wgcf-readiness-activity-worker
-      summary: Restore the WGCF activity worker, queue polling, and process state to the captured baseline.
+      summary: Remove the operator-scoped WGCF worker deployment and restore its captured absent runtime state.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -31,6 +32,7 @@ from .model import (
     parse_timestamp,
     read_bounded_json,
     read_bounded_json_with_digest,
+    require_exact_keys,
     require_identifier,
     resolve_controlled_command,
     sha256_bytes,
@@ -62,8 +64,8 @@ PLACEHOLDER_DIGEST = "sha256:" + "0" * 64
 REVIEW_WORK_ITEM_REF = "openproject://work_packages/792"
 EXPECTED_BASELINE_STATES = {
     "temporal-runtime": "not-installed",
-    "oos-validation-readiness-worker": "source-ready-disabled",
-    "wgcf-readiness-activity-worker": "source-ready-disabled",
+    "oos-validation-readiness-worker": "not-installed",
+    "wgcf-readiness-activity-worker": "not-installed",
 }
 EXPECTED_RUNTIME_IDENTITIES = {
     "oos-api": "operator-orchestration-service-api",
@@ -308,56 +310,47 @@ class LocalBaselineProbe:
 
     def capture(self, surface_id: str) -> tuple[str, dict[str, Any]]:
         env = controlled_subprocess_environment()
+        namespace = operator_scoped_dns_label(
+            "devint-temporal", self.operator_id
+        )
         if surface_id == "temporal-runtime":
             command = [
-                "bash",
-                "-c",
-                (
-                    'source "$1"; '
-                    'printf "runtime state: %s\\n" "$(runtime_state)"; '
-                    'if [[ -e "$STATE_ROOT" ]]; then '
-                    'printf "operator state: present\\n"; '
-                    'else printf "operator state: absent\\n"; fi'
-                ),
-                "controlled-proof-baseline-probe",
-                str(PROFILE_ROOT / "scripts" / "common.sh"),
+                "k3s",
+                "kubectl",
+                "get",
+                "namespace",
+                namespace,
+                "--ignore-not-found=true",
+                "-o",
+                "name",
             ]
             cwd = self.workspace_root / "platform-engineering"
-            env.update(
-                {
-                    "DEVINT_PROFILE_ID": "temporal",
-                    "DEVINT_OPERATOR": self.operator_id,
-                    "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
-                    "DEVINT_STATE_ROOT": str(
-                        controlled_runtime_state_root(
-                            self.workspace_root,
-                            self.operator_id,
-                        )
-                    ),
-                    "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": _controlled_namespace(
-                        self.operator_id
-                    ),
-                    "DEVINT_KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
-                    "DEVINT_KUBECTL": "k3s kubectl",
-                }
-            )
         elif surface_id == "oos-validation-readiness-worker":
-            command = ["node", "src/orchestration-worker.js", "controlled-proof-status"]
-            cwd = self.workspace_root / "operator-orchestration-service"
-        elif surface_id == "wgcf-readiness-activity-worker":
-            python = self.workspace_root / "workspace-governance-control-fabric" / ".venv" / "bin" / "python"
             command = [
-                str(python if python.is_file() else Path("python3")),
-                "-m",
-                "wgcf_worker",
-                "controlled-proof",
-                "status",
-                "--repo-root",
-                ".",
-                "--json",
+                "k3s",
+                "kubectl",
+                "-n",
+                namespace,
+                "get",
+                "deployment/controlled-proof-oos-worker",
+                "--ignore-not-found=true",
+                "-o",
+                "name",
             ]
-            cwd = self.workspace_root / "workspace-governance-control-fabric"
-            env["PYTHONPATH"] = "packages/control_fabric_core/src:apps/worker/src"
+            cwd = self.workspace_root / "platform-engineering"
+        elif surface_id == "wgcf-readiness-activity-worker":
+            command = [
+                "k3s",
+                "kubectl",
+                "-n",
+                namespace,
+                "get",
+                "deployment/controlled-proof-wgcf-worker",
+                "--ignore-not-found=true",
+                "-o",
+                "name",
+            ]
+            cwd = self.workspace_root / "platform-engineering"
         else:
             raise ControlledProofError(f"unsupported baseline surface: {surface_id}")
 
@@ -375,12 +368,20 @@ class LocalBaselineProbe:
             raise ControlledProofError(
                 f"baseline probe could not run for {surface_id}"
             ) from exc
+        resource_state = "present" if completed.stdout.strip() else "absent"
+        observation_stdout = f"scoped runtime resource: {resource_state}"
+        if surface_id == "temporal-runtime":
+            state_root = controlled_runtime_state_root(
+                self.workspace_root, self.operator_id
+            )
+            local_state = "present" if state_root.exists() else "absent"
+            observation_stdout += f"\noperator state: {local_state}"
         observation = {
             "schema_version": 1,
             "surface_id": surface_id,
             "probe_id": PROBE_IDS[surface_id],
             "exit_code": completed.returncode,
-            "stdout": completed.stdout.strip(),
+            "stdout": observation_stdout,
             "stderr": completed.stderr.strip(),
         }
         encoded_output = (
@@ -399,28 +400,18 @@ def _surface_state(surface_id: str, observation: dict[str, Any]) -> str:
     if observation.get("exit_code") != 0:
         raise ControlledProofError(f"baseline probe failed for {surface_id}")
     stdout = str(observation.get("stdout") or "")
-    if surface_id == "temporal-runtime":
-        state = None
-        operator_state = None
-        for line in stdout.splitlines():
-            if line.startswith("runtime state:"):
-                state = line.split(":", 1)[1].strip()
-            elif line.startswith("operator state:"):
-                operator_state = line.split(":", 1)[1].strip()
-        state = require_identifier(state, "Temporal runtime state")
-        if operator_state != "absent":
-            raise ControlledProofError(
-                "Temporal baseline requires absent operator-local runtime state"
-            )
-        return state
-    payload = decode_bounded_json(
-        stdout.encode("utf-8"), label=f"{surface_id} baseline probe"
+    lines = dict(
+        line.split(":", 1) for line in stdout.splitlines() if ":" in line
     )
-    activation = payload.get("activation") or {}
-    authorized = bool(activation.get("authorized")) if isinstance(activation, dict) else False
-    if authorized:
-        raise ControlledProofError(f"{surface_id} is unexpectedly authorized before issuance")
-    return "source-ready-disabled" if payload.get("ready") else "source-incomplete-disabled"
+    if lines.get("scoped runtime resource", "").strip() != "absent":
+        raise ControlledProofError(
+            f"{surface_id} baseline requires an absent scoped runtime resource"
+        )
+    if surface_id == "temporal-runtime" and lines.get("operator state", "").strip() != "absent":
+        raise ControlledProofError(
+            "Temporal baseline requires absent operator-local runtime state"
+        )
+    return "not-installed"
 
 
 def capture_baseline(
@@ -1295,6 +1286,119 @@ def consumption_receipt_path(authorization_id: str, consumption_root: Path) -> P
     )
 
 
+def execution_scope_lease_ref(operator_scope: str) -> str:
+    scope = require_identifier(operator_scope, "operator_scope")
+    scope_key = hashlib.sha256(scope.encode("utf-8")).hexdigest()
+    return f"platform-controlled-proof://scope-leases/{scope_key}"
+
+
+def execution_scope_lease_path(operator_scope: str, lease_root: Path) -> Path:
+    lease_key = execution_scope_lease_ref(operator_scope).rsplit("/", 1)[-1]
+    return lease_root.expanduser().resolve() / f"{lease_key}.json"
+
+
+def validate_execution_scope_lease(
+    *,
+    authorization: dict[str, Any],
+    authorization_digest: str,
+    consumption_receipt: dict[str, Any],
+    consumption_receipt_digest: str,
+    execution_claim: dict[str, Any],
+    output_root: Path,
+    operator_scope: str,
+    lease_root: Path,
+) -> tuple[dict[str, Any], Path, str]:
+    """Validate the active lease that owns one operator-scoped runtime."""
+
+    lease_path = execution_scope_lease_path(operator_scope, lease_root)
+    lease, lease_digest = read_bounded_json_with_digest(
+        lease_path,
+        expected_digest=execution_claim["scope_lease_digest"],
+    )
+    require_exact_keys(
+        lease,
+        {
+            "schema_version",
+            "lease_id",
+            "operator_scope",
+            "authorization_id",
+            "authorization_digest",
+            "consumption_receipt_ref",
+            "consumption_receipt_digest",
+            "commissioning_session_id",
+            "executor_source_revision",
+            "output_root_digest",
+            "acquired_at",
+        },
+        "execution scope lease",
+    )
+    if lease["schema_version"] != 1:
+        raise ControlledProofError("execution scope lease schema version is unsupported")
+    expected = {
+        "lease_id": execution_scope_lease_ref(operator_scope),
+        "operator_scope": operator_scope,
+        "authorization_id": authorization["authorization_id"],
+        "authorization_digest": authorization_digest,
+        "consumption_receipt_ref": consumption_receipt["receipt_id"],
+        "consumption_receipt_digest": consumption_receipt_digest,
+        "commissioning_session_id": authorization["commissioning_session"][
+            "commissioning_session_id"
+        ],
+        "executor_source_revision": authorization["executor"]["source_revision"],
+        "output_root_digest": sha256_bytes(
+            str(output_root.expanduser().resolve()).encode("utf-8")
+        ),
+        "acquired_at": execution_claim["claimed_at"],
+    }
+    mismatched = [
+        field for field, expected_value in expected.items()
+        if lease.get(field) != expected_value
+    ]
+    if mismatched:
+        raise ControlledProofError(
+            "execution scope lease does not match the controlled session: "
+            + ", ".join(mismatched)
+        )
+    if execution_claim["scope_lease_ref"] != lease["lease_id"]:
+        raise ControlledProofError("execution claim scope lease reference does not match")
+    normalize_digest(lease_digest, "execution scope lease digest")
+    return lease, lease_path, lease_digest
+
+
+def release_execution_scope_lease(
+    *,
+    authorization: dict[str, Any],
+    authorization_digest: str,
+    consumption_receipt: dict[str, Any],
+    consumption_receipt_digest: str,
+    execution_claim: dict[str, Any],
+    output_root: Path,
+    operator_scope: str,
+    lease_root: Path,
+) -> None:
+    """Release only the lease owned by the successfully restored session."""
+
+    _lease, lease_path, _lease_digest = validate_execution_scope_lease(
+        authorization=authorization,
+        authorization_digest=authorization_digest,
+        consumption_receipt=consumption_receipt,
+        consumption_receipt_digest=consumption_receipt_digest,
+        execution_claim=execution_claim,
+        output_root=output_root,
+        operator_scope=operator_scope,
+        lease_root=lease_root,
+    )
+    try:
+        lease_path.unlink()
+    except OSError as exc:
+        raise ControlledProofError("execution scope lease could not be released") from exc
+    directory_fd = os.open(lease_path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
 def claim_execution(
     *,
     authorization: dict[str, Any],
@@ -1302,6 +1406,7 @@ def claim_execution(
     consumption_receipt: dict[str, Any],
     consumption_receipt_digest: str,
     output_root: Path,
+    operator_id: str,
     execution_root: Path,
     contracts: ContractSet,
     claimed_at: str | None = None,
@@ -1351,9 +1456,74 @@ def claim_execution(
             "start reserve"
         )
 
+    operator_id = require_identifier(operator_id, "operator_id")
+    operator_scope = operator_scope_id(operator_id)
+    if authorization["scope"]["target_namespaces"] != [
+        _controlled_namespace(operator_id)
+    ]:
+        raise ControlledProofError(
+            "execution operator does not match the authorized runtime namespace"
+        )
     authorization_key = authorization_storage_key(authorization["authorization_id"])
-    claim = {
+    execution_root = execution_root.expanduser().resolve()
+    claim_path = execution_root / f"{authorization_key}.json"
+    if claim_path.exists() or claim_path.is_symlink():
+        raise ControlledProofError(
+            "controlled proof execution was already claimed for authorization "
+            f"{authorization['authorization_id']}"
+        )
+    lease_root = execution_root.parent / "_controlled-proof-scope-leases"
+    output_root_digest = sha256_bytes(
+        str(output_root.expanduser().resolve()).encode("utf-8")
+    )
+    lease_path = execution_scope_lease_path(operator_scope, lease_root)
+    lease = {
         "schema_version": 1,
+        "lease_id": execution_scope_lease_ref(operator_scope),
+        "operator_scope": operator_scope,
+        "authorization_id": authorization["authorization_id"],
+        "authorization_digest": authorization_digest,
+        "consumption_receipt_ref": consumption_receipt["receipt_id"],
+        "consumption_receipt_digest": consumption_receipt_digest,
+        "commissioning_session_id": authorization["commissioning_session"][
+            "commissioning_session_id"
+        ],
+        "executor_source_revision": authorization["executor"]["source_revision"],
+        "output_root_digest": output_root_digest,
+        "acquired_at": claimed_timestamp,
+    }
+    try:
+        lease_digest = create_json_exclusive(
+            lease_path,
+            lease,
+            conflict_message=(
+                "controlled proof operator scope is already leased: "
+                f"{operator_scope}"
+            ),
+        )
+    except ControlledProofError:
+        if not lease_path.is_file() or lease_path.is_symlink():
+            raise
+        existing_lease, lease_digest = read_bounded_json_with_digest(lease_path)
+        expected_resume = {key: value for key, value in lease.items() if key != "acquired_at"}
+        actual_resume = {
+            key: value for key, value in existing_lease.items() if key != "acquired_at"
+        }
+        if expected_resume != actual_resume or not isinstance(
+            existing_lease.get("acquired_at"), str
+        ):
+            raise ControlledProofError(
+                f"controlled proof operator scope is already leased: {operator_scope}"
+            )
+        claimed_timestamp = existing_lease["acquired_at"]
+        claimed_time = parse_timestamp(claimed_timestamp, "execution scope acquired_at")
+        if claimed_time < consumed_time or claimed_time >= expires_time:
+            raise ControlledProofError(
+                "existing execution scope lease is outside permit authority"
+            )
+
+    claim = {
+        "schema_version": 2,
         "execution_claim_id": (
             f"platform-controlled-proof://execution-claims/{authorization_key}"
         ),
@@ -1365,12 +1535,12 @@ def claim_execution(
             "commissioning_session_id"
         ],
         "executor_source_revision": authorization["executor"]["source_revision"],
-        "output_root_digest": sha256_bytes(
-            str(output_root.expanduser().resolve()).encode("utf-8")
-        ),
+        "output_root_digest": output_root_digest,
+        "operator_scope": operator_scope,
+        "scope_lease_ref": lease["lease_id"],
+        "scope_lease_digest": lease_digest,
         "claimed_at": claimed_timestamp,
     }
-    claim_path = execution_root.expanduser().resolve() / f"{authorization_key}.json"
     claim_digest = create_json_exclusive(
         claim_path,
         claim,

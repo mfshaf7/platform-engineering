@@ -28,7 +28,7 @@ runtime:
           - restore-baseline
           - cleanup
         current-checkout-drift-allowed: true
-        executor_source: detached-clean-permit-bound-platform-revision
+        executor_source: sealed-attested-permit-bound-platform-profile
         permit-bound-historical-security-artifact-required: true
         new-proof-mutations-allowed: false
         restore_verification_scope: operator-scoped-runtime-surfaces-only
@@ -49,6 +49,10 @@ runtime:
         evidence: permit-bound-commit-blob-bytes
         git-index-state-trusted: false
         additional-files-allowed: false
+        mutable-checkout-path-execution-allowed: false
+        sealed-source: linux-memfd
+        execution-projection: private-read-only-profile-tree
+        sandbox: bubblewrap
       snapshot_transaction:
         lock: per-authorization-local-filesystem-lock
         receipt-resume: exact-matching-uncommitted-snapshot-only

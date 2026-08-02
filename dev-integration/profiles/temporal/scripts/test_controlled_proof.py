@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
@@ -655,9 +655,10 @@ class ControlledProofTests(unittest.TestCase):
                 *,
                 env: dict[str, str] | None = None,
                 input_text: str | None = None,
+                pass_fds: tuple[int, ...] = (),
                 timeout: float = 600,
             ) -> CommandResult:
-                del input_text, timeout
+                del input_text, pass_fds, timeout
                 self.commands.append(command)
                 self.environment = dict(env or {})
                 return CommandResult(stdout="", stderr="", returncode=0)
@@ -689,7 +690,15 @@ class ControlledProofTests(unittest.TestCase):
             runner=runner,
         )
         control.platform_executor_snapshot.mkdir(parents=True)
-        with mock.patch.object(control, "_assert_platform_executor_snapshot"):
+        output_root.mkdir(parents=True, exist_ok=True)
+        runtime_relative = PurePosixPath(
+            "dev-integration/profiles/temporal/scripts/controlled-proof-runtime.sh"
+        )
+        with mock.patch.object(
+            control,
+            "_assert_platform_executor_snapshot",
+            return_value={runtime_relative: (b"#!/usr/bin/env bash\nexit 0\n", 0o755)},
+        ):
             control._runtime_script("prepare")
 
         expected_temporal_namespace = operator_scoped_dns_label(
@@ -711,16 +720,75 @@ class ControlledProofTests(unittest.TestCase):
             runner.environment["CONTROLLED_PROOF_WORKSPACE_ROOT"],
             str(workspace_root),
         )
-        self.assertEqual(
-            Path(runner.commands[-1][1]),
-            control.platform_executor_snapshot
-            / "dev-integration"
-            / "profiles"
-            / "temporal"
-            / "scripts"
-            / "controlled-proof-runtime.sh",
+        self.assertEqual(runner.commands[-1][0], "bwrap")
+        self.assertIn(
+            str(
+                control.platform_executor_snapshot
+                / "dev-integration"
+                / "profiles"
+                / "temporal"
+                / "scripts"
+                / "controlled-proof-runtime.sh"
+            ),
+            runner.commands[-1],
         )
         self.assertNotEqual(expected_temporal_namespace, "governance-alice-example")
+
+    def test_runtime_executes_sealed_attested_bytes_not_mutable_snapshot_path(
+        self,
+    ) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+        )
+        runtime_relative = PurePosixPath(
+            "dev-integration/profiles/temporal/scripts/controlled-proof-runtime.sh"
+        )
+        runtime_path = control.platform_executor_snapshot.joinpath(
+            *runtime_relative.parts
+        )
+        runtime_path.parent.mkdir(parents=True)
+        runtime_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "printf 'mutable-path\\n' > "
+            '"${CONTROLLED_PROOF_OUTPUT_ROOT}/executed.txt"\n',
+            encoding="utf-8",
+        )
+        runtime_path.chmod(0o755)
+        attested_runtime = (
+            b"#!/usr/bin/env bash\n"
+            b"printf 'sealed-attested\\n' > "
+            b'"${CONTROLLED_PROOF_OUTPUT_ROOT}/executed.txt"\n'
+        )
+        with mock.patch.object(
+            control,
+            "_assert_platform_executor_snapshot",
+            return_value={runtime_relative: (attested_runtime, 0o755)},
+        ):
+            control._runtime_script("prepare")
+
+        self.assertEqual(
+            (output_root / "executed.txt").read_text(encoding="utf-8"),
+            "sealed-attested\n",
+        )
 
     def test_executor_snapshot_rejects_index_hidden_and_ignored_changes(self) -> None:
         fixture = ProofFixture(self.root / "fixture")

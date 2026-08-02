@@ -41,10 +41,12 @@ This drill type:
 - revalidates the permit, both approvals, canonical consumption receipt,
   execution claim, atomic operator-scope lease, output root, namespaces, and
   collision-resistant state root before every internal shell mutation
-- executes runtime shell actions from a detached clean checkout of the
-  permit-bound Platform revision, byte-attests the complete executed profile
-  independently of Git index state, and releases the scope lease only after
-  successful runtime-surface restore verification
+- acquires runtime source from a detached clean checkout of the permit-bound
+  Platform revision, byte-attests the complete executed profile independently
+  of Git index state, seals those attested bytes in memory, and projects them
+  into a private read-only executor tree rather than executing mutable checkout
+  pathnames; it releases the scope lease only after successful runtime-surface
+  restore verification
 - serializes execution setup per authorization, persists owner contexts before
   claim acquisition, and permits only an exact claim/context retry while the
   original operator-scope lease remains active

@@ -205,12 +205,16 @@ therefore recoverable before runtime mutation without opening concurrent
 execution.
 Setting environment flags or plausible identifiers cannot bypass that gate.
 Before its first mutation the executor creates a detached, clean checkout of
-the permit-bound Platform revision. Every runtime shell action, including
-terminal cleanup after current-checkout drift, runs from that checkout. Before
-each action, every tracked byte in the complete Temporal profile is compared
-with the permit-bound commit tree and any additional file is denied; mutable
-Git index flags are not accepted as integrity evidence. The
-executor installs only the permit-bound local runtime, projects immutable
+the permit-bound Platform revision. Before each runtime shell action, including
+terminal cleanup after current-checkout drift, every tracked byte in the
+complete Temporal profile is compared with the permit-bound commit tree and
+any additional file is denied; mutable Git index flags are not accepted as
+integrity evidence. The verified files are copied into sealed memory and
+projected by Bubblewrap at the exact profile path as a private read-only tree.
+The runtime therefore cannot execute source swapped into the checkout after
+attestation. The commissioning host must provide `bwrap` in the controlled
+executable path. The executor installs only the permit-bound local runtime,
+projects immutable
 OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
 the final 120 seconds of the authorization window for starting exact-baseline
 restore; normal proof commands are denied once that reserve is reached. A

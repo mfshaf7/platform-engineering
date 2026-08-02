@@ -69,10 +69,13 @@ operator approvals. The Security approval must match an exact JSON artifact in
 the clean permit-bound `security-architecture` revision, and every internal
 runtime mutation revalidates the full consumed authority and collision-
 resistant runtime scope. One atomic lease prevents concurrent authorizations
-from sharing that scope, and runtime shell actions execute from a detached
-checkout whose complete Temporal profile is verified byte-for-byte against the
-permit-bound Platform revision. Exact retries are serialized and may resume
-only the same owner contexts, execution claim, output root, and active lease:
+from sharing that scope, and runtime source is acquired in a detached checkout
+whose complete Temporal profile is verified byte-for-byte against the
+permit-bound Platform revision. The verified bytes are sealed in memory and
+projected at the profile path as a private read-only tree; runtime code never
+executes from the mutable checkout path. Exact retries are serialized and may
+resume only the same owner contexts, execution claim, output root, and active
+lease:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help

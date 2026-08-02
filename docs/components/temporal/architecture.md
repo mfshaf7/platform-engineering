@@ -98,10 +98,12 @@ before runtime activation.
 - one atomic lease owns each collision-resistant operator scope; another
   authorization cannot prepare or clean up that scope until successful restore
   verification releases the lease
-- runtime shell actions execute from a detached clean checkout of the
-  permit-bound Platform revision, including bounded cleanup after current
-  checkout drift; the complete Temporal profile is byte-attested against the
-  commit tree and extra files are denied independently of Git index state
+- runtime source is acquired from a detached clean checkout of the permit-bound
+  Platform revision, including bounded cleanup after current checkout drift;
+  the complete Temporal profile is byte-attested against the commit tree and
+  extra files are denied independently of Git index state; attested bytes are
+  sealed in memory and projected into a private read-only profile tree, so
+  mutable checkout pathnames are not executed
 - one per-authorization execution lock serializes context preparation, claim
   acquisition, and exact retry; owner contexts are idempotent and the same
   active claim may resume only its bound output root and operator-scope lease

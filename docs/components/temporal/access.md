@@ -50,8 +50,11 @@ fresh Security acceptance before activation.
 The source-reviewed commissioning adapter is not an alternate access path. Its
 internal runtime script rejects caller flags and identifiers unless the full
 source-controlled Security approval, consumed permit, execution claim, and
-exact operator-scope lease revalidate first. The script itself is loaded from
-the clean permit-bound Platform revision rather than the mutable current
-checkout. Its complete profile tree is compared byte-for-byte with the exact
+exact operator-scope lease revalidate first. Its source is acquired from the
+clean permit-bound Platform revision rather than the mutable current checkout.
+The complete profile tree is compared byte-for-byte with the exact
 commit and may contain no extra files, so Git index flags cannot hide executor
-changes. One per-authorization lock serializes initial setup and exact retry.
+changes. Those verified bytes are sealed in memory and projected by Bubblewrap
+as a private read-only profile tree at the expected runtime path. The mutable
+checkout path is never used as executable source. One per-authorization lock
+serializes initial setup and exact retry.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -10,10 +11,11 @@ import socket
 import stat
 import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Protocol
+from typing import Any, Iterator, Protocol
 from urllib import error as urlerror
 from urllib import request as urlrequest
 from urllib.parse import quote, urlsplit
@@ -85,6 +87,9 @@ TERMINAL_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
 WGCF_RECEIPT_PREFIX = "wgcf-controlled-proof://receipts/"
 WGCF_RECEIPT_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 PERMIT_BOUND_EXECUTOR_TREE = PurePosixPath("dev-integration/profiles/temporal")
+# Bubblewrap mounts a private tmpfs at this namespace-local path.
+SANDBOX_TEMP_ROOT = "/tmp"  # nosec B108
+SANDBOX_HOME = f"{SANDBOX_TEMP_ROOT}/controlled-proof-home"
 
 
 class _NoRedirectHandler(urlrequest.HTTPRedirectHandler):
@@ -149,6 +154,7 @@ class CommandRunner(Protocol):
         *,
         env: dict[str, str] | None = None,
         input_text: str | None = None,
+        pass_fds: tuple[int, ...] = (),
         timeout: float = 600,
     ) -> CommandResult: ...
 
@@ -160,6 +166,7 @@ class SubprocessCommandRunner:
         *,
         env: dict[str, str] | None = None,
         input_text: str | None = None,
+        pass_fds: tuple[int, ...] = (),
         timeout: float = 600,
     ) -> CommandResult:
         effective_environment = env or controlled_subprocess_environment()
@@ -172,6 +179,7 @@ class SubprocessCommandRunner:
             capture_output=True,
             env=effective_environment,
             input=input_text,
+            pass_fds=pass_fds,
             text=True,
             timeout=timeout,
         )
@@ -960,7 +968,9 @@ class LocalK3sRuntimeControl:
         )
 
     def _runtime_script(self, action: str, *, allow_expired: bool = False) -> None:
-        self._assert_platform_executor_snapshot(allow_expired=allow_expired)
+        attested_files = self._assert_platform_executor_snapshot(
+            allow_expired=allow_expired
+        )
         runtime_script = (
             self.platform_executor_snapshot
             / "dev-integration"
@@ -1001,6 +1011,7 @@ class LocalK3sRuntimeControl:
             "CONTROLLED_PROOF_OUTPUT_ROOT": str(self.output_root),
             "CONTROLLED_PROOF_OPERATOR_SCOPE": self.operator_scope,
             "CONTROLLED_PROOF_WORKSPACE_ROOT": str(self.workspace_root),
+            "HOME": SANDBOX_HOME,
             "PYTHONDONTWRITEBYTECODE": "1",
             "DEVINT_OPERATOR": self.operator_id,
             "DEVINT_PROFILE_ID": "temporal",
@@ -1011,12 +1022,20 @@ class LocalK3sRuntimeControl:
             "DEVINT_KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
             "DEVINT_KUBECTL": "k3s kubectl",
         }
-        self._run(
-            ["bash", str(runtime_script), action],
-            env=env,
-            timeout=900,
-            allow_expired=allow_expired,
-        )
+        with self._sealed_executor_files(attested_files) as sealed_files:
+            self._run(
+                self._sandboxed_runtime_command(
+                    runtime_script=runtime_script,
+                    action=action,
+                    sealed_files=sealed_files,
+                ),
+                env=env,
+                pass_fds=tuple(
+                    descriptor for descriptor, _mode in sealed_files.values()
+                ),
+                timeout=900,
+                allow_expired=allow_expired,
+            )
 
     def _prepare_platform_executor_snapshot(self) -> None:
         snapshot = self.platform_executor_snapshot
@@ -1042,7 +1061,7 @@ class LocalK3sRuntimeControl:
 
     def _assert_platform_executor_snapshot(
         self, *, allow_expired: bool = False
-    ) -> None:
+    ) -> dict[PurePosixPath, tuple[bytes, int]]:
         snapshot = self.platform_executor_snapshot
         if not snapshot.is_dir() or snapshot.is_symlink():
             raise ControlledProofError("permit-bound Platform executor snapshot is unavailable")
@@ -1101,7 +1120,7 @@ class LocalK3sRuntimeControl:
             raise ControlledProofError(
                 "permit-bound Platform executor snapshot changed during execution"
             )
-        self._assert_executor_tree_bytes(
+        return self._assert_executor_tree_bytes(
             snapshot=snapshot,
             object_format=object_format,
             tree_listing=tree_listing,
@@ -1113,7 +1132,7 @@ class LocalK3sRuntimeControl:
         snapshot: Path,
         object_format: str,
         tree_listing: str,
-    ) -> None:
+    ) -> dict[PurePosixPath, tuple[bytes, int]]:
         if object_format not in {"sha1", "sha256"}:
             raise ControlledProofError("permit-bound Git object format is unsupported")
 
@@ -1165,6 +1184,7 @@ class LocalK3sRuntimeControl:
                         "permit-bound executor tree contains an untracked file"
                     )
 
+        attested_files: dict[PurePosixPath, tuple[bytes, int]] = {}
         for relative, (expected_mode, expected_object_id) in expected_files.items():
             path = snapshot.joinpath(*relative.parts)
             try:
@@ -1201,6 +1221,166 @@ class LocalK3sRuntimeControl:
                 raise ControlledProofError(
                     f"permit-bound executor bytes changed during execution: {relative}"
                 )
+            attested_files[relative] = (
+                content,
+                0o755 if expected_mode == "100755" else 0o644,
+            )
+        return attested_files
+
+    @staticmethod
+    @contextmanager
+    def _sealed_executor_files(
+        attested_files: dict[PurePosixPath, tuple[bytes, int]],
+    ) -> Iterator[dict[PurePosixPath, tuple[int, int]]]:
+        required_constants = (
+            "F_ADD_SEALS",
+            "F_GET_SEALS",
+            "F_SEAL_GROW",
+            "F_SEAL_SEAL",
+            "F_SEAL_SHRINK",
+            "F_SEAL_WRITE",
+        )
+        required_os_constants = ("MFD_ALLOW_SEALING", "MFD_CLOEXEC")
+        if (
+            not hasattr(os, "memfd_create")
+            or any(not hasattr(os, name) for name in required_os_constants)
+            or any(not hasattr(fcntl, name) for name in required_constants)
+        ):
+            raise ControlledProofError(
+                "sealed permit-bound executor files are unavailable on this host"
+            )
+
+        sealed_files: dict[PurePosixPath, tuple[int, int]] = {}
+        try:
+            for relative, (content, mode) in attested_files.items():
+                try:
+                    descriptor = os.memfd_create(
+                        f"controlled-proof-{relative.name}",
+                        flags=(
+                            getattr(os, "MFD_CLOEXEC")
+                            | getattr(os, "MFD_ALLOW_SEALING")
+                        ),
+                    )
+                    sealed_files[relative] = (descriptor, mode)
+                    os.fchmod(descriptor, mode)
+                    offset = 0
+                    while offset < len(content):
+                        written = os.write(descriptor, content[offset:])
+                        if written <= 0:
+                            raise OSError("sealed executor file write made no progress")
+                        offset += written
+                    os.fsync(descriptor)
+                    required_seals = (
+                        fcntl.F_SEAL_GROW
+                        | fcntl.F_SEAL_SEAL
+                        | fcntl.F_SEAL_SHRINK
+                        | fcntl.F_SEAL_WRITE
+                    )
+                    fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, required_seals)
+                    applied_seals = fcntl.fcntl(descriptor, fcntl.F_GET_SEALS)
+                    if applied_seals & required_seals != required_seals:
+                        raise OSError("sealed executor file is missing required seals")
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                except OSError as exc:
+                    raise ControlledProofError(
+                        "failed to seal permit-bound executor file"
+                    ) from exc
+            yield sealed_files
+        finally:
+            for descriptor, _mode in sealed_files.values():
+                os.close(descriptor)
+
+    def _sandboxed_runtime_command(
+        self,
+        *,
+        runtime_script: Path,
+        action: str,
+        sealed_files: dict[PurePosixPath, tuple[int, int]],
+    ) -> list[str]:
+        state_parent = self.state_root.parent
+        state_parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for label, directory in (
+            ("output", self.output_root),
+            ("state", state_parent),
+        ):
+            if directory.is_symlink() or not directory.is_dir():
+                raise ControlledProofError(
+                    f"controlled runtime {label} directory is unavailable"
+                )
+            directory_stat = directory.stat()
+            if (
+                directory_stat.st_uid != os.geteuid()
+                or directory_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+            ):
+                raise ControlledProofError(
+                    f"controlled runtime {label} directory must be private and operator-owned"
+                )
+
+        profile_root = self.platform_executor_snapshot.joinpath(
+            *PERMIT_BOUND_EXECUTOR_TREE.parts
+        )
+        command = [
+            "bwrap",
+            "--die-with-parent",
+            "--ro-bind",
+            "/",
+            "/",
+            "--dev-bind",
+            "/dev",
+            "/dev",
+            "--proc",
+            "/proc",
+            "--tmpfs",
+            SANDBOX_TEMP_ROOT,
+            "--dir",
+            SANDBOX_HOME,
+            "--bind",
+            str(self.output_root),
+            str(self.output_root),
+            "--bind",
+            str(state_parent),
+            str(state_parent),
+            "--tmpfs",
+            str(profile_root),
+        ]
+
+        relative_directories: set[PurePosixPath] = set()
+        for relative in sealed_files:
+            profile_relative = relative.relative_to(PERMIT_BOUND_EXECUTOR_TREE)
+            parent = profile_relative.parent
+            while parent != PurePosixPath("."):
+                relative_directories.add(parent)
+                parent = parent.parent
+        for relative in sorted(
+            relative_directories, key=lambda item: (len(item.parts), str(item))
+        ):
+            command.extend(["--dir", str(profile_root.joinpath(*relative.parts))])
+        for relative, (descriptor, mode) in sorted(
+            sealed_files.items(), key=lambda item: str(item[0])
+        ):
+            profile_relative = relative.relative_to(PERMIT_BOUND_EXECUTOR_TREE)
+            command.extend(
+                [
+                    "--perms",
+                    f"0{mode:o}",
+                    "--ro-bind-data",
+                    str(descriptor),
+                    str(profile_root.joinpath(*profile_relative.parts)),
+                ]
+            )
+        command.extend(
+            [
+                "--remount-ro",
+                str(profile_root),
+                "--chdir",
+                str(self.platform_executor_snapshot),
+                "--",
+                "bash",
+                str(runtime_script),
+                action,
+            ]
+        )
+        return command
 
     def _run(
         self,
@@ -1208,6 +1388,7 @@ class LocalK3sRuntimeControl:
         *,
         env: dict[str, str] | None = None,
         input_text: str | None = None,
+        pass_fds: tuple[int, ...] = (),
         timeout: float = 600,
         allow_expired: bool = False,
     ) -> CommandResult:
@@ -1219,6 +1400,7 @@ class LocalK3sRuntimeControl:
             command,
             env=runtime_environment,
             input_text=input_text,
+            pass_fds=pass_fds,
             timeout=effective_timeout,
         )
         if result.returncode != 0:
@@ -1294,7 +1476,15 @@ class LocalK3sRuntimeControl:
 
     def _require_tools(self) -> None:
         environment = controlled_subprocess_environment()
-        for command in ("bash", "git", "helm", "k3s", "python3", "sha256sum"):
+        for command in (
+            "bash",
+            "bwrap",
+            "git",
+            "helm",
+            "k3s",
+            "python3",
+            "sha256sum",
+        ):
             try:
                 resolve_controlled_command([command], environment=environment)
             except ControlledProofError as exc:

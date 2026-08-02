@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/temporal/controlled-proof/consumption-receipt.schema.json",
+  "title": "Controlled Proof Permit Consumption Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "authorization_id",
+    "authorization_digest",
+    "canonical_claims_digest",
+    "commissioning_session_id",
+    "executor_source_revision",
+    "consumed_at"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "receipt_id": { "$ref": "#/$defs/uri" },
+    "authorization_id": { "$ref": "#/$defs/uri" },
+    "authorization_digest": { "$ref": "#/$defs/digest" },
+    "canonical_claims_digest": { "$ref": "#/$defs/digest" },
+    "commissioning_session_id": { "$ref": "#/$defs/identifier" },
+    "executor_source_revision": { "$ref": "#/$defs/revision" },
+    "consumed_at": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "format": "uri"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  }
+}

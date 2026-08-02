@@ -2,6 +2,7 @@ schema_version: 1
 runtime:
   kubernetes_namespace_source: dev-integration-session
   temporal_namespace_pattern: governance-{operator}
+  operator_namespace_encoding: dns-label-with-sha256-suffix-on-lossy-normalization
   local_only: true
   public_ingress: false
   direct_console_access: false
@@ -20,6 +21,11 @@ identities:
     owner_repo: platform-engineering
     service_account: temporal-postgresql
     credential_scope: database-only
+  oos_api:
+    owner_repo: operator-orchestration-service
+    service_account: temporal-oos-api
+    pod_label: orchestration.workspace/identity=oos-api
+    credential_scope: permit-bound-workflow-start-and-run-control
   oos_workflow_worker:
     owner_repo: operator-orchestration-service
     service_account: temporal-oos-worker

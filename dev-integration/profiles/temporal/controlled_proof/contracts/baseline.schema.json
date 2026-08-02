@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/temporal/controlled-proof/baseline.schema.json",
+  "title": "Temporal Controlled Proof Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "baseline_id",
+    "profile",
+    "operator_id",
+    "captured_at",
+    "source_revisions",
+    "surface_observations",
+    "restore_scope"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "baseline_id": { "$ref": "#/$defs/uri" },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "profile_lifecycle", "environment"],
+      "properties": {
+        "profile_id": { "const": "temporal" },
+        "profile_lifecycle": { "const": "build-admitted" },
+        "environment": { "const": "dev-integration" }
+      }
+    },
+    "operator_id": { "$ref": "#/$defs/identifier" },
+    "captured_at": { "$ref": "#/$defs/timestamp" },
+    "source_revisions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo", "commit", "dirty"],
+        "properties": {
+          "repo": {
+            "enum": [
+              "platform-engineering",
+              "operator-orchestration-service",
+              "workspace-governance",
+              "workspace-governance-control-fabric",
+              "security-architecture"
+            ]
+          },
+          "commit": { "$ref": "#/$defs/revision" },
+          "dirty": { "const": false }
+        }
+      }
+    },
+    "surface_observations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface_id",
+          "state",
+          "probe_id",
+          "evidence_ref",
+          "evidence_digest",
+          "observation_digest"
+        ],
+        "properties": {
+          "surface_id": {
+            "enum": [
+              "temporal-runtime",
+              "oos-validation-readiness-worker",
+              "wgcf-readiness-activity-worker"
+            ]
+          },
+          "state": { "$ref": "#/$defs/identifier" },
+          "probe_id": {
+            "enum": [
+              "temporal-runtime-status-v1",
+              "oos-controlled-proof-status-v1",
+              "wgcf-controlled-proof-status-v1"
+            ]
+          },
+          "evidence_ref": { "$ref": "#/$defs/uri" },
+          "evidence_digest": { "$ref": "#/$defs/digest" },
+          "observation_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "restore_scope": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "temporal-runtime" },
+        { "const": "oos-validation-readiness-worker" },
+        { "const": "wgcf-readiness-activity-worker" }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "format": "uri"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  }
+}

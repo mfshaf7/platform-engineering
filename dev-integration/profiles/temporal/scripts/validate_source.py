@@ -592,6 +592,7 @@ def main() -> int:
         require(
             {
                 "temporal-runtime",
+                "temporal-oos-api",
                 "temporal-oos-worker",
                 "temporal-wgcf-activity",
                 "temporal-diagnostic",

@@ -1,0 +1,748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspace-governance.local/contracts/controlled-runtime-proof-authorization.schema.json",
+  "title": "Controlled Runtime Proof Authorization",
+  "description": "Expiring, non-self-serve authorization for one bounded component commissioning session with enumerated scenario executions. This artifact does not activate a runtime profile or workflow definition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authorization_id",
+    "authority_type",
+    "drill_type",
+    "target",
+    "scope",
+    "commissioning_session",
+    "permit_issuer",
+    "executor",
+    "approvals",
+    "window",
+    "evidence",
+    "baseline_and_restore",
+    "exception_handling",
+    "stop_conditions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "authorization_id": {
+      "$ref": "#/$defs/uri"
+    },
+    "authority_type": {
+      "const": "runtime-drill"
+    },
+    "drill_type": {
+      "const": "component-commissioning-proof"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_lifecycle",
+        "environment"
+      ],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "profile_lifecycle": {
+          "const": "build-admitted"
+        },
+        "environment": {
+          "const": "dev-integration"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_definitions",
+        "source_revisions",
+        "runtime_artifacts",
+        "runtime_images",
+        "target_namespaces",
+        "runtime_identities",
+        "task_queues",
+        "permitted_actions"
+      ],
+      "properties": {
+        "allowed_definitions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "definition_id",
+              "definition_version"
+            ],
+            "properties": {
+              "definition_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "definition_version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "source_revisions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repo",
+              "commit"
+            ],
+            "properties": {
+              "repo": {
+                "$ref": "#/$defs/identifier"
+              },
+              "commit": {
+                "type": "string",
+                "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+              }
+            }
+          }
+        },
+        "runtime_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "artifact_id",
+              "digest"
+            ],
+            "properties": {
+              "artifact_id": {
+                "$ref": "#/$defs/identifier"
+              },
+              "digest": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          }
+        },
+        "runtime_images": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "image_ref",
+              "digest"
+            ],
+            "properties": {
+              "image_ref": {
+                "$ref": "#/$defs/identifier"
+              },
+              "digest": {
+                "$ref": "#/$defs/digest"
+              }
+            }
+          }
+        },
+        "target_namespaces": {
+          "$ref": "#/$defs/nonEmptyUniqueIdentifierList"
+        },
+        "runtime_identities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "identity"
+            ],
+            "properties": {
+              "role": {
+                "$ref": "#/$defs/identifier"
+              },
+              "identity": {
+                "$ref": "#/$defs/identifier"
+              }
+            }
+          }
+        },
+        "task_queues": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "owner_repo",
+              "queue_name"
+            ],
+            "properties": {
+              "owner_repo": {
+                "$ref": "#/$defs/identifier"
+              },
+              "queue_name": {
+                "$ref": "#/$defs/identifier"
+              }
+            }
+          }
+        },
+        "permitted_actions": {
+          "$ref": "#/$defs/nonEmptyUniqueIdentifierList"
+        }
+      }
+    },
+    "commissioning_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commissioning_session_id",
+        "consumption_mode",
+        "consume_before_first_mutation",
+        "duplicate_consumption_denied",
+        "scenario_executions"
+      ],
+      "properties": {
+        "commissioning_session_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "consumption_mode": {
+          "const": "atomic-single-use"
+        },
+        "consume_before_first_mutation": {
+          "const": true
+        },
+        "duplicate_consumption_denied": {
+          "const": true
+        },
+        "scenario_executions": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/nominalCompletionExecution"
+            },
+            {
+              "$ref": "#/$defs/workflowWorkerRestartExecution"
+            },
+            {
+              "$ref": "#/$defs/temporalRuntimeRestartExecution"
+            },
+            {
+              "$ref": "#/$defs/deterministicReplayExecution"
+            },
+            {
+              "$ref": "#/$defs/duplicateSuppressionExecution"
+            },
+            {
+              "$ref": "#/$defs/cancellationExecution"
+            },
+            {
+              "$ref": "#/$defs/unavailableDependencyExecution"
+            },
+            {
+              "$ref": "#/$defs/identityDenialExecution"
+            },
+            {
+              "$ref": "#/$defs/payloadBoundaryExecution"
+            },
+            {
+              "$ref": "#/$defs/backupRestoreExecution"
+            },
+            {
+              "$ref": "#/$defs/exactBaselineRestoreExecution"
+            }
+          ],
+          "items": false,
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true
+        }
+      }
+    },
+    "permit_issuer": {
+      "$ref": "#/$defs/reviewedPlatformSource"
+    },
+    "executor": {
+      "$ref": "#/$defs/reviewedPlatformSource"
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issued_by",
+        "canonicalization",
+        "canonical_claims_projection",
+        "canonical_claims_digest",
+        "operator_approval_ref",
+        "operator_approval_digest",
+        "security_authorization_ref",
+        "security_authorization_digest"
+      ],
+      "properties": {
+        "issued_by": {
+          "const": "platform-engineering"
+        },
+        "canonicalization": {
+          "const": "rfc8785"
+        },
+        "canonical_claims_projection": {
+          "const": "all-authorization-fields-except-approvals"
+        },
+        "canonical_claims_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "operator_approval_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "operator_approval_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "security_authorization_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "security_authorization_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issued_at",
+        "expires_at"
+      ],
+      "properties": {
+        "issued_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repo",
+        "verification_pack_ref"
+      ],
+      "properties": {
+        "owner_repo": {
+          "$ref": "#/$defs/identifier"
+        },
+        "verification_pack_ref": {
+          "$ref": "#/$defs/uri"
+        }
+      }
+    },
+    "baseline_and_restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_snapshot_ref",
+        "baseline_snapshot_digest",
+        "restore_mode",
+        "restore_scope",
+        "terminal_cleanup_authority"
+      ],
+      "properties": {
+        "baseline_snapshot_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "baseline_snapshot_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "restore_mode": {
+          "const": "exact-baseline"
+        },
+        "restore_scope": {
+          "$ref": "#/$defs/nonEmptyUniqueIdentifierList"
+        },
+        "terminal_cleanup_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "applies_to",
+            "trigger_scope",
+            "scope_binding",
+            "new_proof_actions_denied",
+            "scope_expansion_denied",
+            "runtime_retention_denied",
+            "permitted_actions",
+            "termination_conditions"
+          ],
+          "properties": {
+            "mode": {
+              "const": "exact-baseline-restore-only"
+            },
+            "applies_to": {
+              "const": "already-started-commissioning-session"
+            },
+            "trigger_scope": {
+              "const": "any-triggered-stop-condition"
+            },
+            "scope_binding": {
+              "const": "exact-captured-restore-scope"
+            },
+            "new_proof_actions_denied": {
+              "const": true
+            },
+            "scope_expansion_denied": {
+              "const": true
+            },
+            "runtime_retention_denied": {
+              "const": true
+            },
+            "permitted_actions": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "const": "remove-scoped-runtime"
+                },
+                {
+                  "const": "restore-exact-baseline"
+                },
+                {
+                  "const": "record-restore-evidence"
+                },
+                {
+                  "const": "record-governed-exception"
+                }
+              ],
+              "items": false,
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "termination_conditions": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "const": "exact-baseline-restored"
+                },
+                {
+                  "const": "governed-exception-recorded"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      }
+    },
+    "exception_handling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_decisions",
+        "record_ref_required"
+      ],
+      "properties": {
+        "allowed_decisions": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "remove"
+            },
+            {
+              "const": "workaround"
+            },
+            {
+              "const": "accept-risk"
+            },
+            {
+              "const": "defer"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "record_ref_required": {
+          "const": true
+        }
+      }
+    },
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "reviewedPlatformSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repo",
+        "implementation_ref",
+        "source_revision",
+        "review_packet_ref"
+      ],
+      "properties": {
+        "owner_repo": {
+          "const": "platform-engineering"
+        },
+        "implementation_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "review_packet_ref": {
+          "$ref": "#/$defs/uri"
+        }
+      }
+    },
+    "scenarioExecution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_execution_id",
+        "required_receipt_owners"
+      ],
+      "properties": {
+        "scenario_id": {
+          "enum": [
+            "nominal-completion",
+            "workflow-worker-restart",
+            "temporal-runtime-restart",
+            "deterministic-replay",
+            "duplicate-suppression",
+            "cancellation",
+            "unavailable-dependency",
+            "identity-denial",
+            "payload-boundary",
+            "backup-restore",
+            "exact-baseline-restore"
+          ]
+        },
+        "scenario_execution_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "required_receipt_owners": {
+          "$ref": "#/$defs/receiptOwnerList"
+        }
+      }
+    },
+    "nominalCompletionExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "nominal-completion"
+            }
+          }
+        }
+      ]
+    },
+    "workflowWorkerRestartExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "workflow-worker-restart"
+            }
+          }
+        }
+      ]
+    },
+    "temporalRuntimeRestartExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "temporal-runtime-restart"
+            }
+          }
+        }
+      ]
+    },
+    "deterministicReplayExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "deterministic-replay"
+            }
+          }
+        }
+      ]
+    },
+    "duplicateSuppressionExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "duplicate-suppression"
+            }
+          }
+        }
+      ]
+    },
+    "cancellationExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "cancellation"
+            }
+          }
+        }
+      ]
+    },
+    "unavailableDependencyExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "unavailable-dependency"
+            }
+          }
+        }
+      ]
+    },
+    "identityDenialExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "identity-denial"
+            }
+          }
+        }
+      ]
+    },
+    "payloadBoundaryExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "payload-boundary"
+            }
+          }
+        }
+      ]
+    },
+    "backupRestoreExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "backup-restore"
+            }
+          }
+        }
+      ]
+    },
+    "exactBaselineRestoreExecution": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioExecution"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "exact-baseline-restore"
+            }
+          }
+        }
+      ]
+    },
+    "receiptOwnerList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "platform-engineering",
+          "operator-orchestration-service",
+          "workspace-governance-control-fabric"
+        ]
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$"
+    },
+    "nonEmptyUniqueIdentifierList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]+$"
+    }
+  }
+}

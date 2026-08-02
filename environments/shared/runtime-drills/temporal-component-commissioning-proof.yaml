@@ -8,9 +8,9 @@ targetLanes:
   - devint
 evidenceOwner: platform-engineering
 sourceEnablement:
-  status: contract-only
+  status: source-reviewed
   implementationWorkItemRef: openproject://work_packages/792
-  snapshotAllowed: false
+  snapshotAllowed: true
   requiredControls:
     - capture-preauthorization-baseline-artifact
     - validate-authorization-artifact-and-digest
@@ -56,7 +56,7 @@ resultArtifact:
   required: true
   artifactType: controlled-runtime-proof-result
   schemaRef: https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json
-  schemaVersion: 1
+  schemaVersion: 2
 scope:
   sourceRepos:
     - platform-engineering

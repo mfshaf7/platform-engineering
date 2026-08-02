@@ -602,7 +602,7 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
                 detail = (completed.stderr or completed.stdout).strip()
                 if (
                     completed.returncode == 0
-                    or "commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
+                    or "permit artifact validation and atomic consumption are not source-reviewed"
                     not in detail
                 ):
                     errors.append(
@@ -622,7 +622,7 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
                     "--profile-path",
                     str(required_profile),
                     "--run-id",
-                    "contract-only-validation",
+                    "source-reviewed-validation",
                     "--operator",
                     "validator",
                     "--authorization-ref",
@@ -636,9 +636,12 @@ def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
                 text=True,
             )
             detail = (completed.stderr or completed.stdout).strip()
-            if completed.returncode == 0 or "contract-only until ART #792" not in detail:
+            if (
+                completed.returncode == 0
+                or "controlled commissioning snapshot requires" not in detail
+            ):
                 errors.append(
-                    f"{required_profile}: commissioning snapshot must fail closed until #792"
+                    f"{required_profile}: commissioning snapshot must require every reviewed permit artifact"
                 )
             if any(Path(output_root).iterdir()):
                 errors.append(

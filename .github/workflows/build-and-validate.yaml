@@ -24,8 +24,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install YAML dependency
-        run: python -m pip install pyyaml
+      - name: Install Python validation dependencies
+        run: python -m pip install pyyaml -r dev-integration/profiles/temporal/controlled_proof/requirements.txt
 
       - name: Validate platform repo structure
         run: python scripts/validate_repo_structure.py

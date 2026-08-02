@@ -19,12 +19,11 @@ This section is the primary Platform operator surface for a bounded Temporal
 commissioning proof. The proof is not a normal profile launch and does not
 change the profile from `build-admitted`.
 
-Current availability is contract-only. No permit issuer or proof executor is
-active, so operators must stop after preflight until ART #792 lands the exact
-reviewed issuer and executor source, the exact permit is Security-authorized
-against those revisions, and the operator explicitly approves it. The ordinary
-`devint-up`, access, smoke, backup, restore, and workflow commands remain denied
-and cannot substitute for this procedure.
+The permit issuer and executor source is implemented and source-reviewed under
+ART #792. That source availability is not runtime authorization. No permit has
+been issued, no commissioning session has run, and ordinary `devint-up`,
+access, smoke, backup, restore, and workflow commands remain denied while the
+profile is `build-admitted`.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 
@@ -40,145 +39,193 @@ Inspect the profile before authorization:
 make platform-drill ACTION=plan PROFILE=temporal-component-commissioning-proof
 ```
 
-The following is the reserved post-#792 snapshot entry point. It currently
-fails closed before creating a ledger directory, even when authorization
-arguments are supplied. #792 must land the reviewed artifact loader, digest
-and semantic validators, approval verifier, atomic permit consumer, executor,
-and result emitter before a follow-on reviewed change may set
-`sourceEnablement.snapshotAllowed` to `true`:
+It must report `availability=source-reviewed` and `snapshot_allowed=true`.
+Those values mean only that the permit-validating snapshot path exists. The
+snapshot still fails before creating a run directory unless every required
+artifact is present, current, internally consistent, and unexpired.
+
+### 1. Capture The Immutable Baseline
+
+Capture this before assembling the claims or requesting either approval:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
+  capture-baseline \
+  --workspace-root <workspace-root> \
+  --baseline-id artifact://controlled-proof/baselines/<session-id> \
+  --operator <operator> \
+  --output <local-evidence-root>/baseline.json \
+  --evidence-root <local-evidence-root>/baseline-evidence
+```
+
+Capture refuses dirty owner repos, a running Temporal footprint, operator-local
+Temporal state, an enabled OOS controlled worker, or an enabled WGCF controlled
+worker. The resulting baseline and three evidence files are immutable permit
+inputs. Do not edit or recapture them under the same identity.
+
+### 2. Assemble And Approve One Claims Set
+
+The claims JSON excludes the `approvals` envelope. It must bind the exact
+merged Platform #792 revision and finalized Review Packet, the exact reviewed
+Workspace Governance, OOS, and WGCF revisions in the controlled-proof source
+manifest, the current Security revision, immutable image and artifact digests,
+one namespace, the three runtime identities, two task queues, eleven ordered
+scenarios, one baseline, and one expiry window. Validate and reproduce its RFC
+8785-subset digest. Choose a declared issue time after both approvals can be
+recorded and an expiry that bounds the whole proof, then build the claims from
+the immutable baseline and reviewed source:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
+  build-claims \
+  --workspace-root <workspace-root> \
+  --authorization-id platform-controlled-proof://authorizations/<session-id> \
+  --session-id <session-id> \
+  --review-packet-ref artifact://review-packets/<platform-792-packet> \
+  --issued-at <rfc3339-utc> \
+  --expires-at <rfc3339-utc> \
+  --baseline <local-evidence-root>/baseline.json \
+  --baseline-evidence-root <local-evidence-root>/baseline-evidence \
+  --oos-api-image-digest sha256:<digest> \
+  --oos-worker-image-digest sha256:<digest> \
+  --wgcf-worker-image-digest sha256:<digest> \
+  --output <local-evidence-root>/claims.json
+```
+
+The builder refuses dirty source, unreviewed contract-source revisions,
+incomplete baseline evidence, or any non-digest owner-image binding. Reproduce
+the digest independently before approval:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
+  validate-claims --claims <local-evidence-root>/claims.json
+```
+
+Security authorization under ART #790 and explicit operator approval must each
+be separate JSON artifacts binding that exact digest. The contract review is
+not a per-run Security authorization.
+
+### 3. Issue The Final Permit
+
+Only after both approvals exist:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
+  issue-permit \
+  --workspace-root <workspace-root> \
+  --claims <local-evidence-root>/claims.json \
+  --operator-approval <local-evidence-root>/operator-approval.json \
+  --security-authorization <local-evidence-root>/security-authorization.json \
+  --baseline <local-evidence-root>/baseline.json \
+  --baseline-evidence-root <local-evidence-root>/baseline-evidence \
+  --output <local-evidence-root>/authorization.json
+```
+
+Issuance revalidates both approval files, the baseline files, every current
+source checkout, the pinned contract-source revisions, Platform artifacts,
+Temporal image locks, declared owner-image digests, identities, queues,
+namespace, scenario order, implementation and Review Packet bindings, and the
+validity window. ART #790 must separately verify that the referenced Review
+Packet is finalized and that each approved owner-image digest has the required
+source provenance. Issuance refuses to overwrite an existing permit.
+
+### 4. Consume The Permit And Create The Ledger
 
 ```bash
 make platform-drill ACTION=snapshot \
   PROFILE=temporal-component-commissioning-proof \
-  RUN_ID=<run-id> \
+  RUN_ID=<commissioning-session-id> \
   OPERATOR=<operator> \
-  AUTHORIZATION_REF=<durable-authorization-ref> \
-  AUTHORIZATION_DIGEST=sha256:<authorization-digest> \
+  AUTHORIZATION_REF=<authorization-id> \
+  AUTHORIZATION_DIGEST=sha256:<authorization-file-digest> \
+  AUTHORIZATION_FILE=<local-evidence-root>/authorization.json \
+  OPERATOR_APPROVAL_FILE=<local-evidence-root>/operator-approval.json \
+  SECURITY_AUTHORIZATION_FILE=<local-evidence-root>/security-authorization.json \
+  BASELINE_FILE=<local-evidence-root>/baseline.json \
+  BASELINE_EVIDENCE_ROOT=<local-evidence-root>/baseline-evidence \
   NOTE="<proof purpose>"
 ```
 
-Once that source gate has been reviewed and enabled, the resulting
-`.platform-drills/temporal-component-commissioning-proof/<run-id>/`
-directory is the local run ledger. It contains the baseline, verification,
-exception, restore, and evidence records. Promote bounded summaries and refs to
-the active ART and Security evidence surfaces; do not commit the raw local
-ledger.
+This is the atomic single-use point. It writes one exclusive consumption
+receipt before any runtime mutation and imports the already-attested baseline
+into `.platform-drills/temporal-component-commissioning-proof/<commissioning-session-id>/`.
+The run id must equal the permit's commissioning session id; omitting `RUN_ID`
+selects that id automatically. A custom drill-state root is denied. Every second
+snapshot for the same authorization is denied. Do not use generic
+`attest-baseline`, `activate`, `verify`, or `record` actions for this controlled
+proof. Generic successful restore attestations are denied as well.
 
-The snapshot starts with a pending baseline. Before activation, attest every
-scoped surface against operator-reviewable evidence:
+### 5. Execute The Bound Session
+
+Use the artifact paths and receipt digest recorded under `controlledProof` in
+the run's `run.yaml`:
 
 ```bash
-make platform-drill ACTION=attest-baseline \
-  RUN=<run-dir> \
-  SURFACE=<temporal-runtime|oos-validation-readiness-worker|wgcf-readiness-activity-worker> \
-  ACTOR=<operator> \
-  EVIDENCE_REF=<durable-pre-run-evidence-ref> \
-  NOTE="<observed pre-run state>"
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py execute \
+  --workspace-root <workspace-root> \
+  --authorization <authorization-path> \
+  --authorization-digest sha256:<authorization-file-digest> \
+  --operator-approval <operator-approval-path> \
+  --security-authorization <security-authorization-path> \
+  --baseline <baseline-path> \
+  --baseline-evidence-root <baseline-evidence-root> \
+  --consumption-receipt <consumption-receipt-path> \
+  --consumption-receipt-digest sha256:<consumption-receipt-digest> \
+  --output-root .platform-drills/temporal-component-commissioning-proof/<commissioning-session-id>/controlled-proof-output
 ```
 
-Run the command once for each scoped surface. The ledger keeps the baseline
-phase pending until all three attestations have non-empty evidence refs, and
-the `activate` action rejects an incomplete baseline.
+The output path must be the canonical directory recorded in the Platform run
+ledger; an alternate path is denied. The executor revalidates all material and source again, installs only the
+permit-bound local runtime, projects immutable OOS and WGCF contexts, and runs
+the eleven scenarios in fixed order. It reserves the final 120 seconds of the
+authorization window for starting exact-baseline restore; normal proof commands
+are denied once that reserve is reached. A scenario failure stops new proof work;
+cleanup still removes the scoped runtime and verifies the exact baseline. If
+exact restoration or its terminal verification fails, the executor emits an
+immutable stopped-result draft and no final result.
 
-### Preflight
+Record one governed exception against the run's exact captured restore scope.
+The controlled action requires the executor-created draft and cannot claim a
+successful restore, select a smaller surface, or resume proof work:
 
-1. Confirm `make devint-status PROFILE=temporal` reports the expected
-   build-admitted, non-running baseline.
-2. Run the drill `plan` command. It must report `availability=contract-only`
-   and `snapshot_allowed=false` until #792 is complete.
-3. Confirm ART #792 is complete and the permit binds the exact merged issuer
-   and executor source revisions and their finalized Review Packet.
-4. Capture an immutable pre-run baseline artifact for every scoped surface
-   without mutating runtime state. Assemble its reference and digest into the
-   authorization claims before approval or permit issuance.
-5. Validate one unexpired permit against the Workspace Governance
-   `controlled-runtime-proof-authorization` schema, then enforce the declared
-   semantic uniqueness keys for source revisions, runtime artifacts, and
-   runtime images.
-6. Reproduce the RFC 8785 digest of every authorization field except the
-   approval envelope and verify that both approval artifacts bind that digest
-   and match their declared artifact digests.
-7. Confirm the permit binds exactly one run and one
-   `validation-readiness-run` version, every source revision, immutable runtime
-   image and artifact digest, namespace, identity, task queue, scenario, and
-   permitted action. Atomically consume the authorization id before the first
-   mutation and deny any second consumption.
-8. Compare every permit binding with the checked-out Platform, OOS, and WGCF
-   source and the current orchestration allowlist. A schema-valid but stale,
-   conflicting, reused, or mismatched permit is denied.
-9. Import the pre-issued baseline into the run ledger and verify its immutable
-   digest and current-state correspondence. Do not start if either check fails.
+```bash
+make platform-drill ACTION=controlled-exception RUN=<run-dir> \
+  ACTOR=<operator> \
+  DECISION=<remove|workaround|accept-risk|defer> \
+  JUSTIFICATION="<reason>" OWNER=<owner> REVIEW_ON=<yyyy-mm-dd>
+```
 
-### Bounded Execution
+Then finalize the immutable stopped result. Finalization revalidates the
+authorization, consumption receipt, one-time execution claim, stopped draft,
+exception digest, session, output root, scenario set, receipts, and baseline
+binding. It may finish after permit expiry because it creates evidence only;
+it cannot start or retry proof work:
 
-Only the reviewed issuer and executor may perform these steps:
+```bash
+make platform-drill ACTION=controlled-finalize RUN=<run-dir>
+```
 
-1. Create the drill snapshot with the permit reference and digest, run
-   `attest-baseline` for every scoped surface, and revalidate the permit
-   immediately before the first mutation.
-2. Install only the scoped runtime and start only the exact OOS and WGCF
-   workers bound by the permit.
-3. Run the required nominal, restart, replay, duplicate-suppression,
-   cancellation, dependency-failure, identity-denial, payload-boundary,
-   backup/restore, and exact-baseline-restore scenarios.
-4. Execute at most one permitted `validation-readiness-run`; no business
-   definition or unrelated diagnostic action is allowed.
-5. Preserve correlated Platform, OOS, and WGCF receipts and the bounded logs
-   required by the permit's evidence owner.
-6. Remove the scoped runtime and restore the captured exact baseline before
-   declaring the proof complete.
-7. Verify the restored state against the pre-run evidence, emit a result that
-   validates against the controlled-proof result schema with exactly one keyed
-   outcome for every authorized scenario, then route that artifact to a
-   separate post-run Security review. `passed` requires all scenarios and the
-   exact-baseline restore to pass without an exception; a governed restore
-   exception produces `stopped`. The pre-run permit is never activation
-   evidence.
+The result contains exact keyed outcomes and Platform, OOS, and WGCF owner
+receipts. Route that bounded artifact to post-run Security review under #791.
+Even a passing result proves only this one local commissioning scope; it does
+not activate the profile, admit a general workflow, or create stage or
+production evidence.
 
-Record each baseline attestation, activation, verification result,
-supplemental evidence, and restored surface through `make platform-drill
-ACTION=<attest-baseline|activate|verify|record|restore> RUN=<run-dir> ...`.
-Blocked checks and restore exceptions must use one of
-`remove`, `workaround`, `accept-risk`, or `defer` with justification, owner,
-and review date. The ledger records owner actions; it never performs an
-undeclared runtime mutation itself.
+### Fail-Stop Boundary
 
-### Fail-Stop Conditions
-
-When any terminal stop condition triggers, deny every new proof action,
-workflow or activity start, retry, verification mutation, scope expansion, and
-activation action. This includes authorization expiry, source or artifact
-drift, target-scope mismatch, identity or queue denial failure, an unavailable
-baseline, unexpected side effects, evidence-custody failure, and restore
-failure.
-
-For an already-started run, continue only the fixed cleanup path: remove the
-scoped runtime, restore the exact captured baseline, record restore evidence,
-or record a governed exception. Cleanup stays bound to that run and captured
-restore scope and ends when restoration completes or the exception is
-recorded. It cannot preserve the runtime, retry proof work, widen scope, or
-reopen proof authority. A restore failure enters the governed exception path.
-
-### Required Evidence
-
-- permit id, RFC 8785 claims digest, approval artifact refs and digests, and the
-  atomic one-run consumption receipt
-- exact source revisions, images, artifacts, namespace, identities, and queues
-- scenario outcomes, correlated run and activity receipts, and bounded logs
-- pre-run baseline, backup, removal, restore, and post-restore verification
-- one schema-valid controlled-proof result artifact binding scenario outcomes,
-  owner receipts, and exact-baseline evidence
-- stop-condition or exception decision when the run does not finish normally
-- separate post-run Security decision before any later lifecycle change
-
-Successful completion proves only the permitted local commissioning scope. It
-does not make the profile self-serve, activate a workflow definition, or create
-stage or production evidence.
+Authorization expiry, source or artifact drift, target mismatch, failed
+identity or queue denial, unavailable baseline, unexpected side effects,
+evidence-custody failure, and restore failure deny new proof actions. For an
+already-started session, only runtime removal, exact-baseline restoration,
+restore evidence, or a governed exception remains allowed. Raw local ledgers,
+credentials, command output, and unbounded logs are not promoted as evidence.
 
 ## Implemented Source Boundary
 
 - immutable chart and image pins
-- operator-scoped Kubernetes and Temporal namespace rendering
+- collision-resistant operator-scoped Kubernetes and Temporal namespace rendering;
+  simple DNS-safe operator IDs remain readable, while lossy normalization or
+  truncation adds a deterministic SHA-256 suffix
 - 10Gi local-path PostgreSQL persistence
 - separate runtime, PostgreSQL, OOS, WGCF, and diagnostic identity references
 - explicit workflow and activity task queues

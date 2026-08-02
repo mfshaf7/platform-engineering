@@ -1491,6 +1491,27 @@ class LocalK3sRuntimeControl:
                 raise ControlledProofError(
                     f"controlled runtime prerequisite is unavailable: {command}"
                 ) from exc
+        sandbox_probe = self.runner.run(
+            [
+                "bwrap",
+                "--die-with-parent",
+                "--ro-bind",
+                "/",
+                "/",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--",
+                "/bin/true",
+            ],
+            env=environment,
+            timeout=30,
+        )
+        if sandbox_probe.returncode != 0:
+            raise ControlledProofError(
+                "controlled runtime prerequisite is unavailable: bwrap sandbox capability"
+            )
 
     def _start_port_forward(self) -> None:
         self._assert_authorization_current()

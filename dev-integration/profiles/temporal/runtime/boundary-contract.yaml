@@ -53,6 +53,7 @@ runtime:
         sealed-source: linux-memfd
         execution-projection: private-read-only-profile-tree
         sandbox: bubblewrap
+        unprivileged-user-namespace-required: true
       snapshot_transaction:
         lock: per-authorization-local-filesystem-lock
         receipt-resume: exact-matching-uncommitted-snapshot-only

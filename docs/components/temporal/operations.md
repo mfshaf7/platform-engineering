@@ -213,8 +213,9 @@ integrity evidence. The verified files are copied into sealed memory and
 projected by Bubblewrap at the exact profile path as a private read-only tree.
 The runtime therefore cannot execute source swapped into the checkout after
 attestation. The commissioning host must provide `bwrap` in the controlled
-executable path. The executor installs only the permit-bound local runtime,
-projects immutable
+executable path and permit its unprivileged user-namespace sandbox. The
+executor probes that capability before creating the source snapshot. It
+installs only the permit-bound local runtime, projects immutable
 OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
 the final 120 seconds of the authorization window for starting exact-baseline
 restore; normal proof commands are denied once that reserve is reached. A

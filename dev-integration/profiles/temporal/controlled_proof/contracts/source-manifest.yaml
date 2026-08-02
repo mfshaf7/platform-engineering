@@ -31,7 +31,7 @@ sources:
         source_path: schemas/controlled-proof-owner-receipt.schema.json
         digest: sha256:7920c7b2550b7d85da87e936480eec4ab325d893a66a790b794f8ff9b3d0b703
 local_files:
-  approval-binding.schema.json: sha256:e7296957206500de0e964c50065d3f3a025fe15476c0995b4b6c0b2cda1e181e
+  approval-binding.schema.json: sha256:725e5773840e5656201fd21aafd0e3afbcfc4848a370995c2f3d9cab0cca3260
   baseline.schema.json: sha256:ee51931189b00a1cc0519bf9a6ff8f5c9cabf23f0967f4c8d8524cf52996cb2b
   consumption-receipt.schema.json: sha256:fba307a91f40b4c15fd049f6024dc04ef159584882f04bbd01de5a910f08c723
   platform-owner-receipt.schema.json: sha256:bf3ccab75d6f54a9f396a26957d2cff523d77761d8cf5a3fd6fe6c5bbbd1c8c5

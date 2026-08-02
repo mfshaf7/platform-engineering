@@ -65,7 +65,10 @@ The source-reviewed controlled commissioning operator is available for
 immutable baseline capture, deterministic claims assembly and validation,
 permit issuance, and one permit-bound proof execution. It does not make the
 profile active and refuses execution without the separate per-run Security and
-operator approvals:
+operator approvals. The Security approval must match an exact JSON artifact in
+the clean permit-bound `security-architecture` revision, and every internal
+runtime mutation revalidates the full consumed authority and collision-
+resistant runtime scope:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help

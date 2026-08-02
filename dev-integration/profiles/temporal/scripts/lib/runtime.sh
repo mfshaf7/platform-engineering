@@ -80,7 +80,8 @@ render_runtime() {
     --profile-root "${PROFILE_ROOT}" \
     --output-dir "${RENDERED_DIR}" \
     --namespace "${NAMESPACE}" \
-    --operator "${OPERATOR_SLUG}"
+    --operator-scope "${CONTROLLED_PROOF_OPERATOR_SCOPE:-${OPERATOR_SLUG}}" \
+    --temporal-namespace "${TEMPORAL_WORKFLOW_NAMESPACE}"
 }
 
 ensure_chart() {

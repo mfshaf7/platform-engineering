@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
 import errno
 import hashlib
 import json
 import os
-from pathlib import Path
 import pwd
 import re
 import shutil
 import stat
 import tempfile
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
-
 
 MAX_ARTIFACT_BYTES = 1_048_576
 TERMINAL_CLEANUP_START_RESERVE_SECONDS = 120
@@ -132,6 +131,12 @@ def operator_scoped_dns_label(prefix: str, operator_id: str) -> str:
     if not head:
         raise ControlledProofError("operator id cannot fit a scoped DNS label")
     return f"{prefix}-{head}-{suffix}"
+
+
+def operator_scope_id(operator_id: str) -> str:
+    """Return one collision-resistant filesystem and label scope per operator."""
+
+    return operator_scoped_dns_label("operator", operator_id)
 
 
 def now_utc() -> str:

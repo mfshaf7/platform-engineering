@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -12,9 +12,9 @@ from .authority import (
     validate_authorization_semantics,
 )
 from .model import (
-    ControlledProofError,
     SCENARIO_ORDER,
     TERMINAL_CLEANUP_START_RESERVE_SECONDS,
+    ControlledProofError,
     canonical_digest,
     create_json_exclusive,
     normalize_digest,
@@ -27,7 +27,6 @@ from .model import (
     validate_schema,
     write_json_atomic,
 )
-
 
 TERMINAL_SCENARIO_STATUSES = {"passed", "failed", "blocked"}
 STOPPED_DRAFT_NAME = "controlled-proof-stopped-draft.json"
@@ -90,7 +89,7 @@ def project_owner_contexts(
 ) -> ProjectedContexts:
     normalize_digest(authorization_digest, "authorization digest")
     normalize_digest(consumption_receipt_digest, "consumption receipt digest")
-    _validate_consumption_binding(
+    validate_consumption_binding(
         authorization,
         authorization_digest,
         consumption_receipt,
@@ -259,7 +258,7 @@ def project_owner_contexts(
     )
 
 
-def _validate_consumption_binding(
+def validate_consumption_binding(
     authorization: dict[str, Any],
     authorization_digest: str,
     receipt: dict[str, Any],
@@ -282,7 +281,7 @@ def _validate_consumption_binding(
     normalize_digest(receipt_digest, "consumption receipt digest")
 
 
-def _validate_execution_claim_binding(
+def validate_execution_claim_binding(
     *,
     authorization: dict[str, Any],
     authorization_digest: str,
@@ -380,14 +379,14 @@ class ControlledProofExecutor:
         self.output_root = output_root.resolve()
 
     def run(self) -> tuple[dict[str, Any], str]:
-        _validate_consumption_binding(
+        validate_consumption_binding(
             self.authorization,
             self.authorization_digest,
             self.consumption_receipt,
             self.consumption_receipt_digest,
             self.contracts,
         )
-        _validate_execution_claim_binding(
+        validate_execution_claim_binding(
             authorization=self.authorization,
             authorization_digest=self.authorization_digest,
             consumption_receipt=self.consumption_receipt,
@@ -1091,14 +1090,14 @@ def finalize_stopped_result(
 ) -> tuple[dict[str, Any], str]:
     validate_schema(authorization, contracts.authorization, "authorization")
     validate_authorization_semantics(authorization)
-    _validate_consumption_binding(
+    validate_consumption_binding(
         authorization,
         authorization_digest,
         consumption_receipt,
         consumption_receipt_digest,
         contracts,
     )
-    _validate_execution_claim_binding(
+    validate_execution_claim_binding(
         authorization=authorization,
         authorization_digest=authorization_digest,
         consumption_receipt=consumption_receipt,

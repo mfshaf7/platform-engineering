@@ -33,6 +33,12 @@ This drill type:
 - rejects conflicting logical bindings, binds both approvals to an RFC 8785
   digest of every authorization field outside the approval envelope, and
   atomically consumes one authorization for one run before the first mutation
+- accepts the Security approval only when the exact approval JSON is present in
+  the clean, permit-bound `security-architecture` revision; a self-declared
+  local Security role is not authority
+- revalidates the permit, both approvals, canonical consumption receipt,
+  execution claim, output root, namespaces, and collision-resistant state root
+  before every internal shell mutation
 - captures and binds the pre-run baseline by immutable digest before permit
   issuance and emits a schema-valid controlled-proof result artifact after
   restoration with exact keyed coverage of every authorized scenario and no
@@ -71,6 +77,9 @@ What becomes stricter:
 - the permit-issuer and executor source must be reviewed before Security
   authorizes a permit, and both must validate and atomically consume one exact
   authorization artifact
+- the per-run Security artifact must land in `security-architecture` before
+  Platform can issue the permit, and the internal runtime adapter cannot trust
+  caller-supplied environment flags as proof of authority
 - the proof must stop on scope drift and restore the captured baseline
 - normal profile commands remain denied until a later governed lifecycle
   decision

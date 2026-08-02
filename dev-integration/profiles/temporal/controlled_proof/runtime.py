@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import re
 import secrets
 import shutil
 import socket
 import subprocess
 import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Protocol
 from urllib import error as urlerror
-from urllib.parse import quote, urlsplit
 from urllib import request as urlrequest
+from urllib.parse import quote, urlsplit
 
 import yaml
 
@@ -22,6 +22,12 @@ from .authority import (
     ContractSet,
     GitSourceResolver,
     LocalBaselineProbe,
+    SourceResolver,
+    authorization_storage_key,
+    consumption_receipt_path,
+    controlled_runtime_state_root,
+    load_contracts,
+    validate_authorization,
     validate_runtime_bindings,
     validate_vendored_contracts,
 )
@@ -30,6 +36,8 @@ from .execution import (
     ProjectedContexts,
     ScenarioExecutionResult,
     create_platform_receipt,
+    validate_consumption_binding,
+    validate_execution_claim_binding,
     validate_owner_receipt,
 )
 from .model import (
@@ -41,13 +49,13 @@ from .model import (
     decode_bounded_json,
     normalize_digest,
     now_utc,
+    operator_scope_id,
     operator_scoped_dns_label,
     parse_timestamp,
     read_bounded_json,
     resolve_controlled_command,
     write_json_atomic,
 )
-
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_SCRIPT = PROFILE_ROOT / "scripts" / "controlled-proof-runtime.sh"
@@ -63,6 +71,14 @@ EXTERNAL_EVIDENCE_KINDS = {
     "backup-restore": "backup-restore-verified",
 }
 TERMINAL_STATES = {"cancelled", "completed", "failed"}
+RUNTIME_SCRIPT_ACTIONS = {
+    "prepare",
+    "restart-temporal",
+    "backup-restore",
+    "restore-baseline",
+    "cleanup",
+}
+EXPIRED_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
 WGCF_RECEIPT_PREFIX = "wgcf-controlled-proof://receipts/"
 WGCF_RECEIPT_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -108,6 +124,20 @@ class CommandResult:
     returncode: int
 
 
+@dataclass(frozen=True)
+class RuntimeArtifactBindings:
+    authorization_path: Path
+    authorization_digest: str
+    operator_approval_path: Path
+    security_approval_path: Path
+    baseline_path: Path
+    baseline_evidence_root: Path
+    consumption_receipt_path: Path
+    consumption_receipt_digest: str
+    execution_claim_path: Path
+    execution_claim_digest: str
+
+
 class CommandRunner(Protocol):
     def run(
         self,
@@ -145,6 +175,116 @@ class SubprocessCommandRunner:
             stdout=completed.stdout.strip(),
             stderr=completed.stderr.strip(),
             returncode=completed.returncode,
+        )
+
+
+def validate_runtime_action_binding(
+    *,
+    action: str,
+    workspace_root: Path,
+    bindings: RuntimeArtifactBindings,
+    output_root: Path,
+    kubernetes_namespace: str,
+    temporal_namespace: str,
+    state_root: Path,
+    operator_scope: str,
+    source_resolver: SourceResolver | None = None,
+) -> None:
+    """Revalidate the complete consumed authority before any shell mutation."""
+
+    if action not in RUNTIME_SCRIPT_ACTIONS:
+        raise ControlledProofError("controlled runtime action is not permitted")
+    workspace_root = workspace_root.expanduser().resolve()
+    output_root = output_root.expanduser().resolve()
+    contracts = load_contracts()
+    authorization = read_bounded_json(
+        bindings.authorization_path,
+        expected_digest=bindings.authorization_digest,
+    )
+    validate_authorization(
+        authorization,
+        contracts=contracts,
+        baseline_path=bindings.baseline_path,
+        baseline_evidence_root=bindings.baseline_evidence_root,
+        source_resolver=source_resolver or GitSourceResolver(workspace_root),
+        operator_approval_path=bindings.operator_approval_path,
+        security_approval_path=bindings.security_approval_path,
+        allow_expired_cleanup=action in EXPIRED_CLEANUP_ACTIONS,
+    )
+    consumption_receipt = read_bounded_json(
+        bindings.consumption_receipt_path,
+        expected_digest=bindings.consumption_receipt_digest,
+    )
+    expected_consumption_path = consumption_receipt_path(
+        authorization["authorization_id"],
+        workspace_root
+        / "platform-engineering"
+        / ".platform-drills"
+        / "_controlled-proof-consumptions",
+    )
+    if bindings.consumption_receipt_path.expanduser().resolve() != expected_consumption_path:
+        raise ControlledProofError(
+            "runtime action requires the canonical permit-consumption receipt"
+        )
+    validate_consumption_binding(
+        authorization,
+        bindings.authorization_digest,
+        consumption_receipt,
+        bindings.consumption_receipt_digest,
+        contracts,
+    )
+
+    execution_claim = read_bounded_json(
+        bindings.execution_claim_path,
+        expected_digest=bindings.execution_claim_digest,
+    )
+    expected_execution_path = (
+        workspace_root
+        / "platform-engineering"
+        / ".platform-drills"
+        / "_controlled-proof-executions"
+        / f"{authorization_storage_key(authorization['authorization_id'])}.json"
+    ).resolve()
+    if bindings.execution_claim_path.expanduser().resolve() != expected_execution_path:
+        raise ControlledProofError(
+            "runtime action requires the canonical single-use execution claim"
+        )
+    validate_execution_claim_binding(
+        authorization=authorization,
+        authorization_digest=bindings.authorization_digest,
+        consumption_receipt=consumption_receipt,
+        consumption_receipt_digest=bindings.consumption_receipt_digest,
+        execution_claim=execution_claim,
+        execution_claim_digest=bindings.execution_claim_digest,
+        output_root=output_root,
+    )
+
+    baseline = read_bounded_json(
+        bindings.baseline_path,
+        expected_digest=authorization["baseline_and_restore"][
+            "baseline_snapshot_digest"
+        ],
+    )
+    operator_id = baseline["operator_id"]
+    expected_scope = {
+        "kubernetes_namespace": _kubernetes_namespace(operator_id),
+        "temporal_namespace": authorization["scope"]["target_namespaces"][0],
+        "state_root": str(controlled_runtime_state_root(workspace_root, operator_id)),
+        "operator_scope": operator_scope_id(operator_id),
+    }
+    actual_scope = {
+        "kubernetes_namespace": kubernetes_namespace,
+        "temporal_namespace": temporal_namespace,
+        "state_root": str(state_root.expanduser().resolve()),
+        "operator_scope": operator_scope,
+    }
+    mismatched = [
+        key for key, expected in expected_scope.items() if actual_scope[key] != expected
+    ]
+    if mismatched:
+        raise ControlledProofError(
+            "runtime action scope does not match its authorization: "
+            + ", ".join(mismatched)
         )
 
 
@@ -431,7 +571,7 @@ class LocalK3sRuntimeControl:
         authorization: dict[str, Any],
         baseline: dict[str, Any],
         contexts: ProjectedContexts,
-        consumption_receipt_digest: str,
+        artifacts: RuntimeArtifactBindings,
         output_root: Path,
         workspace_root: Path,
         runner: CommandRunner | None = None,
@@ -439,13 +579,19 @@ class LocalK3sRuntimeControl:
         self.authorization = authorization
         self.baseline = baseline
         self.contexts = contexts
-        self.consumption_receipt_digest = consumption_receipt_digest
+        self.artifacts = artifacts
+        self.consumption_receipt_digest = artifacts.consumption_receipt_digest
         self.output_root = output_root.resolve()
         self.workspace_root = workspace_root.resolve()
         self.runner = runner or SubprocessCommandRunner()
         self.operator_id = baseline["operator_id"]
+        self.operator_scope = operator_scope_id(self.operator_id)
         self.kubernetes_namespace = _kubernetes_namespace(self.operator_id)
         self.temporal_namespace = authorization["scope"]["target_namespaces"][0]
+        self.state_root = controlled_runtime_state_root(
+            self.workspace_root,
+            self.operator_id,
+        )
         self.api_secret = secrets.token_hex(32)
         self.api_url = ""
         self.port_forward: subprocess.Popen[str] | None = None
@@ -770,20 +916,42 @@ class LocalK3sRuntimeControl:
 
     def _runtime_script(self, action: str, *, allow_expired: bool = False) -> None:
         env = {
-            "CONTROLLED_PROOF_EXECUTOR": "true",
-            "CONTROLLED_PROOF_AUTHORIZATION_ID": self.authorization[
-                "authorization_id"
-            ],
+            "CONTROLLED_PROOF_AUTHORIZATION_PATH": str(
+                self.artifacts.authorization_path
+            ),
+            "CONTROLLED_PROOF_AUTHORIZATION_DIGEST": (
+                self.artifacts.authorization_digest
+            ),
+            "CONTROLLED_PROOF_OPERATOR_APPROVAL_PATH": str(
+                self.artifacts.operator_approval_path
+            ),
+            "CONTROLLED_PROOF_SECURITY_AUTHORIZATION_PATH": str(
+                self.artifacts.security_approval_path
+            ),
+            "CONTROLLED_PROOF_BASELINE_PATH": str(self.artifacts.baseline_path),
+            "CONTROLLED_PROOF_BASELINE_EVIDENCE_ROOT": str(
+                self.artifacts.baseline_evidence_root
+            ),
+            "CONTROLLED_PROOF_CONSUMPTION_RECEIPT_PATH": str(
+                self.artifacts.consumption_receipt_path
+            ),
             "CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST": (
                 self.consumption_receipt_digest
             ),
-            "CONTROLLED_PROOF_EXECUTOR_SOURCE_REVISION": self.authorization[
-                "executor"
-            ]["source_revision"],
+            "CONTROLLED_PROOF_EXECUTION_CLAIM_PATH": str(
+                self.artifacts.execution_claim_path
+            ),
+            "CONTROLLED_PROOF_EXECUTION_CLAIM_DIGEST": (
+                self.artifacts.execution_claim_digest
+            ),
+            "CONTROLLED_PROOF_OUTPUT_ROOT": str(self.output_root),
+            "CONTROLLED_PROOF_OPERATOR_SCOPE": self.operator_scope,
             "DEVINT_OPERATOR": self.operator_id,
             "DEVINT_PROFILE_ID": "temporal",
             "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
             "DEVINT_NAMESPACE": self.kubernetes_namespace,
+            "DEVINT_STATE_ROOT": str(self.state_root),
+            "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": self.temporal_namespace,
             "DEVINT_KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
             "DEVINT_KUBECTL": "k3s kubectl",
         }

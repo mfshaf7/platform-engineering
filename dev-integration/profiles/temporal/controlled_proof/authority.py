@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import hashlib
-from pathlib import Path
-import subprocess
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 import yaml
 
 from .model import (
     MAX_ARTIFACT_BYTES,
-    ControlledProofError,
     PERMITTED_ACTIONS,
     REQUIRED_SCENARIO_OWNERS,
     REQUIRED_STOP_CONDITIONS,
     REVISION_RE,
     SCENARIO_ORDER,
     TERMINAL_CLEANUP_START_RESERVE_SECONDS,
+    ControlledProofError,
     canonical_digest,
     controlled_subprocess_environment,
     create_json_exclusive,
@@ -26,18 +26,18 @@ from .model import (
     load_schema,
     normalize_digest,
     now_utc,
+    operator_scope_id,
     operator_scoped_dns_label,
     parse_timestamp,
     read_bounded_json,
     read_bounded_json_with_digest,
-    resolve_controlled_command,
     require_identifier,
+    resolve_controlled_command,
     sha256_bytes,
     sha256_file,
     validate_schema,
     write_json_atomic,
 )
-
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_ROOT = Path(__file__).resolve().parent / "contracts"
@@ -227,6 +227,8 @@ class BaselineProbe(Protocol):
 class SourceResolver(Protocol):
     def revision(self, repo: str) -> tuple[str, bool]: ...
 
+    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes: ...
+
 
 class GitSourceResolver:
     def __init__(self, workspace_root: Path):
@@ -243,6 +245,41 @@ class GitSourceResolver:
             _run_checked(["git", "-C", str(repo_root), "status", "--short"])
         )
         return commit, dirty
+
+    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes:
+        if repo not in WORKSPACE_REPOS:
+            raise ControlledProofError(f"source repo is outside the proof boundary: {repo}")
+        if REVISION_RE.fullmatch(revision) is None:
+            raise ControlledProofError(f"source revision is invalid: {repo}")
+        source_path = _source_relative_path(relative_path)
+        current_revision, dirty = self.revision(repo)
+        if dirty or current_revision != revision:
+            raise ControlledProofError(
+                f"source artifact repo is not clean at its bound revision: {repo}"
+            )
+        repo_root = self.workspace_root / repo
+        object_ref = f"{revision}:{source_path}"
+        size_text = _run_checked(
+            ["git", "-C", str(repo_root), "cat-file", "-s", object_ref]
+        )
+        try:
+            size = int(size_text)
+        except ValueError as exc:
+            raise ControlledProofError(
+                f"source artifact size is invalid: {repo}:{source_path}"
+            ) from exc
+        if size <= 0 or size > MAX_ARTIFACT_BYTES:
+            raise ControlledProofError(
+                f"source artifact exceeds its boundary: {repo}:{source_path}"
+            )
+        content = _run_checked_bytes(
+            ["git", "-C", str(repo_root), "cat-file", "blob", object_ref]
+        )
+        if len(content) != size:
+            raise ControlledProofError(
+                f"source artifact size changed while reading: {repo}:{source_path}"
+            )
+        return content
 
 
 class LocalBaselineProbe:
@@ -274,6 +311,15 @@ class LocalBaselineProbe:
                     "DEVINT_PROFILE_ID": "temporal",
                     "DEVINT_OPERATOR": self.operator_id,
                     "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
+                    "DEVINT_STATE_ROOT": str(
+                        controlled_runtime_state_root(
+                            self.workspace_root,
+                            self.operator_id,
+                        )
+                    ),
+                    "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": _controlled_namespace(
+                        self.operator_id
+                    ),
                     "DEVINT_KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
                     "DEVINT_KUBECTL": "k3s kubectl",
                 }
@@ -693,8 +739,22 @@ def issue_permit(
     claims, claims_digest = prepare_claims(claims, contracts=contracts)
     operator, operator_digest = read_bounded_json_with_digest(operator_approval_path)
     security, security_digest = read_bounded_json_with_digest(security_approval_path)
-    validate_approval(operator, "operator-approval", claims, claims_digest, contracts)
-    validate_approval(security, "security-authorization", claims, claims_digest, contracts)
+    validate_approval(
+        operator,
+        "operator-approval",
+        claims,
+        claims_digest,
+        contracts,
+        source_resolver=source_resolver,
+    )
+    validate_approval(
+        security,
+        "security-authorization",
+        claims,
+        claims_digest,
+        contracts,
+        source_resolver=source_resolver,
+    )
     authorization = {
         **claims,
         "approvals": {
@@ -727,6 +787,8 @@ def validate_approval(
     claims: dict[str, Any],
     claims_digest: str,
     contracts: ContractSet,
+    *,
+    source_resolver: SourceResolver,
 ) -> None:
     validate_schema(approval, contracts.approval, f"{expected_role} artifact")
     if approval["approval_role"] != expected_role:
@@ -744,6 +806,50 @@ def validate_approval(
         )
     if approved_at >= expires_at:
         raise ControlledProofError(f"{expected_role} was recorded after authorization expiry")
+    if expected_role == "security-authorization":
+        _validate_security_approval_provenance(
+            approval,
+            claims=claims,
+            source_resolver=source_resolver,
+        )
+
+
+def _validate_security_approval_provenance(
+    approval: dict[str, Any],
+    *,
+    claims: dict[str, Any],
+    source_resolver: SourceResolver,
+) -> None:
+    provenance = approval.get("source_provenance")
+    if not isinstance(provenance, dict):
+        raise ControlledProofError(
+            "security authorization requires source-controlled provenance"
+        )
+    if provenance.get("owner_repo") != "security-architecture":
+        raise ControlledProofError(
+            "security authorization provenance is not owned by Security Architecture"
+        )
+    source_revisions = {
+        item["repo"]: item["commit"] for item in claims["scope"]["source_revisions"]
+    }
+    expected_revision = source_revisions.get("security-architecture")
+    if not isinstance(expected_revision, str):
+        raise ControlledProofError(
+            "security authorization has no permit-bound source revision"
+        )
+    source_path = _source_relative_path(provenance.get("source_path"))
+    source_artifact = decode_bounded_json(
+        source_resolver.read_file(
+            "security-architecture",
+            expected_revision,
+            source_path,
+        ),
+        label="source-controlled security authorization",
+    )
+    if source_artifact != approval:
+        raise ControlledProofError(
+            "security authorization does not match its source-controlled artifact"
+        )
 
 
 def validate_authorization(
@@ -756,6 +862,7 @@ def validate_authorization(
     operator_approval_path: Path,
     security_approval_path: Path,
     at_time: datetime | None = None,
+    allow_expired_cleanup: bool = False,
 ) -> None:
     validate_schema(authorization, contracts.authorization, "authorization")
     validate_authorization_semantics(authorization)
@@ -773,8 +880,22 @@ def validate_authorization(
         security_approval_path,
         expected_digest=approvals["security_authorization_digest"],
     )
-    validate_approval(operator, "operator-approval", claims, claims_digest, contracts)
-    validate_approval(security, "security-authorization", claims, claims_digest, contracts)
+    validate_approval(
+        operator,
+        "operator-approval",
+        claims,
+        claims_digest,
+        contracts,
+        source_resolver=source_resolver,
+    )
+    validate_approval(
+        security,
+        "security-authorization",
+        claims,
+        claims_digest,
+        contracts,
+        source_resolver=source_resolver,
+    )
     if operator["approval_id"] != approvals["operator_approval_ref"]:
         raise ControlledProofError("operator approval reference does not match its artifact")
     if security["approval_id"] != approvals["security_authorization_ref"]:
@@ -838,7 +959,7 @@ def validate_authorization(
             raise ControlledProofError(f"{label} is future-dated")
     if issued_at >= expires_at:
         raise ControlledProofError("authorization issue time does not precede expiry")
-    if current < issued_at or current >= expires_at:
+    if current < issued_at or (current >= expires_at and not allow_expired_cleanup):
         raise ControlledProofError("authorization is not currently valid")
 
 
@@ -1074,6 +1195,16 @@ def _controlled_namespace(operator_id: str) -> str:
     return operator_scoped_dns_label("governance", operator_id)
 
 
+def controlled_runtime_state_root(workspace_root: Path, operator_id: str) -> Path:
+    return (
+        workspace_root.expanduser().resolve()
+        / "platform-engineering"
+        / ".dev-integration"
+        / "temporal"
+        / operator_scope_id(operator_id)
+    )
+
+
 def _require_unique_key(items: list[dict[str, Any]], key: str, label: str) -> None:
     values = [item[key] for item in items]
     if len(values) != len(set(values)):
@@ -1238,3 +1369,36 @@ def _run_checked(command: list[str]) -> str:
         detail = (completed.stderr or completed.stdout).strip()
         raise ControlledProofError(f"command failed: {' '.join(command)}: {detail}")
     return completed.stdout.strip()
+
+
+def _run_checked_bytes(command: list[str]) -> bytes:
+    environment = controlled_subprocess_environment()
+    completed = subprocess.run(
+        resolve_controlled_command(command, environment=environment),
+        check=False,
+        capture_output=True,
+        env=environment,
+        timeout=30,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout)[:4096].decode(
+            "utf-8", errors="replace"
+        )
+        raise ControlledProofError(
+            f"command failed: {' '.join(command)}: {detail.strip()}"
+        )
+    if len(completed.stdout) > MAX_ARTIFACT_BYTES:
+        raise ControlledProofError("source artifact command exceeded its output boundary")
+    return completed.stdout
+
+
+def _source_relative_path(value: Any) -> str:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise ControlledProofError("source artifact path is invalid")
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ControlledProofError("source artifact path is outside its repository")
+    normalized = path.as_posix()
+    if normalized != value or not normalized.endswith(".json"):
+        raise ControlledProofError("source artifact path must be a normalized JSON path")
+    return normalized

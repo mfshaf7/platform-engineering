@@ -12,6 +12,28 @@ runtime:
     size: 10Gi
     normal_down_preserves_history: true
     reset_requires_confirmation: true
+  controlled_commissioning:
+    source_posture: source-reviewed-non-live
+    ordinary_profile_launch_allowed: false
+    operator_scope_encoding: dns-label-with-sha256-suffix-on-lossy-normalization
+    state_root_pattern: .dev-integration/temporal/{collision-resistant-operator-scope}
+    security_authorization:
+      owner_repo: security-architecture
+      provenance: exact-json-at-clean-permit-bound-git-revision
+      self_declared_role_allowed: false
+    runtime_action_gate:
+      revalidate_before_every_shell-mutation: true
+      required_bindings:
+        - authorization-and-digest
+        - operator-approval
+        - source-controlled-security-authorization
+        - baseline-and-evidence-root
+        - canonical-single-use-consumption-receipt-and-digest
+        - canonical-execution-claim-and-digest
+        - canonical-output-root
+        - exact-kubernetes-namespace
+        - exact-temporal-namespace
+        - collision-resistant-state-root
 identities:
   temporal_runtime:
     owner_repo: platform-engineering

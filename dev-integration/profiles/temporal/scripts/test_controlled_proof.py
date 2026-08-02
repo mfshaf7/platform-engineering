@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import copy
-from contextlib import redirect_stdout
-from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import unittest
+from contextlib import redirect_stdout
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-import unittest
 
 import yaml
-
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROFILE_ROOT.parents[2]
@@ -32,6 +31,7 @@ from controlled_proof.authority import (  # noqa: E402
     capture_baseline,
     claim_execution,
     consume_authorization,
+    controlled_runtime_state_root,
     issue_permit,
     load_contracts,
     prepare_claims,
@@ -44,12 +44,12 @@ from controlled_proof.cli import (  # noqa: E402
     validate_claims_command,
 )
 from controlled_proof.execution import (  # noqa: E402
-    ControlledProofExecutor,
     GOVERNED_EXCEPTION_NAME,
-    ProjectedContexts,
-    ScenarioExecutionResult,
     STOPPED_DRAFT_NAME,
     STOPPED_RESULT_NAME,
+    ControlledProofExecutor,
+    ProjectedContexts,
+    ScenarioExecutionResult,
     build_result,
     create_platform_receipt,
     finalize_stopped_result,
@@ -58,16 +58,17 @@ from controlled_proof.execution import (  # noqa: E402
 )
 from controlled_proof.model import (  # noqa: E402
     CONTROLLED_EXECUTABLE_PATH,
-    ControlledProofError,
     PERMITTED_ACTIONS,
     REQUIRED_SCENARIO_OWNERS,
     REQUIRED_STOP_CONDITIONS,
     SCENARIO_ORDER,
     TERMINAL_CLEANUP_START_RESERVE_SECONDS,
+    ControlledProofError,
     canonical_digest,
     controlled_subprocess_environment,
     create_json_exclusive,
     now_utc,
+    operator_scope_id,
     operator_scoped_dns_label,
     read_bounded_json,
     read_bounded_json_with_digest,
@@ -75,13 +76,16 @@ from controlled_proof.model import (  # noqa: E402
     write_json_atomic,
 )
 from controlled_proof.runtime import (  # noqa: E402
+    CommandResult,
     ControlledRuntimeDriver,
+    LocalK3sRuntimeControl,
+    RuntimeArtifactBindings,
     _local_api_endpoint,
     _owner_runtime_manifest,
     _validate_loaded_wgcf_receipt,
     _wgcf_receipt_binding,
+    validate_runtime_action_binding,
 )
-
 
 PLATFORM_DRILL_SPEC = importlib.util.spec_from_file_location(
     "platform_drill", REPO_ROOT / "scripts" / "platform_drill.py"
@@ -107,9 +111,19 @@ class FakeSourceResolver:
     def __init__(self, dirty_repo: str | None = None):
         self.revisions = dict(SOURCE_REVISIONS)
         self.dirty_repo = dirty_repo
+        self.source_files: dict[tuple[str, str, str], bytes] = {}
 
     def revision(self, repo: str) -> tuple[str, bool]:
         return self.revisions[repo], repo == self.dirty_repo
+
+    def add_file(self, repo: str, relative_path: str, content: bytes) -> None:
+        self.source_files[(repo, self.revisions[repo], relative_path)] = content
+
+    def read_file(self, repo: str, revision: str, relative_path: str) -> bytes:
+        try:
+            return self.source_files[(repo, revision, relative_path)]
+        except KeyError as exc:
+            raise ControlledProofError("source artifact is unavailable") from exc
 
 
 class FakeProbe:
@@ -233,7 +247,9 @@ def claims_for(baseline: dict[str, object], baseline_digest: str) -> dict[str, o
             "source_revisions": source_revisions,
             "runtime_artifacts": runtime_artifacts(),
             "runtime_images": runtime_images(),
-            "target_namespaces": ["governance-alice"],
+            "target_namespaces": [
+                operator_scoped_dns_label("governance", str(baseline["operator_id"]))
+            ],
             "runtime_identities": [
                 {"role": role, "identity": identity}
                 for role, identity in EXPECTED_RUNTIME_IDENTITIES.items()
@@ -300,25 +316,32 @@ def write_approval(
     role: str,
     claims: dict[str, object],
     claims_digest: str,
+    source_path: str | None = None,
 ) -> None:
+    approval = {
+        "schema_version": 1,
+        "approval_id": f"artifact://controlled-proof/approvals/{role}",
+        "approval_role": role,
+        "decision": "approved",
+        "authorization_id": claims["authorization_id"],
+        "canonicalization": "rfc8785",
+        "canonical_claims_digest": claims_digest,
+        "approved_by": "test-reviewer",
+        "approved_at": timestamp(timedelta(minutes=-1)),
+    }
+    if role == "security-authorization":
+        approval["source_provenance"] = {
+            "owner_repo": "security-architecture",
+            "source_path": source_path,
+        }
     write_json_atomic(
         path,
-        {
-            "schema_version": 1,
-            "approval_id": f"artifact://controlled-proof/approvals/{role}",
-            "approval_role": role,
-            "decision": "approved",
-            "authorization_id": claims["authorization_id"],
-            "canonicalization": "rfc8785",
-            "canonical_claims_digest": claims_digest,
-            "approved_by": "test-reviewer",
-            "approved_at": timestamp(timedelta(minutes=-1)),
-        },
+        approval,
     )
 
 
 class ProofFixture:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, operator_id: str = "alice"):
         self.root = root
         self.contracts = load_contracts()
         self.source = FakeSourceResolver()
@@ -326,7 +349,7 @@ class ProofFixture:
         self.evidence_root = root / "baseline-evidence"
         self.baseline, self.baseline_digest = capture_baseline(
             baseline_id="artifact://controlled-proof/baselines/session-001",
-            operator_id="alice",
+            operator_id=operator_id,
             output_path=self.baseline_path,
             evidence_root=self.evidence_root,
             source_resolver=self.source,
@@ -340,6 +363,9 @@ class ProofFixture:
         )
         self.operator_approval = root / "operator-approval.json"
         self.security_approval = root / "security-authorization.json"
+        self.security_source_path = (
+            "records/controlled-proof-authorizations/session-001.json"
+        )
         write_approval(
             self.operator_approval,
             role="operator-approval",
@@ -351,6 +377,12 @@ class ProofFixture:
             role="security-authorization",
             claims=self.claims,
             claims_digest=self.claims_digest,
+            source_path=self.security_source_path,
+        )
+        self.source.add_file(
+            "security-architecture",
+            self.security_source_path,
+            self.security_approval.read_bytes(),
         )
         self.authorization = issue_permit(
             claims=self.claims,
@@ -583,6 +615,132 @@ class ControlledProofTests(unittest.TestCase):
             operator_scoped_dns_label("governance", "alice-example"),
         )
 
+    def test_runtime_adapter_propagates_exact_collision_resistant_scope(self) -> None:
+        fixture = ProofFixture(self.root / "fixture", operator_id="alice.example")
+        workspace_root = self.root / "workspace"
+
+        class RecordingRunner:
+            def __init__(self) -> None:
+                self.environment: dict[str, str] = {}
+
+            def run(
+                self,
+                command: list[str],
+                *,
+                env: dict[str, str] | None = None,
+                input_text: str | None = None,
+                timeout: float = 600,
+            ) -> CommandResult:
+                del command, input_text, timeout
+                self.environment = dict(env or {})
+                return CommandResult(stdout="", stderr="", returncode=0)
+
+        runner = RecordingRunner()
+        artifacts = RuntimeArtifactBindings(
+            authorization_path=fixture.authorization_path,
+            authorization_digest=fixture.authorization_digest,
+            operator_approval_path=fixture.operator_approval,
+            security_approval_path=fixture.security_approval,
+            baseline_path=fixture.baseline_path,
+            baseline_evidence_root=fixture.evidence_root,
+            consumption_receipt_path=fixture.consumption_path,
+            consumption_receipt_digest=fixture.consumption_digest,
+            execution_claim_path=self.root / "execution-claim.json",
+            execution_claim_digest=DIGEST,
+        )
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=artifacts,
+            output_root=self.root / "output",
+            workspace_root=workspace_root,
+            runner=runner,
+        )
+        control._runtime_script("prepare")
+
+        expected_temporal_namespace = operator_scoped_dns_label(
+            "governance", "alice.example"
+        )
+        self.assertEqual(
+            runner.environment["DEVINT_TEMPORAL_WORKFLOW_NAMESPACE"],
+            expected_temporal_namespace,
+        )
+        self.assertEqual(
+            runner.environment["DEVINT_STATE_ROOT"],
+            str(controlled_runtime_state_root(workspace_root, "alice.example")),
+        )
+        self.assertEqual(
+            runner.environment["CONTROLLED_PROOF_OPERATOR_SCOPE"],
+            operator_scope_id("alice.example"),
+        )
+        self.assertNotEqual(expected_temporal_namespace, "governance-alice-example")
+
+    def test_runtime_renderer_preserves_exact_collision_resistant_scope(self) -> None:
+        operator_id = "alice.example"
+        kubernetes_namespace = operator_scoped_dns_label(
+            "devint-temporal", operator_id
+        )
+        temporal_namespace = operator_scoped_dns_label("governance", operator_id)
+        operator_scope = operator_scope_id(operator_id)
+        output_root = self.root / "rendered"
+
+        subprocess.run(
+            [
+                sys.executable,
+                str(PROFILE_ROOT / "scripts" / "render_runtime.py"),
+                "--profile-root",
+                str(PROFILE_ROOT),
+                "--output-dir",
+                str(output_root),
+                "--namespace",
+                kubernetes_namespace,
+                "--operator-scope",
+                operator_scope,
+                "--temporal-namespace",
+                temporal_namespace,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        temporal_values = yaml.safe_load(
+            (output_root / "temporal-values.yaml").read_text(encoding="utf-8")
+        )
+        postgresql_documents = list(
+            yaml.safe_load_all(
+                (output_root / "postgresql.yaml").read_text(encoding="utf-8")
+            )
+        )
+        self.assertEqual(
+            temporal_values["additionalLabels"]["dev-integration-operator"],
+            operator_scope,
+        )
+        self.assertEqual(
+            temporal_values["server"]["config"]["namespaces"]["namespace"][0][
+                "name"
+            ],
+            temporal_namespace,
+        )
+        namespace_document = next(
+            document
+            for document in postgresql_documents
+            if document["kind"] == "Namespace"
+        )
+        self.assertEqual(
+            namespace_document["metadata"]["name"], kubernetes_namespace
+        )
+        self.assertTrue(postgresql_documents)
+        self.assertTrue(
+            all(
+                document["metadata"]["namespace"] == kubernetes_namespace
+                for document in postgresql_documents
+                if document["kind"] != "Namespace"
+            )
+        )
+        self.assertNotEqual(temporal_namespace, "governance-alice-example")
+
     def test_temporal_restart_scenario_restarts_runtime_once(self) -> None:
         fixture = ProofFixture(self.root)
         scenario = next(
@@ -694,6 +852,142 @@ class ControlledProofTests(unittest.TestCase):
             operator_approval_path=fixture.operator_approval,
             security_approval_path=fixture.security_approval,
         )
+
+    def test_security_authorization_must_match_its_source_controlled_artifact(
+        self,
+    ) -> None:
+        fixture = ProofFixture(self.root / "valid")
+        forged = read_bounded_json(fixture.security_approval)
+        forged["approved_by"] = "self-declared-security-reviewer"
+        forged_path = self.root / "forged-security-authorization.json"
+        write_json_atomic(forged_path, forged)
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "does not match its source-controlled artifact",
+        ):
+            issue_permit(
+                claims=fixture.claims,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=forged_path,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                source_resolver=fixture.source,
+                contracts=fixture.contracts,
+            )
+
+    def test_security_authorization_is_loaded_from_permit_bound_source_revision(
+        self,
+    ) -> None:
+        fixture = ProofFixture(self.root / "valid")
+        source_key = (
+            "security-architecture",
+            SOURCE_REVISIONS["security-architecture"],
+            fixture.security_source_path,
+        )
+        source_content = fixture.source.source_files.pop(source_key)
+        fixture.source.source_files[
+            (
+                "security-architecture",
+                "f" * 40,
+                fixture.security_source_path,
+            )
+        ] = source_content
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "source artifact is unavailable",
+        ):
+            issue_permit(
+                claims=fixture.claims,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                source_resolver=fixture.source,
+                contracts=fixture.contracts,
+            )
+
+    def test_runtime_action_revalidates_consumed_authority_and_exact_scope(self) -> None:
+        fixture = ProofFixture(self.root / "fixture", operator_id="alice.example")
+        workspace_root = self.root / "workspace"
+        platform_root = workspace_root / "platform-engineering"
+        consumption, consumption_path, consumption_digest = consume_authorization(
+            authorization=fixture.authorization,
+            authorization_digest=fixture.authorization_digest,
+            executor_source_revision=REVISION,
+            consumption_root=(
+                platform_root
+                / ".platform-drills"
+                / "_controlled-proof-consumptions"
+            ),
+            contracts=fixture.contracts,
+        )
+        output_root = (
+            platform_root
+            / ".platform-drills"
+            / "temporal-component-commissioning-proof"
+            / "session-001"
+            / "controlled-proof-output"
+        )
+        _, execution_claim_path, execution_claim_digest = claim_execution(
+            authorization=fixture.authorization,
+            authorization_digest=fixture.authorization_digest,
+            consumption_receipt=consumption,
+            consumption_receipt_digest=consumption_digest,
+            output_root=output_root,
+            execution_root=(
+                platform_root / ".platform-drills" / "_controlled-proof-executions"
+            ),
+            contracts=fixture.contracts,
+        )
+        bindings = RuntimeArtifactBindings(
+            authorization_path=fixture.authorization_path,
+            authorization_digest=fixture.authorization_digest,
+            operator_approval_path=fixture.operator_approval,
+            security_approval_path=fixture.security_approval,
+            baseline_path=fixture.baseline_path,
+            baseline_evidence_root=fixture.evidence_root,
+            consumption_receipt_path=consumption_path,
+            consumption_receipt_digest=consumption_digest,
+            execution_claim_path=execution_claim_path,
+            execution_claim_digest=execution_claim_digest,
+        )
+        expected_temporal_namespace = fixture.authorization["scope"][
+            "target_namespaces"
+        ][0]
+        validate_runtime_action_binding(
+            action="prepare",
+            workspace_root=workspace_root,
+            bindings=bindings,
+            output_root=output_root,
+            kubernetes_namespace=operator_scoped_dns_label(
+                "devint-temporal", "alice.example"
+            ),
+            temporal_namespace=expected_temporal_namespace,
+            state_root=controlled_runtime_state_root(
+                workspace_root, "alice.example"
+            ),
+            operator_scope=operator_scope_id("alice.example"),
+            source_resolver=fixture.source,
+        )
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "runtime action scope does not match its authorization",
+        ):
+            validate_runtime_action_binding(
+                action="prepare",
+                workspace_root=workspace_root,
+                bindings=bindings,
+                output_root=output_root,
+                kubernetes_namespace=operator_scoped_dns_label(
+                    "devint-temporal", "alice.example"
+                ),
+                temporal_namespace="governance-alice-example",
+                state_root=controlled_runtime_state_root(
+                    workspace_root, "alice.example"
+                ),
+                operator_scope=operator_scope_id("alice.example"),
+                source_resolver=fixture.source,
+            )
 
     def test_claims_builder_derives_the_complete_reviewed_scope(self) -> None:
         fixture = ProofFixture(self.root)
@@ -1451,10 +1745,20 @@ class ControlledProofTests(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
-            env={"PATH": "/usr/bin:/bin", "HOME": str(self.root), "USER": "tester"},
+            env={
+                "PATH": "/usr/bin:/bin",
+                "HOME": str(self.root),
+                "USER": "tester",
+                "CONTROLLED_PROOF_EXECUTOR": "true",
+                "CONTROLLED_PROOF_AUTHORIZATION_ID": (
+                    "platform-controlled-proof://authorizations/forged"
+                ),
+                "CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST": DIGEST,
+                "CONTROLLED_PROOF_EXECUTOR_SOURCE_REVISION": REVISION,
+            },
         )
         self.assertEqual(completed.returncode, 2)
-        self.assertIn("permit-bound executor", completed.stderr)
+        self.assertIn("missing a permit-bound artifact", completed.stderr)
 
 
 if __name__ == "__main__":

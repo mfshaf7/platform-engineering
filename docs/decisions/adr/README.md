@@ -21,7 +21,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-015-platform-observability-baseline-and-overlay-model.md](ADR-015-platform-observability-baseline-and-overlay-model.md)
 - [ADR-016-wgcf-validator-invocation-profile-gates.md](ADR-016-wgcf-validator-invocation-profile-gates.md)
 - [ADR-017-temporal-durable-workflow-runtime.md](ADR-017-temporal-durable-workflow-runtime.md)
-- [ADR-018-permit-gated-component-commissioning-proof.md](ADR-018-permit-gated-component-commissioning-proof.md)
+- [ADR-018-permit-gated-component-commissioning-proof.md](ADR-018-permit-gated-component-commissioning-proof.md) - source-reviewed, permit-bound commissioning while normal component launch remains denied
 
 ## Rules
 

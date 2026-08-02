@@ -135,6 +135,13 @@ These surfaces should not be documented as if they are directly reachable today:
   - local `dev-integration` profile source exists for access-plane proof
   - no Argo-managed stage or prod deployment exists
   - no model profile is activated by this topology entry
+- Temporal controlled commissioning
+  - source-reviewed, `build-admitted`, and absent from the current live cluster
+  - a future permit may create one collision-resistant operator-scoped local
+    Kubernetes namespace and Temporal namespace with separate OOS API, OOS
+    worker, and WGCF worker identities
+  - no ordinary launch, direct Console access, shared UI, or persistent live
+    namespace is authorized by the source contract
 
 ## Access Model Clarification
 

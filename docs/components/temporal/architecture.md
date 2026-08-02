@@ -84,12 +84,17 @@ before runtime activation.
 
 ## Namespace And Task-Queue Boundary
 
-- dev-integration namespaces are operator-scoped
+- dev-integration Kubernetes namespaces, Temporal namespaces, and local runtime
+  state roots use the same collision-resistant operator scope; lossy or
+  truncated operator IDs carry a deterministic SHA-256 suffix
 - task queues must identify the owning workflow or activity boundary
 - activation-sensitive workflow queues derive a one-way generation from the
   accepted activation-manifest digest; same-manifest restarts reuse that
   generation, while a revoked digest is never admitted again
 - callers and workers must be authenticated before shared runtime admission
+- controlled commissioning accepts a Security decision only from the exact
+  permit-bound `security-architecture` source revision and revalidates the
+  consumed permit and execution claim before every internal runtime mutation
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied
 - PostgreSQL administration credentials are separate from the non-superuser

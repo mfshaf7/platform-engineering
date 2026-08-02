@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from .authority import (
+    OWNER_RUNTIME_IMAGES,
     GitSourceResolver,
     LocalBaselineProbe,
-    OWNER_RUNTIME_IMAGES,
     assemble_claims,
     capture_baseline,
     claim_execution,
@@ -25,8 +25,12 @@ from .model import (
     read_bounded_json,
     read_bounded_json_with_digest,
 )
-from .runtime import ControlledRuntimeDriver, LocalK3sRuntimeControl
-
+from .runtime import (
+    ControlledRuntimeDriver,
+    LocalK3sRuntimeControl,
+    RuntimeArtifactBindings,
+    validate_runtime_action_binding,
+)
 
 DEFAULT_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
 
@@ -132,6 +136,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     execute.add_argument("--consumption-receipt", required=True)
     execute.add_argument("--consumption-receipt-digest", required=True)
     execute.add_argument("--output-root", required=True)
+
+    runtime_action = subparsers.add_parser("verify-runtime-action")
+    _add_workspace(runtime_action)
+    runtime_action.add_argument("--action", required=True)
+    runtime_action.add_argument("--authorization", required=True)
+    runtime_action.add_argument("--authorization-digest", required=True)
+    runtime_action.add_argument("--operator-approval", required=True)
+    runtime_action.add_argument("--security-authorization", required=True)
+    runtime_action.add_argument("--baseline", required=True)
+    runtime_action.add_argument("--baseline-evidence-root", required=True)
+    runtime_action.add_argument("--consumption-receipt", required=True)
+    runtime_action.add_argument("--consumption-receipt-digest", required=True)
+    runtime_action.add_argument("--execution-claim", required=True)
+    runtime_action.add_argument("--execution-claim-digest", required=True)
+    runtime_action.add_argument("--output-root", required=True)
+    runtime_action.add_argument("--kubernetes-namespace", required=True)
+    runtime_action.add_argument("--temporal-namespace", required=True)
+    runtime_action.add_argument("--state-root", required=True)
+    runtime_action.add_argument("--operator-scope", required=True)
 
     return parser.parse_args(argv)
 
@@ -323,7 +346,18 @@ def execute_command(args: argparse.Namespace) -> int:
         authorization=authorization,
         baseline=baseline,
         contexts=contexts,
-        consumption_receipt_digest=args.consumption_receipt_digest,
+        artifacts=RuntimeArtifactBindings(
+            authorization_path=authorization_path,
+            authorization_digest=args.authorization_digest,
+            operator_approval_path=_path(args.operator_approval),
+            security_approval_path=_path(args.security_authorization),
+            baseline_path=_path(args.baseline),
+            baseline_evidence_root=_path(args.baseline_evidence_root),
+            consumption_receipt_path=_path(args.consumption_receipt),
+            consumption_receipt_digest=args.consumption_receipt_digest,
+            execution_claim_path=execution_claim_path,
+            execution_claim_digest=execution_claim_digest,
+        ),
         output_root=output_root,
         workspace_root=workspace_root,
     )
@@ -363,6 +397,31 @@ def execute_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def verify_runtime_action_command(args: argparse.Namespace) -> int:
+    validate_runtime_action_binding(
+        action=args.action,
+        workspace_root=_workspace_root(args.workspace_root),
+        bindings=RuntimeArtifactBindings(
+            authorization_path=_path(args.authorization),
+            authorization_digest=args.authorization_digest,
+            operator_approval_path=_path(args.operator_approval),
+            security_approval_path=_path(args.security_authorization),
+            baseline_path=_path(args.baseline),
+            baseline_evidence_root=_path(args.baseline_evidence_root),
+            consumption_receipt_path=_path(args.consumption_receipt),
+            consumption_receipt_digest=args.consumption_receipt_digest,
+            execution_claim_path=_path(args.execution_claim),
+            execution_claim_digest=args.execution_claim_digest,
+        ),
+        output_root=_path(args.output_root),
+        kubernetes_namespace=args.kubernetes_namespace,
+        temporal_namespace=args.temporal_namespace,
+        state_root=_path(args.state_root),
+        operator_scope=args.operator_scope,
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     commands = {
@@ -371,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
         "validate-claims": validate_claims_command,
         "issue-permit": issue_permit_command,
         "execute": execute_command,
+        "verify-runtime-action": verify_runtime_action_command,
     }
     try:
         return commands[args.command](args)

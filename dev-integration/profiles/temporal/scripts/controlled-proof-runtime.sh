@@ -12,16 +12,45 @@ refuse() {
 
 require_controlled_executor() {
   [[ "$#" == "1" ]] || refuse "controlled proof runtime accepts one fixed action"
-  [[ "${CONTROLLED_PROOF_EXECUTOR:-}" == "true" ]] || \
-    refuse "controlled proof runtime is available only to the permit-bound executor"
   [[ "${PROFILE_LIFECYCLE}" == "build-admitted" ]] || \
     refuse "controlled proof runtime requires the build-admitted profile"
-  [[ "${CONTROLLED_PROOF_AUTHORIZATION_ID:-}" =~ ^[a-z][a-z0-9+.-]*://[^[:space:]]+$ ]] || \
-    refuse "controlled proof authorization id is missing or malformed"
-  [[ "${CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST:-}" =~ ^sha256:[0-9a-f]{64}$ ]] || \
-    refuse "controlled proof consumption receipt digest is missing or malformed"
-  [[ "${CONTROLLED_PROOF_EXECUTOR_SOURCE_REVISION:-}" =~ ^[0-9a-f]{40}$ ]] || \
-    refuse "controlled proof executor source revision is missing or malformed"
+  local required_name
+  for required_name in \
+    CONTROLLED_PROOF_AUTHORIZATION_PATH \
+    CONTROLLED_PROOF_AUTHORIZATION_DIGEST \
+    CONTROLLED_PROOF_OPERATOR_APPROVAL_PATH \
+    CONTROLLED_PROOF_SECURITY_AUTHORIZATION_PATH \
+    CONTROLLED_PROOF_BASELINE_PATH \
+    CONTROLLED_PROOF_BASELINE_EVIDENCE_ROOT \
+    CONTROLLED_PROOF_CONSUMPTION_RECEIPT_PATH \
+    CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST \
+    CONTROLLED_PROOF_EXECUTION_CLAIM_PATH \
+    CONTROLLED_PROOF_EXECUTION_CLAIM_DIGEST \
+    CONTROLLED_PROOF_OUTPUT_ROOT \
+    CONTROLLED_PROOF_OPERATOR_SCOPE; do
+    [[ -n "${!required_name:-}" ]] || \
+      refuse "controlled proof runtime is missing a permit-bound artifact"
+  done
+
+  python3 "${PROFILE_ROOT}/scripts/controlled_proof.py" verify-runtime-action \
+    --workspace-root "$(dirname "${OWNER_REPO_ROOT}")" \
+    --action "${ACTION}" \
+    --authorization "${CONTROLLED_PROOF_AUTHORIZATION_PATH}" \
+    --authorization-digest "${CONTROLLED_PROOF_AUTHORIZATION_DIGEST}" \
+    --operator-approval "${CONTROLLED_PROOF_OPERATOR_APPROVAL_PATH}" \
+    --security-authorization "${CONTROLLED_PROOF_SECURITY_AUTHORIZATION_PATH}" \
+    --baseline "${CONTROLLED_PROOF_BASELINE_PATH}" \
+    --baseline-evidence-root "${CONTROLLED_PROOF_BASELINE_EVIDENCE_ROOT}" \
+    --consumption-receipt "${CONTROLLED_PROOF_CONSUMPTION_RECEIPT_PATH}" \
+    --consumption-receipt-digest "${CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST}" \
+    --execution-claim "${CONTROLLED_PROOF_EXECUTION_CLAIM_PATH}" \
+    --execution-claim-digest "${CONTROLLED_PROOF_EXECUTION_CLAIM_DIGEST}" \
+    --output-root "${CONTROLLED_PROOF_OUTPUT_ROOT}" \
+    --kubernetes-namespace "${NAMESPACE}" \
+    --temporal-namespace "${TEMPORAL_WORKFLOW_NAMESPACE}" \
+    --state-root "${STATE_ROOT}" \
+    --operator-scope "${CONTROLLED_PROOF_OPERATOR_SCOPE}" \
+    >/dev/null
 }
 
 require_runtime_state() {
@@ -48,7 +77,7 @@ prepare_runtime() {
   kubectl_cmd label namespace "${NAMESPACE}" \
     app.kubernetes.io/part-of=temporal \
     dev-integration-profile=temporal \
-    "dev-integration-operator=${OPERATOR_SLUG}" \
+    "dev-integration-operator=${CONTROLLED_PROOF_OPERATOR_SCOPE}" \
     controlled-proof-session=true \
     --overwrite
   apply_database_secret

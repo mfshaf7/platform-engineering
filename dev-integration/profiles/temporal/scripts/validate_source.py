@@ -6,16 +6,14 @@ import base64
 import binascii
 import hashlib
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import yaml
-
 from generation_retirement import ContractError, canonical_json
-
 
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -518,8 +516,10 @@ def main() -> int:
                 str(rendered_root),
                 "--namespace",
                 "devint-temporal-validator",
-                "--operator",
+                "--operator-scope",
                 "validator",
+                "--temporal-namespace",
+                "governance-validator",
             ],
             check=True,
             capture_output=True,

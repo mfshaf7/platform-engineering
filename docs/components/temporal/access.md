@@ -46,3 +46,8 @@ Source now defines separate identities and secret references for:
 The profile does not commit secret values or create credentials while
 build-admitted. Runtime identity behavior still requires operating proof and
 fresh Security acceptance before activation.
+
+The source-reviewed commissioning adapter is not an alternate access path. Its
+internal runtime script rejects caller flags and identifiers unless the full
+source-controlled Security approval, consumed permit, execution claim, and
+exact operator scope revalidate first.

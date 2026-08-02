@@ -102,8 +102,12 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
 ```
 
 Security authorization under ART #790 and explicit operator approval must each
-be separate JSON artifacts binding that exact digest. The contract review is
-not a per-run Security authorization.
+be separate JSON artifacts binding that exact digest. The Security artifact
+must also be committed and merged in `security-architecture`, identify its own
+normalized JSON source path, and remain equivalent to that source-controlled
+record. The permit claims bind the exact Security revision used to load it, so
+the artifact does not embed its own containing commit. A self-declared local
+role or the contract review is not a per-run Security authorization.
 
 ### 3. Issue The Final Permit
 
@@ -115,19 +119,21 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
   --workspace-root <workspace-root> \
   --claims <local-evidence-root>/claims.json \
   --operator-approval <local-evidence-root>/operator-approval.json \
-  --security-authorization <local-evidence-root>/security-authorization.json \
+  --security-authorization <workspace-root>/security-architecture/<security-authorization-source-path> \
   --baseline <local-evidence-root>/baseline.json \
   --baseline-evidence-root <local-evidence-root>/baseline-evidence \
   --output <local-evidence-root>/authorization.json
 ```
 
-Issuance revalidates both approval files, the baseline files, every current
-source checkout, the pinned contract-source revisions, Platform artifacts,
-Temporal image locks, declared owner-image digests, identities, queues,
-namespace, scenario order, implementation and Review Packet bindings, and the
-validity window. ART #790 must separately verify that the referenced Review
-Packet is finalized and that each approved owner-image digest has the required
-source provenance. Issuance refuses to overwrite an existing permit.
+Issuance revalidates both approval files, including the Security artifact
+against the clean permit-bound `security-architecture` Git revision, plus the
+baseline files, every current source checkout, the pinned contract-source
+revisions, Platform artifacts, Temporal image locks, declared owner-image
+digests, identities, queues, namespace, scenario order, implementation and
+Review Packet bindings, and the validity window. ART #790 must separately
+verify that the referenced Review Packet is finalized and that each approved
+owner-image digest has the required source provenance. Issuance refuses to
+overwrite an existing permit.
 
 ### 4. Consume The Permit And Create The Ledger
 
@@ -140,7 +146,7 @@ make platform-drill ACTION=snapshot \
   AUTHORIZATION_DIGEST=sha256:<authorization-file-digest> \
   AUTHORIZATION_FILE=<local-evidence-root>/authorization.json \
   OPERATOR_APPROVAL_FILE=<local-evidence-root>/operator-approval.json \
-  SECURITY_AUTHORIZATION_FILE=<local-evidence-root>/security-authorization.json \
+  SECURITY_AUTHORIZATION_FILE=<workspace-root>/security-architecture/<security-authorization-source-path> \
   BASELINE_FILE=<local-evidence-root>/baseline.json \
   BASELINE_EVIDENCE_ROOT=<local-evidence-root>/baseline-evidence \
   NOTE="<proof purpose>"
@@ -175,14 +181,19 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py execute \
 ```
 
 The output path must be the canonical directory recorded in the Platform run
-ledger; an alternate path is denied. The executor revalidates all material and source again, installs only the
-permit-bound local runtime, projects immutable OOS and WGCF contexts, and runs
-the eleven scenarios in fixed order. It reserves the final 120 seconds of the
-authorization window for starting exact-baseline restore; normal proof commands
-are denied once that reserve is reached. A scenario failure stops new proof work;
-cleanup still removes the scoped runtime and verifies the exact baseline. If
-exact restoration or its terminal verification fails, the executor emits an
-immutable stopped-result draft and no final result.
+ledger; an alternate path is denied. Before every internal shell mutation, the
+executor revalidates the permit and source-controlled approvals, the canonical
+single-use consumption receipt, execution claim, output root, collision-
+resistant operator state root, Kubernetes namespace, and Temporal namespace.
+Setting environment flags or plausible identifiers cannot bypass that gate.
+The executor installs only the permit-bound local runtime, projects immutable
+OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
+the final 120 seconds of the authorization window for starting exact-baseline
+restore; normal proof commands are denied once that reserve is reached. A
+scenario failure stops new proof work; cleanup still removes the scoped runtime
+and verifies the exact baseline. If exact restoration or its terminal
+verification fails, the executor emits an immutable stopped-result draft and no
+final result.
 
 Record one governed exception against the run's exact captured restore scope.
 The controlled action requires the executor-created draft and cannot claim a
@@ -225,7 +236,10 @@ credentials, command output, and unbounded logs are not promoted as evidence.
 - immutable chart and image pins
 - collision-resistant operator-scoped Kubernetes and Temporal namespace rendering;
   simple DNS-safe operator IDs remain readable, while lossy normalization or
-  truncation adds a deterministic SHA-256 suffix
+  truncation adds a deterministic SHA-256 suffix, and that exact scope also owns
+  the operator-local runtime state root
+- source-controlled Security approval provenance and complete consumed-authority
+  revalidation before every internal runtime script mutation
 - 10Gi local-path PostgreSQL persistence
 - separate runtime, PostgreSQL, OOS, WGCF, and diagnostic identity references
 - explicit workflow and activity task queues

@@ -84,12 +84,29 @@ before runtime activation.
 
 ## Namespace And Task-Queue Boundary
 
-- dev-integration namespaces are operator-scoped
+- dev-integration Kubernetes namespaces, Temporal namespaces, and local runtime
+  state roots use the same collision-resistant operator scope; lossy or
+  truncated operator IDs carry a deterministic SHA-256 suffix
 - task queues must identify the owning workflow or activity boundary
 - activation-sensitive workflow queues derive a one-way generation from the
   accepted activation-manifest digest; same-manifest restarts reuse that
   generation, while a revoked digest is never admitted again
 - callers and workers must be authenticated before shared runtime admission
+- controlled commissioning accepts a Security decision only from the exact
+  permit-bound `security-architecture` source revision and revalidates the
+  consumed permit and execution claim before every internal runtime mutation
+- one atomic lease owns each collision-resistant operator scope; another
+  authorization cannot prepare or clean up that scope until successful restore
+  verification releases the lease
+- runtime source is acquired from a detached clean checkout of the permit-bound
+  Platform revision, including bounded cleanup after current checkout drift;
+  the complete Temporal profile is byte-attested against the commit tree and
+  extra files are denied independently of Git index state; attested bytes are
+  sealed in memory and projected into a private read-only profile tree, so
+  mutable checkout pathnames are not executed
+- one per-authorization execution lock serializes context preparation, claim
+  acquisition, and exact retry; owner contexts are idempotent and the same
+  active claim may resume only its bound output root and operator-scope lease
 - one activity owner must not consume another owner's task queue accidentally
 - direct Console credentials for Temporal are denied
 - PostgreSQL administration credentials are separate from the non-superuser
@@ -128,8 +145,9 @@ For planned suspension or replacement, Platform owns the ordered boundary:
 
 Platform owns the manifest and receipt-acceptance boundary. OOS owns the
 one-shot worker and receipt production. Temporal remains the runtime, not the
-lifecycle authority. No separate lock service, coordination database, or
-automatic cleanup claim is introduced.
+lifecycle authority. The local commissioning ledger uses an operator-scope
+lease; no external lock service, coordination database, or automatic cleanup
+claim is introduced.
 
 Every admitted OOS business start writes its exact workflow ID to the durable
 registry through Update-with-Start before attempting the business workflow

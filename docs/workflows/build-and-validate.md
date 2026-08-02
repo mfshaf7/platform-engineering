@@ -6,7 +6,8 @@ This workflow validates the shared repository on every pull request and on
 pushes to `main`.
 
 It is the baseline guardrail for structure, governance docs, Helm charts,
-Terraform, and OpenClaw environment contracts.
+Terraform, OpenClaw environment contracts, and source-only Temporal
+controlled-proof contracts and negative tests.
 
 ## Trigger
 

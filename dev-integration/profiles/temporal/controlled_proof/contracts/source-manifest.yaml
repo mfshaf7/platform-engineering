@@ -1,0 +1,37 @@
+schema_version: 1
+sources:
+  workspace-governance:
+    revision: 3be1c7125a1dbd33a5aa869f79feb24ac6616540
+    files:
+      controlled-runtime-proof-authorization.schema.json:
+        source_path: contracts/schemas/controlled-runtime-proof-authorization.schema.json
+        digest: sha256:a392a93308ecbfc5e3a4735c2a37d388e410ea301c5b0734c425792f9be1c99b
+      controlled-runtime-proof-result.schema.json:
+        source_path: contracts/schemas/controlled-runtime-proof-result.schema.json
+        digest: sha256:5d58b78932f9848373fde1fc360f9c6461b956bb2de6273a409cdd72e90f68d3
+  operator-orchestration-service:
+    revision: f1f8a09561dd4667c188aea408695313a867501b
+    files:
+      oos-execution-context.schema.json:
+        source_path: contracts/orchestration/controlled-proof-execution-context.schema.json
+        digest: sha256:e36cda70715c71d2ad22d9bb06ab504946fe74041d3ddbef7fc05c29be55aec0
+      oos-owner-receipt.schema.json:
+        source_path: contracts/orchestration/controlled-proof-owner-receipt.schema.json
+        digest: sha256:db935e0c836ff0eada305e4d35f1501c4c76fddc9d745024a575526006f56be8
+      oos-run-projection.schema.json:
+        source_path: contracts/orchestration/controlled-proof-run-projection.schema.json
+        digest: sha256:9ad8861245413ebfd8d1b06b6537578e0ce75e086984dbac6e489321d9158ce2
+  workspace-governance-control-fabric:
+    revision: 6b8d65b7ba1df028e92c9d3f14eae14c481b5411
+    files:
+      wgcf-owner-context.schema.json:
+        source_path: schemas/controlled-proof-owner-context.schema.json
+        digest: sha256:110ca550c0562b0ea3ad507e4b1c2c21fc8fb8513ab28cea91226ff8a8a1fb05
+      wgcf-owner-receipt.schema.json:
+        source_path: schemas/controlled-proof-owner-receipt.schema.json
+        digest: sha256:7920c7b2550b7d85da87e936480eec4ab325d893a66a790b794f8ff9b3d0b703
+local_files:
+  approval-binding.schema.json: sha256:725e5773840e5656201fd21aafd0e3afbcfc4848a370995c2f3d9cab0cca3260
+  baseline.schema.json: sha256:ee51931189b00a1cc0519bf9a6ff8f5c9cabf23f0967f4c8d8524cf52996cb2b
+  consumption-receipt.schema.json: sha256:fba307a91f40b4c15fd049f6024dc04ef159584882f04bbd01de5a910f08c723
+  platform-owner-receipt.schema.json: sha256:bf3ccab75d6f54a9f396a26957d2cff523d77761d8cf5a3fd6fe6c5bbbd1c8c5

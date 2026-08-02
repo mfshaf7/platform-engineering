@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/temporal/controlled-proof/approval-binding.schema.json",
+  "title": "Controlled Proof Approval Binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_id",
+    "approval_role",
+    "decision",
+    "authorization_id",
+    "canonicalization",
+    "canonical_claims_digest",
+    "approved_by",
+    "approved_at"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "approval_id": { "$ref": "#/$defs/uri" },
+    "approval_role": {
+      "enum": ["operator-approval", "security-authorization"]
+    },
+    "decision": { "const": "approved" },
+    "authorization_id": { "$ref": "#/$defs/uri" },
+    "canonicalization": { "const": "rfc8785" },
+    "canonical_claims_digest": { "$ref": "#/$defs/digest" },
+    "approved_by": { "$ref": "#/$defs/identifier" },
+    "approved_at": { "$ref": "#/$defs/timestamp" },
+    "source_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_repo", "source_path"],
+      "properties": {
+        "owner_repo": { "const": "security-architecture" },
+        "source_path": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 512,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+\\.json$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "approval_role": { "const": "security-authorization" }
+        }
+      },
+      "then": { "required": ["source_provenance"] },
+      "else": { "not": { "required": ["source_provenance"] } }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "format": "uri"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  }
+}

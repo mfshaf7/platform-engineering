@@ -32,11 +32,34 @@ This drill type:
   permitted actions, evidence owner, expiry, and run limit
 - rejects conflicting logical bindings, binds both approvals to an RFC 8785
   digest of every authorization field outside the approval envelope, and
-  atomically consumes one authorization for one run before the first mutation
+  atomically consumes one authorization for one run before the first mutation;
+  an interrupted ledger snapshot may resume only its exact receipt before the
+  final `run.yaml` commit marker and before execution is claimed
+- accepts the Security approval only when the exact approval JSON is present in
+  the clean, permit-bound `security-architecture` revision; a self-declared
+  local Security role is not authority
+- revalidates the permit, both approvals, canonical consumption receipt,
+  execution claim, atomic operator-scope lease, output root, namespaces, and
+  collision-resistant state root before every internal shell mutation
+- acquires runtime source from a detached clean checkout of the permit-bound
+  Platform revision, byte-attests the complete executed profile independently
+  of Git index state, seals those attested bytes in memory, and projects them
+  into a private read-only executor tree rather than executing mutable checkout
+  pathnames; it releases the scope lease only after successful runtime-surface
+  restore verification
+- serializes execution setup per authorization, persists owner contexts before
+  claim acquisition, and permits only an exact claim/context retry while the
+  original operator-scope lease remains active
+- stops new proof work on source drift while allowing only terminal restore and
+  cleanup to validate the immutable authority and historical Security artifact
+  without requiring current checkouts to remain at their pre-drift revisions
 - captures and binds the pre-run baseline by immutable digest before permit
   issuance and emits a schema-valid controlled-proof result artifact after
   restoration with exact keyed coverage of every authorized scenario and no
   passing outcome when restoration ends through an exception
+- treats source revisions as immutable authorization inputs while terminal
+  restoration attests only the operator-scoped runtime namespace, deployments,
+  and local state
 - creates a governed local ledger before mutation
 - keeps baseline capture pending until every scoped surface has an operator-
   reviewable evidence reference
@@ -71,7 +94,12 @@ What becomes stricter:
 - the permit-issuer and executor source must be reviewed before Security
   authorizes a permit, and both must validate and atomically consume one exact
   authorization artifact
+- the per-run Security artifact must land in `security-architecture` before
+  Platform can issue the permit, and the internal runtime adapter cannot trust
+  caller-supplied environment flags as proof of authority
 - the proof must stop on scope drift and restore the captured baseline
+- concurrent authorizations cannot share or clean up one operator scope
+- case-only operator-ID differences receive distinct collision-resistant scope
 - normal profile commands remain denied until a later governed lifecycle
   decision
 

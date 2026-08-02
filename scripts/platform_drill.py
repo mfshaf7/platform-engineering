@@ -3,12 +3,18 @@ from __future__ import annotations
 
 import argparse
 import copy
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
+import tempfile
 from typing import Any
 
 import yaml
@@ -32,16 +38,20 @@ CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS = [
     "governed-exception-recorded",
 ]
 CONTROLLED_PROOF_SOURCE_ENABLEMENT = {
-    "status": "contract-only",
+    "status": "source-reviewed",
     "implementationWorkItemRef": "openproject://work_packages/792",
-    "snapshotAllowed": False,
+    "snapshotAllowed": True,
     "requiredControls": [
         "capture-preauthorization-baseline-artifact",
         "validate-authorization-artifact-and-digest",
         "enforce-semantic-binding-uniqueness",
         "verify-rfc8785-claims-approval-bindings",
         "consume-authorization-atomically",
+        "resume-only-exact-uncommitted-snapshot",
+        "lease-operator-scope-before-execution-claim",
+        "execute-runtime-actions-from-permit-bound-source",
         "verify-immutable-baseline-digest",
+        "verify-runtime-scoped-restore",
         "emit-controlled-proof-result",
     ],
 }
@@ -49,7 +59,7 @@ CONTROLLED_PROOF_RESULT_ARTIFACT = {
     "required": True,
     "artifactType": "controlled-runtime-proof-result",
     "schemaRef": "https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json",
-    "schemaVersion": 1,
+    "schemaVersion": 2,
 }
 
 
@@ -78,6 +88,66 @@ def load_yaml(path: Path) -> dict[str, Any]:
 def dump_yaml(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def dump_yaml_exclusive(path: Path, payload: dict[str, Any]) -> None:
+    """Commit a YAML artifact without exposing a partial destination file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    rendered = yaml.safe_dump(payload, sort_keys=False).encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", dir=path.parent
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary_path, path)
+        except FileExistsError as exc:
+            raise SystemExit(f"snapshot commit already exists: {path}") from exc
+        temporary_path.unlink()
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@contextmanager
+def controlled_snapshot_lock(repo_root: Path, authorization_ref: str):
+    """Serialize one controlled snapshot transaction per authorization."""
+
+    lock_key = hashlib.sha256(authorization_ref.encode("utf-8")).hexdigest()
+    lock_root = (
+        repo_root / ".platform-drills" / "_controlled-proof-snapshot-locks"
+    ).resolve()
+    lock_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = lock_root / f"{lock_key}.lock"
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+    except OSError as exc:
+        raise SystemExit("controlled snapshot lock is unavailable") from exc
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise SystemExit(
+                "controlled snapshot is already in progress for this authorization"
+            ) from exc
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
@@ -180,9 +250,17 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             )
         if not isinstance(source_enablement.get("snapshotAllowed"), bool):
             raise SystemExit(f"{path} sourceEnablement.snapshotAllowed must be boolean")
-        if source_enablement.get("snapshotAllowed") is not False:
+        if source_enablement.get("status") == "contract-only" and source_enablement.get(
+            "snapshotAllowed"
+        ) is not False:
             raise SystemExit(
-                f"{path} commissioning snapshots must remain disabled until permit artifact validation and atomic consumption are implemented"
+                f"{path} contract-only commissioning snapshots must remain disabled"
+            )
+        if source_enablement.get("status") == "source-reviewed" and source_enablement.get(
+            "snapshotAllowed"
+        ) is not True:
+            raise SystemExit(
+                f"{path} source-reviewed commissioning must explicitly enable its permit-consuming snapshot"
             )
         required_controls = source_enablement.get("requiredControls")
         if (
@@ -225,7 +303,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         if is_temporal_commissioning_profile:
             if source_enablement != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
                 raise SystemExit(
-                    f"{path} sourceEnablement must remain contract-only until Platform source review #792 lands"
+                    f"{path} sourceEnablement must bind the reviewed Platform #792 control path"
                 )
             if result_artifact != CONTROLLED_PROOF_RESULT_ARTIFACT:
                 raise SystemExit(
@@ -538,6 +616,15 @@ def parse_args() -> argparse.Namespace:
         help="sha256 digest of the exact authorization artifact",
     )
     snapshot.add_argument(
+        "--authorization-file",
+        default="",
+        help="local immutable authorization artifact to validate before consumption",
+    )
+    snapshot.add_argument("--operator-approval-file", default="")
+    snapshot.add_argument("--security-authorization-file", default="")
+    snapshot.add_argument("--baseline-file", default="")
+    snapshot.add_argument("--baseline-evidence-root", default="")
+    snapshot.add_argument(
         "--output-root",
         default="",
         help="optional drill-state root; defaults to <repo>/.platform-drills",
@@ -595,6 +682,26 @@ def parse_args() -> argparse.Namespace:
     restore.add_argument("--owner", default="")
     restore.add_argument("--review-on", default="")
 
+    controlled_exception = subparsers.add_parser("controlled-exception")
+    controlled_exception.add_argument(
+        "--run", required=True, help="controlled proof run directory"
+    )
+    controlled_exception.add_argument(
+        "--actor", required=True, help="operator recording the exception"
+    )
+    controlled_exception.add_argument(
+        "--decision", required=True, choices=sorted(DECISIONS)
+    )
+    controlled_exception.add_argument("--justification", required=True)
+    controlled_exception.add_argument("--owner", required=True)
+    controlled_exception.add_argument("--review-on", required=True)
+    controlled_exception.add_argument("--note", default="")
+
+    controlled_finalize = subparsers.add_parser("controlled-finalize")
+    controlled_finalize.add_argument(
+        "--run", required=True, help="controlled proof run directory"
+    )
+
     status = subparsers.add_parser("status")
     status.add_argument("--run", default="", help="optional run directory created by snapshot")
     add_profile_args(status)
@@ -619,6 +726,187 @@ def evidence_template_payload(
 
 def output_root(repo_root: Path, raw: str) -> Path:
     return Path(raw).expanduser().resolve() if raw else (repo_root / ".platform-drills").resolve()
+
+
+def input_artifact_path(raw: str) -> Path:
+    """Return an absolute input path without resolving its final symlink."""
+
+    return Path(raw).expanduser().absolute()
+
+
+def consume_or_resume_controlled_authorization(
+    *,
+    authorization: dict[str, Any],
+    authorization_digest: str,
+    consumption_root: Path,
+    contracts: Any,
+) -> tuple[dict[str, Any], Path, str]:
+    """Resume only the exact receipt created by an interrupted snapshot."""
+
+    from controlled_proof.authority import (  # noqa: PLC0415
+        consume_authorization,
+        consumption_receipt_path,
+    )
+    from controlled_proof.execution import validate_consumption_binding  # noqa: PLC0415
+    from controlled_proof.model import read_bounded_json_with_digest  # noqa: PLC0415
+
+    receipt_path = consumption_receipt_path(
+        authorization["authorization_id"], consumption_root
+    )
+    if receipt_path.exists() or receipt_path.is_symlink():
+        receipt, receipt_digest = read_bounded_json_with_digest(receipt_path)
+        validate_consumption_binding(
+            authorization,
+            authorization_digest,
+            receipt,
+            receipt_digest,
+            contracts,
+        )
+        return receipt, receipt_path, receipt_digest
+    return consume_authorization(
+        authorization=authorization,
+        authorization_digest=authorization_digest,
+        executor_source_revision=authorization["executor"]["source_revision"],
+        consumption_root=consumption_root,
+        contracts=contracts,
+    )
+
+
+def recover_incomplete_controlled_run(
+    run_dir: Path,
+    execution_claim_path: Path,
+) -> None:
+    """Remove an uncommitted snapshot only before execution ownership exists."""
+
+    if not run_dir.exists() and not run_dir.is_symlink():
+        return
+    if (run_dir / "run.yaml").exists():
+        raise SystemExit(f"run directory already exists: {run_dir}")
+    if run_dir.is_symlink() or not run_dir.is_dir():
+        raise SystemExit(f"incomplete run path is not a directory: {run_dir}")
+    if execution_claim_path.exists() or execution_claim_path.is_symlink():
+        raise SystemExit(
+            "incomplete snapshot cannot be rebuilt after execution was claimed"
+        )
+    shutil.rmtree(run_dir)
+
+
+def prepare_controlled_proof_snapshot(
+    args: argparse.Namespace,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    profile_root = (
+        args.repo_root / "dev-integration" / "profiles" / "temporal"
+    ).resolve()
+    if str(profile_root) not in sys.path:
+        sys.path.insert(0, str(profile_root))
+
+    from controlled_proof.authority import (  # noqa: PLC0415
+        GitSourceResolver,
+        load_contracts,
+        validate_authorization,
+    )
+    from controlled_proof.model import read_bounded_json  # noqa: PLC0415
+
+    required_paths = {
+        "--authorization-file": args.authorization_file,
+        "--operator-approval-file": args.operator_approval_file,
+        "--security-authorization-file": args.security_authorization_file,
+        "--baseline-file": args.baseline_file,
+        "--baseline-evidence-root": args.baseline_evidence_root,
+    }
+    missing = [option for option, value in required_paths.items() if not value.strip()]
+    if missing:
+        raise SystemExit(
+            "controlled commissioning snapshot requires " + ", ".join(missing)
+        )
+
+    authorization_path = input_artifact_path(args.authorization_file)
+    operator_approval_path = input_artifact_path(args.operator_approval_file)
+    security_approval_path = input_artifact_path(args.security_authorization_file)
+    baseline_path = input_artifact_path(args.baseline_file)
+    baseline_evidence_root = Path(
+        args.baseline_evidence_root
+    ).expanduser().resolve()
+    contracts = load_contracts()
+    authorization = read_bounded_json(
+        authorization_path,
+        expected_digest=args.authorization_digest,
+    )
+    if args.authorization_ref != authorization["authorization_id"]:
+        raise SystemExit(
+            "--authorization-ref must equal the authorization artifact id"
+        )
+    if authorization["target"] != {
+        "profile_id": contract["authorization"]["targetProfileId"],
+        "profile_lifecycle": contract["authorization"]["targetProfileLifecycle"],
+        "environment": contract["targetEnvironment"],
+    }:
+        raise SystemExit("authorization target does not match the drill profile")
+
+    commissioning_session_id = authorization["commissioning_session"][
+        "commissioning_session_id"
+    ]
+    requested_run_id = str(getattr(args, "run_id", "")).strip()
+    if requested_run_id and requested_run_id != commissioning_session_id:
+        raise SystemExit(
+            "controlled commissioning run id must equal the authorized "
+            "commissioning session id"
+        )
+    if str(getattr(args, "output_root", "")).strip():
+        raise SystemExit(
+            "controlled commissioning uses the canonical Platform drill-state root; "
+            "--output-root is not allowed"
+        )
+    canonical_run_dir = (
+        args.repo_root
+        / ".platform-drills"
+        / contract["id"]
+        / commissioning_session_id
+    ).absolute()
+    if canonical_run_dir.is_symlink():
+        raise SystemExit(f"run directory must not be a symbolic link: {canonical_run_dir}")
+    if (canonical_run_dir / "run.yaml").exists():
+        raise SystemExit(f"run directory already exists: {canonical_run_dir}")
+
+    workspace_root = args.repo_root.resolve().parent
+    validate_authorization(
+        authorization,
+        contracts=contracts,
+        baseline_path=baseline_path,
+        baseline_evidence_root=baseline_evidence_root,
+        source_resolver=GitSourceResolver(workspace_root),
+        operator_approval_path=operator_approval_path,
+        security_approval_path=security_approval_path,
+    )
+    baseline = read_bounded_json(
+        baseline_path,
+        expected_digest=authorization["baseline_and_restore"][
+            "baseline_snapshot_digest"
+        ],
+    )
+    consumption_root = (
+        args.repo_root / ".platform-drills" / "_controlled-proof-consumptions"
+    ).resolve()
+    receipt, receipt_path, receipt_digest = consume_or_resume_controlled_authorization(
+        authorization=authorization,
+        authorization_digest=args.authorization_digest,
+        consumption_root=consumption_root,
+        contracts=contracts,
+    )
+    return {
+        "authorization_id": authorization["authorization_id"],
+        "commissioning_session_id": commissioning_session_id,
+        "authorization_path": str(authorization_path),
+        "operator_approval_path": str(operator_approval_path),
+        "security_authorization_path": str(security_approval_path),
+        "baseline_path": str(baseline_path),
+        "baseline_evidence_root": str(baseline_evidence_root),
+        "baseline": baseline,
+        "consumption_receipt": receipt,
+        "consumption_receipt_path": str(receipt_path),
+        "consumption_receipt_digest": receipt_digest,
+    }
 
 
 def default_run_id(contract_id: str) -> str:
@@ -877,6 +1165,20 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_snapshot(args: argparse.Namespace) -> int:
     profile_path, contract = profile_payload(args)
+    if contract.get("id") == "temporal-component-commissioning-proof":
+        authorization_ref = str(args.authorization_ref).strip()
+        if not authorization_ref:
+            raise SystemExit("--authorization-ref is required for this drill profile")
+        with controlled_snapshot_lock(args.repo_root, authorization_ref):
+            return _cmd_snapshot(args, profile_path, contract)
+    return _cmd_snapshot(args, profile_path, contract)
+
+
+def _cmd_snapshot(
+    args: argparse.Namespace,
+    profile_path: Path,
+    contract: dict[str, Any],
+) -> int:
     source_enablement = contract.get("sourceEnablement") or {}
     if contract.get("drillType") == "component-commissioning-proof":
         implementation_ref = str(
@@ -887,19 +1189,27 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             if implementation_ref == "openproject://work_packages/792"
             else implementation_ref
         )
-        if contract.get("id") == "temporal-component-commissioning-proof":
+        if (
+            contract.get("id") != "temporal-component-commissioning-proof"
+            or source_enablement.get("status") != "source-reviewed"
+            or source_enablement.get("snapshotAllowed") is not True
+        ):
             raise SystemExit(
-                f"commissioning snapshot denied: contract-only until {implementation_label} "
-                "lands the reviewed permit issuer and proof executor"
+                "commissioning snapshot denied: permit artifact validation and atomic "
+                f"consumption are not source-reviewed for {implementation_label}"
             )
-        raise SystemExit(
-            "commissioning snapshot denied: permit artifact validation and atomic "
-            f"consumption are not implemented for {implementation_label}"
-        )
     evidence_template_path_value, evidence_template = evidence_template_payload(
         args.repo_root, profile_path, contract
     )
-    run_id = args.run_id.strip() or default_run_id(contract["id"])
+    controlled_proof = None
+    if contract.get("id") == "temporal-component-commissioning-proof":
+        controlled_proof = prepare_controlled_proof_snapshot(
+            args,
+            contract,
+        )
+        run_id = controlled_proof["commissioning_session_id"]
+    else:
+        run_id = args.run_id.strip() or default_run_id(contract["id"])
     authorization_contract = contract.get("authorization") or {}
     authorization_ref = args.authorization_ref.strip()
     authorization_digest = args.authorization_digest.strip()
@@ -910,9 +1220,23 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
             raise SystemExit(
                 "--authorization-digest must be a lowercase sha256:<64-hex> digest"
             )
-    run_dir = output_root(args.repo_root, args.output_root) / contract["id"] / run_id
+    run_state_root = output_root(args.repo_root, args.output_root)
+    run_dir = run_state_root / contract["id"] / run_id
     if run_dir.exists():
-        raise SystemExit(f"run directory already exists: {run_dir}")
+        if controlled_proof is None or (run_dir / "run.yaml").exists():
+            raise SystemExit(f"run directory already exists: {run_dir}")
+        from controlled_proof.authority import authorization_storage_key  # noqa: PLC0415
+
+        authorization_key = authorization_storage_key(
+            controlled_proof["authorization_id"]
+        )
+        execution_claim_path = (
+            args.repo_root
+            / ".platform-drills"
+            / "_controlled-proof-executions"
+            / f"{authorization_key}.json"
+        )
+        recover_incomplete_controlled_run(run_dir, execution_claim_path)
     run_dir.mkdir(parents=True, exist_ok=False)
     paths = run_paths(run_dir)
     shutil.copy2(profile_path, paths["contract"])
@@ -956,15 +1280,70 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
                 authorization_contract["terminalCleanupAuthority"]
             ),
         }
+    if controlled_proof is not None:
+        receipt = controlled_proof["consumption_receipt"]
+        from controlled_proof.authority import authorization_storage_key  # noqa: PLC0415
+
+        authorization_key = authorization_storage_key(
+            controlled_proof["authorization_id"]
+        )
+        manifest["phaseStatus"]["baseline"] = "captured"
+        manifest["controlledProof"] = {
+            "authorizationPath": controlled_proof["authorization_path"],
+            "operatorApprovalPath": controlled_proof["operator_approval_path"],
+            "securityAuthorizationPath": controlled_proof[
+                "security_authorization_path"
+            ],
+            "baselinePath": controlled_proof["baseline_path"],
+            "baselineEvidenceRoot": controlled_proof["baseline_evidence_root"],
+            "consumptionReceiptRef": receipt["receipt_id"],
+            "consumptionReceiptPath": controlled_proof[
+                "consumption_receipt_path"
+            ],
+            "consumptionReceiptDigest": controlled_proof[
+                "consumption_receipt_digest"
+            ],
+            "consumedAt": receipt["consumed_at"],
+            "executionClaimPath": str(
+                args.repo_root
+                / ".platform-drills"
+                / "_controlled-proof-executions"
+                / f"{authorization_key}.json"
+            ),
+            "outputRoot": str(run_dir / "controlled-proof-output"),
+        }
     baseline_payload = build_baseline(contract, args.repo_root)
-    dump_yaml(paths["run"], manifest)
+    if controlled_proof is not None:
+        imported_surfaces = {
+            item["surface_id"]: item
+            for item in controlled_proof["baseline"]["surface_observations"]
+        }
+        for surface in baseline_payload["runtimeSurfaces"]:
+            imported = imported_surfaces[surface["id"]]
+            surface["baselineState"] = "attested"
+            surface["evidenceRef"] = imported["evidence_ref"]
+            surface["note"] = f"immutable state: {imported['state']}"
     dump_yaml(paths["baseline"], baseline_payload)
     dump_yaml(paths["verification"], build_verification(contract))
     dump_yaml(paths["restore"], build_restore(contract))
-    dump_yaml(
-        paths["evidence"],
-        build_evidence(contract, evidence_template, manifest, run_dir, baseline_payload),
+    evidence_payload = build_evidence(
+        contract, evidence_template, manifest, run_dir, baseline_payload
     )
+    if controlled_proof is not None:
+        imported_surfaces = {
+            item["surface_id"]: item
+            for item in controlled_proof["baseline"]["surface_observations"]
+        }
+        evidence_payload["baselineAttestation"]["captureStatus"] = "captured"
+        for surface in evidence_payload["baselineAttestation"][
+            "surfaceAttestations"
+        ]:
+            imported = imported_surfaces[surface["id"]]
+            surface["status"] = "attested"
+            surface["evidenceRef"] = imported["evidence_ref"]
+            surface["note"] = f"immutable state: {imported['state']}"
+    dump_yaml(paths["evidence"], evidence_payload)
+    dump_yaml_exclusive(paths["run"], manifest)
     print(f"run_id={run_id}")
     print(f"run_dir={run_dir}")
     print(f"profile={contract['id']}")
@@ -1040,8 +1419,108 @@ def baseline_attestation_complete(
     )
 
 
+def deny_generic_mutation_for_controlled_proof(
+    run_payload: dict[str, Any], action: str
+) -> None:
+    if "controlledProof" in run_payload:
+        raise SystemExit(
+            f"{action} denied: permit-bound controlled proof runs may be mutated only "
+            "by the source-reviewed executor"
+        )
+
+
+def enforce_controlled_restore_record(
+    run_payload: dict[str, Any], status: str
+) -> None:
+    if "controlledProof" in run_payload:
+        raise SystemExit(
+            "restore mutation denied: permit-bound controlled proof restoration is "
+            "recorded only by the source-reviewed executor; use controlled-exception "
+            "after a stopped draft is emitted"
+        )
+
+
+def load_controlled_proof_artifacts(
+    run_dir: Path,
+    run_payload: dict[str, Any],
+) -> dict[str, Any]:
+    controlled = run_payload.get("controlledProof")
+    if not isinstance(controlled, dict):
+        raise SystemExit("run is not a permit-bound controlled proof")
+    required = {
+        "authorizationPath",
+        "consumptionReceiptPath",
+        "consumptionReceiptDigest",
+        "executionClaimPath",
+        "outputRoot",
+    }
+    missing = sorted(required - set(controlled))
+    if missing:
+        raise SystemExit(
+            "controlled proof run is missing artifact bindings: " + ", ".join(missing)
+        )
+
+    profile_root = (
+        Path(__file__).resolve().parents[1]
+        / "dev-integration"
+        / "profiles"
+        / "temporal"
+    )
+    if str(profile_root) not in sys.path:
+        sys.path.insert(0, str(profile_root))
+    from controlled_proof.authority import load_contracts  # noqa: PLC0415
+    from controlled_proof.execution import STOPPED_DRAFT_NAME  # noqa: PLC0415
+    from controlled_proof.model import (  # noqa: PLC0415
+        read_bounded_json,
+        read_bounded_json_with_digest,
+    )
+
+    output_root_path = input_artifact_path(str(controlled["outputRoot"]))
+    expected_output_root = (run_dir / "controlled-proof-output").absolute()
+    if output_root_path != expected_output_root or output_root_path.is_symlink():
+        raise SystemExit("controlled proof output root does not match its run")
+    authorization_digest = str(
+        (run_payload.get("authorization") or {}).get("digest") or ""
+    )
+    authorization = read_bounded_json(
+        input_artifact_path(str(controlled["authorizationPath"])),
+        expected_digest=authorization_digest,
+    )
+    consumption_receipt = read_bounded_json(
+        input_artifact_path(str(controlled["consumptionReceiptPath"])),
+        expected_digest=str(controlled["consumptionReceiptDigest"]),
+    )
+    execution_claim_path = input_artifact_path(str(controlled["executionClaimPath"]))
+    execution_claim, execution_claim_digest = read_bounded_json_with_digest(
+        execution_claim_path
+    )
+    stopped_draft_path = output_root_path / STOPPED_DRAFT_NAME
+    stopped_draft, stopped_draft_digest = read_bounded_json_with_digest(
+        stopped_draft_path
+    )
+    if run_payload.get("run_id") != authorization["commissioning_session"][
+        "commissioning_session_id"
+    ]:
+        raise SystemExit("controlled proof run id does not match its authorization")
+    return {
+        "controlled": controlled,
+        "contracts": load_contracts(),
+        "authorization": authorization,
+        "authorization_digest": authorization_digest,
+        "consumption_receipt": consumption_receipt,
+        "consumption_receipt_digest": str(controlled["consumptionReceiptDigest"]),
+        "execution_claim": execution_claim,
+        "execution_claim_digest": execution_claim_digest,
+        "stopped_draft": stopped_draft,
+        "stopped_draft_path": stopped_draft_path,
+        "stopped_draft_digest": stopped_draft_digest,
+        "output_root": output_root_path,
+    }
+
+
 def cmd_attest_baseline(args: argparse.Namespace) -> int:
     _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    deny_generic_mutation_for_controlled_proof(run_payload, "baseline attestation")
     if run_payload.get("phaseStatus", {}).get("activation") != "pending":
         raise SystemExit("baseline attestation denied after activation has been recorded")
     actor = args.actor.strip()
@@ -1093,6 +1572,7 @@ def cmd_attest_baseline(args: argparse.Namespace) -> int:
 
 def cmd_activate(args: argparse.Namespace) -> int:
     _, paths, run_payload, baseline, _, _, evidence = load_run(args.run)
+    deny_generic_mutation_for_controlled_proof(run_payload, "activation")
     actor = args.actor.strip()
     if not actor:
         raise SystemExit("--actor must not be blank")
@@ -1149,6 +1629,7 @@ def cmd_activate(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     _, paths, run_payload, _, verification, _, evidence = load_run(args.run)
+    deny_generic_mutation_for_controlled_proof(run_payload, "verification")
     checks = verification.get("checks") or []
     target = next((check for check in checks if check.get("id") == args.check), None)
     if target is None:
@@ -1210,6 +1691,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 def cmd_record(args: argparse.Namespace) -> int:
     _, paths, run_payload, _, _, _, evidence = load_run(args.run)
+    deny_generic_mutation_for_controlled_proof(run_payload, "supplemental evidence")
     run_payload.setdefault("evidenceRecords", [])
     record = {
         "phase": args.phase,
@@ -1228,6 +1710,7 @@ def cmd_record(args: argparse.Namespace) -> int:
 
 def cmd_restore(args: argparse.Namespace) -> int:
     _, paths, run_payload, _, _, restore, evidence = load_run(args.run)
+    enforce_controlled_restore_record(run_payload, args.status)
     surfaces = restore.get("surfaces") or []
     target = next((surface for surface in surfaces if surface.get("id") == args.surface), None)
     if target is None:
@@ -1285,6 +1768,153 @@ def cmd_restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_controlled_exception(args: argparse.Namespace) -> int:
+    run_dir, paths, run_payload, _, _, restore, evidence = load_run(args.run)
+    artifacts = load_controlled_proof_artifacts(run_dir, run_payload)
+    from controlled_proof.execution import record_governed_exception  # noqa: PLC0415
+
+    exception, exception_path, exception_digest = record_governed_exception(
+        authorization=artifacts["authorization"],
+        authorization_digest=artifacts["authorization_digest"],
+        consumption_receipt=artifacts["consumption_receipt"],
+        consumption_receipt_digest=artifacts["consumption_receipt_digest"],
+        execution_claim=artifacts["execution_claim"],
+        execution_claim_digest=artifacts["execution_claim_digest"],
+        stopped_draft=artifacts["stopped_draft"],
+        stopped_draft_digest=artifacts["stopped_draft_digest"],
+        output_root=artifacts["output_root"],
+        decision=args.decision,
+        justification=args.justification,
+        owner=args.owner,
+        review_on=args.review_on,
+        actor=args.actor,
+        note=args.note,
+        contracts=artifacts["contracts"],
+    )
+    for surface in restore.get("surfaces") or []:
+        surface["status"] = "exception"
+        surface["decision"] = exception["decision"]
+        surface["justification"] = exception["justification"]
+        surface["owner"] = exception["owner"]
+        surface["reviewOn"] = exception["review_on"]
+        surface["note"] = exception["note"]
+        surface["updatedAt"] = exception["recorded_at"]
+        surface["updatedBy"] = exception["recorded_by"]
+    for surface in (evidence.get("restoreAttestation") or {}).get("surfaces") or []:
+        surface["status"] = "exception"
+        surface["decision"] = exception["decision"]
+        surface["justification"] = exception["justification"]
+        surface["owner"] = exception["owner"]
+        surface["reviewOn"] = exception["review_on"]
+        surface["note"] = exception["note"]
+        surface["updatedAt"] = exception["recorded_at"]
+        surface["updatedBy"] = exception["recorded_by"]
+    upsert_exception_entry(
+        evidence,
+        scope_type="controlled-proof-session",
+        scope_id=exception["commissioning_session_id"],
+        status="exception",
+        decision=exception["decision"],
+        justification=exception["justification"],
+        owner=exception["owner"],
+        review_on=exception["review_on"],
+        actor=exception["recorded_by"],
+        note=exception["note"],
+    )
+    controlled = artifacts["controlled"]
+    controlled.update(
+        {
+            "stoppedDraftPath": str(artifacts["stopped_draft_path"]),
+            "stoppedDraftDigest": artifacts["stopped_draft_digest"],
+            "governedExceptionPath": str(exception_path),
+            "governedExceptionDigest": exception_digest,
+            "executionStatus": "stopped-awaiting-result",
+        }
+    )
+    run_payload["phaseStatus"]["restore"] = "recorded"
+    write_run(paths, run_payload, restore=restore, evidence=evidence)
+    print(f"run_id={run_payload['run_id']} controlled_exception={exception['record_id']}")
+    print(f"exception_digest={exception_digest}")
+    return 0
+
+
+def cmd_controlled_finalize(args: argparse.Namespace) -> int:
+    run_dir, paths, run_payload, _, _, _, _ = load_run(args.run)
+    artifacts = load_controlled_proof_artifacts(run_dir, run_payload)
+    controlled = artifacts["controlled"]
+    required = {"governedExceptionPath", "governedExceptionDigest"}
+    missing = sorted(required - set(controlled))
+    if missing:
+        raise SystemExit(
+            "controlled proof exception must be recorded before finalization"
+        )
+    from controlled_proof.execution import finalize_stopped_result  # noqa: PLC0415
+    from controlled_proof.model import read_bounded_json  # noqa: PLC0415
+
+    exception = read_bounded_json(
+        input_artifact_path(str(controlled["governedExceptionPath"])),
+        expected_digest=str(controlled["governedExceptionDigest"]),
+    )
+    result, result_digest = finalize_stopped_result(
+        authorization=artifacts["authorization"],
+        authorization_digest=artifacts["authorization_digest"],
+        consumption_receipt=artifacts["consumption_receipt"],
+        consumption_receipt_digest=artifacts["consumption_receipt_digest"],
+        execution_claim=artifacts["execution_claim"],
+        execution_claim_digest=artifacts["execution_claim_digest"],
+        stopped_draft=artifacts["stopped_draft"],
+        stopped_draft_digest=artifacts["stopped_draft_digest"],
+        governed_exception=exception,
+        governed_exception_digest=str(controlled["governedExceptionDigest"]),
+        output_root=artifacts["output_root"],
+        contracts=artifacts["contracts"],
+    )
+    result_path = artifacts["output_root"] / "controlled-proof-result.json"
+    controlled.update(
+        {
+            "resultPath": str(result_path),
+            "resultDigest": result_digest,
+            "executionStatus": "stopped-result-emitted",
+        }
+    )
+    write_run(paths, run_payload)
+    print(f"run_id={run_payload['run_id']} result={result['result_id']}")
+    print(f"result_digest={result_digest} outcome={result['outcome']}")
+    return 0
+
+
+def controlled_execution_status(run_dir: Path, run_payload: dict[str, Any]) -> str | None:
+    controlled = run_payload.get("controlledProof")
+    if not isinstance(controlled, dict):
+        return None
+    output_root_value = str(controlled.get("outputRoot") or "").strip()
+    if not output_root_value:
+        return "invalid-artifact-bindings"
+    output_root_path = input_artifact_path(output_root_value)
+    if output_root_path != (run_dir / "controlled-proof-output").absolute():
+        return "invalid-artifact-bindings"
+    result_path = output_root_path / "controlled-proof-result.json"
+    exception_path = output_root_path / "controlled-proof-governed-exception.json"
+    draft_path = output_root_path / "controlled-proof-stopped-draft.json"
+    execution_claim_value = str(controlled.get("executionClaimPath") or "").strip()
+    execution_claim_path = (
+        input_artifact_path(execution_claim_value) if execution_claim_value else None
+    )
+    if result_path.is_file() and not result_path.is_symlink():
+        return "result-emitted"
+    if exception_path.is_file() and not exception_path.is_symlink():
+        return "stopped-awaiting-result"
+    if draft_path.is_file() and not draft_path.is_symlink():
+        return "stopped-awaiting-exception"
+    if (
+        execution_claim_path is not None
+        and execution_claim_path.is_file()
+        and not execution_claim_path.is_symlink()
+    ):
+        return "execution-claimed"
+    return "permit-consumed"
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     if args.run:
         run_dir, _, run_payload, baseline, verification, restore, evidence = load_run(args.run)
@@ -1311,6 +1941,9 @@ def cmd_status(args: argparse.Namespace) -> int:
             "evidenceRecordCount": len(run_payload.get("evidenceRecords") or []),
             "exceptionCount": len(((evidence.get("exceptionRegister") or {}).get("entries") or [])),
             "evidenceFile": str(run_paths(run_dir)["evidence"]),
+            "controlledExecutionStatus": controlled_execution_status(
+                run_dir, run_payload
+            ),
         }
         if args.format == "json":
             print(json.dumps(summary, indent=2))
@@ -1331,6 +1964,11 @@ def cmd_status(args: argparse.Namespace) -> int:
             f"pending_restore={summary['pendingRestoreCount']} evidence_records={summary['evidenceRecordCount']} "
             f"exceptions={summary['exceptionCount']}"
         )
+        if summary["controlledExecutionStatus"] is not None:
+            print(
+                "controlled_execution_status="
+                f"{summary['controlledExecutionStatus']}"
+            )
         return 0
 
     profile_path, contract = profile_payload(args)
@@ -1374,6 +2012,10 @@ def main() -> int:
         return cmd_record(args)
     if args.command == "restore":
         return cmd_restore(args)
+    if args.command == "controlled-exception":
+        return cmd_controlled_exception(args)
+    if args.command == "controlled-finalize":
+        return cmd_controlled_finalize(args)
     if args.command == "status":
         return cmd_status(args)
     raise SystemExit(f"unknown command {args.command!r}")

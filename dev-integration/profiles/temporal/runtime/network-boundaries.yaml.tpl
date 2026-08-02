@@ -11,6 +11,16 @@ automountServiceAccountToken: false
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: temporal-oos-api
+  namespace: __KUBERNETES_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: temporal
+    orchestration.workspace/identity: oos-api
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: temporal-oos-worker
   namespace: __KUBERNETES_NAMESPACE__
   labels:
@@ -233,6 +243,7 @@ spec:
       - key: orchestration.workspace/identity
         operator: In
         values:
+          - oos-api
           - oos-workflow-worker
           - wgcf-activity-worker
   policyTypes:
@@ -265,6 +276,7 @@ spec:
               - key: orchestration.workspace/identity
                 operator: In
                 values:
+                  - oos-api
                   - oos-workflow-worker
                   - wgcf-activity-worker
       ports:

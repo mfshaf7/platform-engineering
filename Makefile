@@ -220,7 +220,7 @@ devint-promote-check:
 .PHONY: platform-drill
 platform-drill:
 	@test -n "$(ACTION)" || { echo "ACTION is required, for example: make platform-drill ACTION=plan PROFILE=active-stack-runtime-drill"; exit 1; }
-	python3 scripts/platform_drill.py $(ACTION) $(if $(PROFILE),--profile $(PROFILE),) $(if $(PROFILE_PATH),--profile-path $(PROFILE_PATH),) $(if $(RUN),--run $(RUN),) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(ACTOR),--actor $(ACTOR),) $(if $(CHECK),--check $(CHECK),) $(if $(STATUS),--status $(STATUS),) $(if $(PHASE),--phase $(PHASE),) $(if $(SURFACE),--surface $(SURFACE),) $(if $(RUN_ID),--run-id $(RUN_ID),) $(if $(NOTE),--note "$(NOTE)",) $(if $(AUTHORIZATION_REF),--authorization-ref "$(AUTHORIZATION_REF)",) $(if $(AUTHORIZATION_DIGEST),--authorization-digest $(AUTHORIZATION_DIGEST),) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(DECISION),--decision $(DECISION),) $(if $(JUSTIFICATION),--justification "$(JUSTIFICATION)",) $(if $(OWNER),--owner "$(OWNER)",) $(if $(REVIEW_ON),--review-on "$(REVIEW_ON)",) $(if $(OUTPUT_ROOT),--output-root $(OUTPUT_ROOT),) $(if $(FORMAT),--format $(FORMAT),)
+	python3 scripts/platform_drill.py $(ACTION) $(if $(PROFILE),--profile $(PROFILE),) $(if $(PROFILE_PATH),--profile-path $(PROFILE_PATH),) $(if $(RUN),--run $(RUN),) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(ACTOR),--actor $(ACTOR),) $(if $(CHECK),--check $(CHECK),) $(if $(STATUS),--status $(STATUS),) $(if $(PHASE),--phase $(PHASE),) $(if $(SURFACE),--surface $(SURFACE),) $(if $(RUN_ID),--run-id $(RUN_ID),) $(if $(NOTE),--note "$(NOTE)",) $(if $(AUTHORIZATION_REF),--authorization-ref "$(AUTHORIZATION_REF)",) $(if $(AUTHORIZATION_DIGEST),--authorization-digest $(AUTHORIZATION_DIGEST),) $(if $(AUTHORIZATION_FILE),--authorization-file "$(AUTHORIZATION_FILE)",) $(if $(OPERATOR_APPROVAL_FILE),--operator-approval-file "$(OPERATOR_APPROVAL_FILE)",) $(if $(SECURITY_AUTHORIZATION_FILE),--security-authorization-file "$(SECURITY_AUTHORIZATION_FILE)",) $(if $(BASELINE_FILE),--baseline-file "$(BASELINE_FILE)",) $(if $(BASELINE_EVIDENCE_ROOT),--baseline-evidence-root "$(BASELINE_EVIDENCE_ROOT)",) $(if $(EVIDENCE_REF),--evidence-ref "$(EVIDENCE_REF)",) $(if $(DECISION),--decision $(DECISION),) $(if $(JUSTIFICATION),--justification "$(JUSTIFICATION)",) $(if $(OWNER),--owner "$(OWNER)",) $(if $(REVIEW_ON),--review-on "$(REVIEW_ON)",) $(if $(OUTPUT_ROOT),--output-root $(OUTPUT_ROOT),) $(if $(FORMAT),--format $(FORMAT),)
 
 .PHONY: environment-readiness
 environment-readiness:
@@ -328,6 +328,7 @@ validate:
 	python3 scripts/validate_single_host_scaling.py
 	python3 scripts/validate_observability_taxonomy.py
 	bash dev-integration/profiles/temporal/scripts/validate_chart.sh
+	python3 dev-integration/profiles/temporal/scripts/test_controlled_proof.py
 	helm lint charts/openclaw-gateway
 	helm lint charts/platform-version
 	terraform -chdir=terraform/environments/prod fmt -check

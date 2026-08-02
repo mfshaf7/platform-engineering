@@ -2,13 +2,14 @@
 
 assert_state_root_boundary() {
   python3 - "${STATE_ROOT}" "${OWNER_REPO_ROOT}" \
-    "${DEVINT_WORKSPACE_ROOT:-}" "${PROFILE_ID}" "${OPERATOR_SLUG}" <<'PY'
+    "${DEVINT_WORKSPACE_ROOT:-}" "${PROFILE_ID}" \
+    "${CONTROLLED_PROOF_OPERATOR_SCOPE:-${OPERATOR_SLUG}}" <<'PY'
 import pathlib
 import sys
 
 state_root = pathlib.Path(sys.argv[1]).resolve()
 profile_id = sys.argv[4]
-operator_slug = sys.argv[5]
+operator_scope = sys.argv[5]
 allowed_profile_roots = [
     pathlib.Path(sys.argv[2]).resolve() / ".dev-integration" / profile_id,
 ]
@@ -17,7 +18,7 @@ if sys.argv[3]:
         pathlib.Path(sys.argv[3]).resolve() / ".dev-integration" / profile_id
     )
 
-if state_root.name != operator_slug:
+if state_root.name != operator_scope:
     raise SystemExit("refused: Temporal state root does not match the operator scope")
 if not any(root.resolve() in state_root.parents for root in allowed_profile_roots):
     raise SystemExit("refused: Temporal state root is outside an approved profile root")

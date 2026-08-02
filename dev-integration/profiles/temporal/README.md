@@ -61,6 +61,27 @@ preparation and receipt verification. It does not launch Temporal or OOS:
 python3 dev-integration/profiles/temporal/scripts/generation_retirement.py --help
 ```
 
+The source-reviewed controlled commissioning operator is available for
+immutable baseline capture, deterministic claims assembly and validation,
+permit issuance, and one permit-bound proof execution. It does not make the
+profile active and refuses execution without the separate per-run Security and
+operator approvals. The Security approval must match an exact JSON artifact in
+the clean permit-bound `security-architecture` revision, and every internal
+runtime mutation revalidates the full consumed authority and collision-
+resistant runtime scope. One atomic lease prevents concurrent authorizations
+from sharing that scope, and runtime source is acquired in a detached checkout
+whose complete Temporal profile is verified byte-for-byte against the
+permit-bound Platform revision. The verified bytes are sealed in memory and
+projected at the profile path as a private read-only tree; runtime code never
+executes from the mutable checkout path. Exact retries are serialized and may
+resume only the same owner contexts, execution claim, output root, and active
+lease:
+
+```bash
+python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help
+make platform-drill ACTION=plan PROFILE=temporal-component-commissioning-proof
+```
+
 Runtime actions remain denied:
 
 ```bash

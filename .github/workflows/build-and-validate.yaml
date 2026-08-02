@@ -24,8 +24,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install YAML dependency
-        run: python -m pip install pyyaml
+      - name: Install system validation dependencies
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
+
+      - name: Enable sealed-source sandbox validation
+        run: |
+          if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+            echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns >/dev/null
+          fi
+          bwrap --die-with-parent --ro-bind / / --proc /proc --dev /dev -- /bin/true
+
+      - name: Install Python validation dependencies
+        run: python -m pip install pyyaml -r dev-integration/profiles/temporal/controlled_proof/requirements.txt
 
       - name: Validate platform repo structure
         run: python scripts/validate_repo_structure.py

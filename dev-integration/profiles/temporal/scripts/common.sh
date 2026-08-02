@@ -74,8 +74,11 @@ readonly CHART_REPOSITORY="$(yaml_value "${ARTIFACT_LOCK}" chart.repository)"
 readonly CHART_VERSION="$(yaml_value "${ARTIFACT_LOCK}" chart.version)"
 readonly CHART_SHA256="$(yaml_value "${ARTIFACT_LOCK}" chart.sha256)"
 readonly CHART_ARCHIVE="${ARTIFACTS_DIR}/${CHART_NAME}-${CHART_VERSION}.tgz"
-readonly TEMPORAL_WORKFLOW_NAMESPACE="$(
-  python3 - "${BOUNDARY_CONTRACT}" "${OPERATOR}" <<'PY'
+if [[ -n "${DEVINT_TEMPORAL_WORKFLOW_NAMESPACE:-}" ]]; then
+  readonly TEMPORAL_WORKFLOW_NAMESPACE="${DEVINT_TEMPORAL_WORKFLOW_NAMESPACE}"
+else
+  readonly TEMPORAL_WORKFLOW_NAMESPACE="$(
+    python3 - "${BOUNDARY_CONTRACT}" "${OPERATOR}" <<'PY'
 import pathlib
 import re
 import sys
@@ -89,7 +92,8 @@ if not value:
     raise SystemExit("Temporal workflow namespace rendered empty")
 print(value)
 PY
-)"
+  )"
+fi
 
 kubectl_cmd() {
   "${KUBECTL_CMD[@]}" "$@"

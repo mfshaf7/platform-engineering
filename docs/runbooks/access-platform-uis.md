@@ -51,6 +51,10 @@ These are intentionally not documented as direct operator UIs:
   - controller only, no UI
 - `operator-orchestration-service`
   - internal-only shared broker service, no shared browser UI
+- Temporal controlled commissioning
+  - no live namespace, shared UI, or normal operator access path
+  - a later permit-bound proof may use only an operator-local loopback
+    port-forward and does not make Temporal directly reachable from the Console
 - OpenClaw gateway
   - health and runtime API surface only, not an end-user browser application
 
@@ -115,6 +119,7 @@ Use the shared component docs for shared services:
 - Operator Orchestration Service: [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
 - Platform PostgreSQL: [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
 - Governed AI Gateway: [../components/governed-ai-gateway/README.md](../components/governed-ai-gateway/README.md)
+- Temporal: [../components/temporal/README.md](../components/temporal/README.md)
 
 Use the product-local runbooks for product details:
 

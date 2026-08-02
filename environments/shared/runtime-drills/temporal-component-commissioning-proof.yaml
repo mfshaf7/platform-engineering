@@ -8,16 +8,20 @@ targetLanes:
   - devint
 evidenceOwner: platform-engineering
 sourceEnablement:
-  status: contract-only
+  status: source-reviewed
   implementationWorkItemRef: openproject://work_packages/792
-  snapshotAllowed: false
+  snapshotAllowed: true
   requiredControls:
     - capture-preauthorization-baseline-artifact
     - validate-authorization-artifact-and-digest
     - enforce-semantic-binding-uniqueness
     - verify-rfc8785-claims-approval-bindings
     - consume-authorization-atomically
+    - resume-only-exact-uncommitted-snapshot
+    - lease-operator-scope-before-execution-claim
+    - execute-runtime-actions-from-permit-bound-source
     - verify-immutable-baseline-digest
+    - verify-runtime-scoped-restore
     - emit-controlled-proof-result
 authorization:
   required: true
@@ -56,7 +60,7 @@ resultArtifact:
   required: true
   artifactType: controlled-runtime-proof-result
   schemaRef: https://github.com/mfshaf7/workspace-governance/blob/main/contracts/schemas/controlled-runtime-proof-result.schema.json
-  schemaVersion: 1
+  schemaVersion: 2
 scope:
   sourceRepos:
     - platform-engineering
@@ -165,6 +169,6 @@ restoreScope:
     - id: temporal-runtime
       summary: Remove the scoped runtime and restore namespace, storage, credential, and operator-local state to the captured baseline.
     - id: oos-validation-readiness-worker
-      summary: Restore the OOS worker, queue polling, and process state to the captured baseline.
+      summary: Remove the operator-scoped OOS worker deployment and restore its captured absent runtime state.
     - id: wgcf-readiness-activity-worker
-      summary: Restore the WGCF activity worker, queue polling, and process state to the captured baseline.
+      summary: Remove the operator-scoped WGCF worker deployment and restore its captured absent runtime state.

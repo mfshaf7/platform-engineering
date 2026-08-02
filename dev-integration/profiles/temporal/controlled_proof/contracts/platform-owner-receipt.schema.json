@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/temporal/controlled-proof/platform-owner-receipt.schema.json",
+  "title": "Platform Controlled Proof Owner Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "owner_repo",
+    "authorization_id",
+    "authorization_digest",
+    "commissioning_session_id",
+    "scenario_id",
+    "scenario_execution_id",
+    "owner_execution",
+    "owner_result",
+    "evidence_refs",
+    "receipt_ref",
+    "receipt_digest",
+    "recorded_at"
+  ],
+  "properties": {
+    "owner_repo": { "const": "platform-engineering" },
+    "authorization_id": { "$ref": "#/$defs/uri" },
+    "authorization_digest": { "$ref": "#/$defs/digest" },
+    "commissioning_session_id": { "$ref": "#/$defs/identifier" },
+    "scenario_id": { "$ref": "#/$defs/identifier" },
+    "scenario_execution_id": { "$ref": "#/$defs/identifier" },
+    "owner_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_type", "execution_id"],
+      "properties": {
+        "execution_type": { "const": "platform-action" },
+        "execution_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "owner_result": {
+      "enum": ["passed", "failed", "blocked", "cancelled", "denied", "unavailable"]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/evidencePointer" }
+    },
+    "receipt_ref": { "$ref": "#/$defs/uri" },
+    "receipt_digest": { "$ref": "#/$defs/digest" },
+    "recorded_at": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "format": "uri"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "evidencePointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_ref", "artifact_digest"],
+      "properties": {
+        "artifact_ref": { "$ref": "#/$defs/uri" },
+        "artifact_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

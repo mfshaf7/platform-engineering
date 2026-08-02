@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspace-governance.local/oos/orchestration/controlled-proof-execution-context.schema.json",
+  "title": "OOS Controlled Proof Execution Context",
+  "description": "Pinned Platform projection for one consumed commissioning authorization and its exact scenario execution set. This context does not activate a runtime profile or workflow definition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context_id",
+    "authorization",
+    "commissioning_session",
+    "definition",
+    "request_binding",
+    "runtime",
+    "source_revisions"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "context_id": { "$ref": "#/$defs/uri" },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization_id",
+        "authorization_digest",
+        "canonical_claims_digest",
+        "operator_approval_ref",
+        "operator_approval_digest",
+        "security_authorization_ref",
+        "security_authorization_digest",
+        "issued_at",
+        "expires_at",
+        "consumption_receipt_ref",
+        "consumption_receipt_digest",
+        "consumed_at"
+      ],
+      "properties": {
+        "authorization_id": { "$ref": "#/$defs/uri" },
+        "authorization_digest": { "$ref": "#/$defs/digest" },
+        "canonical_claims_digest": { "$ref": "#/$defs/digest" },
+        "operator_approval_ref": { "$ref": "#/$defs/uri" },
+        "operator_approval_digest": { "$ref": "#/$defs/digest" },
+        "security_authorization_ref": { "$ref": "#/$defs/uri" },
+        "security_authorization_digest": { "$ref": "#/$defs/digest" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "consumption_receipt_ref": { "$ref": "#/$defs/uri" },
+        "consumption_receipt_digest": { "$ref": "#/$defs/digest" },
+        "consumed_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "commissioning_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commissioning_session_id",
+        "started_at",
+        "scenario_executions"
+      ],
+      "properties": {
+        "commissioning_session_id": { "$ref": "#/$defs/identifier" },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "scenario_executions": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/scenarioExecution" }
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition_id", "definition_version"],
+      "properties": {
+        "definition_id": { "const": "validation-readiness-run" },
+        "definition_version": { "const": 1 }
+      }
+    },
+    "request_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_record_ref",
+        "source_version_ref",
+        "source_projection_ref",
+        "source_projection_version",
+        "operator_id"
+      ],
+      "properties": {
+        "source_record_ref": { "$ref": "#/$defs/identifier" },
+        "source_version_ref": { "$ref": "#/$defs/identifier" },
+        "source_projection_ref": { "$ref": "#/$defs/identifier" },
+        "source_projection_version": { "$ref": "#/$defs/identifier" },
+        "operator_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_lifecycle",
+        "environment",
+        "temporal_address",
+        "temporal_namespace",
+        "api_identity",
+        "workflow_worker_identity",
+        "workflow_task_queue",
+        "activity_task_queue"
+      ],
+      "properties": {
+        "profile_id": { "$ref": "#/$defs/identifier" },
+        "profile_lifecycle": { "const": "build-admitted" },
+        "environment": { "const": "dev-integration" },
+        "temporal_address": { "$ref": "#/$defs/identifier" },
+        "temporal_namespace": { "$ref": "#/$defs/identifier" },
+        "api_identity": { "$ref": "#/$defs/identifier" },
+        "workflow_worker_identity": { "$ref": "#/$defs/identifier" },
+        "workflow_task_queue": { "$ref": "#/$defs/identifier" },
+        "activity_task_queue": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "source_revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator_orchestration_service",
+        "workspace_governance_control_fabric"
+      ],
+      "properties": {
+        "operator_orchestration_service": { "$ref": "#/$defs/revision" },
+        "workspace_governance_control_fabric": { "$ref": "#/$defs/revision" }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "format": "uri"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scenarioExecution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_execution_id",
+        "required_receipt_owners"
+      ],
+      "properties": {
+        "scenario_id": {
+          "enum": [
+            "nominal-completion",
+            "workflow-worker-restart",
+            "temporal-runtime-restart",
+            "deterministic-replay",
+            "duplicate-suppression",
+            "cancellation",
+            "unavailable-dependency",
+            "identity-denial",
+            "payload-boundary",
+            "backup-restore",
+            "exact-baseline-restore"
+          ]
+        },
+        "scenario_execution_id": { "$ref": "#/$defs/identifier" },
+        "required_receipt_owners": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "platform-engineering",
+              "operator-orchestration-service",
+              "workspace-governance-control-fabric"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

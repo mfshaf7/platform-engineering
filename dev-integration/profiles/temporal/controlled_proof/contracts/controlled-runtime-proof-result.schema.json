@@ -1,0 +1,615 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspace-governance.local/contracts/controlled-runtime-proof-result.schema.json",
+  "title": "Controlled Runtime Proof Result",
+  "description": "Machine-readable result for one permit-bound component commissioning session. This artifact records scenario and owner evidence but does not grant profile or definition activation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "result_id",
+    "authorization",
+    "commissioning_session",
+    "outcome",
+    "scenario_outcomes",
+    "owner_receipts",
+    "baseline_restore",
+    "completed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "result_id": {
+      "$ref": "#/$defs/uri"
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization_id",
+        "authorization_digest",
+        "canonical_claims_digest"
+      ],
+      "properties": {
+        "authorization_id": {
+          "$ref": "#/$defs/uri"
+        },
+        "authorization_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "canonical_claims_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "commissioning_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commissioning_session_id",
+        "scenario_execution_count",
+        "authorization_consumed_at",
+        "started_at"
+      ],
+      "properties": {
+        "commissioning_session_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scenario_execution_count": {
+          "const": 11
+        },
+        "authorization_consumed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "outcome": {
+      "enum": [
+        "passed",
+        "failed",
+        "stopped"
+      ]
+    },
+    "scenario_outcomes": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/nominalCompletionOutcome"
+        },
+        {
+          "$ref": "#/$defs/workflowWorkerRestartOutcome"
+        },
+        {
+          "$ref": "#/$defs/temporalRuntimeRestartOutcome"
+        },
+        {
+          "$ref": "#/$defs/deterministicReplayOutcome"
+        },
+        {
+          "$ref": "#/$defs/duplicateSuppressionOutcome"
+        },
+        {
+          "$ref": "#/$defs/cancellationOutcome"
+        },
+        {
+          "$ref": "#/$defs/unavailableDependencyOutcome"
+        },
+        {
+          "$ref": "#/$defs/identityDenialOutcome"
+        },
+        {
+          "$ref": "#/$defs/payloadBoundaryOutcome"
+        },
+        {
+          "$ref": "#/$defs/backupRestoreOutcome"
+        },
+        {
+          "$ref": "#/$defs/exactBaselineRestoreOutcome"
+        }
+      ],
+      "items": false,
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true
+    },
+    "owner_receipts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ownerReceipt"
+      }
+    },
+    "baseline_restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_snapshot_ref",
+        "baseline_snapshot_digest",
+        "status",
+        "evidence_ref",
+        "evidence_digest"
+      ],
+      "properties": {
+        "baseline_snapshot_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "baseline_snapshot_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "status": {
+          "enum": [
+            "exact-baseline-restored",
+            "governed-exception-recorded"
+          ]
+        },
+        "evidence_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "record_ref",
+        "record_digest"
+      ],
+      "properties": {
+        "decision": {
+          "enum": [
+            "remove",
+            "workaround",
+            "accept-risk",
+            "defer"
+          ]
+        },
+        "record_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "completed_at": {
+      "$ref": "#/$defs/timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "stopped"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "required": [
+          "exception"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "baseline_restore": {
+            "properties": {
+              "status": {
+                "const": "governed-exception-recorded"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "baseline_restore"
+        ]
+      },
+      "then": {
+        "required": [
+          "exception"
+        ],
+        "properties": {
+          "outcome": {
+            "const": "stopped"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "baseline_restore": {
+            "properties": {
+              "status": {
+                "const": "exact-baseline-restored"
+              }
+            }
+          },
+          "scenario_outcomes": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "passed"
+                }
+              }
+            }
+          },
+          "owner_receipts": {
+            "items": {
+              "properties": {
+                "owner_result": {
+                  "const": "passed"
+                }
+              }
+            }
+          }
+        },
+        "not": {
+          "required": [
+            "exception"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "scenarioOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "scenario_execution_id",
+        "status",
+        "evidence_refs",
+        "started_at",
+        "completed_at"
+      ],
+      "properties": {
+        "scenario_id": {
+          "enum": [
+            "nominal-completion",
+            "workflow-worker-restart",
+            "temporal-runtime-restart",
+            "deterministic-replay",
+            "duplicate-suppression",
+            "cancellation",
+            "unavailable-dependency",
+            "identity-denial",
+            "payload-boundary",
+            "backup-restore",
+            "exact-baseline-restore"
+          ]
+        },
+        "scenario_execution_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "not-run"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/evidenceList"
+        },
+        "started_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "completed_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "nominalCompletionOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "nominal-completion"
+            }
+          }
+        }
+      ]
+    },
+    "workflowWorkerRestartOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "workflow-worker-restart"
+            }
+          }
+        }
+      ]
+    },
+    "temporalRuntimeRestartOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "temporal-runtime-restart"
+            }
+          }
+        }
+      ]
+    },
+    "deterministicReplayOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "deterministic-replay"
+            }
+          }
+        }
+      ]
+    },
+    "duplicateSuppressionOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "duplicate-suppression"
+            }
+          }
+        }
+      ]
+    },
+    "cancellationOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "cancellation"
+            }
+          }
+        }
+      ]
+    },
+    "unavailableDependencyOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "unavailable-dependency"
+            }
+          }
+        }
+      ]
+    },
+    "identityDenialOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "identity-denial"
+            }
+          }
+        }
+      ]
+    },
+    "payloadBoundaryOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "payload-boundary"
+            }
+          }
+        }
+      ]
+    },
+    "backupRestoreOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "backup-restore"
+            }
+          }
+        }
+      ]
+    },
+    "exactBaselineRestoreOutcome": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/scenarioOutcome"
+        },
+        {
+          "properties": {
+            "scenario_id": {
+              "const": "exact-baseline-restore"
+            }
+          }
+        }
+      ]
+    },
+    "ownerReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_repo",
+        "authorization_id",
+        "authorization_digest",
+        "commissioning_session_id",
+        "scenario_id",
+        "scenario_execution_id",
+        "owner_execution",
+        "owner_result",
+        "evidence_refs",
+        "receipt_ref",
+        "receipt_digest",
+        "recorded_at"
+      ],
+      "properties": {
+        "owner_repo": {
+          "enum": [
+            "platform-engineering",
+            "operator-orchestration-service",
+            "workspace-governance-control-fabric"
+          ]
+        },
+        "authorization_id": {
+          "$ref": "#/$defs/uri"
+        },
+        "authorization_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "commissioning_session_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scenario_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scenario_execution_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "owner_execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "execution_type",
+            "execution_id"
+          ],
+          "properties": {
+            "execution_type": {
+              "enum": [
+                "platform-action",
+                "workflow",
+                "activity"
+              ]
+            },
+            "execution_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          }
+        },
+        "owner_result": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "cancelled",
+            "denied",
+            "unavailable"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/evidenceList"
+        },
+        "receipt_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "evidenceList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/evidencePointer"
+      }
+    },
+    "evidencePointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_ref",
+        "artifact_digest"
+      ],
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/uri"
+        },
+        "artifact_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 6,
+      "maxLength": 512,
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]+$"
+    }
+  }
+}

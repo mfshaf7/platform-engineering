@@ -32,8 +32,9 @@ make devint-restore PROFILE=governance-control-fabric \
 
 The profile runs PostgreSQL and object storage as persistent local-k3s state.
 It runs database migrations, provisions one profile bucket with a non-delete
-API policy, verifies a seeded object digest through the API credential, and
-writes a storage receipt before the API rollout is considered available.
+API policy, proves a same-key overwrite preserves an accepted object version,
+restores the accepted payload as current, and writes a version-qualified
+storage receipt before the API rollout is considered available.
 
 `down` preserves both PVCs. `backup` exports object bodies plus per-object
 SHA-256 values without credentials. `restore` requires exact confirmation,

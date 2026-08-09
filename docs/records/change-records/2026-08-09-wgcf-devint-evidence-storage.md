@@ -40,11 +40,12 @@ Platform accepts the following bounded local profile extension:
 
 - one namespace-local MinIO/S3-compatible StatefulSet, Service, and 2Gi PVC
 - separate storage-admin and WGCF API credentials
-- API authorization limited to bucket metadata plus object read and write;
-  object deletion is denied
+- API authorization limited to bucket metadata plus current and explicit-version
+  object reads and object writes; object deletion is denied
 - ingress limited by NetworkPolicy to the WGCF API and temporary maintenance
   workloads
-- content-addressed object verification plus reference-only storage receipts
+- version-bound object verification plus reference-only storage receipts that
+  identify the accepted object version and content digest
 - operator-scoped backup and exact-confirmation restore and reset actions
 
 Local namespace HTTP and local-path PVC storage do not satisfy governed
@@ -56,10 +57,13 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `c81feb4375a1679447d49e5550b39010538145e4` from PR #41,
-    including the initial storage implementation and review hardening
+  - `a5b9b2b7b8a23870b8f5991741a3abc0be0389c8` from PR #41,
+    including the storage implementation, review hardening, recovery archive,
+    authority gate, and version-bound receipt proof
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
+  - same-key overwrite proof that retrieves the accepted bytes by version ID
+    before restoring them as current
   - root and application credential separation checks
   - namespace-local NetworkPolicy isolation checks
   - content-address-preserving backup and restore verification
@@ -108,12 +112,21 @@ backup, restore, and Security gates.
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
 - Namespace: `devint-governance-control-fabric-mfshaf7`
 - Functional verification:
-  - the API credential read the seeded evidence object and object deletion was
-    denied
+  - the API credential read the seeded evidence object, including an explicit
+    accepted version, while object deletion was denied
+  - a same-key overwrite created version
+    `7ed48771-2881-49b7-9d05-f9843e827b4d`; accepted version
+    `3c7876cb-af09-4de9-9143-4038a07c25fc` remained retrievable with SHA-256
+    `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
+  - the accepted payload was restored as current version
+    `d9f4c0d9-4ab4-46df-9944-14f938157a5a`
+  - the storage receipt pins
+    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=3c7876cb-af09-4de9-9143-4038a07c25fc`
+    plus the accepted content SHA-256, so later same-key writes cannot silently
+    change the accepted evidence identity
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
-  - backup and confirmed restore preserved object SHA-256
-    `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
+  - backup and confirmed restore preserved the same object SHA-256
   - normal down/up preserved the PVC and the same content address
   - reset without `CONFIRM=reset-wgcf-evidence` failed closed
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and

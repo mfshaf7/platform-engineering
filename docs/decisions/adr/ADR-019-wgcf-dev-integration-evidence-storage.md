@@ -29,11 +29,14 @@ The accepted local boundary:
 - runs one MinIO StatefulSet, ClusterIP Service, and 2Gi persistent volume in
   the operator-scoped WGCF namespace
 - gives the WGCF API a separate application credential with bucket metadata,
-  object read, and object write permissions while denying object deletion
+  current and explicit-version object read, and object write permissions while
+  denying object deletion
 - reserves the root credential for the storage workload and exact temporary
   maintenance Jobs
-- enables object versioning so accidental key reuse does not destroy the prior
-  evidence version
+- enables object versioning and requires receipts to bind the accepted object
+  version ID plus content digest
+- proves with the application identity that a same-key overwrite leaves the
+  receipt-bound bytes retrievable, then restores the accepted payload as current
 - restricts ingress with a namespace-local NetworkPolicy to the WGCF API and
   maintenance ServiceAccount
 - keeps OpenProject and OOS on reference-only contracts with no storage URL or
@@ -67,6 +70,8 @@ What becomes stricter:
 - every deployed image identity and live storage proof must be recorded in the
   associated change record
 - restore must validate each archive member, size, and digest before mutation
+- evidence acceptance must use the version-qualified storage reference rather
+  than resolving only the mutable current object at a reused key
 - stage or production remains denied until Platform and Security separately
   approve workload identity, encrypted transport and storage, managed secrets,
   retention and deletion, and governed backup and restore

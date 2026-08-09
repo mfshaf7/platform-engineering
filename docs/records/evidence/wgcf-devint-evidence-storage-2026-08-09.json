@@ -1,0 +1,170 @@
+{
+  "actions": [
+    {
+      "action": "up",
+      "created_at": "2026-08-09T13:39:06Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-up-20260809T133906429844Z-2e2e16a0",
+      "manifest_sha256": "f089e6e0f03eeda221d7005bc99c16e37137e554361d6465cf6c75ad80417a15",
+      "result": "succeeded",
+      "result_sha256": "1a02e3cf8b88437c5afed53e3f778caf6c91b71e7501a05915a292c90e8b73c0",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "smoke",
+      "created_at": "2026-08-09T13:40:37Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-smoke-20260809T134037252982Z-bca6dc61",
+      "manifest_sha256": "0fb46d7f20f10e6cba244d4f2f630267dea8581b1ff43efd1b1e65640ca7ff9e",
+      "result": "succeeded",
+      "result_sha256": "47efde1b49a6578403bae6742e263953b7cfd95718ec65b690603e37e397e656",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "backup",
+      "created_at": "2026-08-09T13:41:06Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-backup-20260809T134106712082Z-f79149ee",
+      "manifest_sha256": "3af48a1d5efd527a9b1fffe110eddd5495c1abf5ee7f9663114f29f5d3d5089f",
+      "result": "succeeded",
+      "result_sha256": "91558be8de4d793445b50d1e80a7d8f9888168bd88205f6d4e96c3c646a38914",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "reset",
+      "created_at": "2026-08-09T13:41:58Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-reset-20260809T134158975735Z-d456de39",
+      "manifest_sha256": "af96c1a17dfa4cdecdc83f9c98f3c2604bba0a56aa2b596b86fc75483c277ab4",
+      "result": "succeeded",
+      "result_sha256": "87bfa7b0314ebadb31254cdc3e2bc42dff9da2270018e3a03eb35a80dfa92876",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "up",
+      "created_at": "2026-08-09T13:42:24Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-up-20260809T134224293223Z-61deed56",
+      "manifest_sha256": "f33a9c85c9e65352da86b7f6222d65ad05c1f142efb79a63e846a2a7377a22eb",
+      "result": "succeeded",
+      "result_sha256": "b186711bcd68ce64225009d2338b534d014fa6dd8407d85605e63c2aac7c55dc",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "restore",
+      "created_at": "2026-08-09T13:43:09Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-restore-20260809T134309585318Z-177ef4b3",
+      "manifest_sha256": "8e134642f849eeaa8baf116670a46731aae323dc7f881fc402a8583c252e07b5",
+      "result": "succeeded",
+      "result_sha256": "8fb21718398d71f2d3c55f37ad8da5a3633f3c4e7fdf691f1b0399453c6fe2e3",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    },
+    {
+      "action": "smoke",
+      "created_at": "2026-08-09T13:44:36Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-smoke-20260809T134436483055Z-151fb0e6",
+      "manifest_sha256": "8e65c15218168326ea7e69b750768b7bac2dd86861540b9ad3b0edc0a4d8bc8b",
+      "result": "succeeded",
+      "result_sha256": "3bcda00f0e23d73b6adb8a8be6a04389b4df8ea2913edddcc5665a0e7e88aef3",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
+      "source_dirty": false,
+      "source_heads": {
+        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+      }
+    }
+  ],
+  "backup": {
+    "archive_sha256": "0854fe215822e5f2b5e8949d5037dde51abdaaca2890ead4471e3db94dbe38f0",
+    "content_addresses": [
+      "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c"
+    ],
+    "credentials_included": false,
+    "manifest_sha256": "5006ac95c4243677c32379f26a75f01e6fd08869163db539fdbe76e9891d48ea",
+    "receipt_binding_count": 1,
+    "receipt_sha256": "f5f90b8875591a3547da5f27b307a03b586e4bd35e855c098f97c17fb6df9906"
+  },
+  "credential_rotation": {
+    "retired_application_credential_authentication_denied": true,
+    "retired_root_credential_authentication_denied": true,
+    "rotation_detected": true,
+    "schema_version": 1,
+    "verified_at": "2026-08-09T13:39:31Z"
+  },
+  "generated_at": "2026-08-09T13:46:34Z",
+  "governed_stage_or_prod_claim": false,
+  "post_restore": {
+    "final_smoke_execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-smoke-20260809T134436483055Z-151fb0e6",
+    "final_smoke_succeeded": true,
+    "storage_receipt_sha256": "bf38873c60a92bc711161e69584c0233bc0702b0394cfcf36cd0e8595db3e283"
+  },
+  "proof_type": "wgcf-dev-integration-storage-acceptance",
+  "reproduction": {
+    "action_evidence": ".dev-integration/sessions/<session-id>/<execution-id>.{manifest,result}.yaml",
+    "action_sequence": [
+      "up",
+      "smoke",
+      "backup",
+      "reset",
+      "up",
+      "restore",
+      "smoke"
+    ],
+    "profile_artifacts": ".dev-integration/governance-control-fabric/<operator>/",
+    "runner": "scripts/dev_integration.py"
+  },
+  "restore": {
+    "content_addresses_preserved": true,
+    "content_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+    "prior_object_version_id": "8841d85d-cec9-4372-b485-4d47d523b9d6",
+    "rebound_object_version_id": "16c0919a-d325-49e4-886b-1978c35846e8",
+    "receipt_identity_rebound": true,
+    "receipt_sha256": "a39d03ba08c1e7948257d6b4b0c4c14532711b9119ae262b6e7d5191b647df74",
+    "restored_archive_sha256": "0854fe215822e5f2b5e8949d5037dde51abdaaca2890ead4471e3db94dbe38f0",
+    "restored_current_version_id": "87bca9de-3dbe-4dbd-9cf4-c1be157f0423"
+  },
+  "runtime_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a",
+  "schema_version": 1,
+  "scope": "bounded-local-dev-integration-only",
+  "sessions": [
+    "governance-control-fabric-mfshaf7-20260809T133906Z",
+    "governance-control-fabric-mfshaf7-20260809T134224Z"
+  ],
+  "source_heads": {
+    "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
+    "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
+    "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+  }
+}

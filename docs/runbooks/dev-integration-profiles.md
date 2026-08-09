@@ -19,9 +19,11 @@ operator path.
 The shared runner requires `bubblewrap` and unprivileged user-namespace support.
 Provision the local k3s/operator host through
 `ansible/playbooks/provision-k3s-node.yml`; its `dev_integration_host` role
-installs Bubblewrap and proves that the configured operator can create the PID
-namespace used for action containment. If that preflight fails, repair the host
-user-namespace policy before using any shared profile action.
+installs Bubblewrap, persists the dedicated operator host's required Ubuntu
+AppArmor user-namespace setting when that kernel control exists, and proves
+that the configured operator can create the PID namespace used for action
+containment. Do not bypass a failed probe with an ad hoc runtime setting; rerun
+the provisioning role and repair the host prerequisite it reports.
 
 ## Operator Lanes At A Glance
 
@@ -253,7 +255,8 @@ before dispatch. The shared runner creates these read-only records only after
 the owner action's Bubblewrap PID namespace has ended. This also terminates
 descendants that detach into a separate session before evidence publication.
 The session archive is mounted read-only inside every action, preventing a
-later action from replacing an earlier manifest/result pair. Bubblewrap is a
+later action from replacing an earlier manifest/result pair. Host user-manager
+and agent sockets are not projected into the action namespace. Bubblewrap is a
 required local runner dependency. Use the record digests as local handoff
 inputs; they are not governed rollout evidence by themselves.
 

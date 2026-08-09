@@ -4,6 +4,36 @@
     name: "{{ platform_dev_integration_required_packages }}"
     state: present
 
+- name: Detect Ubuntu AppArmor user-namespace restriction
+  stat:
+    path: /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+  register: platform_dev_integration_apparmor_userns
+
+- name: Read Ubuntu AppArmor user-namespace restriction
+  slurp:
+    path: /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+  register: platform_dev_integration_apparmor_userns_value
+  when: platform_dev_integration_apparmor_userns.stat.exists
+
+- name: Persist dev-integration user-namespace policy
+  copy:
+    dest: "{{ platform_dev_integration_userns_policy_path }}"
+    content: "kernel.apparmor_restrict_unprivileged_userns=0\n"
+    owner: root
+    group: root
+    mode: "0644"
+  when: platform_dev_integration_apparmor_userns.stat.exists
+
+- name: Apply dev-integration user-namespace policy
+  command:
+    argv:
+      - sysctl
+      - -w
+      - kernel.apparmor_restrict_unprivileged_userns=0
+  when:
+    - platform_dev_integration_apparmor_userns.stat.exists
+    - (platform_dev_integration_apparmor_userns_value.content | b64decode | trim) != "0"
+
 - name: Verify operator Bubblewrap PID namespace support
   become: true
   become_user: "{{ platform_linux_user }}"

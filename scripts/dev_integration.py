@@ -397,6 +397,11 @@ def dispatch_command(
             "The shared dev-integration runner requires bubblewrap for action "
             "process containment. Install the bubblewrap package before dispatch."
         )
+    action_env = {
+        key: value
+        for key, value in env.items()
+        if key not in {"DBUS_SESSION_BUS_ADDRESS", "SSH_AUTH_SOCK", "XDG_RUNTIME_DIR"}
+    }
     sandbox_cmd = [bubblewrap, "--die-with-parent", "--bind", "/", "/"]
     for path in read_only_paths:
         resolved_path = path.resolve()
@@ -405,6 +410,8 @@ def dispatch_command(
                 f"Dev-integration read-only action path is not a directory: {resolved_path}"
             )
         sandbox_cmd.extend(["--ro-bind", str(resolved_path), str(resolved_path)])
+    if Path("/run/user").is_dir():
+        sandbox_cmd.extend(["--tmpfs", "/run/user"])
     sandbox_cmd.extend(
         [
             "--proc",
@@ -420,7 +427,7 @@ def dispatch_command(
     result = subprocess.run(
         sandbox_cmd,
         cwd=str(cwd),
-        env=env,
+        env=action_env,
         text=True,
     )
     return result.returncode

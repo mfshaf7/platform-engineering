@@ -190,6 +190,38 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(prior_evidence.read_text(encoding="utf-8"), "result: succeeded\n")
             self.assertEqual(state_write.read_text(encoding="utf-8"), "writable")
 
+    def test_dispatch_masks_host_user_service_manager(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-host-control-") as temp_dir:
+            root = Path(temp_dir)
+            result_path = root / "isolation.txt"
+            command = root / "action.sh"
+            command.write_text(
+                "#!/usr/bin/env bash\n"
+                '[[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]] || exit 10\n'
+                '[[ -z "${SSH_AUTH_SOCK:-}" ]] || exit 11\n'
+                '[[ -z "${XDG_RUNTIME_DIR:-}" ]] || exit 12\n'
+                '[[ ! -S "/run/user/${HOST_UID}/bus" ]] || exit 13\n'
+                'printf isolated >"${RESULT_PATH}"\n',
+                encoding="utf-8",
+            )
+            command.chmod(0o700)
+
+            returncode = DEV_INTEGRATION.dispatch_command(
+                command,
+                cwd=root,
+                env={
+                    **os.environ,
+                    "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
+                    "HOST_UID": str(os.getuid()),
+                    "RESULT_PATH": str(result_path),
+                    "SSH_AUTH_SOCK": "/run/user/1000/ssh-agent.socket",
+                    "XDG_RUNTIME_DIR": "/run/user/1000",
+                },
+            )
+
+            self.assertEqual(returncode, 0)
+            self.assertEqual(result_path.read_text(encoding="utf-8"), "isolated")
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"

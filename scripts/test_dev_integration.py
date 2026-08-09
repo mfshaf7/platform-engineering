@@ -243,6 +243,25 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(returncode, 128 + signal.SIGTERM)
             self.assertEqual(signal.getsignal(signal.SIGTERM), previous_handler)
 
+    def test_dispatch_skips_launch_when_termination_is_already_pending(self) -> None:
+        def install_handler(signum: int, handler: object) -> object:
+            if signum == signal.SIGTERM and callable(handler):
+                handler(signal.SIGTERM, None)
+            return signal.SIG_DFL
+
+        with (
+            patch.object(DEV_INTEGRATION.signal, "signal", side_effect=install_handler),
+            patch.object(DEV_INTEGRATION.subprocess, "Popen") as popen,
+        ):
+            returncode = DEV_INTEGRATION.dispatch_command(
+                Path("/not-launched.sh"),
+                cwd=Path("/not-used"),
+                env={},
+            )
+
+        self.assertEqual(returncode, 128 + signal.SIGTERM)
+        popen.assert_not_called()
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"
@@ -373,6 +392,53 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 repo_states["workspace-governance"],
                 selected_governance_state,
             )
+
+    def test_profile_rejects_a_dirty_selected_platform_runner(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-dirty-runner-") as temp_dir:
+            root = Path(temp_dir)
+            owner_root = root / "owner-repo"
+            platform_root = root / "platform-engineering"
+            governance_root = root / "workspace-governance"
+            for repo_root in (owner_root, platform_root, governance_root):
+                repo_root.mkdir()
+            profile_path = owner_root / "profile.yaml"
+            profile_path.write_text(
+                "source_repos:\n  - repo: owner-repo\ncommands:\n  up: action.sh\n",
+                encoding="utf-8",
+            )
+            entry = {
+                "lifecycle": "active",
+                "owner_repo": "owner-repo",
+                "profile_path": "profile.yaml",
+            }
+            policy = {"profile_lifecycle": {"self_serve_statuses": ["active"]}}
+
+            def selected_state(repo_root: Path, **_: object) -> dict:
+                return {
+                    "branch": "test",
+                    "dirty": repo_root == platform_root.resolve(),
+                    "head_sha": "a" * 40,
+                }
+
+            with (
+                patch.object(
+                    DEV_INTEGRATION,
+                    "load_registry",
+                    return_value=(policy, {"profiles": {"test-profile": entry}}),
+                ),
+                patch.object(DEV_INTEGRATION, "git_state", side_effect=selected_state),
+                self.assertRaisesRegex(SystemExit, "runner checkout must be clean"),
+            ):
+                DEV_INTEGRATION.resolve_profile(
+                    action="up",
+                    workspace_root=root,
+                    profile_id="test-profile",
+                    repo_overrides={
+                        "owner-repo": owner_root,
+                        "platform-engineering": platform_root,
+                        "workspace-governance": governance_root,
+                    },
+                )
 
     def test_platform_override_reexecutes_the_selected_runner(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-reexec-") as temp_dir:

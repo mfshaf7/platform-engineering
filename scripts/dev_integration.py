@@ -273,6 +273,11 @@ def resolve_profile(
         "platform-engineering",
         repo_overrides.get("platform-engineering", Path(__file__).resolve().parents[1]),
     )
+    if repo_states["platform-engineering"]["dirty"]:
+        raise SystemExit(
+            "Selected Platform runner checkout must be clean so execution provenance "
+            "is bound to its recorded Git head"
+        )
 
     if repo_paths.get(entry["owner_repo"]) != owner_repo_root:
         raise SystemExit(
@@ -472,6 +477,8 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
         for signum in (signal.SIGHUP, signal.SIGTERM)
     }
     try:
+        if received_signal is not None:
+            return 128 + received_signal
         process = subprocess.Popen(
             command,
             cwd=str(cwd),

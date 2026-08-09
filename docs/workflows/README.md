@@ -37,3 +37,6 @@ surface is the
 [dev-integration profile runbook](../runbooks/dev-integration-profiles.md), and
 their durable design boundary is
 [ADR-019](../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md).
+These actions remain dormant until the workspace-governance profile activation
+lands on remote `main`; the WGCF owner authority gate rejects them before that
+activation.

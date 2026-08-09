@@ -6,8 +6,8 @@ WGCF has local dev-integration operations only.
 
 Current operations are local-k3s dev-integration:
 
-- launch, inspect, smoke, and suspend the active local-k3s dev-integration API
-  and PostgreSQL profile
+- launch, inspect, smoke, suspend, back up, and restore the active local-k3s
+  API, PostgreSQL, and evidence-storage profile
 - run project validation in the implementation repo
 - run unit tests in the implementation repo
 - use local CLI status, graph, plan, check, and receipt-list commands
@@ -24,10 +24,22 @@ make devint-status PROFILE=governance-control-fabric
 make devint-smoke PROFILE=governance-control-fabric
 make devint-access PROFILE=governance-control-fabric
 make devint-down PROFILE=governance-control-fabric
+make devint-backup PROFILE=governance-control-fabric
+make devint-restore PROFILE=governance-control-fabric \
+  BACKUP_FILE=/path/to/wgcf-evidence-backup.tar.gz \
+  CONFIRM=restore-wgcf-evidence
 ```
 
-The profile runs PostgreSQL as persistent local-k3s state and runs database
-migrations before the API rollout is considered available.
+The profile runs PostgreSQL and object storage as persistent local-k3s state.
+It runs database migrations, provisions one profile bucket with a non-delete
+API policy, verifies a seeded object digest through the API credential, and
+writes a storage receipt before the API rollout is considered available.
+
+`down` preserves both PVCs. `backup` exports object bodies plus per-object
+SHA-256 values without credentials. `restore` requires exact confirmation,
+captures a pre-restore backup, restores the exact object set, and fails if any
+content address changes. `reset` requires `CONFIRM=reset-wgcf-evidence` before
+the operator-scoped namespace and local state are removed.
 
 ## Deployment Readiness Checklist
 
@@ -44,8 +56,9 @@ Before platform deployment work starts, confirm:
   identity, idempotency, retry, and audit behavior are approved
 - OPA inputs and policy ownership are defined without copying authority truth
   into WGCF
-- artifact custody is denied by default until MinIO or S3 retention and
-  redaction rules are approved
+- local artifact custody stays profile-scoped and governed promotion is denied
+  until transport and at-rest encryption, workload identity, retention,
+  deletion, and redaction rules are approved
 - observability uses existing platform surfaces instead of a custom backend
 - Prometheus remains the current health and metrics surface; OpenTelemetry
   correlation can be added later without replacing platform observability

@@ -71,7 +71,10 @@ Current active profiles:
   - lane class: `governed-devint`
   - profile path:
     [workspace-governance-control-fabric/dev-integration/profiles/governance-control-fabric/profile.yaml](https://github.com/mfshaf7/workspace-governance-control-fabric/blob/main/dev-integration/profiles/governance-control-fabric/profile.yaml)
-  - role: local-k3s API and PostgreSQL runtime access for Governance Operations Console and WGCF API contract iteration
+  - role: local-k3s API, PostgreSQL, and isolated S3-compatible evidence-custody
+    access for Governance Operations Console and WGCF contract iteration
+  - storage actions: operator-scoped backup and confirmed digest-preserving
+    restore; governed encryption and stage/prod use remain denied
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - lane class: `integration-devint`

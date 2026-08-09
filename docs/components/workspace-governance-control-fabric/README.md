@@ -25,14 +25,23 @@ not own WGCF contracts, workspace governance doctrine, or security acceptance.
 
 - dev-integration profile: `governance-control-fabric`
 - dev-integration namespace: `devint-governance-control-fabric-<operator>`
-- dev-integration storage: local PostgreSQL StatefulSet and PVC
+- dev-integration storage: local PostgreSQL plus profile-scoped
+  MinIO/S3-compatible evidence storage on separate PVCs
 - Argo application: none
 - direct operator UI: none
 - deployment status: not approved for `stage` or `prod`
 
 WGCF currently has implementation source plus active local-k3s dev-integration
-API and PostgreSQL access. Governed stage/prod deployment remains blocked until
-platform release gates and security review explicitly approve that deployment
+API, PostgreSQL, and isolated evidence-storage access. The object store uses an
+API-only bucket credential, a separate storage-admin credential, namespace-local
+network policy, explicit backup and restore actions, and reference-only local
+receipts. It does not expose a public object URL or credentials to OOS or
+OpenProject.
+
+The local profile does not claim governed transport encryption or encrypted
+local-path storage. Governed stage/prod deployment remains blocked until
+Platform identity, secret delivery, transport and at-rest encryption, backup,
+restore, retention, deletion, and Security gates explicitly approve that
 posture.
 
 ## Owner Boundaries
@@ -54,7 +63,8 @@ approved runtime shape for:
 - bounded, idempotent governance activity contracts for OOS-mediated durable
   workflows, when activity execution is activated
 - OPA/Rego policy evaluation
-- MinIO or S3 artifact custody, when full artifact preservation is required
+- MinIO or S3 artifact custody with governed encryption and lifecycle controls
+  beyond the bounded local profile
 - identity, secrets, network exposure, observability, backup, and rollback
 
 None of those dependencies are approved by this document alone.

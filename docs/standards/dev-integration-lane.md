@@ -158,7 +158,8 @@ every dispatched action under the session archive. Those action records bind
 the result to the exact source state observed before dispatch. When an owner
 repo path override is selected, that checkout supplies the profile definition,
 working directory, command path, and recorded Git state as one boundary; the
-runner must not record one checkout while executing another. A governed Review
+runner re-executes itself from a selected `platform-engineering` checkout and
+must not record one checkout while executing another. A governed Review
 Packet may cite action-record digests; the local files do not become governance
 authority by themselves.
 

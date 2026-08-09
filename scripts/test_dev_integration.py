@@ -159,6 +159,37 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(repo_paths["owner-repo"], selected_owner.resolve())
             self.assertEqual(repo_states["owner-repo"], selected_state)
 
+    def test_platform_override_reexecutes_the_selected_runner(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-reexec-") as temp_dir:
+            selected_root = Path(temp_dir) / "platform-engineering"
+            selected_runner = selected_root / "scripts/dev_integration.py"
+            selected_runner.parent.mkdir(parents=True)
+            selected_runner.write_text("# selected runner\n", encoding="utf-8")
+
+            with (
+                patch.object(DEV_INTEGRATION.os, "execv") as execv,
+                patch.object(
+                    DEV_INTEGRATION.sys,
+                    "argv",
+                    ["dev_integration.py", "up", "--profile", "test-profile"],
+                ),
+                self.assertRaisesRegex(RuntimeError, "failed to execute"),
+            ):
+                DEV_INTEGRATION.reexec_from_selected_platform_checkout(
+                    {"platform-engineering": selected_root}
+                )
+
+            execv.assert_called_once_with(
+                DEV_INTEGRATION.sys.executable,
+                [
+                    DEV_INTEGRATION.sys.executable,
+                    str(selected_runner.resolve()),
+                    "up",
+                    "--profile",
+                    "test-profile",
+                ],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

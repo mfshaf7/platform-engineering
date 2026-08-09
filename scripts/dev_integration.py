@@ -88,6 +88,26 @@ def parse_repo_overrides(entries: list[str]) -> dict[str, Path]:
     return overrides
 
 
+def reexec_from_selected_platform_checkout(repo_overrides: dict[str, Path]) -> None:
+    selected_root = repo_overrides.get("platform-engineering")
+    if selected_root is None:
+        return
+    selected_runner = (selected_root / "scripts/dev_integration.py").resolve()
+    current_runner = Path(__file__).resolve()
+    if selected_runner == current_runner:
+        return
+    if not selected_runner.is_file():
+        raise SystemExit(
+            "Selected platform-engineering checkout does not contain the shared "
+            f"dev-integration runner: {selected_runner}"
+        )
+    os.execv(
+        sys.executable,
+        [sys.executable, str(selected_runner), *sys.argv[1:]],
+    )
+    raise RuntimeError("failed to execute the selected Platform runner")
+
+
 def git_state(repo_root: Path, *, workspace_root: Path) -> dict:
     branch = run(["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"])
     head_sha = run(["git", "-C", str(repo_root), "rev-parse", "HEAD"])
@@ -374,6 +394,7 @@ def main() -> int:
     workspace_root = args.workspace_root.resolve()
     operator = args.operator or run(["whoami"])
     repo_overrides = parse_repo_overrides(args.repo_path)
+    reexec_from_selected_platform_checkout(repo_overrides)
 
     entry, profile, owner_repo_root, profile_path, repo_paths, repo_states = resolve_profile(
         action=ACTIONS[args.action],

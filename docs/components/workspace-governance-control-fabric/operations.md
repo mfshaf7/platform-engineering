@@ -2,9 +2,14 @@
 
 ## Current Operational Posture
 
-WGCF has local dev-integration operations only.
+WGCF has local dev-integration operations only. The evidence-storage actions
+below remain dormant until the `governance-control-fabric` profile is active in
+the `workspace-governance` registry on remote `main`. Before that activation,
+the owner-side authority gate rejects launch, smoke, backup, restore, suspend,
+and reset rather than treating Platform acceptance as runtime authority.
 
-Current operations are local-k3s dev-integration:
+After that registry activation, the available operations are local-k3s
+dev-integration:
 
 - launch, inspect, smoke, suspend, back up, and restore the active local-k3s
   API, PostgreSQL, and evidence-storage profile

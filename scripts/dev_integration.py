@@ -172,6 +172,30 @@ def load_registry(
     return policy, registry
 
 
+def resolve_owner_file(
+    owner_repo_root: Path,
+    configured_path: str,
+    *,
+    description: str,
+) -> Path:
+    relative_path = Path(configured_path)
+    if relative_path.is_absolute():
+        raise SystemExit(f"{description} must be owner-relative: {configured_path}")
+    try:
+        resolved_path = (owner_repo_root / relative_path).resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"{description} is unavailable: {configured_path}") from exc
+    try:
+        resolved_path.relative_to(owner_repo_root)
+    except ValueError as exc:
+        raise SystemExit(
+            f"{description} escapes the selected owner checkout: {configured_path}"
+        ) from exc
+    if not resolved_path.is_file():
+        raise SystemExit(f"{description} is not a file: {configured_path}")
+    return resolved_path
+
+
 def resolve_profile(
     *,
     action: str,
@@ -202,12 +226,11 @@ def resolve_profile(
             f"Owner repo path for {entry['owner_repo']!r} does not exist: "
             f"{owner_repo_root}"
         )
-    profile_path = owner_repo_root / entry["profile_path"]
-    if not profile_path.is_file():
-        raise SystemExit(
-            f"Profile {profile_id!r} is unavailable in its selected owner repo: "
-            f"{profile_path}"
-        )
+    profile_path = resolve_owner_file(
+        owner_repo_root,
+        entry["profile_path"],
+        description=f"Profile {profile_id!r}",
+    )
     profile = load_yaml(profile_path)
 
     repo_paths: dict[str, Path] = {}
@@ -564,7 +587,11 @@ def main() -> int:
             f"dev-integration profile {args.profile!r} does not implement action {command_key!r}. "
             f"Available actions: {available_actions or 'none'}."
         ) from exc
-    command_path = owner_repo_root / command_relpath
+    command_path = resolve_owner_file(
+        owner_repo_root,
+        command_relpath,
+        description=f"Profile {args.profile!r} action {command_key!r}",
+    )
     try:
         returncode = dispatch_command(
             command_path,

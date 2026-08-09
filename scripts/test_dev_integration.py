@@ -125,6 +125,47 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(archive.stat().st_mode & 0o777, 0o400)
             self.assertEqual(result.stat().st_mode & 0o777, 0o400)
 
+    def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:
+            root = Path(temp_dir)
+            owner_root = root / "owner"
+            owner_root.mkdir()
+            command = owner_root / "scripts/action.sh"
+            command.parent.mkdir()
+            command.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+
+            self.assertEqual(
+                DEV_INTEGRATION.resolve_owner_file(
+                    owner_root,
+                    "scripts/action.sh",
+                    description="Profile action",
+                ),
+                command,
+            )
+            with self.assertRaisesRegex(SystemExit, "must be owner-relative"):
+                DEV_INTEGRATION.resolve_owner_file(
+                    owner_root,
+                    str(command),
+                    description="Profile action",
+                )
+
+            outside = root / "outside.sh"
+            outside.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            (owner_root / "scripts/escaped.sh").symlink_to(outside)
+            with self.assertRaisesRegex(SystemExit, "escapes the selected owner checkout"):
+                DEV_INTEGRATION.resolve_owner_file(
+                    owner_root,
+                    "scripts/escaped.sh",
+                    description="Profile action",
+                )
+
+            with self.assertRaisesRegex(SystemExit, "is unavailable"):
+                DEV_INTEGRATION.resolve_owner_file(
+                    owner_root,
+                    "scripts/missing.sh",
+                    description="Profile action",
+                )
+
     def test_dispatch_terminates_background_process_group(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-process-") as temp_dir:
             root = Path(temp_dir)

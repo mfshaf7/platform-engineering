@@ -497,6 +497,8 @@ def dispatch_command(
             if received_signal is not None:
                 terminate_process_group(process.pid)
             returncode = process.wait()
+            terminate_process_group(process.pid)
+            process = None
         if received_signal is not None:
             returncode = 128 + received_signal
         if publish_result is not None:

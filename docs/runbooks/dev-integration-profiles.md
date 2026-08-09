@@ -269,7 +269,11 @@ Important boundaries:
 - `dev-integration` is local only
 - it is not governed rollout evidence
 - it must not write to governed `stage` or `prod` backends
-- it may use local branches, worktrees, and dirty state
+- owner and declared source repos may use local branches, worktrees, and dirty
+  state
+- the selected `platform-engineering` checkout that supplies the shared runner
+  must be clean so its recorded Git head identifies the executing control-plane
+  code exactly
 - it still requires a governed handoff before `stage`
 - the active profile README and `stage_handoff.required_checks` are part of
   that handoff contract, not optional notes

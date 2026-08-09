@@ -123,7 +123,12 @@ these operator commitments explicit:
 - local branches
 - git worktrees
 - local-only commits
-- dirty working trees
+- dirty owner and declared source working trees
+
+The selected `platform-engineering` checkout that supplies the shared runner is
+the exception: it must be clean so the mandatory execution-source manifest
+binds the runner to one exact Git head. This does not require owner work to be
+clean or pushed.
 
 It does not require:
 

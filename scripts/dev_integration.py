@@ -447,7 +447,10 @@ def main() -> int:
             f"Available actions: {available_actions or 'none'}."
         ) from exc
     command_path = workspace_root / entry["owner_repo"] / command_relpath
-    returncode = dispatch_command(command_path, cwd=owner_repo_root, env=env)
+    try:
+        returncode = dispatch_command(command_path, cwd=owner_repo_root, env=env)
+    except KeyboardInterrupt:
+        returncode = 130
     write_execution_result(
         manifest_path=archive_path,
         result_path=result_path,

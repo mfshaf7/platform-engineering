@@ -66,6 +66,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 "failed",
             )
             self.assertEqual(
+                DEV_INTEGRATION.load_yaml(second_result)["returncode"],
+                2,
+            )
+            self.assertEqual(
                 DEV_INTEGRATION.load_yaml(current)["execution_id"],
                 "execution-smoke",
             )

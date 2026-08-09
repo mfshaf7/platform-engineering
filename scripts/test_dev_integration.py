@@ -176,7 +176,8 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "failed to execute"),
             ):
                 DEV_INTEGRATION.reexec_from_selected_platform_checkout(
-                    {"platform-engineering": selected_root}
+                    {"platform-engineering": selected_root},
+                    workspace_root=Path("/original/workspace"),
                 )
 
             execv.assert_called_once_with(
@@ -187,6 +188,8 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "up",
                     "--profile",
                     "test-profile",
+                    "--workspace-root",
+                    "/original/workspace",
                 ],
             )
 

@@ -159,7 +159,8 @@ the result to the exact source state observed before dispatch. When an owner
 repo path override is selected, that checkout supplies the profile definition,
 working directory, command path, and recorded Git state as one boundary; the
 runner re-executes itself from a selected `platform-engineering` checkout and
-must not record one checkout while executing another. A governed Review
+preserves the already resolved workspace root across that boundary. It must not
+record one checkout while executing another. A governed Review
 Packet may cite action-record digests; the local files do not become governance
 authority by themselves.
 

@@ -88,7 +88,11 @@ def parse_repo_overrides(entries: list[str]) -> dict[str, Path]:
     return overrides
 
 
-def reexec_from_selected_platform_checkout(repo_overrides: dict[str, Path]) -> None:
+def reexec_from_selected_platform_checkout(
+    repo_overrides: dict[str, Path],
+    *,
+    workspace_root: Path,
+) -> None:
     selected_root = repo_overrides.get("platform-engineering")
     if selected_root is None:
         return
@@ -101,9 +105,15 @@ def reexec_from_selected_platform_checkout(repo_overrides: dict[str, Path]) -> N
             "Selected platform-engineering checkout does not contain the shared "
             f"dev-integration runner: {selected_runner}"
         )
+    forwarded_args = list(sys.argv[1:])
+    if not any(
+        arg == "--workspace-root" or arg.startswith("--workspace-root=")
+        for arg in forwarded_args
+    ):
+        forwarded_args.extend(["--workspace-root", str(workspace_root)])
     os.execv(
         sys.executable,
-        [sys.executable, str(selected_runner), *sys.argv[1:]],
+        [sys.executable, str(selected_runner), *forwarded_args],
     )
     raise RuntimeError("failed to execute the selected Platform runner")
 
@@ -394,7 +404,10 @@ def main() -> int:
     workspace_root = args.workspace_root.resolve()
     operator = args.operator or run(["whoami"])
     repo_overrides = parse_repo_overrides(args.repo_path)
-    reexec_from_selected_platform_checkout(repo_overrides)
+    reexec_from_selected_platform_checkout(
+        repo_overrides,
+        workspace_root=workspace_root,
+    )
 
     entry, profile, owner_repo_root, profile_path, repo_paths, repo_states = resolve_profile(
         action=ACTIONS[args.action],

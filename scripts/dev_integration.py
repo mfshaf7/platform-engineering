@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -456,7 +457,13 @@ def terminate_process_group(process_group_id: int, timeout: float = 2.0) -> None
         pass
 
 
-def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
+def dispatch_command(
+    command_path: Path,
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    publish_result: Callable[[int], None] | None = None,
+) -> int:
     if command_path.suffix == ".sh":
         command = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
@@ -474,23 +481,28 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
 
     previous_handlers = {
         signum: signal.signal(signum, stop_action)
-        for signum in (signal.SIGHUP, signal.SIGTERM)
+        for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM)
     }
     try:
         if received_signal is not None:
-            return 128 + received_signal
-        process = subprocess.Popen(
-            command,
-            cwd=str(cwd),
-            env=env,
-            start_new_session=True,
-            text=True,
-        )
+            returncode = 128 + received_signal
+        else:
+            process = subprocess.Popen(
+                command,
+                cwd=str(cwd),
+                env=env,
+                start_new_session=True,
+                text=True,
+            )
+            if received_signal is not None:
+                terminate_process_group(process.pid)
+            returncode = process.wait()
         if received_signal is not None:
-            terminate_process_group(process.pid)
-        returncode = process.wait()
+            returncode = 128 + received_signal
+        if publish_result is not None:
+            publish_result(returncode)
         if received_signal is not None:
-            return 128 + received_signal
+            returncode = 128 + received_signal
         return returncode
     finally:
         if process is not None:
@@ -630,19 +642,16 @@ def main() -> int:
         command_relpath,
         description=f"Profile {args.profile!r} action {command_key!r}",
     )
-    try:
-        returncode = dispatch_command(
-            command_path,
-            cwd=owner_repo_root,
-            env=env,
-        )
-    except KeyboardInterrupt:
-        returncode = 130
-    write_execution_result(
-        manifest_snapshot=manifest_snapshot,
-        manifest_path=archive_path,
-        result_path=result_path,
-        returncode=returncode,
+    returncode = dispatch_command(
+        command_path,
+        cwd=owner_repo_root,
+        env=env,
+        publish_result=lambda action_returncode: write_execution_result(
+            manifest_snapshot=manifest_snapshot,
+            manifest_path=archive_path,
+            result_path=result_path,
+            returncode=action_returncode,
+        ),
     )
     if returncode:
         raise SystemExit(returncode)

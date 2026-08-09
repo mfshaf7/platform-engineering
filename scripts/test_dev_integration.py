@@ -262,6 +262,31 @@ class DevIntegrationRunnerTests(unittest.TestCase):
         self.assertEqual(returncode, 128 + signal.SIGTERM)
         popen.assert_not_called()
 
+    def test_dispatch_keeps_signal_handling_through_result_publication(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-publish-") as temp_dir:
+            root = Path(temp_dir)
+            command = root / "action.sh"
+            command.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            command.chmod(0o700)
+            published: list[int] = []
+            previous_handler = signal.getsignal(signal.SIGTERM)
+
+            def publish_result(returncode: int) -> None:
+                self.assertNotEqual(signal.getsignal(signal.SIGTERM), previous_handler)
+                published.append(returncode)
+                os.kill(os.getpid(), signal.SIGTERM)
+
+            returncode = DEV_INTEGRATION.dispatch_command(
+                command,
+                cwd=root,
+                env=dict(os.environ),
+                publish_result=publish_result,
+            )
+
+            self.assertEqual(published, [0])
+            self.assertEqual(returncode, 128 + signal.SIGTERM)
+            self.assertEqual(signal.getsignal(signal.SIGTERM), previous_handler)
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"

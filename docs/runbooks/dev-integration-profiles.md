@@ -14,17 +14,6 @@ Do not reconstruct this flow from scattered contracts, templates, and
 standards files. Those remain supporting governance sources, not the primary
 operator path.
 
-## Host Prerequisites
-
-The shared runner requires `bubblewrap` and unprivileged user-namespace support.
-Provision the local k3s/operator host through
-`ansible/playbooks/provision-k3s-node.yml`; its `dev_integration_host` role
-installs Bubblewrap, persists the dedicated operator host's required Ubuntu
-AppArmor user-namespace setting when that kernel control exists, and proves
-that the configured operator can create the PID namespace used for action
-containment. Do not bypass a failed probe with an ad hoc runtime setting; rerun
-the provisioning role and repair the host prerequisite it reports.
-
 ## Operator Lanes At A Glance
 
 ```mermaid
@@ -252,13 +241,12 @@ Each dispatched action leaves a local manifest/result pair under
 `.dev-integration/sessions/`. The result is self-contained: it records the
 return code, source-manifest digest, and complete source manifest captured
 before dispatch. The shared runner creates these read-only records only after
-the owner action's Bubblewrap PID namespace has ended. This also terminates
-descendants that detach into a separate session before evidence publication.
-The session archive is mounted read-only inside every action, preventing a
-later action from replacing an earlier manifest/result pair. Host user-manager
-and agent sockets are not projected into the action namespace. Bubblewrap is a
-required local runner dependency. Use the record digests as local handoff
-inputs; they are not governed rollout evidence by themselves.
+the owner action returns and its direct process group has been closed. The
+runner creates each path exclusively and never overwrites an earlier record.
+Owner actions still run with their declared host and cluster access; this is
+not a security sandbox, and these local files are not protected evidence. Use
+the record digests only as provisional local handoff inputs, never as
+standalone completion or rollout authority.
 
 State-model rule:
 

@@ -8,9 +8,10 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
+import signal
 import subprocess
 import sys
+import time
 from uuid import uuid4
 
 import yaml
@@ -378,59 +379,42 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
-def dispatch_command(
-    command_path: Path,
-    *,
-    cwd: Path,
-    env: dict[str, str],
-    read_only_paths: tuple[Path, ...] = (),
-) -> int:
+def terminate_process_group(process_group_id: int, timeout: float = 2.0) -> None:
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process_group_id, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(process_group_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
     if command_path.suffix == ".sh":
-        action_cmd = ["bash", str(command_path)]
+        command = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
-        action_cmd = ["python3", str(command_path)]
+        command = ["python3", str(command_path)]
     else:
-        action_cmd = [str(command_path)]
-    bubblewrap = shutil.which("bwrap")
-    if bubblewrap is None:
-        raise SystemExit(
-            "The shared dev-integration runner requires bubblewrap for action "
-            "process containment. Install the bubblewrap package before dispatch."
-        )
-    action_env = {
-        key: value
-        for key, value in env.items()
-        if key not in {"DBUS_SESSION_BUS_ADDRESS", "SSH_AUTH_SOCK", "XDG_RUNTIME_DIR"}
-    }
-    sandbox_cmd = [bubblewrap, "--die-with-parent", "--bind", "/", "/"]
-    for path in read_only_paths:
-        resolved_path = path.resolve()
-        if not resolved_path.is_dir():
-            raise SystemExit(
-                f"Dev-integration read-only action path is not a directory: {resolved_path}"
-            )
-        sandbox_cmd.extend(["--ro-bind", str(resolved_path), str(resolved_path)])
-    if Path("/run/user").is_dir():
-        sandbox_cmd.extend(["--tmpfs", "/run/user"])
-    sandbox_cmd.extend(
-        [
-            "--proc",
-            "/proc",
-            "--dev-bind",
-            "/dev",
-            "/dev",
-            "--unshare-pid",
-            "--",
-            *action_cmd,
-        ]
-    )
-    result = subprocess.run(
-        sandbox_cmd,
+        command = [str(command_path)]
+    process = subprocess.Popen(
+        command,
         cwd=str(cwd),
-        env=action_env,
+        env=env,
+        start_new_session=True,
         text=True,
     )
-    return result.returncode
+    try:
+        return process.wait()
+    finally:
+        terminate_process_group(process.pid)
 
 
 def main() -> int:
@@ -565,7 +549,6 @@ def main() -> int:
             command_path,
             cwd=owner_repo_root,
             env=env,
-            read_only_paths=(paths["sessions_root"],),
         )
     except KeyboardInterrupt:
         returncode = 130

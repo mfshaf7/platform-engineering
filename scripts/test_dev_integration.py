@@ -5,8 +5,8 @@ import importlib.util
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
-from uuid import uuid4
 from unittest.mock import patch
 
 
@@ -124,17 +124,13 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(archive.stat().st_mode & 0o777, 0o400)
             self.assertEqual(result.stat().st_mode & 0o777, 0o400)
 
-    def test_dispatch_terminates_detached_session_before_return(self) -> None:
+    def test_dispatch_terminates_background_process_group(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-process-") as temp_dir:
             root = Path(temp_dir)
-            process_marker = f"devint-detached-{uuid4()}"
-            ready_file = root / "detached.ready"
+            pid_file = root / "background.pid"
             command = root / "action.sh"
             command.write_text(
-                "#!/usr/bin/env bash\n"
-                f"setsid bash -c 'printf ready >\"$DETACHED_READY\"; "
-                f"exec -a {process_marker} sleep 30' &\n"
-                'while [[ ! -f "$DETACHED_READY" ]]; do sleep 0.01; done\n',
+                '#!/usr/bin/env bash\nsleep 30 &\nprintf "%s\\n" "$!" >"$PID_FILE"\n',
                 encoding="utf-8",
             )
             command.chmod(0o700)
@@ -142,85 +138,17 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             returncode = DEV_INTEGRATION.dispatch_command(
                 command,
                 cwd=root,
-                env={**os.environ, "DETACHED_READY": str(ready_file)},
+                env={**os.environ, "PID_FILE": str(pid_file)},
             )
 
             self.assertEqual(returncode, 0)
-            self.assertEqual(ready_file.read_text(encoding="utf-8"), "ready")
-            surviving_commands = []
-            for cmdline_path in Path("/proc").glob("[0-9]*/cmdline"):
-                try:
-                    command_line = cmdline_path.read_bytes().replace(b"\0", b" ").decode()
-                except (FileNotFoundError, PermissionError, ProcessLookupError):
-                    continue
-                if process_marker in command_line:
-                    surviving_commands.append(command_line)
-            self.assertEqual(surviving_commands, [])
-
-    def test_dispatch_mounts_prior_action_evidence_read_only(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="devint-runner-read-only-") as temp_dir:
-            root = Path(temp_dir)
-            sessions_root = root / "sessions"
-            sessions_root.mkdir()
-            prior_evidence = sessions_root / "prior.result.yaml"
-            prior_evidence.write_text("result: succeeded\n", encoding="utf-8")
-            prior_evidence.chmod(0o400)
-            state_write = root / "state-write.txt"
-            command = root / "action.sh"
-            command.write_text(
-                "#!/usr/bin/env bash\n"
-                'if rm -f "$PRIOR_EVIDENCE" 2>/dev/null; then exit 9; fi\n'
-                'printf writable >"$STATE_WRITE"\n',
-                encoding="utf-8",
-            )
-            command.chmod(0o700)
-
-            returncode = DEV_INTEGRATION.dispatch_command(
-                command,
-                cwd=root,
-                env={
-                    **os.environ,
-                    "PRIOR_EVIDENCE": str(prior_evidence),
-                    "STATE_WRITE": str(state_write),
-                },
-                read_only_paths=(sessions_root,),
-            )
-
-            self.assertEqual(returncode, 0)
-            self.assertEqual(prior_evidence.read_text(encoding="utf-8"), "result: succeeded\n")
-            self.assertEqual(state_write.read_text(encoding="utf-8"), "writable")
-
-    def test_dispatch_masks_host_user_service_manager(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="devint-runner-host-control-") as temp_dir:
-            root = Path(temp_dir)
-            result_path = root / "isolation.txt"
-            command = root / "action.sh"
-            command.write_text(
-                "#!/usr/bin/env bash\n"
-                '[[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]] || exit 10\n'
-                '[[ -z "${SSH_AUTH_SOCK:-}" ]] || exit 11\n'
-                '[[ -z "${XDG_RUNTIME_DIR:-}" ]] || exit 12\n'
-                '[[ ! -S "/run/user/${HOST_UID}/bus" ]] || exit 13\n'
-                'printf isolated >"${RESULT_PATH}"\n',
-                encoding="utf-8",
-            )
-            command.chmod(0o700)
-
-            returncode = DEV_INTEGRATION.dispatch_command(
-                command,
-                cwd=root,
-                env={
-                    **os.environ,
-                    "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
-                    "HOST_UID": str(os.getuid()),
-                    "RESULT_PATH": str(result_path),
-                    "SSH_AUTH_SOCK": "/run/user/1000/ssh-agent.socket",
-                    "XDG_RUNTIME_DIR": "/run/user/1000",
-                },
-            )
-
-            self.assertEqual(returncode, 0)
-            self.assertEqual(result_path.read_text(encoding="utf-8"), "isolated")
+            background_pid = int(pid_file.read_text(encoding="utf-8"))
+            deadline = time.monotonic() + 2
+            while Path(f"/proc/{background_pid}").exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if Path(f"/proc/{background_pid}/stat").is_file():
+                state = Path(f"/proc/{background_pid}/stat").read_text().split()[2]
+                self.assertEqual(state, "Z")
 
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:

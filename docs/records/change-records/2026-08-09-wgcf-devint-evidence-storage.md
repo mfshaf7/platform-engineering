@@ -88,9 +88,10 @@ addendum.
   - WGCF `99b3bc3c3488e990268808fe31b56b6b3692cc01`, including transactional
     restore, sealed restore inputs, exact restored-claim whitelisting, and
     direct hashing of the sealed archive descriptor
-  - Platform `6cd9335a625576ab75c4eb1a3c1b92b71288201a`, including delayed
-    self-contained action-evidence publication and Bubblewrap PID-namespace
-    containment for all action descendants
+  - Platform `646b7470b6bc39fc3d7b5c48517e6eec63337339`, including delayed,
+    self-contained local action-record publication and best-effort direct
+    process-group cleanup. These records remain provisional local context, not
+    tamper-resistant evidence or governance authority.
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - same-key overwrite proof that retrieves the accepted bytes by version ID

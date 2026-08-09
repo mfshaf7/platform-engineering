@@ -1,4 +1,0 @@
-platform_dev_integration_required_packages:
-  - bubblewrap
-
-platform_dev_integration_userns_policy_path: /etc/sysctl.d/60-platform-dev-integration-userns.conf

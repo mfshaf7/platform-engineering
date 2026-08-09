@@ -75,6 +75,8 @@ Current active profiles:
     access for Governance Operations Console and WGCF contract iteration
   - storage actions: operator-scoped backup and confirmed digest-preserving
     restore; governed encryption and stage/prod use remain denied
+  - destructive reset: `make devint-reset PROFILE=governance-control-fabric
+    CONFIRM=reset-wgcf-evidence`
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - lane class: `integration-devint`
@@ -195,7 +197,7 @@ make devint-smoke PROFILE=<profile>
 make devint-backup PROFILE=<profile>
 make devint-restore PROFILE=<profile> BACKUP_FILE=<path> CONFIRM=<profile-confirmation>
 make devint-promote-check PROFILE=<profile>
-make devint-reset PROFILE=<profile>
+make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>
 make devint-down PROFILE=<profile>
 ```
 

@@ -65,7 +65,7 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `a97bb84a9afab7e1cee1cffe59e60ff2749f7cdd` from PR #41,
+  - `4698d69f1fa37835ebb6c08a0aebbba03c138098` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
@@ -80,6 +80,8 @@ backup, restore, and Security gates.
   - Secret-first credential rotation before workload digest rollouts
   - immutable root-user and application access-key identities, with rotation
     limited to secret values so prior users cannot remain authorized
+  - explicit authentication-denial proof for both pre-rotation credential pairs
+    after the replacement values are active
   - content-address-preserving backup and receipt-rebinding restore verification
   - exclusive backup targets and staged publication so an existing recovery
     bundle cannot be truncated or partially replaced
@@ -87,8 +89,14 @@ backup, restore, and Security gates.
     version-qualified reference validation before a receipt enters a backup
   - private regular-file snapshots validated and consumed by restore so later
     edits to the operator-selected archive cannot cross the preflight boundary
+  - semantic preflight of every embedded receipt and sidecar binding before any
+    object-store mutation, including exact prior version and storage reference
+  - restore-time receipt validation against the active profile, namespace,
+    bucket, service identity, and Secret scope before rebinding
   - controller-UID ownership proof for every Pod holding a storage credential;
     labels, names, and ServiceAccounts alone do not authorize a holder
+  - provision Job UID and source-owned template verification against the exact
+    server-returned Job recorded when provisioning created it
   - exact confirmation for restore and destructive reset
   - owner-side activation gate bound to the active workspace profile and this
     Platform acceptance record
@@ -129,6 +137,12 @@ backup, restore, and Security gates.
 
 ## Live Verification
 
+- Executed session:
+  `governance-control-fabric-mfshaf7-20260809T123033Z`
+- Session manifest SHA-256:
+  `64df2551ce4ba374961fdace1ab4f203e81156ea1653ed649308d61e4541eb9f`
+- Executed owner source state:
+  `4698d69f1fa37835ebb6c08a0aebbba03c138098`, clean worktree
 - App health: WGCF API health and readiness passed after storage reconciliation.
 - Deployed image:
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
@@ -160,6 +174,8 @@ backup, restore, and Security gates.
   - both root and application credentials were rotated before reconciliation;
     Secret-first rollout completed and the API, provisioner, and storage
     workload all passed afterward
+  - explicit signed object reads using both pre-rotation credential pairs were
+    rejected after reconciliation, while the replacement credentials passed
   - a later read-only smoke recreated both network probe Jobs and independently
     re-proved the maintenance allow path and unselected-Pod denial
   - backup and confirmed restore after PVC deletion preserved the same object

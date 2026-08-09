@@ -54,7 +54,11 @@ These are intentionally not documented as direct operator UIs:
 - WGCF dev-integration evidence storage
   - internal-only ClusterIP service in an operator-scoped local namespace
   - no direct browser, Windows localhost, stage, or production access path
-  - use the shared dev-integration profile runner for lifecycle actions
+  - retained sessions are historical local proof; lifecycle actions remain
+    dormant until the `governance-control-fabric` registry activation reaches
+    remote `workspace-governance/main`
+  - after activation, use the shared dev-integration profile runner for
+    lifecycle actions
 - Temporal controlled commissioning
   - no live namespace, shared UI, or normal operator access path
   - a later permit-bound proof may use only an operator-local loopback

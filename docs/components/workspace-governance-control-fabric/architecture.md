@@ -40,10 +40,11 @@ Current allowed posture:
 - local source validation
 - local CLI status, graph, plan, check, and receipt-list commands
 - local receipt and ledger files
-- active local-k3s `dev-integration` API plus PostgreSQL profile for fast API
-  contract and console-consumption iteration
-- profile-scoped local MinIO/S3-compatible storage for bounded Delivery ART
-  evidence-custody, digest, isolation, backup, and restore proof
+- retained historical local-k3s `dev-integration` API and PostgreSQL proof for
+  API contract and console-consumption iteration
+- retained historical MinIO/S3-compatible evidence-custody proof; the current
+  storage lifecycle remains dormant until workspace-registry activation reaches
+  remote `main`
 
 Current denied posture:
 

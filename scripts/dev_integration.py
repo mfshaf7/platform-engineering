@@ -244,27 +244,35 @@ def resolve_profile(
 
     repo_paths: dict[str, Path] = {}
     repo_states: dict[str, dict] = {}
-    for raw_entry in profile["source_repos"]:
-        repo_name = raw_entry["repo"] if isinstance(raw_entry, dict) else raw_entry
-        repo_path = repo_overrides.get(repo_name, workspace_root / repo_name).resolve()
+
+    def record_source_repo(repo_name: str, repo_path: Path) -> None:
+        repo_path = repo_path.resolve()
+        if repo_name in repo_paths:
+            if repo_paths[repo_name] != repo_path:
+                raise SystemExit(
+                    f"Source repo {repo_name!r} resolves to conflicting checkouts"
+                )
+            return
         if not repo_path.exists():
             raise SystemExit(f"Source repo path for {repo_name!r} does not exist: {repo_path}")
         repo_paths[repo_name] = repo_path
         repo_states[repo_name] = git_state(repo_path, workspace_root=workspace_root)
 
-    selected_platform_root = repo_overrides.get("platform-engineering")
-    if selected_platform_root is not None and "platform-engineering" not in repo_paths:
-        selected_platform_root = selected_platform_root.resolve()
-        if not selected_platform_root.exists():
-            raise SystemExit(
-                "Selected Platform runner checkout does not exist: "
-                f"{selected_platform_root}"
-            )
-        repo_paths["platform-engineering"] = selected_platform_root
-        repo_states["platform-engineering"] = git_state(
-            selected_platform_root,
-            workspace_root=workspace_root,
+    for raw_entry in profile["source_repos"]:
+        repo_name = raw_entry["repo"] if isinstance(raw_entry, dict) else raw_entry
+        record_source_repo(
+            repo_name,
+            repo_overrides.get(repo_name, workspace_root / repo_name),
         )
+
+    record_source_repo(
+        "workspace-governance",
+        repo_overrides.get("workspace-governance", workspace_root / "workspace-governance"),
+    )
+    record_source_repo(
+        "platform-engineering",
+        repo_overrides.get("platform-engineering", Path(__file__).resolve().parents[1]),
+    )
 
     if repo_paths.get(entry["owner_repo"]) != owner_repo_root:
         raise SystemExit(

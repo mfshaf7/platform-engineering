@@ -249,12 +249,14 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             default_owner = workspace_root / "owner-repo"
             selected_owner = Path(temp_dir) / "selected-owner"
             selected_platform = Path(temp_dir) / "selected-platform"
+            selected_governance = Path(temp_dir) / "selected-governance"
             profile_relpath = Path("dev-integration/profiles/test/profile.yaml")
             default_profile = default_owner / profile_relpath
             selected_profile = selected_owner / profile_relpath
             default_profile.parent.mkdir(parents=True)
             selected_profile.parent.mkdir(parents=True)
             selected_platform.mkdir()
+            selected_governance.mkdir()
             default_profile.write_text("summary: wrong checkout\n", encoding="utf-8")
             selected_profile.write_text(
                 "\n".join(
@@ -292,6 +294,11 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 "dirty": False,
                 "head_sha": "b" * 40,
             }
+            selected_governance_state = {
+                "branch": "authority",
+                "dirty": False,
+                "head_sha": "c" * 40,
+            }
 
             with (
                 patch.object(
@@ -305,7 +312,11 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     side_effect=lambda repo_root, **_: (
                         selected_state
                         if repo_root == selected_owner.resolve()
-                        else selected_platform_state
+                        else (
+                            selected_platform_state
+                            if repo_root == selected_platform.resolve()
+                            else selected_governance_state
+                        )
                     ),
                 ) as git_state,
             ):
@@ -316,6 +327,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     repo_overrides={
                         "owner-repo": selected_owner,
                         "platform-engineering": selected_platform,
+                        "workspace-governance": selected_governance,
                     },
                 )
 
@@ -325,6 +337,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 {
                     "owner-repo": selected_owner,
                     "platform-engineering": selected_platform,
+                    "workspace-governance": selected_governance,
                 },
             )
             git_state.assert_any_call(
@@ -333,6 +346,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             git_state.assert_any_call(
                 selected_platform.resolve(),
+                workspace_root=workspace_root,
+            )
+            git_state.assert_any_call(
+                selected_governance.resolve(),
                 workspace_root=workspace_root,
             )
             self.assertEqual(profile["summary"], "selected checkout")
@@ -347,6 +364,14 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(
                 repo_states["platform-engineering"],
                 selected_platform_state,
+            )
+            self.assertEqual(
+                repo_paths["workspace-governance"],
+                selected_governance.resolve(),
+            )
+            self.assertEqual(
+                repo_states["workspace-governance"],
+                selected_governance_state,
             )
 
     def test_platform_override_reexecutes_the_selected_runner(self) -> None:

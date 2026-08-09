@@ -56,8 +56,8 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `feb84880a446a3586df4007588c0bf5501330ada` from PR #41,
-    `Add isolated WGCF evidence storage to dev-integration`
+  - `c81feb4375a1679447d49e5550b39010538145e4` from PR #41,
+    including the initial storage implementation and review hardening
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - root and application credential separation checks

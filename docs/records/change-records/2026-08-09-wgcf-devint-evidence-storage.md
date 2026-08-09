@@ -65,7 +65,7 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `a2431d46833c1247c48a554ae89d2b2b1380ae53` from PR #41,
+  - `42706ee79648e89828f6692659b4217cf2dc1c93` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
@@ -76,8 +76,11 @@ backup, restore, and Security gates.
   - root and application credential separation checks
   - namespace-local NetworkPolicy isolation checks
   - live maintenance and API allow-path checks plus an unselected-Pod denial
-    check against the storage Service
+    check against the storage Service, re-executed by every smoke run
+  - Secret-first credential rotation before workload digest rollouts
   - content-address-preserving backup and receipt-rebinding restore verification
+  - exclusive backup targets and staged publication so an existing recovery
+    bundle cannot be truncated or partially replaced
   - controller-UID ownership proof for every Pod holding a storage credential;
     labels, names, and ServiceAccounts alone do not authorize a holder
   - exact confirmation for restore and destructive reset
@@ -148,10 +151,19 @@ backup, restore, and Security gates.
   - OOS and OpenProject received no object-store credential or direct URL
   - a labeled maintenance Job and the API evidence read reached storage, while
     an unselected Pod in the same namespace could not establish a connection
+  - both root and application credentials were rotated before reconciliation;
+    Secret-first rollout completed and the API, provisioner, and storage
+    workload all passed afterward
+  - a later read-only smoke recreated both network probe Jobs and independently
+    re-proved the maintenance allow path and unselected-Pod denial
   - backup and confirmed restore after PVC deletion preserved the same object
     SHA-256 and rebound the receipt from its prior version-qualified reference
     to a newly verified immutable version while recording both references in
     the restore receipt
+  - a completed backup with SHA-256
+    `3f845c42c5e6652516a3cdc76dbd9ba9a45863338f63360c35ede3e1d8cbd708`
+    rejected a second write to the same archive or manifest path without
+    changing the original bytes
   - normal down/up preserved the PVC and the same content address
   - reset without `CONFIRM=reset-wgcf-evidence` failed closed
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and

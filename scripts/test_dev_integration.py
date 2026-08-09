@@ -38,6 +38,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 sessions_root=sessions,
             )
             DEV_INTEGRATION.write_execution_result(
+                manifest_snapshot=first_archive.read_bytes(),
                 manifest_path=first_archive,
                 result_path=first_result,
                 returncode=0,
@@ -48,6 +49,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 sessions_root=sessions,
             )
             DEV_INTEGRATION.write_execution_result(
+                manifest_snapshot=second_archive.read_bytes(),
                 manifest_path=second_archive,
                 result_path=second_result,
                 returncode=2,
@@ -81,6 +83,27 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     current_manifest=current,
                     sessions_root=sessions,
                 )
+
+    def test_execution_result_rejects_changed_source_manifest(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-tamper-") as temp_dir:
+            root = Path(temp_dir)
+            archive, result = DEV_INTEGRATION.write_session_files(
+                manifest=self.manifest("execution-up", "up"),
+                current_manifest=root / "state/current-session.yaml",
+                sessions_root=root / "sessions",
+            )
+            snapshot = archive.read_bytes()
+            archive.write_text("profile_id: action-controlled\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "source manifest changed"):
+                DEV_INTEGRATION.write_execution_result(
+                    manifest_snapshot=snapshot,
+                    manifest_path=archive,
+                    result_path=result,
+                    returncode=0,
+                )
+
+            self.assertFalse(result.exists())
 
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:

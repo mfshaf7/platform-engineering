@@ -311,11 +311,19 @@ def write_session_files(
 
 def write_execution_result(
     *,
+    manifest_snapshot: bytes,
     manifest_path: Path,
     result_path: Path,
     returncode: int,
 ) -> None:
-    manifest = load_yaml(manifest_path)
+    if manifest_path.read_bytes() != manifest_snapshot:
+        raise SystemExit(
+            "Archived dev-integration source manifest changed during action execution; "
+            "refusing to publish the result."
+        )
+    manifest = yaml.safe_load(manifest_snapshot)
+    if not isinstance(manifest, dict):
+        raise SystemExit("Archived dev-integration source manifest must be a mapping.")
     payload = {
         "schema_version": 1,
         "lane": "dev-integration",
@@ -326,7 +334,7 @@ def write_execution_result(
         "result": "succeeded" if returncode == 0 else "failed",
         "returncode": returncode,
         "manifest_path": str(manifest_path),
-        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "manifest_sha256": hashlib.sha256(manifest_snapshot).hexdigest(),
         "completed_at": now_utc(),
     }
     dump_yaml_exclusive(result_path, payload)
@@ -470,6 +478,7 @@ def main() -> int:
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
+    manifest_snapshot = archive_path.read_bytes()
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -489,7 +498,6 @@ def main() -> int:
         DEVINT_PROMOTION_REPORT=str(promotion_report_path),
         DEVINT_REPO_PATHS_JSON=json.dumps({name: str(path) for name, path in repo_paths.items()}),
         DEVINT_REPO_STATES_JSON=json.dumps(repo_states),
-        DEVINT_SESSION_ARCHIVE=str(archive_path),
         DEVINT_SESSION_FILE=str(current_manifest_path),
         DEVINT_SESSION_ID=session_id,
         DEVINT_STATE_ROOT=str(paths["state_root"]),
@@ -511,6 +519,7 @@ def main() -> int:
     except KeyboardInterrupt:
         returncode = 130
     write_execution_result(
+        manifest_snapshot=manifest_snapshot,
         manifest_path=archive_path,
         result_path=result_path,
         returncode=returncode,

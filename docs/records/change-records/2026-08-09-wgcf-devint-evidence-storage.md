@@ -3,16 +3,17 @@
 ## Summary
 
 - Date: 2026-08-09
-- Short title: WGCF dev-integration evidence storage acceptance
+- Short title: WGCF dev-integration evidence storage commissioning acceptance
 - Environment: dev-integration
 - Severity: normal platform enablement
 
 ## Classification
 
 - Type: shared component dev-integration admission extension
-- User-facing impact: WGCF can prove bounded local Delivery ART evidence
-  custody, digest verification, backup, and restore without exposing raw
-  object-store access to OOS, OpenProject, or a public endpoint.
+- User-facing impact: WGCF has a bounded local Delivery ART evidence-custody
+  design ready for governed dev-integration activation and post-activation
+  commissioning, without exposing raw object-store access to OOS, OpenProject,
+  or a public endpoint.
 
 ## Ownership
 
@@ -42,7 +43,8 @@
 
 ## Runtime Decision
 
-Platform accepts the following bounded local profile extension:
+Platform accepts the following bounded local profile extension for controlled
+dev-integration activation and post-activation commissioning:
 
 - one namespace-local MinIO/S3-compatible StatefulSet, Service, and 2Gi PVC
 - separate storage-admin and WGCF API credentials
@@ -61,6 +63,14 @@ transport or at-rest encryption. Stage and production remain denied pending
 approved workload identity, secret delivery, encryption, retention, deletion,
 backup, restore, and Security gates.
 
+This record authorizes the workspace registry to activate the local profile so
+the final commissioning sequence can run. It is not final operating evidence
+for the latest hardening. The owner action intentionally rejects an authority
+contract that is not on `origin/main`, so exact-head restore and smoke proof can
+only run after the owner, Platform, and registry PRs land in dependency order.
+ART #811 remains open until that post-activation proof is retained in a merged
+addendum.
+
 ## Source Changes
 
 - Repo: `workspace-governance-control-fabric`
@@ -74,6 +84,13 @@ backup, restore, and Security gates.
     dev-integration action, re-executing the runner from the selected Platform
     checkout, and dispatching the selected owner worktree rather than a
     different default checkout
+- Uncommissioned hardening validated in source before activation:
+  - WGCF `99b3bc3c3488e990268808fe31b56b6b3692cc01`, including transactional
+    restore, sealed restore inputs, exact restored-claim whitelisting, and
+    direct hashing of the sealed archive descriptor
+  - Platform `6cd9335a625576ab75c4eb1a3c1b92b71288201a`, including delayed
+    self-contained action-evidence publication and Bubblewrap PID-namespace
+    containment for all action descendants
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - same-key overwrite proof that retrieves the accepted bytes by version ID
@@ -152,6 +169,12 @@ backup, restore, and Security gates.
   CONFIRM=reset-wgcf-evidence`.
 
 ## Live Verification
+
+The retained sessions below are historical operating proof for the bounded
+storage design at the explicitly recorded source heads. They do not claim that
+the later uncommissioned hardening listed above has run live. Final acceptance
+requires a new restore and read-only smoke sequence after the workspace
+authority contract lands and the profile becomes launchable from merged source.
 
 - Executed sessions:
   - `governance-control-fabric-mfshaf7-20260809T140544Z`
@@ -237,7 +260,11 @@ backup, restore, and Security gates.
 
 ## Follow-Up
 
-- Required follow-up: governed stage or production design must separately
+- Required commissioning follow-up: after the owner, Platform, and workspace
+  registry PRs merge, rerun confirmed restore and read-only smoke through the
+  merged shared runner, retain the exact source-manifest/result bindings, and
+  merge the evidence addendum before closing ART #811.
+- Required future follow-up: governed stage or production design must separately
   close workload identity, transport and at-rest encryption, retention,
   deletion, backup, restore, and Security approval gates.
 - Optional hardening: replace local profile credentials and storage classes

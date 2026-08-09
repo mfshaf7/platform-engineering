@@ -323,6 +323,25 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 ],
             )
 
+    def test_platform_override_rejects_runner_symlink_escape(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-reexec-") as temp_dir:
+            root = Path(temp_dir)
+            selected_root = root / "platform-engineering"
+            selected_runner = selected_root / "scripts/dev_integration.py"
+            selected_runner.parent.mkdir(parents=True)
+            outside_runner = root / "outside-runner.py"
+            outside_runner.write_text("# external runner\n", encoding="utf-8")
+            selected_runner.symlink_to(outside_runner)
+
+            with self.assertRaisesRegex(
+                SystemExit,
+                "Selected Platform runner escapes the selected owner checkout",
+            ):
+                DEV_INTEGRATION.reexec_from_selected_platform_checkout(
+                    {"platform-engineering": selected_root},
+                    workspace_root=Path("/original/workspace"),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

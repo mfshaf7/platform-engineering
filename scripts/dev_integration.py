@@ -98,15 +98,14 @@ def reexec_from_selected_platform_checkout(
     selected_root = repo_overrides.get("platform-engineering")
     if selected_root is None:
         return
-    selected_runner = (selected_root / "scripts/dev_integration.py").resolve()
+    selected_runner = resolve_owner_file(
+        selected_root,
+        "scripts/dev_integration.py",
+        description="Selected Platform runner",
+    )
     current_runner = Path(__file__).resolve()
     if selected_runner == current_runner:
         return
-    if not selected_runner.is_file():
-        raise SystemExit(
-            "Selected platform-engineering checkout does not contain the shared "
-            f"dev-integration runner: {selected_runner}"
-        )
     forwarded_args = list(sys.argv[1:])
     if not any(
         arg == "--workspace-root" or arg.startswith("--workspace-root=")

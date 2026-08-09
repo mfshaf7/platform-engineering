@@ -12,7 +12,10 @@ WGCF now has a local dev-integration API access path.
 - evidence store: namespace-internal MinIO/S3-compatible Service and PVC
 - worker endpoint: none
 
-Operators should use the shared dev-integration runner:
+After the `governance-control-fabric` profile is active in the
+`workspace-governance` registry on remote `main`, operators should use the
+shared dev-integration runner. Until then, the owner authority gate rejects
+these evidence-storage actions:
 
 ```bash
 make devint-up PROFILE=governance-control-fabric

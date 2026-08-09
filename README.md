@@ -200,7 +200,7 @@ product-neutral.
   - `make devint-backup PROFILE=<profile>`
   - `make devint-restore PROFILE=<profile> BACKUP_FILE=<path> CONFIRM=<profile-confirmation>`
   - `make devint-down PROFILE=<profile>`
-  - `make devint-reset PROFILE=<profile>`
+  - `make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>`
   - `make devint-promote-check PROFILE=<profile>`
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill`
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill`

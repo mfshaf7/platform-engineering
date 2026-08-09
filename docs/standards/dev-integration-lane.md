@@ -123,7 +123,14 @@ these operator commitments explicit:
 - local branches
 - git worktrees
 - local-only commits
-- dirty working trees
+- dirty owner and declared source working trees
+
+The selected `platform-engineering` checkout that supplies the shared runner is
+the exception: it must be clean so the mandatory execution-source manifest
+binds the runner to one exact Git head. This does not require owner work to be
+clean or pushed. Dirty owner and declared source repos are bound by the pair of
+their recorded Git head and a `working_tree_sha256` over every Git-visible
+changed or untracked path, including path, type, mode, and current content.
 
 It does not require:
 
@@ -149,10 +156,38 @@ Every `dev-integration` run must record:
   - branch
   - head SHA
   - dirty or clean
+  - working-tree SHA-256 when dirty
   - upstream tracking state
   - whether a path override or worktree was used
 
-The session manifest is local-only and does not become governed evidence.
+For a clean repo, the head SHA is the source identity and
+`working_tree_sha256` is null. For a dirty repo, the head SHA plus
+`working_tree_sha256` identifies the Git-visible source bytes observed before
+dispatch. The current session manifest is local-only and does not become governed evidence.
+The shared runner also retains a no-overwrite manifest and result receipt for
+every dispatched action under the session archive. Those action records bind
+the result to the exact source state observed before dispatch. The owner action
+receives the mutable current-session context, but it does not receive the final
+archive or result paths. After the action returns, the runner closes its direct
+process group and publishes the action record. The result embeds the complete
+source manifest as well as its digest. Both archive files are created
+exclusively and made read-only after publication, so the runner itself cannot
+overwrite an earlier action record.
+
+Owner actions execute with the host and cluster access declared by their
+profile. The shared runner is not a security sandbox, and the selected owner
+code, operator account, and local host remain inside the trust boundary. The
+local action files are provisional diagnostics, not tamper-resistant evidence
+or approval authority. A Review Packet may use them as supporting local context
+only when its completion claim is independently bound to reviewed source and
+the required CI-equivalent validation.
+
+When an owner repo path override is selected, that checkout supplies the
+profile definition, working directory, command path, and recorded Git state as
+one boundary; the runner re-executes itself from a selected
+`platform-engineering` checkout and preserves the already resolved workspace
+root across that boundary. It must not record one checkout while executing
+another. The local files do not become governance authority by themselves.
 
 ## Required Operator Actions
 

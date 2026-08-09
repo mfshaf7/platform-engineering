@@ -71,7 +71,18 @@ Current active profiles:
   - lane class: `governed-devint`
   - profile path:
     [workspace-governance-control-fabric/dev-integration/profiles/governance-control-fabric/profile.yaml](https://github.com/mfshaf7/workspace-governance-control-fabric/blob/main/dev-integration/profiles/governance-control-fabric/profile.yaml)
-  - role: local-k3s API and PostgreSQL runtime access for Governance Operations Console and WGCF API contract iteration
+  - role: local-k3s API, PostgreSQL, and isolated S3-compatible evidence-custody
+    access for Governance Operations Console and WGCF contract iteration
+  - storage actions: operator-scoped backup and confirmed digest-preserving,
+    receipt-rebinding restore; server-assigned version IDs are superseded rather
+    than falsely claimed as preserved; governed encryption and stage/prod use
+    remain denied
+  - destructive reset: `make devint-reset PROFILE=governance-control-fabric
+    CONFIRM=reset-wgcf-evidence`
+  - availability: storage-affecting actions are self-serve only while the
+    active workspace registry binds the exact Platform acceptance, actions,
+    and handoff checks declared by the owner profile; during ordered landing
+    they remain dormant until the final registry change reaches `main`
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - lane class: `integration-devint`
@@ -192,7 +203,7 @@ make devint-smoke PROFILE=<profile>
 make devint-backup PROFILE=<profile>
 make devint-restore PROFILE=<profile> BACKUP_FILE=<path> CONFIRM=<profile-confirmation>
 make devint-promote-check PROFILE=<profile>
-make devint-reset PROFILE=<profile>
+make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>
 make devint-down PROFILE=<profile>
 ```
 
@@ -226,6 +237,17 @@ Meaning:
 - `devint-down`
   - stops the profile runtime using the profile's declared state model
 
+Each dispatched action leaves a local manifest/result pair under
+`.dev-integration/sessions/`. The result is self-contained: it records the
+return code, source-manifest digest, and complete source manifest captured
+before dispatch. The shared runner creates these read-only records only after
+the owner action returns and its direct process group has been closed. The
+runner creates each path exclusively and never overwrites an earlier record.
+Owner actions still run with their declared host and cluster access; this is
+not a security sandbox, and these local files are not protected evidence. Use
+the record digests only as provisional local handoff inputs, never as
+standalone completion or rollout authority.
+
 State-model rule:
 
 - `disposable` profiles
@@ -247,7 +269,12 @@ Important boundaries:
 - `dev-integration` is local only
 - it is not governed rollout evidence
 - it must not write to governed `stage` or `prod` backends
-- it may use local branches, worktrees, and dirty state
+- owner and declared source repos may use local branches, worktrees, and dirty
+  state; the runner records a working-tree SHA-256 for dirty sources so
+  different local source bytes do not share one manifest identity
+- the selected `platform-engineering` checkout that supplies the shared runner
+  must be clean so its recorded Git head identifies the executing control-plane
+  code exactly
 - it still requires a governed handoff before `stage`
 - the active profile README and `stage_handoff.required_checks` are part of
   that handoff contract, not optional notes

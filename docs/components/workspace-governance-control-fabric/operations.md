@@ -2,12 +2,17 @@
 
 ## Current Operational Posture
 
-WGCF has local dev-integration operations only.
+WGCF has local dev-integration operations only. The evidence-storage actions
+below remain dormant until the `governance-control-fabric` profile is active in
+the `workspace-governance` registry on remote `main`. Before that activation,
+the owner-side authority gate rejects launch, smoke, backup, restore, suspend,
+and reset rather than treating Platform acceptance as runtime authority.
 
-Current operations are local-k3s dev-integration:
+After that registry activation, the available operations are local-k3s
+dev-integration:
 
-- launch, inspect, smoke, and suspend the active local-k3s dev-integration API
-  and PostgreSQL profile
+- launch, inspect, smoke, suspend, back up, and restore the active local-k3s
+  API, PostgreSQL, and evidence-storage profile
 - run project validation in the implementation repo
 - run unit tests in the implementation repo
 - use local CLI status, graph, plan, check, and receipt-list commands
@@ -24,10 +29,26 @@ make devint-status PROFILE=governance-control-fabric
 make devint-smoke PROFILE=governance-control-fabric
 make devint-access PROFILE=governance-control-fabric
 make devint-down PROFILE=governance-control-fabric
+make devint-backup PROFILE=governance-control-fabric
+make devint-restore PROFILE=governance-control-fabric \
+  BACKUP_FILE=/path/to/wgcf-evidence-backup.tar.gz \
+  CONFIRM=restore-wgcf-evidence
 ```
 
-The profile runs PostgreSQL as persistent local-k3s state and runs database
-migrations before the API rollout is considered available.
+The profile runs PostgreSQL and object storage as persistent local-k3s state.
+It runs database migrations, provisions one profile bucket with a non-delete
+API policy, proves a same-key overwrite preserves an accepted object version,
+restores the accepted payload as current, and writes a version-qualified
+storage receipt before the API rollout is considered available.
+
+`down` preserves both PVCs. `backup` exports current object bodies, exact
+receipt-bound versions, receipts, and SHA-256 values without credentials.
+`restore` requires exact confirmation, captures a pre-restore backup, restores
+the exact object set, creates newly verified server-assigned versions, reissues
+the affected receipts, and records old-to-new supersession mappings. It fails
+if any content address changes or receipt cannot be rebound. `reset` requires
+`CONFIRM=reset-wgcf-evidence` before the operator-scoped namespace and local
+state are removed.
 
 ## Deployment Readiness Checklist
 
@@ -44,8 +65,9 @@ Before platform deployment work starts, confirm:
   identity, idempotency, retry, and audit behavior are approved
 - OPA inputs and policy ownership are defined without copying authority truth
   into WGCF
-- artifact custody is denied by default until MinIO or S3 retention and
-  redaction rules are approved
+- local artifact custody stays profile-scoped and governed promotion is denied
+  until transport and at-rest encryption, workload identity, retention,
+  deletion, and redaction rules are approved
 - observability uses existing platform surfaces instead of a custom backend
 - Prometheus remains the current health and metrics surface; OpenTelemetry
   correlation can be added later without replacing platform observability

@@ -21,18 +21,29 @@ not own WGCF contracts, workspace governance doctrine, or security acceptance.
 - [release-governance.md](release-governance.md)
 - [validator-invocation-gates.md](validator-invocation-gates.md)
 
-## Current Live Footprint
+## Current Local Footprint
 
-- dev-integration profile: `governance-control-fabric`
-- dev-integration namespace: `devint-governance-control-fabric-<operator>`
-- dev-integration storage: local PostgreSQL StatefulSet and PVC
+- registered profile: `governance-control-fabric`
+- retained proof namespace: `devint-governance-control-fabric-<operator>`
+- retained proof storage: local PostgreSQL plus profile-scoped MinIO/S3-compatible
+  evidence storage on separate PVCs
+- current evidence-storage lifecycle: dormant until the profile activation in
+  the `workspace-governance` registry reaches remote `main`
 - Argo application: none
 - direct operator UI: none
 - deployment status: not approved for `stage` or `prod`
 
-WGCF currently has implementation source plus active local-k3s dev-integration
-API and PostgreSQL access. Governed stage/prod deployment remains blocked until
-platform release gates and security review explicitly approve that deployment
+WGCF currently has implementation source plus retained historical proof for its
+local-k3s API, PostgreSQL, and isolated evidence storage. The reviewed object
+store shape uses an API-only bucket credential, a separate storage-admin
+credential, namespace-local network policy, explicit backup and restore actions,
+and reference-only local receipts. Those actions remain dormant until registry
+activation; no public object URL or credential is exposed to OOS or OpenProject.
+
+The local profile does not claim governed transport encryption or encrypted
+local-path storage. Governed stage/prod deployment remains blocked until
+Platform identity, secret delivery, transport and at-rest encryption, backup,
+restore, retention, deletion, and Security gates explicitly approve that
 posture.
 
 ## Owner Boundaries
@@ -54,7 +65,8 @@ approved runtime shape for:
 - bounded, idempotent governance activity contracts for OOS-mediated durable
   workflows, when activity execution is activated
 - OPA/Rego policy evaluation
-- MinIO or S3 artifact custody, when full artifact preservation is required
+- MinIO or S3 artifact custody with governed encryption and lifecycle controls
+  beyond the bounded local profile
 - identity, secrets, network exposure, observability, backup, and rollback
 
 None of those dependencies are approved by this document alone.

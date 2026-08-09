@@ -22,6 +22,11 @@ the finalized source Review Packet, and the component operations guide; a
 change record becomes required only when a later authorized proof changes live
 runtime state.
 
+The current bounded WGCF local storage proof is recorded in
+[2026-08-09-wgcf-devint-evidence-storage.md](2026-08-09-wgcf-devint-evidence-storage.md)
+and implements
+[ADR-019](../../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md).
+
 ## Goals
 
 Each record should make it easy to answer:

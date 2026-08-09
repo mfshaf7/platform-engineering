@@ -9,9 +9,13 @@ WGCF now has a local dev-integration API access path.
 - direct browser UI: none
 - API endpoint: local k3s Service exposed by `make devint-access`
 - metadata store: local k3s PostgreSQL StatefulSet and PVC
+- evidence store: namespace-internal MinIO/S3-compatible Service and PVC
 - worker endpoint: none
 
-Operators should use the shared dev-integration runner:
+After the `governance-control-fabric` profile is active in the
+`workspace-governance` registry on remote `main`, operators should use the
+shared dev-integration runner. Until then, the owner authority gate rejects
+these evidence-storage actions:
 
 ```bash
 make devint-up PROFILE=governance-control-fabric
@@ -19,7 +23,16 @@ make devint-status PROFILE=governance-control-fabric
 make devint-smoke PROFILE=governance-control-fabric
 make devint-access PROFILE=governance-control-fabric
 make devint-down PROFILE=governance-control-fabric
+make devint-backup PROFILE=governance-control-fabric
+make devint-restore PROFILE=governance-control-fabric \
+  BACKUP_FILE=/path/to/wgcf-evidence-backup.tar.gz \
+  CONFIRM=restore-wgcf-evidence
 ```
+
+The object store has no direct operator UI or public endpoint. The WGCF API
+Deployment is the only long-running workload that receives the bucket-scoped
+application credential. Storage maintenance actions use an isolated temporary
+pod and leave reference-only receipts in the operator profile state.
 
 The local source repo commands remain valid for implementation checks:
 
@@ -55,5 +68,6 @@ Do not:
 - bypass platform identity with a shared static API key
 - read raw artifacts through WGCF unless artifact custody and redaction policy
   are approved
+- give OOS or OpenProject a storage credential or direct object URL
 - run WGCF validator invocation as a replacement for direct validators before
   the platform gate and workspace shadow-parity gate both pass

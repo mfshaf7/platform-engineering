@@ -16,6 +16,10 @@ Use it when you need to answer practical operator questions such as:
 
 Last validated against the live local cluster on `2026-04-19`.
 
+That date applies to the governed Argo topology. The isolated WGCF
+dev-integration profile described below was validated separately on
+`2026-08-09`.
+
 ## Read This With
 
 - [../components/README.md](../components/README.md)
@@ -84,6 +88,23 @@ governed prod lifecycle is presently `suspended`.
 | `operator-orchestration-service` | shared workflow broker | Active and populated |
 | `platform-postgresql` | shared PostgreSQL service for platform products | Active and populated |
 
+## Operator-Scoped Dev-Integration Runtime
+
+Dev-integration profiles are local iteration lanes, not Argo-managed stage or
+production topology. The retained WGCF proof used this bounded namespace
+outside the Argo application inventory; the evidence-storage lifecycle remains
+dormant until the workspace registry activation reaches remote `main`:
+
+| Namespace | Owner | Populated workloads | Exposure | Current state |
+| --- | --- | --- | --- | --- |
+| `devint-governance-control-fabric-mfshaf7` | WGCF dev-integration profile | WGCF API and migration, PostgreSQL, MinIO object storage, exact maintenance Job | ClusterIP only; operator access through the shared profile runner or explicit loopback port-forward | Historical local proof retained; current evidence-storage actions dormant pending registry activation; no stage or production authority |
+
+The storage Service, StatefulSet, 2Gi PVC, application credential, root
+credential, and NetworkPolicy are profile-owned. OOS and OpenProject receive no
+object-store URL or credential. See
+[ADR-019](../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md)
+and the [WGCF operations guide](../components/workspace-governance-control-fabric/operations.md).
+
 ## Operator-Facing Surfaces
 
 These are the current direct operator-facing surfaces:
@@ -125,6 +146,9 @@ These surfaces should not be documented as if they are directly reachable today:
 - `operator-orchestration-service`
   - internal-only shared broker service
   - no direct operator UI
+- WGCF dev-integration evidence storage
+  - internal-only, operator-scoped local service
+  - no public, Windows localhost, stage, or production access path
 - OpenClaw prod gateway
   - no dedicated browser UI today
   - currently absent because prod OpenClaw is suspended

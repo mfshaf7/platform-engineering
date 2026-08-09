@@ -320,6 +320,7 @@ render-windows-bootstrap:
 .PHONY: validate
 validate:
 	python3 scripts/validate_repo_structure.py
+	python3 scripts/test_dev_integration.py
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py
 	python3 scripts/validate_operational_docs.py

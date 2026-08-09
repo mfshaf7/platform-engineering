@@ -2,13 +2,20 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import signal
+import stat
 import subprocess
 import sys
+import time
+from typing import Protocol
+from uuid import uuid4
 
 import yaml
 
@@ -28,12 +35,23 @@ ACTIONS = {
 ACTIVE_ONLY_ACTIONS = {"access", "backup", "restore", "up", "smoke"}
 
 
+class DigestWriter(Protocol):
+    def update(self, value: bytes) -> None: ...
+
+
 def load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text()) or {}
 
 
 def dump_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False))
+
+
+def dump_yaml_exclusive(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as stream:
+        stream.write(yaml.safe_dump(payload, sort_keys=False))
+    path.chmod(0o600)
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> str:
@@ -48,6 +66,99 @@ def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> str:
     if output:
         return output
     return (result.stderr or "").strip()
+
+
+def run_bytes(cmd: list[str], *, cwd: Path | None = None) -> bytes:
+    return subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
+def _add_digest_field(digest: DigestWriter, label: bytes, value: bytes) -> None:
+    digest.update(len(label).to_bytes(4, "big"))
+    digest.update(label)
+    digest.update(len(value).to_bytes(8, "big"))
+    digest.update(value)
+
+
+def working_tree_sha256(repo_root: Path) -> str:
+    changed_paths = run_bytes(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            "HEAD",
+            "--",
+        ]
+    ).split(b"\0")
+    untracked_paths = run_bytes(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ]
+    ).split(b"\0")
+    digest = hashlib.sha256()
+    for raw_path in sorted({path for path in (*changed_paths, *untracked_paths) if path}):
+        path = repo_root / os.fsdecode(raw_path)
+        _add_digest_field(digest, b"path", raw_path)
+        try:
+            path_stat = path.lstat()
+        except FileNotFoundError:
+            _add_digest_field(digest, b"kind", b"missing")
+            continue
+        _add_digest_field(digest, b"mode", f"{stat.S_IMODE(path_stat.st_mode):04o}".encode())
+        if stat.S_ISREG(path_stat.st_mode):
+            content_digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    content_digest.update(chunk)
+            _add_digest_field(digest, b"kind", b"file")
+            _add_digest_field(digest, b"content_sha256", content_digest.digest())
+        elif stat.S_ISLNK(path_stat.st_mode):
+            _add_digest_field(digest, b"kind", b"symlink")
+            _add_digest_field(digest, b"target", os.fsencode(os.readlink(path)))
+        elif stat.S_ISDIR(path_stat.st_mode):
+            submodule_head = run_bytes(
+                ["git", "-C", str(path), "rev-parse", "HEAD"]
+            ).strip()
+            submodule_dirty = bool(
+                run_bytes(
+                    [
+                        "git",
+                        "-C",
+                        str(path),
+                        "status",
+                        "--porcelain=v1",
+                        "-z",
+                        "--untracked-files=all",
+                    ]
+                )
+            )
+            _add_digest_field(digest, b"kind", b"submodule")
+            _add_digest_field(digest, b"submodule_head", submodule_head)
+            if submodule_dirty:
+                _add_digest_field(
+                    digest,
+                    b"submodule_working_tree_sha256",
+                    working_tree_sha256(path).encode(),
+                )
+        else:
+            raise SystemExit(f"Unsupported Git-visible source path type: {path}")
+    return digest.hexdigest()
 
 
 def slugify(value: str) -> str:
@@ -77,6 +188,35 @@ def parse_repo_overrides(entries: list[str]) -> dict[str, Path]:
             raise SystemExit(f"--repo-path entries must look like repo=/abs/path, got {entry!r}")
         overrides[repo_name] = Path(raw_path).expanduser().resolve()
     return overrides
+
+
+def reexec_from_selected_platform_checkout(
+    repo_overrides: dict[str, Path],
+    *,
+    workspace_root: Path,
+) -> None:
+    selected_root = repo_overrides.get("platform-engineering")
+    if selected_root is None:
+        return
+    selected_runner = resolve_owner_file(
+        selected_root,
+        "scripts/dev_integration.py",
+        description="Selected Platform runner",
+    )
+    current_runner = Path(__file__).resolve()
+    if selected_runner == current_runner:
+        return
+    forwarded_args = list(sys.argv[1:])
+    if not any(
+        arg == "--workspace-root" or arg.startswith("--workspace-root=")
+        for arg in forwarded_args
+    ):
+        forwarded_args.extend(["--workspace-root", str(workspace_root)])
+    os.execv(
+        sys.executable,
+        [sys.executable, str(selected_runner), *forwarded_args],
+    )
+    raise RuntimeError("failed to execute the selected Platform runner")
 
 
 def git_state(repo_root: Path, *, workspace_root: Path) -> dict:
@@ -115,14 +255,55 @@ def git_state(repo_root: Path, *, workspace_root: Path) -> dict:
         "top_level": str(top_level),
         "upstream": upstream,
         "uses_worktree": git_dir_path != common_dir_path,
+        "working_tree_sha256": working_tree_sha256(repo_root) if dirty else None,
     }
 
 
-def load_registry(workspace_root: Path) -> tuple[dict, dict]:
-    governance_root = workspace_root / "workspace-governance"
-    policy = load_yaml(governance_root / "contracts" / "developer-integration-policy.yaml")
-    registry = load_yaml(governance_root / "contracts" / "developer-integration-profiles.yaml")
+def load_registry(
+    workspace_root: Path,
+    repo_overrides: dict[str, Path],
+) -> tuple[dict, dict]:
+    governance_root = repo_overrides.get(
+        "workspace-governance",
+        workspace_root / "workspace-governance",
+    ).resolve()
+    policy_path = resolve_owner_file(
+        governance_root,
+        "contracts/developer-integration-policy.yaml",
+        description="Dev-integration lifecycle policy",
+    )
+    registry_path = resolve_owner_file(
+        governance_root,
+        "contracts/developer-integration-profiles.yaml",
+        description="Dev-integration profile registry",
+    )
+    policy = load_yaml(policy_path)
+    registry = load_yaml(registry_path)
     return policy, registry
+
+
+def resolve_owner_file(
+    owner_repo_root: Path,
+    configured_path: str,
+    *,
+    description: str,
+) -> Path:
+    relative_path = Path(configured_path)
+    if relative_path.is_absolute():
+        raise SystemExit(f"{description} must be owner-relative: {configured_path}")
+    try:
+        resolved_path = (owner_repo_root / relative_path).resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise SystemExit(f"{description} is unavailable: {configured_path}") from exc
+    try:
+        resolved_path.relative_to(owner_repo_root)
+    except ValueError as exc:
+        raise SystemExit(
+            f"{description} escapes the selected owner checkout: {configured_path}"
+        ) from exc
+    if not resolved_path.is_file():
+        raise SystemExit(f"{description} is not a file: {configured_path}")
+    return resolved_path
 
 
 def resolve_profile(
@@ -132,7 +313,7 @@ def resolve_profile(
     profile_id: str,
     repo_overrides: dict[str, Path],
 ) -> tuple[dict, dict, Path, Path, dict[str, Path], dict[str, dict]]:
-    policy, registry = load_registry(workspace_root)
+    policy, registry = load_registry(workspace_root, repo_overrides)
     try:
         entry = registry["profiles"][profile_id]
     except KeyError as exc:
@@ -146,19 +327,64 @@ def resolve_profile(
             "Request or complete admission first, then activate the profile before launching or rehearsing it from the shared runner."
         )
 
-    owner_repo_root = workspace_root / entry["owner_repo"]
-    profile_path = owner_repo_root / entry["profile_path"]
+    owner_repo_root = repo_overrides.get(
+        entry["owner_repo"],
+        workspace_root / entry["owner_repo"],
+    ).resolve()
+    if not owner_repo_root.exists():
+        raise SystemExit(
+            f"Owner repo path for {entry['owner_repo']!r} does not exist: "
+            f"{owner_repo_root}"
+        )
+    profile_path = resolve_owner_file(
+        owner_repo_root,
+        entry["profile_path"],
+        description=f"Profile {profile_id!r}",
+    )
     profile = load_yaml(profile_path)
 
     repo_paths: dict[str, Path] = {}
     repo_states: dict[str, dict] = {}
-    for raw_entry in profile["source_repos"]:
-        repo_name = raw_entry["repo"] if isinstance(raw_entry, dict) else raw_entry
-        repo_path = repo_overrides.get(repo_name, workspace_root / repo_name).resolve()
+
+    def record_source_repo(repo_name: str, repo_path: Path) -> None:
+        repo_path = repo_path.resolve()
+        if repo_name in repo_paths:
+            if repo_paths[repo_name] != repo_path:
+                raise SystemExit(
+                    f"Source repo {repo_name!r} resolves to conflicting checkouts"
+                )
+            return
         if not repo_path.exists():
             raise SystemExit(f"Source repo path for {repo_name!r} does not exist: {repo_path}")
         repo_paths[repo_name] = repo_path
         repo_states[repo_name] = git_state(repo_path, workspace_root=workspace_root)
+
+    for raw_entry in profile["source_repos"]:
+        repo_name = raw_entry["repo"] if isinstance(raw_entry, dict) else raw_entry
+        record_source_repo(
+            repo_name,
+            repo_overrides.get(repo_name, workspace_root / repo_name),
+        )
+
+    record_source_repo(
+        "workspace-governance",
+        repo_overrides.get("workspace-governance", workspace_root / "workspace-governance"),
+    )
+    record_source_repo(
+        "platform-engineering",
+        repo_overrides.get("platform-engineering", Path(__file__).resolve().parents[1]),
+    )
+    if repo_states["platform-engineering"]["dirty"]:
+        raise SystemExit(
+            "Selected Platform runner checkout must be clean so execution provenance "
+            "is bound to its recorded Git head"
+        )
+
+    if repo_paths.get(entry["owner_repo"]) != owner_repo_root:
+        raise SystemExit(
+            f"Profile {profile_id!r} must declare its selected owner repo "
+            f"{entry['owner_repo']!r} as a source repo"
+        )
 
     return entry, profile, owner_repo_root, profile_path, repo_paths, repo_states
 
@@ -199,6 +425,11 @@ def build_manifest(
     state_root: Path,
     workspace_root: Path,
 ) -> dict:
+    execution_id = (
+        f"{session_id}-{slugify(action)}-"
+        f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-"
+        f"{uuid4().hex[:8]}"
+    )
     return {
         "schema_version": 1,
         "lane": "dev-integration",
@@ -211,6 +442,7 @@ def build_manifest(
         "runtime_owner": entry["runtime_owner"],
         "security_owner": entry["security_owner"],
         "action": action,
+        "execution_id": execution_id,
         "operator": operator,
         "namespace": namespace,
         "session_id": session_id,
@@ -222,18 +454,54 @@ def build_manifest(
     }
 
 
-def write_session_files(
+def prepare_session_files(
     *,
     manifest: dict,
     current_manifest: Path,
     sessions_root: Path,
-) -> Path:
+) -> tuple[Path, Path, bytes]:
     current_manifest.parent.mkdir(parents=True, exist_ok=True)
-    sessions_root.mkdir(parents=True, exist_ok=True)
-    dump_yaml(current_manifest, manifest)
-    archive_path = sessions_root / f"{manifest['session_id']}.yaml"
-    dump_yaml(archive_path, manifest)
-    return archive_path
+    session_root = sessions_root / manifest["session_id"]
+    archive_path = session_root / f"{manifest['execution_id']}.manifest.yaml"
+    result_path = session_root / f"{manifest['execution_id']}.result.yaml"
+    manifest_snapshot = yaml.safe_dump(manifest, sort_keys=False).encode()
+    current_manifest.write_bytes(manifest_snapshot)
+    current_manifest.chmod(0o600)
+    return archive_path, result_path, manifest_snapshot
+
+
+def write_execution_result(
+    *,
+    manifest_snapshot: bytes,
+    manifest_path: Path,
+    result_path: Path,
+    returncode: int,
+) -> None:
+    manifest = yaml.safe_load(manifest_snapshot)
+    if not isinstance(manifest, dict):
+        raise SystemExit("Archived dev-integration source manifest must be a mapping.")
+    payload = {
+        "schema_version": 1,
+        "lane": "dev-integration",
+        "profile_id": manifest["profile_id"],
+        "session_id": manifest["session_id"],
+        "execution_id": manifest["execution_id"],
+        "action": manifest["action"],
+        "result": "succeeded" if returncode == 0 else "failed",
+        "returncode": returncode,
+        "manifest_path": str(manifest_path),
+        "manifest_sha256": hashlib.sha256(manifest_snapshot).hexdigest(),
+        "source_manifest": manifest,
+        "completed_at": now_utc(),
+    }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with manifest_path.open("xb") as stream:
+        stream.write(manifest_snapshot)
+        stream.flush()
+        os.fsync(stream.fileno())
+    manifest_path.chmod(0o400)
+    dump_yaml_exclusive(result_path, payload)
+    result_path.chmod(0o400)
 
 
 def render_promotion_report(
@@ -271,16 +539,78 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
-def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> None:
+def terminate_process_group(process_group_id: int, timeout: float = 2.0) -> None:
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process_group_id, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(process_group_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def dispatch_command(
+    command_path: Path,
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    publish_result: Callable[[int], None] | None = None,
+) -> int:
     if command_path.suffix == ".sh":
-        cmd = ["bash", str(command_path)]
+        command = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
-        cmd = ["python3", str(command_path)]
+        command = ["python3", str(command_path)]
     else:
-        cmd = [str(command_path)]
-    result = subprocess.run(cmd, cwd=str(cwd), env=env, check=False, text=True)
-    if result.returncode:
-        raise SystemExit(result.returncode)
+        command = [str(command_path)]
+    process: subprocess.Popen[str] | None = None
+    received_signal: int | None = None
+
+    def stop_action(signum: int, _frame: object) -> None:
+        nonlocal received_signal
+        received_signal = signum
+        if process is not None:
+            terminate_process_group(process.pid)
+
+    previous_handlers = {
+        signum: signal.signal(signum, stop_action)
+        for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM)
+    }
+    try:
+        if received_signal is not None:
+            returncode = 128 + received_signal
+        else:
+            process = subprocess.Popen(
+                command,
+                cwd=str(cwd),
+                env=env,
+                start_new_session=True,
+                text=True,
+            )
+            if received_signal is not None:
+                terminate_process_group(process.pid)
+            returncode = process.wait()
+            terminate_process_group(process.pid)
+            process = None
+        if received_signal is not None:
+            returncode = 128 + received_signal
+        if publish_result is not None:
+            publish_result(returncode)
+        if received_signal is not None:
+            returncode = 128 + received_signal
+        return returncode
+    finally:
+        if process is not None:
+            terminate_process_group(process.pid)
+        for signum, previous_handler in previous_handlers.items():
+            signal.signal(signum, previous_handler)
 
 
 def main() -> int:
@@ -309,6 +639,10 @@ def main() -> int:
     workspace_root = args.workspace_root.resolve()
     operator = args.operator or run(["whoami"])
     repo_overrides = parse_repo_overrides(args.repo_path)
+    reexec_from_selected_platform_checkout(
+        repo_overrides,
+        workspace_root=workspace_root,
+    )
 
     entry, profile, owner_repo_root, profile_path, repo_paths, repo_states = resolve_profile(
         action=ACTIONS[args.action],
@@ -366,11 +700,12 @@ def main() -> int:
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )
-    archive_path = write_session_files(
+    archive_path, result_path, manifest_snapshot = prepare_session_files(
         manifest=manifest,
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
+    paths["sessions_root"].mkdir(parents=True, exist_ok=True)
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -389,7 +724,6 @@ def main() -> int:
         DEVINT_PROMOTION_REPORT=str(promotion_report_path),
         DEVINT_REPO_PATHS_JSON=json.dumps({name: str(path) for name, path in repo_paths.items()}),
         DEVINT_REPO_STATES_JSON=json.dumps(repo_states),
-        DEVINT_SESSION_ARCHIVE=str(archive_path),
         DEVINT_SESSION_FILE=str(current_manifest_path),
         DEVINT_SESSION_ID=session_id,
         DEVINT_STATE_ROOT=str(paths["state_root"]),
@@ -405,14 +739,32 @@ def main() -> int:
             f"dev-integration profile {args.profile!r} does not implement action {command_key!r}. "
             f"Available actions: {available_actions or 'none'}."
         ) from exc
-    command_path = workspace_root / entry["owner_repo"] / command_relpath
-    dispatch_command(command_path, cwd=owner_repo_root, env=env)
+    command_path = resolve_owner_file(
+        owner_repo_root,
+        command_relpath,
+        description=f"Profile {args.profile!r} action {command_key!r}",
+    )
+    returncode = dispatch_command(
+        command_path,
+        cwd=owner_repo_root,
+        env=env,
+        publish_result=lambda action_returncode: write_execution_result(
+            manifest_snapshot=manifest_snapshot,
+            manifest_path=archive_path,
+            result_path=result_path,
+            returncode=action_returncode,
+        ),
+    )
+    if returncode:
+        raise SystemExit(returncode)
 
     print(
         "dev-integration action complete: "
         f"profile={args.profile} action={args.action} namespace={namespace} session={session_id}"
     )
     print(f"session manifest: {current_manifest_path}")
+    print(f"archived action manifest: {archive_path}")
+    print(f"action result: {result_path}")
     if ACTIONS[args.action] == "promote_check":
         print(f"promotion report: {promotion_report_path}")
     return 0

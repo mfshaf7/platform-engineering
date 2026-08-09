@@ -40,8 +40,11 @@ Current allowed posture:
 - local source validation
 - local CLI status, graph, plan, check, and receipt-list commands
 - local receipt and ledger files
-- active local-k3s `dev-integration` API plus PostgreSQL profile for fast API
-  contract and console-consumption iteration
+- retained historical local-k3s `dev-integration` API and PostgreSQL proof for
+  API contract and console-consumption iteration
+- retained historical MinIO/S3-compatible evidence-custody proof; the current
+  storage lifecycle remains dormant until workspace-registry activation reaches
+  remote `main`
 
 Current denied posture:
 
@@ -59,7 +62,7 @@ Current denied posture:
 | PostgreSQL | Metadata, graph, receipt, readiness, and ledger state | Reuse the platform PostgreSQL pattern only after data ownership, backup, restore, and migration gates are defined for WGCF. |
 | OOS and Temporal orchestration path | OOS-owned aggregate workflows may dispatch bounded WGCF validation and readiness activities through the Platform-owned Temporal runtime. | Keep activity execution non-running until OOS workflow ownership, WGCF activity idempotency, identity, retry, audit, and runtime admission are approved. WGCF must not own aggregate orchestration. |
 | OPA/Rego | Policy evaluation engine | Use OPA as an evaluator of authority-backed policy inputs; do not move policy truth out of `workspace-governance`. |
-| MinIO/S3 | Full artifact custody for enterprise evidence | Add only when raw artifact retention, redaction, encryption, retention, and access policy are approved. |
+| MinIO/S3 | Full artifact custody for enterprise evidence | The local profile proves isolated storage mechanics and content-address-preserving backup/restore only. Governed use still requires approved workload identity, encryption, retention, deletion, and access policy. |
 | Observability | Metrics, logs, traces, and operator health | Integrate with the existing platform observability model; do not introduce a custom observability backend. |
 | Validator invocation gates | Platform profile control for WGCF planned checks and receipts | Use the approved profile gates in [validator-invocation-gates.md](validator-invocation-gates.md); do not let WGCF replace direct validators without workspace shadow parity and rollback. |
 
@@ -89,3 +92,4 @@ The platform deployment shape must not:
 - treat compact receipts as the full enterprise evidence store
 - expose direct operator access before identity and authorization controls are
   approved
+- project object-store credentials or artifact bodies into OOS or OpenProject

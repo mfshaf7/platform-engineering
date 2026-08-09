@@ -14,9 +14,11 @@ There is currently no approved:
 - governed stage or prod operator access path
 - approved WGCF validator invocation profile beyond local dev-integration
 
-There is an active local dev-integration access path for API contract
-iteration. That path includes local-k3s PostgreSQL, is local evidence only, and
-is not a governed stage/prod deployment.
+Historical local proof covers API contract and evidence-custody iteration with
+local-k3s PostgreSQL and profile-scoped MinIO. The current evidence-storage
+actions remain dormant until the `governance-control-fabric` profile activation
+reaches remote `workspace-governance/main`; this retained proof is not a
+governed stage/prod deployment or a currently available storage path.
 
 ## Required Gates Before Deployment
 
@@ -30,6 +32,8 @@ The first platform deployment slice must provide:
 - security review for runtime, secret, evidence, and AI-adjacent boundaries
 - observability and support-readiness checks
 - backup and restore expectations for runtime evidence stores
+- governed workload identity and method-scoped object-store authorization
+- transport and at-rest encryption, retention, deletion, and restore evidence
 - validator invocation gates for `devint-shadow`, `stage-readiness`,
   `prod-readiness`, and `break-glass`
 - rollback and suspension procedure

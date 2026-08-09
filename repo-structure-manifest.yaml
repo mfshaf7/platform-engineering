@@ -8,6 +8,7 @@ shared_paths:
       - dispatch_github_workflow_from_k3s_secret.sh
       - platform_drill.py
       - dev_integration.py
+      - test_dev_integration.py
       - migrate_k8s_secret_to_vault.py
       - validate_ai_model_profiles.py
       - validate_environment_readiness.py

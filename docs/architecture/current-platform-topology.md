@@ -91,12 +91,13 @@ governed prod lifecycle is presently `suspended`.
 ## Operator-Scoped Dev-Integration Runtime
 
 Dev-integration profiles are local iteration lanes, not Argo-managed stage or
-production topology. The active WGCF profile currently adds this bounded live
-namespace outside the Argo application inventory:
+production topology. The retained WGCF proof used this bounded namespace
+outside the Argo application inventory; the evidence-storage lifecycle remains
+dormant until the workspace registry activation reaches remote `main`:
 
 | Namespace | Owner | Populated workloads | Exposure | Current state |
 | --- | --- | --- | --- | --- |
-| `devint-governance-control-fabric-mfshaf7` | WGCF dev-integration profile | WGCF API and migration, PostgreSQL, MinIO object storage, exact maintenance Job | ClusterIP only; operator access through the shared profile runner or explicit loopback port-forward | Active local proof; no stage or production authority |
+| `devint-governance-control-fabric-mfshaf7` | WGCF dev-integration profile | WGCF API and migration, PostgreSQL, MinIO object storage, exact maintenance Job | ClusterIP only; operator access through the shared profile runner or explicit loopback port-forward | Historical local proof retained; current evidence-storage actions dormant pending registry activation; no stage or production authority |
 
 The storage Service, StatefulSet, 2Gi PVC, application credential, root
 credential, and NetworkPolicy are profile-owned. OOS and OpenProject receive no

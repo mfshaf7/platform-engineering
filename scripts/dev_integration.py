@@ -166,8 +166,18 @@ def load_registry(
         "workspace-governance",
         workspace_root / "workspace-governance",
     ).resolve()
-    policy = load_yaml(governance_root / "contracts" / "developer-integration-policy.yaml")
-    registry = load_yaml(governance_root / "contracts" / "developer-integration-profiles.yaml")
+    policy_path = resolve_owner_file(
+        governance_root,
+        "contracts/developer-integration-policy.yaml",
+        description="Dev-integration lifecycle policy",
+    )
+    registry_path = resolve_owner_file(
+        governance_root,
+        "contracts/developer-integration-profiles.yaml",
+        description="Dev-integration profile registry",
+    )
+    policy = load_yaml(policy_path)
+    registry = load_yaml(registry_path)
     return policy, registry
 
 
@@ -241,6 +251,20 @@ def resolve_profile(
             raise SystemExit(f"Source repo path for {repo_name!r} does not exist: {repo_path}")
         repo_paths[repo_name] = repo_path
         repo_states[repo_name] = git_state(repo_path, workspace_root=workspace_root)
+
+    selected_platform_root = repo_overrides.get("platform-engineering")
+    if selected_platform_root is not None and "platform-engineering" not in repo_paths:
+        selected_platform_root = selected_platform_root.resolve()
+        if not selected_platform_root.exists():
+            raise SystemExit(
+                "Selected Platform runner checkout does not exist: "
+                f"{selected_platform_root}"
+            )
+        repo_paths["platform-engineering"] = selected_platform_root
+        repo_states["platform-engineering"] = git_state(
+            selected_platform_root,
+            workspace_root=workspace_root,
+        )
 
     if repo_paths.get(entry["owner_repo"]) != owner_repo_root:
         raise SystemExit(

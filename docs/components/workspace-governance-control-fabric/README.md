@@ -21,22 +21,24 @@ not own WGCF contracts, workspace governance doctrine, or security acceptance.
 - [release-governance.md](release-governance.md)
 - [validator-invocation-gates.md](validator-invocation-gates.md)
 
-## Current Live Footprint
+## Current Local Footprint
 
-- dev-integration profile: `governance-control-fabric`
-- dev-integration namespace: `devint-governance-control-fabric-<operator>`
-- dev-integration storage: local PostgreSQL plus profile-scoped
-  MinIO/S3-compatible evidence storage on separate PVCs
+- registered profile: `governance-control-fabric`
+- retained proof namespace: `devint-governance-control-fabric-<operator>`
+- retained proof storage: local PostgreSQL plus profile-scoped MinIO/S3-compatible
+  evidence storage on separate PVCs
+- current evidence-storage lifecycle: dormant until the profile activation in
+  the `workspace-governance` registry reaches remote `main`
 - Argo application: none
 - direct operator UI: none
 - deployment status: not approved for `stage` or `prod`
 
-WGCF currently has implementation source plus active local-k3s dev-integration
-API, PostgreSQL, and isolated evidence-storage access. The object store uses an
-API-only bucket credential, a separate storage-admin credential, namespace-local
-network policy, explicit backup and restore actions, and reference-only local
-receipts. It does not expose a public object URL or credentials to OOS or
-OpenProject.
+WGCF currently has implementation source plus retained historical proof for its
+local-k3s API, PostgreSQL, and isolated evidence storage. The reviewed object
+store shape uses an API-only bucket credential, a separate storage-admin
+credential, namespace-local network policy, explicit backup and restore actions,
+and reference-only local receipts. Those actions remain dormant until registry
+activation; no public object URL or credential is exposed to OOS or OpenProject.
 
 The local profile does not claim governed transport encryption or encrypted
 local-path storage. Governed stage/prod deployment remains blocked until

@@ -40,9 +40,10 @@ source-reviewed commissioning shape declares separate Temporal, PostgreSQL,
 OOS API, OOS worker, WGCF worker, and diagnostic identities only inside one
 permit-bound, operator-scoped local proof; ordinary launch remains denied.
 
-WGCF has an active operator-scoped dev-integration profile with PostgreSQL
-metadata storage and isolated MinIO evidence storage. This is a local component
-proof only; it is not an Argo-managed stage or production deployment. See
+WGCF has retained historical operator-scoped proof for PostgreSQL metadata and
+isolated MinIO evidence storage. The current evidence-storage lifecycle remains
+dormant until workspace-registry activation reaches remote `main`; it is not an
+Argo-managed stage or production deployment. See
 [ADR-019](../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md).
 
 Each shared component directory should keep the same file contract:

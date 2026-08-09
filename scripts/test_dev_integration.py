@@ -166,6 +166,37 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     description="Profile action",
                 )
 
+    def test_registry_contracts_must_remain_inside_selected_checkout(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-registry-file-") as temp_dir:
+            root = Path(temp_dir)
+            governance_root = root / "workspace-governance"
+            contracts_root = governance_root / "contracts"
+            contracts_root.mkdir(parents=True)
+            policy_path = contracts_root / "developer-integration-policy.yaml"
+            registry_path = contracts_root / "developer-integration-profiles.yaml"
+            policy_path.write_text("profile_lifecycle: {}\n", encoding="utf-8")
+            registry_path.write_text("profiles: {}\n", encoding="utf-8")
+
+            policy, registry = DEV_INTEGRATION.load_registry(
+                root,
+                {"workspace-governance": governance_root},
+            )
+            self.assertEqual(policy, {"profile_lifecycle": {}})
+            self.assertEqual(registry, {"profiles": {}})
+
+            outside = root / "outside.yaml"
+            outside.write_text("external: true\n", encoding="utf-8")
+            policy_path.unlink()
+            policy_path.symlink_to(outside)
+            with self.assertRaisesRegex(
+                SystemExit,
+                "Dev-integration lifecycle policy escapes the selected owner checkout",
+            ):
+                DEV_INTEGRATION.load_registry(
+                    root,
+                    {"workspace-governance": governance_root},
+                )
+
     def test_dispatch_terminates_background_process_group(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-process-") as temp_dir:
             root = Path(temp_dir)
@@ -217,11 +248,13 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             workspace_root = Path(temp_dir) / "workspace"
             default_owner = workspace_root / "owner-repo"
             selected_owner = Path(temp_dir) / "selected-owner"
+            selected_platform = Path(temp_dir) / "selected-platform"
             profile_relpath = Path("dev-integration/profiles/test/profile.yaml")
             default_profile = default_owner / profile_relpath
             selected_profile = selected_owner / profile_relpath
             default_profile.parent.mkdir(parents=True)
             selected_profile.parent.mkdir(parents=True)
+            selected_platform.mkdir()
             default_profile.write_text("summary: wrong checkout\n", encoding="utf-8")
             selected_profile.write_text(
                 "\n".join(
@@ -254,6 +287,11 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 "dirty": False,
                 "head_sha": "a" * 40,
             }
+            selected_platform_state = {
+                "branch": "runner",
+                "dirty": False,
+                "head_sha": "b" * 40,
+            }
 
             with (
                 patch.object(
@@ -264,23 +302,37 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 patch.object(
                     DEV_INTEGRATION,
                     "git_state",
-                    return_value=selected_state,
+                    side_effect=lambda repo_root, **_: (
+                        selected_state
+                        if repo_root == selected_owner.resolve()
+                        else selected_platform_state
+                    ),
                 ) as git_state,
             ):
                 resolved = DEV_INTEGRATION.resolve_profile(
                     action="up",
                     workspace_root=workspace_root,
                     profile_id="test-profile",
-                    repo_overrides={"owner-repo": selected_owner},
+                    repo_overrides={
+                        "owner-repo": selected_owner,
+                        "platform-engineering": selected_platform,
+                    },
                 )
 
             _, profile, owner_root, profile_path, repo_paths, repo_states = resolved
             load_registry.assert_called_once_with(
                 workspace_root,
-                {"owner-repo": selected_owner},
+                {
+                    "owner-repo": selected_owner,
+                    "platform-engineering": selected_platform,
+                },
             )
-            git_state.assert_called_once_with(
+            git_state.assert_any_call(
                 selected_owner.resolve(),
+                workspace_root=workspace_root,
+            )
+            git_state.assert_any_call(
+                selected_platform.resolve(),
                 workspace_root=workspace_root,
             )
             self.assertEqual(profile["summary"], "selected checkout")
@@ -288,6 +340,14 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(profile_path, selected_profile.resolve())
             self.assertEqual(repo_paths["owner-repo"], selected_owner.resolve())
             self.assertEqual(repo_states["owner-repo"], selected_state)
+            self.assertEqual(
+                repo_paths["platform-engineering"],
+                selected_platform.resolve(),
+            )
+            self.assertEqual(
+                repo_states["platform-engineering"],
+                selected_platform_state,
+            )
 
     def test_platform_override_reexecutes_the_selected_runner(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-reexec-") as temp_dir:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+import signal
 import tempfile
 import time
 import unittest
@@ -149,6 +150,26 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             if Path(f"/proc/{background_pid}/stat").is_file():
                 state = Path(f"/proc/{background_pid}/stat").read_text().split()[2]
                 self.assertEqual(state, "Z")
+
+    def test_dispatch_handles_termination_and_restores_signal_handler(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-signal-") as temp_dir:
+            root = Path(temp_dir)
+            command = root / "action.sh"
+            command.write_text(
+                '#!/usr/bin/env bash\nkill -TERM "$PPID"\nsleep 30\n',
+                encoding="utf-8",
+            )
+            command.chmod(0o700)
+            previous_handler = signal.getsignal(signal.SIGTERM)
+
+            returncode = DEV_INTEGRATION.dispatch_command(
+                command,
+                cwd=root,
+                env=dict(os.environ),
+            )
+
+            self.assertEqual(returncode, 128 + signal.SIGTERM)
+            self.assertEqual(signal.getsignal(signal.SIGTERM), previous_handler)
 
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:

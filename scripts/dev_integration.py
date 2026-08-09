@@ -404,17 +404,38 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
         command = ["python3", str(command_path)]
     else:
         command = [str(command_path)]
-    process = subprocess.Popen(
-        command,
-        cwd=str(cwd),
-        env=env,
-        start_new_session=True,
-        text=True,
-    )
+    process: subprocess.Popen[str] | None = None
+    received_signal: int | None = None
+
+    def stop_action(signum: int, _frame: object) -> None:
+        nonlocal received_signal
+        received_signal = signum
+        if process is not None:
+            terminate_process_group(process.pid)
+
+    previous_handlers = {
+        signum: signal.signal(signum, stop_action)
+        for signum in (signal.SIGHUP, signal.SIGTERM)
+    }
     try:
-        return process.wait()
+        process = subprocess.Popen(
+            command,
+            cwd=str(cwd),
+            env=env,
+            start_new_session=True,
+            text=True,
+        )
+        if received_signal is not None:
+            terminate_process_group(process.pid)
+        returncode = process.wait()
+        if received_signal is not None:
+            return 128 + received_signal
+        return returncode
     finally:
-        terminate_process_group(process.pid)
+        if process is not None:
+            terminate_process_group(process.pid)
+        for signum, previous_handler in previous_handlers.items():
+            signal.signal(signum, previous_handler)
 
 
 def main() -> int:

@@ -65,7 +65,7 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `42706ee79648e89828f6692659b4217cf2dc1c93` from PR #41,
+  - `a97bb84a9afab7e1cee1cffe59e60ff2749f7cdd` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
@@ -78,9 +78,15 @@ backup, restore, and Security gates.
   - live maintenance and API allow-path checks plus an unselected-Pod denial
     check against the storage Service, re-executed by every smoke run
   - Secret-first credential rotation before workload digest rollouts
+  - immutable root-user and application access-key identities, with rotation
+    limited to secret values so prior users cannot remain authorized
   - content-address-preserving backup and receipt-rebinding restore verification
   - exclusive backup targets and staged publication so an existing recovery
     bundle cannot be truncated or partially replaced
+  - exact profile, namespace, bucket, object, identity, Secret, and
+    version-qualified reference validation before a receipt enters a backup
+  - private regular-file snapshots validated and consumed by restore so later
+    edits to the operator-selected archive cannot cross the preflight boundary
   - controller-UID ownership proof for every Pod holding a storage credential;
     labels, names, and ServiceAccounts alone do not authorize a holder
   - exact confirmation for restore and destructive reset

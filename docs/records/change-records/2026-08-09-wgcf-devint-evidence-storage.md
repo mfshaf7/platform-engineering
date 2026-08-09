@@ -20,6 +20,10 @@
 - Related repos:
   - [workspace-governance-control-fabric PR #41](https://github.com/mfshaf7/workspace-governance-control-fabric/pull/41)
   - [workspace-governance PR #140](https://github.com/mfshaf7/workspace-governance/pull/140)
+    carries the registry binding in
+    `contracts/developer-integration-profiles.yaml`, pinned for this acceptance
+    at content SHA-256
+    `c23f42c3040d4376af46bcec2ff53d3e6810540ab34e4b97ae00dab78a427da6`
   - [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/2ad9700c86dfd3a762bcfdb2aba17adbc814ce43/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md),
     pinned at content SHA-256
     `d0a16096a9ac3f26c85dbeca68364a566aeb9817cd56f7e730995db8ae367158`
@@ -49,6 +53,8 @@ Platform accepts the following bounded local profile extension:
 - version-bound object verification plus reference-only storage receipts that
   identify the accepted object version and content digest
 - operator-scoped backup and exact-confirmation restore and reset actions
+- receipt-aware recovery that carries exact accepted bytes, rebinds receipts to
+  new server-assigned versions after restore, and records superseded references
 
 Local namespace HTTP and local-path PVC storage do not satisfy governed
 transport or at-rest encryption. Stage and production remain denied pending
@@ -59,9 +65,10 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `79c5ac4a03bac9a089c49bea859cc41329dca54a` from PR #41,
+  - `a2431d46833c1247c48a554ae89d2b2b1380ae53` from PR #41,
     including the storage implementation, review hardening, recovery archive,
-    authority gate, and version-bound receipt proof
+    authority gate, controller-bound credential isolation, receipt-rebinding
+    recovery, and stable version-bound receipt proof
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - same-key overwrite proof that retrieves the accepted bytes by version ID
@@ -70,7 +77,9 @@ backup, restore, and Security gates.
   - namespace-local NetworkPolicy isolation checks
   - live maintenance and API allow-path checks plus an unselected-Pod denial
     check against the storage Service
-  - content-address-preserving backup and restore verification
+  - content-address-preserving backup and receipt-rebinding restore verification
+  - controller-UID ownership proof for every Pod holding a storage credential;
+    labels, names, and ServiceAccounts alone do not authorize a holder
   - exact confirmation for restore and destructive reset
   - owner-side activation gate bound to the active workspace profile and this
     Platform acceptance record
@@ -124,15 +133,25 @@ backup, restore, and Security gates.
     `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
   - the accepted payload was restored as current version
     `d31a3a04-eeda-4e47-9279-c983dbd9d5ac`
-  - the storage receipt pins
-    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=258ab349-5d89-4ea7-b668-8c3f631302e7`
-    plus the accepted content SHA-256, so later same-key writes cannot silently
-    change the accepted evidence identity
+  - a confirmed reset deleted the operator-scoped namespace and PVCs after
+    archiving the backup, then `up` rebuilt the local lane from empty storage
+  - restore superseded receipt version
+    `eabbc8e5-ec66-4b4d-83f8-9e25d11784e6` with newly verified version
+    `d6b8158e-62c6-4206-a1b4-f934d8c8d43e`, restored current version
+    `744d02cd-b844-4952-9b30-f582b84cc174`, and retained SHA-256
+    `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
+  - the active storage receipt now pins
+    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=d6b8158e-62c6-4206-a1b4-f934d8c8d43e`;
+    the restore receipt preserves both old and new references instead of
+    claiming a server-assigned version ID survived PVC replacement
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
   - a labeled maintenance Job and the API evidence read reached storage, while
     an unselected Pod in the same namespace could not establish a connection
-  - backup and confirmed restore preserved the same object SHA-256
+  - backup and confirmed restore after PVC deletion preserved the same object
+    SHA-256 and rebound the receipt from its prior version-qualified reference
+    to a newly verified immutable version while recording both references in
+    the restore receipt
   - normal down/up preserved the PVC and the same content address
   - reset without `CONFIRM=reset-wgcf-evidence` failed closed
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and

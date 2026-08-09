@@ -31,18 +31,24 @@ The accepted local boundary:
 - gives the WGCF API a separate application credential with bucket metadata,
   current and explicit-version object read, and object write permissions while
   denying object deletion
-- reserves the root credential for the storage workload and exact temporary
-  maintenance Jobs
+- reserves the root credential for the storage workload and named ephemeral
+  maintenance workloads invoked by owner lifecycle actions
 - enables object versioning and requires receipts to bind the accepted object
   version ID plus content digest
 - proves with the application identity that a same-key overwrite leaves the
   receipt-bound bytes retrievable, then restores the accepted payload as current
-- restricts ingress with a namespace-local NetworkPolicy to the WGCF API and
-  maintenance ServiceAccount
+- restricts ingress with a namespace-local NetworkPolicy to WGCF API and
+  maintenance workload labels, while a separate verifier requires each
+  credential holder to resolve by owner-reference UID to the exact Deployment,
+  StatefulSet, or provision Job and expected ServiceAccount
 - keeps OpenProject and OOS on reference-only contracts with no storage URL or
   credential
 - requires digest verification for stored evidence and for backup/restore
   archives before live objects are replaced
+- backs up exact receipt-bound bytes separately from the mutable current object;
+  because object-store version IDs are server-assigned, destructive restore
+  reissues each receipt to a newly verified version and records an explicit
+  old-to-new supersession map instead of claiming the old ID survived
 - requires exact operator confirmation for restore and destructive reset
 - requires storage-affecting owner commands to verify the active workspace
   registry and this Platform acceptance record before changing runtime state
@@ -71,6 +77,9 @@ What becomes stricter:
 - every deployed image identity and live storage proof must be recorded in the
   associated change record
 - restore must validate each archive member, size, and digest before mutation
+- restore must prove every receipt-bound digest at its newly assigned version,
+  preserve the backed-up current object, and retain the superseded reference in
+  the restore receipt
 - evidence acceptance must use the version-qualified storage reference rather
   than resolving only the mutable current object at a reused key
 - stage or production remains denied until Platform and Security separately

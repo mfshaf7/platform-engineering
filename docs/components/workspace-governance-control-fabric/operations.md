@@ -36,11 +36,14 @@ API policy, proves a same-key overwrite preserves an accepted object version,
 restores the accepted payload as current, and writes a version-qualified
 storage receipt before the API rollout is considered available.
 
-`down` preserves both PVCs. `backup` exports object bodies plus per-object
-SHA-256 values without credentials. `restore` requires exact confirmation,
-captures a pre-restore backup, restores the exact object set, and fails if any
-content address changes. `reset` requires `CONFIRM=reset-wgcf-evidence` before
-the operator-scoped namespace and local state are removed.
+`down` preserves both PVCs. `backup` exports current object bodies, exact
+receipt-bound versions, receipts, and SHA-256 values without credentials.
+`restore` requires exact confirmation, captures a pre-restore backup, restores
+the exact object set, creates newly verified server-assigned versions, reissues
+the affected receipts, and records old-to-new supersession mappings. It fails
+if any content address changes or receipt cannot be rebound. `reset` requires
+`CONFIRM=reset-wgcf-evidence` before the operator-scoped namespace and local
+state are removed.
 
 ## Deployment Readiness Checklist
 

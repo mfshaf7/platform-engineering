@@ -73,8 +73,10 @@ Current active profiles:
     [workspace-governance-control-fabric/dev-integration/profiles/governance-control-fabric/profile.yaml](https://github.com/mfshaf7/workspace-governance-control-fabric/blob/main/dev-integration/profiles/governance-control-fabric/profile.yaml)
   - role: local-k3s API, PostgreSQL, and isolated S3-compatible evidence-custody
     access for Governance Operations Console and WGCF contract iteration
-  - storage actions: operator-scoped backup and confirmed digest-preserving
-    restore; governed encryption and stage/prod use remain denied
+  - storage actions: operator-scoped backup and confirmed digest-preserving,
+    receipt-rebinding restore; server-assigned version IDs are superseded rather
+    than falsely claimed as preserved; governed encryption and stage/prod use
+    remain denied
   - destructive reset: `make devint-reset PROFILE=governance-control-fabric
     CONFIRM=reset-wgcf-evidence`
   - availability: storage-affecting actions are self-serve only while the

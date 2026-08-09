@@ -14,10 +14,11 @@ There is currently no approved:
 - governed stage or prod operator access path
 - approved WGCF validator invocation profile beyond local dev-integration
 
-There is an active local dev-integration access path for API contract and
-evidence-custody iteration. That path includes local-k3s PostgreSQL and
-profile-scoped MinIO, is local evidence only, and is not a governed stage/prod
-deployment.
+Historical local proof covers API contract and evidence-custody iteration with
+local-k3s PostgreSQL and profile-scoped MinIO. The current evidence-storage
+actions remain dormant until the `governance-control-fabric` profile activation
+reaches remote `workspace-governance/main`; this retained proof is not a
+governed stage/prod deployment or a currently available storage path.
 
 ## Required Gates Before Deployment
 

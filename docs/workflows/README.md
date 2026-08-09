@@ -28,3 +28,12 @@ Use it when the question is:
 Each workflow in `.github/workflows/` should have a same-named document here.
 
 Use [TEMPLATE.md](TEMPLATE.md) when adding a new workflow.
+
+## Dev-Integration Profile Actions
+
+WGCF evidence-storage launch, smoke, backup, restore, and reset are local
+profile-runner actions, not GitHub Actions workflows. Their primary operator
+surface is the
+[dev-integration profile runbook](../runbooks/dev-integration-profiles.md), and
+their durable design boundary is
+[ADR-019](../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md).

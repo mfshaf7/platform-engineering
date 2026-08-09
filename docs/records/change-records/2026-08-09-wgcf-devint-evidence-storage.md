@@ -21,8 +21,8 @@
   - [workspace-governance-control-fabric PR #41](https://github.com/mfshaf7/workspace-governance-control-fabric/pull/41)
   - [workspace-governance PR #140](https://github.com/mfshaf7/workspace-governance/pull/140)
   - [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md)
-- Related ADR: None; this extends the already accepted WGCF local profile and
-  does not approve a governed stage or production storage architecture.
+- Related ADR:
+  [ADR-019: WGCF Dev-Integration Evidence Storage](../../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md)
 
 ## Root Cause
 
@@ -70,9 +70,19 @@ backup, restore, and Security gates.
 
 - Build workflow run: None; the change is profile orchestration and does not
   modify the WGCF application image.
-- Published image tag:
+- Deployed immutable runtime identities:
+  - WGCF API and migration:
+    `ghcr.io/mfshaf7/workspace-governance-control-fabric@sha256:fa84422fd16b09c06352478bab1d0eae2a95857dccb2a9be3882337a8f703589`
+  - MinIO object storage:
+    `docker.io/minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e`
+  - MinIO maintenance client:
+    `docker.io/minio/mc@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3`
+  - PostgreSQL metadata storage:
+    `docker.io/library/postgres@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50`
+- Published application tag:
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
-- Published digest: unchanged by this profile-only landing unit
+- Image provenance note: this profile-only landing unit does not build a new
+  WGCF image; the identities above were read from the verified live Pod status.
 - Recorded prod revision: None
 - Argo application revision: None
 

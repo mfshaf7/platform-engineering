@@ -51,6 +51,10 @@ These are intentionally not documented as direct operator UIs:
   - controller only, no UI
 - `operator-orchestration-service`
   - internal-only shared broker service, no shared browser UI
+- WGCF dev-integration evidence storage
+  - internal-only ClusterIP service in an operator-scoped local namespace
+  - no direct browser, Windows localhost, stage, or production access path
+  - use the shared dev-integration profile runner for lifecycle actions
 - Temporal controlled commissioning
   - no live namespace, shared UI, or normal operator access path
   - a later permit-bound proof may use only an operator-local loopback
@@ -117,6 +121,7 @@ Use the shared component docs for shared services:
 - Observability: [../components/observability/README.md](../components/observability/README.md)
 - External Secrets: [../components/external-secrets/README.md](../components/external-secrets/README.md)
 - Operator Orchestration Service: [../components/operator-orchestration-service/README.md](../components/operator-orchestration-service/README.md)
+- Workspace Governance Control Fabric: [../components/workspace-governance-control-fabric/README.md](../components/workspace-governance-control-fabric/README.md)
 - Platform PostgreSQL: [../components/platform-postgresql/README.md](../components/platform-postgresql/README.md)
 - Governed AI Gateway: [../components/governed-ai-gateway/README.md](../components/governed-ai-gateway/README.md)
 - Temporal: [../components/temporal/README.md](../components/temporal/README.md)

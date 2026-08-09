@@ -65,11 +65,11 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `d122a0d733ec255bbececb8abdca66a22b023d19` from PR #41,
+  - `37db47c960d67542d5d135c72b48817123639593` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
-  - `9c8a63c5d7b725986ce52efad99c71d51964a0a2` from this Platform PR,
+  - `ab3b7cc5e0a76fb1f9397fd579e6bb3f23e81ffb` from this Platform PR,
     preserving a no-overwrite source manifest and result receipt for every
     dev-integration action, re-executing the runner from the selected Platform
     checkout, and dispatching the selected owner worktree rather than a
@@ -97,6 +97,9 @@ backup, restore, and Security gates.
     version-qualified reference validation before a receipt enters a backup
   - private regular-file snapshots validated and consumed by restore so later
     edits to the operator-selected archive cannot cross the preflight boundary
+  - rebound receipt outputs streamed to private staging files, validated
+    against the active scope, and atomically renamed only after complete
+    transfer
   - semantic preflight of every embedded receipt and sidecar binding before any
     object-store mutation, including exact prior version and storage reference
   - canonical object paths and safe receipt names enforced before archive
@@ -155,13 +158,19 @@ backup, restore, and Security gates.
   - `governance-control-fabric-mfshaf7-20260809T140845Z`
   - `governance-control-fabric-mfshaf7-20260809T141235Z` for supplemental
     post-restore credential-retirement proof
+  - `governance-control-fabric-mfshaf7-20260809T143731Z` for final
+    atomic-receipt restore and read-only smoke proof
 - Retained combined acceptance proof:
   [wgcf-devint-evidence-storage-2026-08-09.json](../evidence/wgcf-devint-evidence-storage-2026-08-09.json)
 - Combined acceptance proof SHA-256:
-  `36f3bfa77c18f96eed9eff2495353fae0be3281da7a3833f220d8b237a02f9df`
-- Every accepted action manifest recorded clean source state at:
-  - WGCF: `d122a0d733ec255bbececb8abdca66a22b023d19`
-  - Platform runner: `9c8a63c5d7b725986ce52efad99c71d51964a0a2`
+  `0ffa9db7e62c3d3155a3ef0e66171873ed4e1e1aa10fee204558e45c40656294`
+- The full recovery and credential-rotation sequences retain their own clean
+  source bindings at WGCF `d122a0d733ec255bbececb8abdca66a22b023d19`
+  and Platform runner `9c8a63c5d7b725986ce52efad99c71d51964a0a2`.
+- Final atomic-publication restore and smoke manifests recorded clean source
+  state at:
+  - WGCF: `37db47c960d67542d5d135c72b48817123639593`
+  - Platform runner: `ab3b7cc5e0a76fb1f9397fd579e6bb3f23e81ffb`
   - workspace authority: `564a63aadbf1214da827503525ba030f38e17e79`
 - Action-specific manifest/result SHA-256 pairs:
   - `up`: `cea1926c6f390347ed89e8362358808c07cc400017e5c77b028fe2c770c5cdff` /
@@ -182,6 +191,10 @@ backup, restore, and Security gates.
     `f42550c1dc04a6fc1d25763ff926e8d570b883086d79b86ee5334563447f5afa`
   - final `smoke`: `3b12e2edb883ef283e120e9bc417fc051894a2eb684ad95fd4d5dddecee3dfcf` /
     `3e3670f81eda50213b82c4f266e29973b7ec595b81a3980495bea44019787dea`
+  - final-fix `restore`: `3827f1be27e8eccb89dc6ead614ab207149fdb53f1e5089e92c3fcd460f0630f` /
+    `242c11e007cb0c437cf1175e9572ac43e6ac25776b44434c89804bda19bfc768`
+  - final-fix `smoke`: `2c0421e02180aabd8af8061711151ca65b1e7b938b9b11ac415e1ddda5c6711f` /
+    `527687e3dc35a313b7894a00803caa07867d68342c08c7ed658c48b72d19d105`
 - App health: WGCF API health and readiness passed after storage reconciliation.
 - Deployed image:
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
@@ -192,12 +205,12 @@ backup, restore, and Security gates.
   - a confirmed reset deleted the operator-scoped namespace and PVCs after
     archiving the backup, then `up` rebuilt the local lane from empty storage
   - restore superseded receipt version
-    `16c0919a-d325-49e4-886b-1978c35846e8` with newly verified version
-    `0256b561-4aee-4463-86c0-ee1633c4cdca`, restored current version
-    `70bd7484-b6a4-47db-b390-fcc66d1f52cd`, and retained SHA-256
+    `0256b561-4aee-4463-86c0-ee1633c4cdca` with newly verified version
+    `3b7f99c0-4a4a-4797-98f8-70d7430cbf4b`, restored current version
+    `0b676d54-7885-48ae-ab9f-763af7df362d`, and retained SHA-256
     `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
   - the restore receipt SHA-256 is
-    `6a51d23c28c8c6fbd6618bebef3bc4fe498ffbbb542925c60f363681534c04fc`
+    `92bc2ecdc79fa36c4d64b29329cb87c2e217a759c62d3c2638b012a58aae8411`
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
   - a labeled maintenance Job and the API evidence read reached storage, while
@@ -214,9 +227,9 @@ backup, restore, and Security gates.
     to a newly verified immutable version while recording both references in
     the restore receipt
   - the destructive recovery backup SHA-256 is
-    `63d0489ff59bf59b1ad1ebdbd9de221f0340cc0bad8d281c621dc8a3e2953696`;
+    `9e1d2e644583442cddc9ab9faadccd57a7e77d69929ab639312b649447ad9b97`;
     its backup receipt SHA-256 is
-    `ae7763a1076e00aadf311442e124ce2af95a0bc907d62ed4e9d026d1b31bdf49`
+    `df13d5877422c272dbd5a9a99f6b1f7b03c745470a8cfeb1171758eb6170747c`
   - the retained proof embeds sanitized action bindings and detailed control
     outputs; it contains neither local absolute paths nor credential values
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and

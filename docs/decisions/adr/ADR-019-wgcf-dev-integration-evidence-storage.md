@@ -47,7 +47,8 @@ The accepted local boundary:
 - requires storage-affecting owner commands to verify the active workspace
   registry and this Platform acceptance record before changing runtime state
 - fails profile activation closed unless the referenced Security review exists
-  at the declared `security-architecture` source path
+  at the declared `security-architecture` source path and matches its pinned
+  content SHA-256
 
 This decision authorizes a bounded local development profile only. It does not
 approve this MinIO instance, these static Kubernetes Secrets, local HTTP, or
@@ -99,5 +100,7 @@ The applied local proof is recorded in
 - [WGCF component architecture](../../components/workspace-governance-control-fabric/architecture.md)
 - [WGCF component operations](../../components/workspace-governance-control-fabric/operations.md)
 - [dev-integration profile runbook](../../runbooks/dev-integration-profiles.md)
-- [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md)
+- [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/2ad9700c86dfd3a762bcfdb2aba17adbc814ce43/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md),
+  content SHA-256
+  `d0a16096a9ac3f26c85dbeca68364a566aeb9817cd56f7e730995db8ae367158`
 - [WGCF owner implementation PR #41](https://github.com/mfshaf7/workspace-governance-control-fabric/pull/41)

@@ -20,7 +20,9 @@
 - Related repos:
   - [workspace-governance-control-fabric PR #41](https://github.com/mfshaf7/workspace-governance-control-fabric/pull/41)
   - [workspace-governance PR #140](https://github.com/mfshaf7/workspace-governance/pull/140)
-  - [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md)
+  - [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/2ad9700c86dfd3a762bcfdb2aba17adbc814ce43/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md),
+    pinned at content SHA-256
+    `d0a16096a9ac3f26c85dbeca68364a566aeb9817cd56f7e730995db8ae367158`
 - Related ADR:
   [ADR-019: WGCF Dev-Integration Evidence Storage](../../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md)
 
@@ -57,7 +59,7 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `a5b9b2b7b8a23870b8f5991741a3abc0be0389c8` from PR #41,
+  - `79c5ac4a03bac9a089c49bea859cc41329dca54a` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, and version-bound receipt proof
 - Guardrail added:
@@ -66,6 +68,8 @@ backup, restore, and Security gates.
     before restoring them as current
   - root and application credential separation checks
   - namespace-local NetworkPolicy isolation checks
+  - live maintenance and API allow-path checks plus an unselected-Pod denial
+    check against the storage Service
   - content-address-preserving backup and restore verification
   - exact confirmation for restore and destructive reset
   - owner-side activation gate bound to the active workspace profile and this
@@ -115,17 +119,19 @@ backup, restore, and Security gates.
   - the API credential read the seeded evidence object, including an explicit
     accepted version, while object deletion was denied
   - a same-key overwrite created version
-    `7ed48771-2881-49b7-9d05-f9843e827b4d`; accepted version
-    `3c7876cb-af09-4de9-9143-4038a07c25fc` remained retrievable with SHA-256
+    `16bb7c15-c95a-4fc9-9edf-5142e920afe8`; accepted version
+    `258ab349-5d89-4ea7-b668-8c3f631302e7` remained retrievable with SHA-256
     `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
   - the accepted payload was restored as current version
-    `d9f4c0d9-4ab4-46df-9944-14f938157a5a`
+    `d31a3a04-eeda-4e47-9279-c983dbd9d5ac`
   - the storage receipt pins
-    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=3c7876cb-af09-4de9-9143-4038a07c25fc`
+    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=258ab349-5d89-4ea7-b668-8c3f631302e7`
     plus the accepted content SHA-256, so later same-key writes cannot silently
     change the accepted evidence identity
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
+  - a labeled maintenance Job and the API evidence read reached storage, while
+    an unselected Pod in the same namespace could not establish a connection
   - backup and confirmed restore preserved the same object SHA-256
   - normal down/up preserved the PVC and the same content address
   - reset without `CONFIRM=reset-wgcf-evidence` failed closed

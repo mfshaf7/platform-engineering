@@ -77,6 +77,10 @@ Current active profiles:
     restore; governed encryption and stage/prod use remain denied
   - destructive reset: `make devint-reset PROFILE=governance-control-fabric
     CONFIRM=reset-wgcf-evidence`
+  - availability: storage-affecting actions are self-serve only while the
+    active workspace registry binds the exact Platform acceptance, actions,
+    and handoff checks declared by the owner profile; during ordered landing
+    they remain dormant until the final registry change reaches `main`
 - `idea-workflow`
   - owner repo: `operator-orchestration-service`
   - lane class: `integration-devint`

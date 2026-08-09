@@ -1,139 +1,44 @@
 {
-  "actions": [
-    {
-      "action": "up",
-      "created_at": "2026-08-09T13:39:06Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-up-20260809T133906429844Z-2e2e16a0",
-      "manifest_sha256": "f089e6e0f03eeda221d7005bc99c16e37137e554361d6465cf6c75ad80417a15",
-      "result": "succeeded",
-      "result_sha256": "1a02e3cf8b88437c5afed53e3f778caf6c91b71e7501a05915a292c90e8b73c0",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "smoke",
-      "created_at": "2026-08-09T13:40:37Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-smoke-20260809T134037252982Z-bca6dc61",
-      "manifest_sha256": "0fb46d7f20f10e6cba244d4f2f630267dea8581b1ff43efd1b1e65640ca7ff9e",
-      "result": "succeeded",
-      "result_sha256": "47efde1b49a6578403bae6742e263953b7cfd95718ec65b690603e37e397e656",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "backup",
-      "created_at": "2026-08-09T13:41:06Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-backup-20260809T134106712082Z-f79149ee",
-      "manifest_sha256": "3af48a1d5efd527a9b1fffe110eddd5495c1abf5ee7f9663114f29f5d3d5089f",
-      "result": "succeeded",
-      "result_sha256": "91558be8de4d793445b50d1e80a7d8f9888168bd88205f6d4e96c3c646a38914",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "reset",
-      "created_at": "2026-08-09T13:41:58Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T133906Z-reset-20260809T134158975735Z-d456de39",
-      "manifest_sha256": "af96c1a17dfa4cdecdc83f9c98f3c2604bba0a56aa2b596b86fc75483c277ab4",
-      "result": "succeeded",
-      "result_sha256": "87bfa7b0314ebadb31254cdc3e2bc42dff9da2270018e3a03eb35a80dfa92876",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T133906Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "up",
-      "created_at": "2026-08-09T13:42:24Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-up-20260809T134224293223Z-61deed56",
-      "manifest_sha256": "f33a9c85c9e65352da86b7f6222d65ad05c1f142efb79a63e846a2a7377a22eb",
-      "result": "succeeded",
-      "result_sha256": "b186711bcd68ce64225009d2338b534d014fa6dd8407d85605e63c2aac7c55dc",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "restore",
-      "created_at": "2026-08-09T13:43:09Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-restore-20260809T134309585318Z-177ef4b3",
-      "manifest_sha256": "8e134642f849eeaa8baf116670a46731aae323dc7f881fc402a8583c252e07b5",
-      "result": "succeeded",
-      "result_sha256": "8fb21718398d71f2d3c55f37ad8da5a3633f3c4e7fdf691f1b0399453c6fe2e3",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    },
-    {
-      "action": "smoke",
-      "created_at": "2026-08-09T13:44:36Z",
-      "execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-smoke-20260809T134436483055Z-151fb0e6",
-      "manifest_sha256": "8e65c15218168326ea7e69b750768b7bac2dd86861540b9ad3b0edc0a4d8bc8b",
-      "result": "succeeded",
-      "result_sha256": "3bcda00f0e23d73b6adb8a8be6a04389b4df8ea2913edddcc5665a0e7e88aef3",
-      "session_id": "governance-control-fabric-mfshaf7-20260809T134224Z",
-      "source_dirty": false,
-      "source_heads": {
-        "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-        "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-        "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
-      }
-    }
-  ],
-  "backup": {
-    "archive_sha256": "0854fe215822e5f2b5e8949d5037dde51abdaaca2890ead4471e3db94dbe38f0",
-    "content_addresses": [
-      "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c"
-    ],
-    "credentials_included": false,
-    "manifest_sha256": "5006ac95c4243677c32379f26a75f01e6fd08869163db539fdbe76e9891d48ea",
-    "receipt_binding_count": 1,
-    "receipt_sha256": "f5f90b8875591a3547da5f27b307a03b586e4bd35e855c098f97c17fb6df9906"
-  },
-  "credential_rotation": {
-    "retired_application_credential_authentication_denied": true,
-    "retired_root_credential_authentication_denied": true,
-    "rotation_detected": true,
-    "schema_version": 1,
-    "verified_at": "2026-08-09T13:39:31Z"
-  },
-  "generated_at": "2026-08-09T13:46:34Z",
+  "schema_version": 2,
+  "proof_type": "wgcf-dev-integration-evidence-storage-acceptance",
+  "generated_at": "2026-08-09T14:14:08Z",
+  "scope": "operator-local dev-integration evidence storage only",
   "governed_stage_or_prod_claim": false,
-  "post_restore": {
-    "final_smoke_execution_id": "governance-control-fabric-mfshaf7-20260809T134224Z-smoke-20260809T134436483055Z-151fb0e6",
-    "final_smoke_succeeded": true,
-    "storage_receipt_sha256": "bf38873c60a92bc711161e69584c0233bc0702b0394cfcf36cd0e8595db3e283"
+  "runtime": {
+    "profile_id": "governance-control-fabric",
+    "namespace": "devint-governance-control-fabric-mfshaf7",
+    "image": "ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a",
+    "state_model": "persistent",
+    "temporal_activity_worker_enabled": false
   },
-  "proof_type": "wgcf-dev-integration-storage-acceptance",
-  "reproduction": {
-    "action_evidence": ".dev-integration/sessions/<session-id>/<execution-id>.{manifest,result}.yaml",
-    "action_sequence": [
+  "source_repositories": {
+    "workspace-governance-control-fabric": {
+      "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+      "dirty": false,
+      "branch": "codex/art-811-wgcf-evidence-storage",
+      "path_override": false,
+      "uses_worktree": true,
+      "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+    },
+    "workspace-governance": {
+      "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+      "dirty": false,
+      "branch": "codex/art-811-wgcf-evidence-storage",
+      "path_override": false,
+      "uses_worktree": true,
+      "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+    },
+    "platform-engineering": {
+      "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+      "dirty": false,
+      "branch": "codex/art-811-wgcf-evidence-storage",
+      "path_override": false,
+      "uses_worktree": true,
+      "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+    }
+  },
+  "core_recovery_sequence": {
+    "actions": [
       "up",
       "smoke",
       "backup",
@@ -142,29 +47,506 @@
       "restore",
       "smoke"
     ],
-    "profile_artifacts": ".dev-integration/governance-control-fabric/<operator>/",
-    "runner": "scripts/dev_integration.py"
+    "sessions": [
+      "governance-control-fabric-mfshaf7-20260809T140544Z",
+      "governance-control-fabric-mfshaf7-20260809T140845Z"
+    ],
+    "completed": true
+  },
+  "supplemental_control_sequence": {
+    "actions": [
+      "up",
+      "smoke"
+    ],
+    "session": "governance-control-fabric-mfshaf7-20260809T141235Z",
+    "purpose": "retain reviewable post-restore credential-retirement evidence after reset archived the first rotation artifact",
+    "completed": true
+  },
+  "actions": [
+    {
+      "action": "up",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:05:44Z",
+      "completed_at": "2026-08-09T14:06:45Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140544Z-up-20260809T140544431580Z-464ac750",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140544Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "cea1926c6f390347ed89e8362358808c07cc400017e5c77b028fe2c770c5cdff",
+      "result_sha256": "9af33c8d14159b149510986ff57d590a7d8d864188b17570665f1bc9ec15f78a",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "smoke",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:07:07Z",
+      "completed_at": "2026-08-09T14:07:19Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140544Z-smoke-20260809T140707939844Z-69af01cf",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140544Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "60f047f97068c29fb2b4851c735ec99fa4741483f2c0a364646992a69670047e",
+      "result_sha256": "0b89e96e5e49875740113211b29c0737adfe31068625474ce9ff0c2b97d48d2b",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "backup",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:07:32Z",
+      "completed_at": "2026-08-09T14:08:09Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140544Z-backup-20260809T140732914399Z-6f0a8f0c",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140544Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "d7ba3f6a540e140f00d8dc40d76b6753614e81ca864a59e7e238f0f697e66e88",
+      "result_sha256": "7b1d0f3752704de859f9fc8386369cc835f1668d0ae97da3a90c8ebf3754db0e",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "reset",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:08:17Z",
+      "completed_at": "2026-08-09T14:08:30Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140544Z-reset-20260809T140817682183Z-c1f8ec14",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140544Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "d043297f7a7238fa0b490b89d9dd6ef23445e50ab61dfdc90cef22006fc39bd7",
+      "result_sha256": "604c560efcb6ef2fbfc20c7da30c73f824c1b125f84361ae4b53fa22c87df751",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "up",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:08:45Z",
+      "completed_at": "2026-08-09T14:09:19Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140845Z-up-20260809T140845233853Z-9ae83acc",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140845Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "7757cca33a68148e3bbd9dff289313b443d15eccfab29214c77107ee8bc57d49",
+      "result_sha256": "ff4db46e6eba050246856190e4a65c7454616999693897ba972fae5c528a1a45",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "restore",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:09:43Z",
+      "completed_at": "2026-08-09T14:10:59Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140845Z-restore-20260809T140943744246Z-6de6dfa2",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140845Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "8be8998b0eea649b1c2b471bb636c3d85b029fa155a60a738be40415ba5a59d4",
+      "result_sha256": "d7074bb4b0668928f5f36cb44506c2337549d46a28a0f54da4f383a5d2558b5c",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "smoke",
+      "sequence_role": "core-recovery-sequence",
+      "created_at": "2026-08-09T14:11:17Z",
+      "completed_at": "2026-08-09T14:11:28Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T140845Z-smoke-20260809T141117448440Z-e976a7d4",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T140845Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "77aa73c13f8d219e4d5aa27d461e21c2b69a250c919c4275434bec8280b13e6d",
+      "result_sha256": "b6acb76b049184ad5c457d2da4d09478c9f35e0ba2b16933fae05fe240d0e77a",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "up",
+      "sequence_role": "supplemental-post-restore-control-proof",
+      "created_at": "2026-08-09T14:12:35Z",
+      "completed_at": "2026-08-09T14:13:43Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T141235Z-up-20260809T141235710763Z-0f515d74",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T141235Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "6ffe4bf48a9a5307c6d7d84888420593748f0e3e89293c67ccc5c6a6cd532dc6",
+      "result_sha256": "f42550c1dc04a6fc1d25763ff926e8d570b883086d79b86ee5334563447f5afa",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    },
+    {
+      "action": "smoke",
+      "sequence_role": "supplemental-post-restore-control-proof",
+      "created_at": "2026-08-09T14:13:57Z",
+      "completed_at": "2026-08-09T14:14:08Z",
+      "execution_id": "governance-control-fabric-mfshaf7-20260809T141235Z-smoke-20260809T141357797089Z-b7944557",
+      "session_id": "governance-control-fabric-mfshaf7-20260809T141235Z",
+      "result": "succeeded",
+      "returncode": 0,
+      "manifest_sha256": "3b12e2edb883ef283e120e9bc417fc051894a2eb684ad95fd4d5dddecee3dfcf",
+      "result_sha256": "3e3670f81eda50213b82c4f266e29973b7ec595b81a3980495bea44019787dea",
+      "source_repositories": {
+        "workspace-governance-control-fabric": {
+          "head_sha": "d122a0d733ec255bbececb8abdca66a22b023d19",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "workspace-governance": {
+          "head_sha": "564a63aadbf1214da827503525ba030f38e17e79",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        },
+        "platform-engineering": {
+          "head_sha": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+          "dirty": false,
+          "branch": "codex/art-811-wgcf-evidence-storage",
+          "path_override": false,
+          "uses_worktree": true,
+          "upstream": "origin/codex/art-811-wgcf-evidence-storage"
+        }
+      }
+    }
+  ],
+  "controls": {
+    "api": {
+      "health_status_code": 200,
+      "health_payload": {
+        "service": "workspace-governance-control-fabric",
+        "status": "ok",
+        "version": "0.1.0"
+      },
+      "readiness_status_code": 200,
+      "readiness_status": "ready",
+      "ready": true,
+      "readiness_check_count": 27,
+      "all_readiness_checks_passed": true
+    },
+    "credential_rotation": {
+      "retired_application_credential_authentication_denied": true,
+      "retired_root_credential_authentication_denied": true,
+      "rotation_detected": true,
+      "schema_version": 1,
+      "verified_at": "2026-08-09T14:13:02Z"
+    },
+    "storage_isolation": {
+      "application_secret_holder_count": 2,
+      "root_secret_holder_count": 2,
+      "network_policy_allowed_components": [
+        "api",
+        "object-storage-maintenance"
+      ],
+      "oos_credential_issued": false,
+      "openproject_credential_issued": false,
+      "verified_at": "2026-08-09T14:14:03Z"
+    },
+    "network_enforcement": {
+      "maintenance_storage_connectivity": "allowed",
+      "unauthorized_storage_connectivity": "denied",
+      "api_storage_connectivity": "allowed-by-version-read"
+    },
+    "version_preservation": {
+      "accepted_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+      "accepted_version_id": "0256b561-4aee-4463-86c0-ee1633c4cdca",
+      "accepted_version_materialized": false,
+      "accepted_version_preserved": true,
+      "application_credential_version_read": true,
+      "bucket": "wgcf-delivery-art-evidence",
+      "current_object_restored": true,
+      "object_key": "profile-proof/evidence-custody-v1.json",
+      "overwrite_sha256": "743eb606aacd48ac52ae8f8206ed589f6666d50b7dd812a4f485b8a94151d8ca",
+      "overwrite_version_id": "974eeafe-e47d-44a9-9df8-b8b2e55b9868",
+      "restored_version_id": "bca3a237-a350-4865-936d-f0ee3e412a48",
+      "root_credential_absent": true,
+      "same_key_overwrite_proved": true
+    },
+    "final_storage_verification": {
+      "accepted_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+      "accepted_version_id": "0256b561-4aee-4463-86c0-ee1633c4cdca",
+      "application_credential_delete_denied": true,
+      "application_credential_read": true,
+      "application_credential_version_read": true,
+      "bucket": "wgcf-delivery-art-evidence",
+      "current_matches_accepted": true,
+      "current_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+      "current_version_id": "bca3a237-a350-4865-936d-f0ee3e412a48",
+      "object_key": "profile-proof/evidence-custody-v1.json",
+      "root_credential_absent": true
+    }
+  },
+  "backup": {
+    "archive_sha256": "63d0489ff59bf59b1ad1ebdbd9de221f0340cc0bad8d281c621dc8a3e2953696",
+    "bucket": "wgcf-delivery-art-evidence",
+    "completed_at": "2026-08-09T14:08:09Z",
+    "content_addresses": [
+      "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c"
+    ],
+    "credentials_included": false,
+    "kubernetes_namespace": "devint-governance-control-fabric-mfshaf7",
+    "object_count": 1,
+    "profile_id": "governance-control-fabric",
+    "receipt_binding_count": 1,
+    "receipt_type": "dev-integration-storage-backup",
+    "restore_requires_receipt_rebinding": true,
+    "schema_version": 2,
+    "version_ids_preserved": false,
+    "manifest_sha256": "b6d40ffe15cbf74d075c5f34ead645906802105c2c898ca1292348057a6c3741",
+    "receipt_sha256": "ae7763a1076e00aadf311442e124ce2af95a0bc907d62ed4e9d026d1b31bdf49",
+    "manifest_schema_version": 2,
+    "objects": [
+      {
+        "archive_path": "current/profile-proof/evidence-custody-v1.json",
+        "object_key": "profile-proof/evidence-custody-v1.json",
+        "sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+        "size": 116
+      }
+    ],
+    "receipt_bindings": [
+      {
+        "body_archive_path": "receipt-bound/storage-receipt.bin",
+        "body_size": 116,
+        "content_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+        "current_archive_path": "current/profile-proof/evidence-custody-v1.json",
+        "object_key": "profile-proof/evidence-custody-v1.json",
+        "prior_object_version_id": "16c0919a-d325-49e4-886b-1978c35846e8",
+        "prior_storage_ref": "wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=16c0919a-d325-49e4-886b-1978c35846e8",
+        "receipt_archive_path": "receipt-records/storage-receipt.json",
+        "receipt_name": "storage-receipt",
+        "receipt_record_sha256": "7af4b7bccc2c476c63ffa85d5033206f68c92aaf00cecfde966171def50372aa",
+        "receipt_record_size": 3004
+      }
+    ]
   },
   "restore": {
+    "bucket": "wgcf-delivery-art-evidence",
+    "completed_at": "2026-08-09T14:10:58Z",
     "content_addresses_preserved": true,
-    "content_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
-    "prior_object_version_id": "8841d85d-cec9-4372-b485-4d47d523b9d6",
-    "rebound_object_version_id": "16c0919a-d325-49e4-886b-1978c35846e8",
+    "kubernetes_namespace": "devint-governance-control-fabric-mfshaf7",
+    "pre_restore_archive_sha256": "cef6f90a3fac8884ba8d450687e2d570b29203733b05791d5e169dd18d776853",
+    "profile_id": "governance-control-fabric",
     "receipt_identity_rebound": true,
-    "receipt_sha256": "a39d03ba08c1e7948257d6b4b0c4c14532711b9119ae262b6e7d5191b647df74",
-    "restored_archive_sha256": "0854fe215822e5f2b5e8949d5037dde51abdaaca2890ead4471e3db94dbe38f0",
-    "restored_current_version_id": "87bca9de-3dbe-4dbd-9cf4-c1be157f0423"
+    "receipt_rebindings": [
+      {
+        "content_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+        "prior_object_version_id": "16c0919a-d325-49e4-886b-1978c35846e8",
+        "prior_storage_ref": "wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=16c0919a-d325-49e4-886b-1978c35846e8",
+        "rebound_object_version_id": "0256b561-4aee-4463-86c0-ee1633c4cdca",
+        "rebound_storage_ref": "wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=0256b561-4aee-4463-86c0-ee1633c4cdca",
+        "receipt_name": "storage-receipt",
+        "restored_current_version_id": "70bd7484-b6a4-47db-b390-fcc66d1f52cd",
+        "superseded_at": "2026-08-09T14:10:23Z"
+      }
+    ],
+    "receipt_type": "dev-integration-storage-restore",
+    "restored_archive_sha256": "63d0489ff59bf59b1ad1ebdbd9de221f0340cc0bad8d281c621dc8a3e2953696",
+    "schema_version": 2,
+    "version_ids_preserved": false,
+    "receipt_sha256": "6a51d23c28c8c6fbd6618bebef3bc4fe498ffbbb542925c60f363681534c04fc"
   },
-  "runtime_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a",
-  "schema_version": 1,
-  "scope": "bounded-local-dev-integration-only",
-  "sessions": [
-    "governance-control-fabric-mfshaf7-20260809T133906Z",
-    "governance-control-fabric-mfshaf7-20260809T134224Z"
-  ],
-  "source_heads": {
-    "platform-engineering": "935b6fbf05398d425ddaddf4589ed6911ac97e4a",
-    "workspace-governance": "564a63aadbf1214da827503525ba030f38e17e79",
-    "workspace-governance-control-fabric": "89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3"
+  "reproduction": {
+    "local_action_records": "ignored no-overwrite session manifests and results",
+    "reviewable_retention": "this packet embeds sanitized action bindings and detailed control outputs",
+    "absolute_paths_retained": false,
+    "credentials_retained": false,
+    "execution_source_head": "9c8a63c5d7b725986ce52efad99c71d51964a0a2",
+    "note": "a later Platform evidence-only commit retains this packet without changing the runner code exercised by the action manifests"
   }
 }

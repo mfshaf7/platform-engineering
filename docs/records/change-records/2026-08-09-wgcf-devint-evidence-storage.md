@@ -65,14 +65,15 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3` from PR #41,
+  - `d122a0d733ec255bbececb8abdca66a22b023d19` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
-  - `935b6fbf05398d425ddaddf4589ed6911ac97e4a` from this Platform PR,
+  - `9c8a63c5d7b725986ce52efad99c71d51964a0a2` from this Platform PR,
     preserving a no-overwrite source manifest and result receipt for every
-    dev-integration action and dispatching the selected owner worktree rather
-    than a different default checkout
+    dev-integration action, re-executing the runner from the selected Platform
+    checkout, and dispatching the selected owner worktree rather than a
+    different default checkout
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - same-key overwrite proof that retrieves the accepted bytes by version ID
@@ -101,7 +102,8 @@ backup, restore, and Security gates.
   - canonical object paths and safe receipt names enforced before archive
     extraction or object-store mutation
   - configured seed key, content digest, and bound receipt enforced before
-    restore can mutate storage
+    restore can mutate storage, with the primary `storage-receipt` required to
+    bind that configured seed directly
   - restore-time receipt validation against the active profile, namespace,
     bucket, service identity, and Secret scope before rebinding
   - controller-UID ownership proof for every Pod holding a storage credential;
@@ -149,31 +151,37 @@ backup, restore, and Security gates.
 ## Live Verification
 
 - Executed sessions:
-  - `governance-control-fabric-mfshaf7-20260809T133906Z`
-  - `governance-control-fabric-mfshaf7-20260809T134224Z`
+  - `governance-control-fabric-mfshaf7-20260809T140544Z`
+  - `governance-control-fabric-mfshaf7-20260809T140845Z`
+  - `governance-control-fabric-mfshaf7-20260809T141235Z` for supplemental
+    post-restore credential-retirement proof
 - Retained combined acceptance proof:
   [wgcf-devint-evidence-storage-2026-08-09.json](../evidence/wgcf-devint-evidence-storage-2026-08-09.json)
 - Combined acceptance proof SHA-256:
-  `c2b43fa0d80a5afe31d3ee14bda62243e7e419fe2868dc54af681eaf7d2eb77d`
+  `36f3bfa77c18f96eed9eff2495353fae0be3281da7a3833f220d8b237a02f9df`
 - Every accepted action manifest recorded clean source state at:
-  - WGCF: `89c86fafcbc5a7dd91a722d6b97c56d7c8713ef3`
-  - Platform runner: `935b6fbf05398d425ddaddf4589ed6911ac97e4a`
+  - WGCF: `d122a0d733ec255bbececb8abdca66a22b023d19`
+  - Platform runner: `9c8a63c5d7b725986ce52efad99c71d51964a0a2`
   - workspace authority: `564a63aadbf1214da827503525ba030f38e17e79`
 - Action-specific manifest/result SHA-256 pairs:
-  - `up`: `f089e6e0f03eeda221d7005bc99c16e37137e554361d6465cf6c75ad80417a15` /
-    `1a02e3cf8b88437c5afed53e3f778caf6c91b71e7501a05915a292c90e8b73c0`
-  - `smoke`: `0fb46d7f20f10e6cba244d4f2f630267dea8581b1ff43efd1b1e65640ca7ff9e` /
-    `47efde1b49a6578403bae6742e263953b7cfd95718ec65b690603e37e397e656`
-  - `backup`: `3af48a1d5efd527a9b1fffe110eddd5495c1abf5ee7f9663114f29f5d3d5089f` /
-    `91558be8de4d793445b50d1e80a7d8f9888168bd88205f6d4e96c3c646a38914`
-  - `reset`: `af96c1a17dfa4cdecdc83f9c98f3c2604bba0a56aa2b596b86fc75483c277ab4` /
-    `87bfa7b0314ebadb31254cdc3e2bc42dff9da2270018e3a03eb35a80dfa92876`
-  - fresh `up`: `f33a9c85c9e65352da86b7f6222d65ad05c1f142efb79a63e846a2a7377a22eb` /
-    `b186711bcd68ce64225009d2338b534d014fa6dd8407d85605e63c2aac7c55dc`
-  - `restore`: `8e134642f849eeaa8baf116670a46731aae323dc7f881fc402a8583c252e07b5` /
-    `8fb21718398d71f2d3c55f37ad8da5a3633f3c4e7fdf691f1b0399453c6fe2e3`
-  - final `smoke`: `8e65c15218168326ea7e69b750768b7bac2dd86861540b9ad3b0edc0a4d8bc8b` /
-    `3bcda00f0e23d73b6adb8a8be6a04389b4df8ea2913edddcc5665a0e7e88aef3`
+  - `up`: `cea1926c6f390347ed89e8362358808c07cc400017e5c77b028fe2c770c5cdff` /
+    `9af33c8d14159b149510986ff57d590a7d8d864188b17570665f1bc9ec15f78a`
+  - `smoke`: `60f047f97068c29fb2b4851c735ec99fa4741483f2c0a364646992a69670047e` /
+    `0b89e96e5e49875740113211b29c0737adfe31068625474ce9ff0c2b97d48d2b`
+  - `backup`: `d7ba3f6a540e140f00d8dc40d76b6753614e81ca864a59e7e238f0f697e66e88` /
+    `7b1d0f3752704de859f9fc8386369cc835f1668d0ae97da3a90c8ebf3754db0e`
+  - `reset`: `d043297f7a7238fa0b490b89d9dd6ef23445e50ab61dfdc90cef22006fc39bd7` /
+    `604c560efcb6ef2fbfc20c7da30c73f824c1b125f84361ae4b53fa22c87df751`
+  - fresh `up`: `7757cca33a68148e3bbd9dff289313b443d15eccfab29214c77107ee8bc57d49` /
+    `ff4db46e6eba050246856190e4a65c7454616999693897ba972fae5c528a1a45`
+  - `restore`: `8be8998b0eea649b1c2b471bb636c3d85b029fa155a60a738be40415ba5a59d4` /
+    `d7074bb4b0668928f5f36cb44506c2337549d46a28a0f54da4f383a5d2558b5c`
+  - final recovery `smoke`: `77aa73c13f8d219e4d5aa27d461e21c2b69a250c919c4275434bec8280b13e6d` /
+    `b6acb76b049184ad5c457d2da4d09478c9f35e0ba2b16933fae05fe240d0e77a`
+  - supplemental rotation `up`: `6ffe4bf48a9a5307c6d7d84888420593748f0e3e89293c67ccc5c6a6cd532dc6` /
+    `f42550c1dc04a6fc1d25763ff926e8d570b883086d79b86ee5334563447f5afa`
+  - final `smoke`: `3b12e2edb883ef283e120e9bc417fc051894a2eb684ad95fd4d5dddecee3dfcf` /
+    `3e3670f81eda50213b82c4f266e29973b7ec595b81a3980495bea44019787dea`
 - App health: WGCF API health and readiness passed after storage reconciliation.
 - Deployed image:
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
@@ -184,12 +192,12 @@ backup, restore, and Security gates.
   - a confirmed reset deleted the operator-scoped namespace and PVCs after
     archiving the backup, then `up` rebuilt the local lane from empty storage
   - restore superseded receipt version
-    `8841d85d-cec9-4372-b485-4d47d523b9d6` with newly verified version
-    `16c0919a-d325-49e4-886b-1978c35846e8`, restored current version
-    `87bca9de-3dbe-4dbd-9cf4-c1be157f0423`, and retained SHA-256
+    `16c0919a-d325-49e4-886b-1978c35846e8` with newly verified version
+    `0256b561-4aee-4463-86c0-ee1633c4cdca`, restored current version
+    `70bd7484-b6a4-47db-b390-fcc66d1f52cd`, and retained SHA-256
     `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
   - the restore receipt SHA-256 is
-    `a39d03ba08c1e7948257d6b4b0c4c14532711b9119ae262b6e7d5191b647df74`
+    `6a51d23c28c8c6fbd6618bebef3bc4fe498ffbbb542925c60f363681534c04fc`
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
   - a labeled maintenance Job and the API evidence read reached storage, while
@@ -206,11 +214,11 @@ backup, restore, and Security gates.
     to a newly verified immutable version while recording both references in
     the restore receipt
   - the destructive recovery backup SHA-256 is
-    `0854fe215822e5f2b5e8949d5037dde51abdaaca2890ead4471e3db94dbe38f0`;
+    `63d0489ff59bf59b1ad1ebdbd9de221f0340cc0bad8d281c621dc8a3e2953696`;
     its backup receipt SHA-256 is
-    `f5f90b8875591a3547da5f27b307a03b586e4bd35e855c098f97c17fb6df9906`
-  - normal down/up preserved the PVC and the same content address
-  - reset without `CONFIRM=reset-wgcf-evidence` failed closed
+    `ae7763a1076e00aadf311442e124ce2af95a0bc907d62ed4e9d026d1b31bdf49`
+  - the retained proof embeds sanitized action bindings and detailed control
+    outputs; it contains neither local absolute paths nor credential values
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and
   local-path PVC storage are dev-integration evidence only.
 

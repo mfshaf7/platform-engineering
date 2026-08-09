@@ -65,10 +65,13 @@ backup, restore, and Security gates.
 
 - Repo: `workspace-governance-control-fabric`
 - Commit(s):
-  - `4698d69f1fa37835ebb6c08a0aebbba03c138098` from PR #41,
+  - `e6cad75a5c735901c23c8de67df9cee45b2d76d3` from PR #41,
     including the storage implementation, review hardening, recovery archive,
     authority gate, controller-bound credential isolation, receipt-rebinding
     recovery, and stable version-bound receipt proof
+  - `3c79031ea4849835107744804fc1506497127847` from this Platform PR,
+    preserving a no-overwrite source manifest and result receipt for every
+    dev-integration action
 - Guardrail added:
   - non-delete API storage policy and direct denial proof
   - same-key overwrite proof that retrieves the accepted bytes by version ID
@@ -81,7 +84,8 @@ backup, restore, and Security gates.
   - immutable root-user and application access-key identities, with rotation
     limited to secret values so prior users cannot remain authorized
   - explicit authentication-denial proof for both pre-rotation credential pairs
-    after the replacement values are active
+    after the replacement values are active and before a new storage receipt is
+    issued
   - content-address-preserving backup and receipt-rebinding restore verification
   - exclusive backup targets and staged publication so an existing recovery
     bundle cannot be truncated or partially replaced
@@ -91,6 +95,8 @@ backup, restore, and Security gates.
     edits to the operator-selected archive cannot cross the preflight boundary
   - semantic preflight of every embedded receipt and sidecar binding before any
     object-store mutation, including exact prior version and storage reference
+  - canonical object paths and safe receipt names enforced before archive
+    extraction or object-store mutation
   - restore-time receipt validation against the active profile, namespace,
     bucket, service identity, and Secret scope before rebinding
   - controller-UID ownership proof for every Pod holding a storage credential;
@@ -137,12 +143,30 @@ backup, restore, and Security gates.
 
 ## Live Verification
 
-- Executed session:
-  `governance-control-fabric-mfshaf7-20260809T123033Z`
-- Session manifest SHA-256:
-  `64df2551ce4ba374961fdace1ab4f203e81156ea1653ed649308d61e4541eb9f`
-- Executed owner source state:
-  `4698d69f1fa37835ebb6c08a0aebbba03c138098`, clean worktree
+- Executed sessions:
+  - `governance-control-fabric-mfshaf7-20260809T125535Z`
+  - `governance-control-fabric-mfshaf7-20260809T125846Z`
+- Combined acceptance proof SHA-256:
+  `4801bfa2ac024c50a34182bd32f068db35a7024376e31fe686d1aa0db576a492`
+- Every accepted action manifest recorded clean source state at:
+  - WGCF: `e6cad75a5c735901c23c8de67df9cee45b2d76d3`
+  - Platform runner: `3c79031ea4849835107744804fc1506497127847`
+  - workspace authority: `564a63aadbf1214da827503525ba030f38e17e79`
+- Action-specific manifest/result SHA-256 pairs:
+  - `up`: `a16cc23b5d1338a19ad2609a6a10398b26ce317b1f03610a42ba3d2a1eec62b5` /
+    `e9ff976d039ecf0bea209b7899fa11e8cb3fc2e013149a6ac822d6de4c6067b6`
+  - `smoke`: `8ca1a94a22f451df54cbe96f3324655c8525cc1676505854d1d47642ee1929f3` /
+    `7e5051ce1f78f231c7a9dd2e70635696bb09b81a5c19eed95d4bc0864dba035f`
+  - `backup`: `fc8604da14ea7e610244c695186336aa2ea587ef7df7d853001040fb46adb06e` /
+    `db4e2d0b066138840170f0ad648c0c8bf49ea02fd1f5f772e5f0c42af5580025`
+  - `reset`: `492b8be03d351e16736a7d1b49f67435f3c32e7b581ddb1c068a001be92bd9d2` /
+    `9c64f93da1afc629273c1e62505b7bc1bceee8e7585b56a4fda97e7b980d99e1`
+  - fresh `up`: `2cd09bc22f2b1950cd407df9708c9ca38b3d835eef8d6466495831d858b1bb73` /
+    `c71501879240e77d4ce216dce9e6cf3a9b877e5eb6e335722dda6836d991165c`
+  - `restore`: `1a8ea8968bc59bcfc5a77d5d10dbd9c3b1118622c6201df6fd953c4ad47ad459` /
+    `f2f42709629277c4b5c2f05b3732924155aa570c23101cbd924da1f979277874`
+  - final `smoke`: `2b910da80af487bd276eefad9405ed5a1ce126334678bec576aafc2a61e42e9c` /
+    `ceda16e2c3937ece04d73515037f7d16828e7362abc06cf8be6ff7a659cb6027`
 - App health: WGCF API health and readiness passed after storage reconciliation.
 - Deployed image:
   `ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4b27a2a`
@@ -150,23 +174,15 @@ backup, restore, and Security gates.
 - Functional verification:
   - the API credential read the seeded evidence object, including an explicit
     accepted version, while object deletion was denied
-  - a same-key overwrite created version
-    `16bb7c15-c95a-4fc9-9edf-5142e920afe8`; accepted version
-    `258ab349-5d89-4ea7-b668-8c3f631302e7` remained retrievable with SHA-256
-    `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
-  - the accepted payload was restored as current version
-    `d31a3a04-eeda-4e47-9279-c983dbd9d5ac`
   - a confirmed reset deleted the operator-scoped namespace and PVCs after
     archiving the backup, then `up` rebuilt the local lane from empty storage
   - restore superseded receipt version
-    `eabbc8e5-ec66-4b4d-83f8-9e25d11784e6` with newly verified version
-    `d6b8158e-62c6-4206-a1b4-f934d8c8d43e`, restored current version
-    `744d02cd-b844-4952-9b30-f582b84cc174`, and retained SHA-256
+    `d6b8158e-62c6-4206-a1b4-f934d8c8d43e` with newly verified version
+    `8841d85d-cec9-4372-b485-4d47d523b9d6`, restored current version
+    `86adc33f-783f-4400-8233-91b93f09e9b8`, and retained SHA-256
     `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`
-  - the active storage receipt now pins
-    `wgcf-storage://governance-control-fabric/wgcf-delivery-art-evidence/profile-proof/evidence-custody-v1.json?versionId=d6b8158e-62c6-4206-a1b4-f934d8c8d43e`;
-    the restore receipt preserves both old and new references instead of
-    claiming a server-assigned version ID survived PVC replacement
+  - the restore receipt SHA-256 is
+    `daf68738ccd43f73dbfce3ec5b2772504267f3f4f44ff80269ea1ebbf642d8cb`
   - the API workload did not receive the storage root credential
   - OOS and OpenProject received no object-store credential or direct URL
   - a labeled maintenance Job and the API evidence read reached storage, while
@@ -182,10 +198,10 @@ backup, restore, and Security gates.
     SHA-256 and rebound the receipt from its prior version-qualified reference
     to a newly verified immutable version while recording both references in
     the restore receipt
-  - a completed backup with SHA-256
-    `3f845c42c5e6652516a3cdc76dbd9ba9a45863338f63360c35ede3e1d8cbd708`
-    rejected a second write to the same archive or manifest path without
-    changing the original bytes
+  - the destructive recovery backup SHA-256 is
+    `eb1372876d3d328c10d49c29abca1d56fb2e13b9efc9fbce84bf9d1624ce96c1`;
+    its embedded storage receipt SHA-256 is
+    `193b21592dca064570d0b85b323cb7ce5d163a98f6504d7626f4d9252c2e8c8b`
   - normal down/up preserved the PVC and the same content address
   - reset without `CONFIRM=reset-wgcf-evidence` failed closed
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and

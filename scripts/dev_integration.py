@@ -8,10 +8,9 @@ import json
 import os
 from pathlib import Path
 import re
-import signal
+import shutil
 import subprocess
 import sys
-import time
 from uuid import uuid4
 
 import yaml
@@ -379,42 +378,40 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
-def terminate_process_group(process_group_id: int, timeout: float = 2.0) -> None:
-    try:
-        os.killpg(process_group_id, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(process_group_id, 0)
-        except ProcessLookupError:
-            return
-        time.sleep(0.05)
-    try:
-        os.killpg(process_group_id, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-
-
 def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
     if command_path.suffix == ".sh":
-        cmd = ["bash", str(command_path)]
+        action_cmd = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
-        cmd = ["python3", str(command_path)]
+        action_cmd = ["python3", str(command_path)]
     else:
-        cmd = [str(command_path)]
-    process = subprocess.Popen(
-        cmd,
+        action_cmd = [str(command_path)]
+    bubblewrap = shutil.which("bwrap")
+    if bubblewrap is None:
+        raise SystemExit(
+            "The shared dev-integration runner requires bubblewrap for action "
+            "process containment. Install the bubblewrap package before dispatch."
+        )
+    result = subprocess.run(
+        [
+            bubblewrap,
+            "--die-with-parent",
+            "--bind",
+            "/",
+            "/",
+            "--proc",
+            "/proc",
+            "--dev-bind",
+            "/dev",
+            "/dev",
+            "--unshare-pid",
+            "--",
+            *action_cmd,
+        ],
         cwd=str(cwd),
         env=env,
-        start_new_session=True,
         text=True,
     )
-    try:
-        return process.wait()
-    finally:
-        terminate_process_group(process.pid)
+    return result.returncode
 
 
 def main() -> int:

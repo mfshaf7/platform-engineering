@@ -241,8 +241,10 @@ Each dispatched action leaves a local manifest/result pair under
 `.dev-integration/sessions/`. The result is self-contained: it records the
 return code, source-manifest digest, and complete source manifest captured
 before dispatch. The shared runner creates these read-only records only after
-the owner action and its process group have ended. Use their digests as local
-handoff inputs; they are not governed rollout evidence by themselves.
+the owner action's Bubblewrap PID namespace has ended. This also terminates
+descendants that detach into a separate session before evidence publication.
+Bubblewrap is a required local runner dependency. Use the record digests as
+local handoff inputs; they are not governed rollout evidence by themselves.
 
 State-model rule:
 

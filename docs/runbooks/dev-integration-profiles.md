@@ -237,6 +237,13 @@ Meaning:
 - `devint-down`
   - stops the profile runtime using the profile's declared state model
 
+Each dispatched action leaves a local manifest/result pair under
+`.dev-integration/sessions/`. The result is self-contained: it records the
+return code, source-manifest digest, and complete source manifest captured
+before dispatch. The shared runner creates these read-only records only after
+the owner action and its process group have ended. Use their digests as local
+handoff inputs; they are not governed rollout evidence by themselves.
+
 State-model rule:
 
 - `disposable` profiles

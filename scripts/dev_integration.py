@@ -8,8 +8,10 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
+import time
 from uuid import uuid4
 
 import yaml
@@ -292,21 +294,20 @@ def build_manifest(
     }
 
 
-def write_session_files(
+def prepare_session_files(
     *,
     manifest: dict,
     current_manifest: Path,
     sessions_root: Path,
-) -> tuple[Path, Path]:
+) -> tuple[Path, Path, bytes]:
     current_manifest.parent.mkdir(parents=True, exist_ok=True)
-    sessions_root.mkdir(parents=True, exist_ok=True)
     session_root = sessions_root / manifest["session_id"]
     archive_path = session_root / f"{manifest['execution_id']}.manifest.yaml"
     result_path = session_root / f"{manifest['execution_id']}.result.yaml"
-    dump_yaml_exclusive(archive_path, manifest)
-    dump_yaml(current_manifest, manifest)
+    manifest_snapshot = yaml.safe_dump(manifest, sort_keys=False).encode()
+    current_manifest.write_bytes(manifest_snapshot)
     current_manifest.chmod(0o600)
-    return archive_path, result_path
+    return archive_path, result_path, manifest_snapshot
 
 
 def write_execution_result(
@@ -316,11 +317,6 @@ def write_execution_result(
     result_path: Path,
     returncode: int,
 ) -> None:
-    if manifest_path.read_bytes() != manifest_snapshot:
-        raise SystemExit(
-            "Archived dev-integration source manifest changed during action execution; "
-            "refusing to publish the result."
-        )
     manifest = yaml.safe_load(manifest_snapshot)
     if not isinstance(manifest, dict):
         raise SystemExit("Archived dev-integration source manifest must be a mapping.")
@@ -335,9 +331,17 @@ def write_execution_result(
         "returncode": returncode,
         "manifest_path": str(manifest_path),
         "manifest_sha256": hashlib.sha256(manifest_snapshot).hexdigest(),
+        "source_manifest": manifest,
         "completed_at": now_utc(),
     }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with manifest_path.open("xb") as stream:
+        stream.write(manifest_snapshot)
+        stream.flush()
+        os.fsync(stream.fileno())
+    manifest_path.chmod(0o400)
     dump_yaml_exclusive(result_path, payload)
+    result_path.chmod(0o400)
 
 
 def render_promotion_report(
@@ -375,6 +379,24 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
+def terminate_process_group(process_group_id: int, timeout: float = 2.0) -> None:
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process_group_id, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(process_group_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
 def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
     if command_path.suffix == ".sh":
         cmd = ["bash", str(command_path)]
@@ -382,8 +404,17 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
         cmd = ["python3", str(command_path)]
     else:
         cmd = [str(command_path)]
-    result = subprocess.run(cmd, cwd=str(cwd), env=env, check=False, text=True)
-    return result.returncode
+    process = subprocess.Popen(
+        cmd,
+        cwd=str(cwd),
+        env=env,
+        start_new_session=True,
+        text=True,
+    )
+    try:
+        return process.wait()
+    finally:
+        terminate_process_group(process.pid)
 
 
 def main() -> int:
@@ -473,12 +504,11 @@ def main() -> int:
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )
-    archive_path, result_path = write_session_files(
+    archive_path, result_path, manifest_snapshot = prepare_session_files(
         manifest=manifest,
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
-    manifest_snapshot = archive_path.read_bytes()
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -487,7 +517,6 @@ def main() -> int:
     env = dict(
         **os.environ,
         DEVINT_ACTION=ACTIONS[args.action],
-        DEVINT_EXECUTION_RESULT=str(result_path),
         DEVINT_NAMESPACE=namespace,
         DEVINT_OPERATOR=operator,
         DEVINT_OWNER_REPO=entry["owner_repo"],

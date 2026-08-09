@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -32,24 +34,30 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             current = root / "state/current-session.yaml"
             sessions = root / "sessions"
 
-            first_archive, first_result = DEV_INTEGRATION.write_session_files(
-                manifest=self.manifest("execution-up", "up"),
-                current_manifest=current,
-                sessions_root=sessions,
+            first_manifest = self.manifest("execution-up", "up")
+            first_archive, first_result, first_snapshot = (
+                DEV_INTEGRATION.prepare_session_files(
+                    manifest=first_manifest,
+                    current_manifest=current,
+                    sessions_root=sessions,
+                )
             )
             DEV_INTEGRATION.write_execution_result(
-                manifest_snapshot=first_archive.read_bytes(),
+                manifest_snapshot=first_snapshot,
                 manifest_path=first_archive,
                 result_path=first_result,
                 returncode=0,
             )
-            second_archive, second_result = DEV_INTEGRATION.write_session_files(
-                manifest=self.manifest("execution-smoke", "smoke"),
-                current_manifest=current,
-                sessions_root=sessions,
+            second_manifest = self.manifest("execution-smoke", "smoke")
+            second_archive, second_result, second_snapshot = (
+                DEV_INTEGRATION.prepare_session_files(
+                    manifest=second_manifest,
+                    current_manifest=current,
+                    sessions_root=sessions,
+                )
             )
             DEV_INTEGRATION.write_execution_result(
-                manifest_snapshot=second_archive.read_bytes(),
+                manifest_snapshot=second_snapshot,
                 manifest_path=second_archive,
                 result_path=second_result,
                 returncode=2,
@@ -73,37 +81,74 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 2,
             )
             self.assertEqual(
+                DEV_INTEGRATION.load_yaml(second_result)["source_manifest"],
+                second_manifest,
+            )
+            self.assertEqual(
                 DEV_INTEGRATION.load_yaml(current)["execution_id"],
                 "execution-smoke",
             )
 
             with self.assertRaises(FileExistsError):
-                DEV_INTEGRATION.write_session_files(
-                    manifest=self.manifest("execution-up", "up"),
-                    current_manifest=current,
-                    sessions_root=sessions,
-                )
-
-    def test_execution_result_rejects_changed_source_manifest(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="devint-runner-tamper-") as temp_dir:
-            root = Path(temp_dir)
-            archive, result = DEV_INTEGRATION.write_session_files(
-                manifest=self.manifest("execution-up", "up"),
-                current_manifest=root / "state/current-session.yaml",
-                sessions_root=root / "sessions",
-            )
-            snapshot = archive.read_bytes()
-            archive.write_text("profile_id: action-controlled\n", encoding="utf-8")
-
-            with self.assertRaisesRegex(SystemExit, "source manifest changed"):
                 DEV_INTEGRATION.write_execution_result(
-                    manifest_snapshot=snapshot,
-                    manifest_path=archive,
-                    result_path=result,
+                    manifest_snapshot=first_snapshot,
+                    manifest_path=first_archive,
+                    result_path=first_result,
                     returncode=0,
                 )
 
+    def test_execution_evidence_is_created_only_after_action(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-evidence-") as temp_dir:
+            root = Path(temp_dir)
+            manifest = self.manifest("execution-up", "up")
+            archive, result, snapshot = DEV_INTEGRATION.prepare_session_files(
+                manifest=manifest,
+                current_manifest=root / "state/current-session.yaml",
+                sessions_root=root / "sessions",
+            )
+            self.assertFalse(archive.exists())
             self.assertFalse(result.exists())
+
+            DEV_INTEGRATION.write_execution_result(
+                manifest_snapshot=snapshot,
+                manifest_path=archive,
+                result_path=result,
+                returncode=0,
+            )
+
+            self.assertEqual(archive.read_bytes(), snapshot)
+            self.assertEqual(
+                DEV_INTEGRATION.load_yaml(result)["source_manifest"],
+                manifest,
+            )
+            self.assertEqual(archive.stat().st_mode & 0o777, 0o400)
+            self.assertEqual(result.stat().st_mode & 0o777, 0o400)
+
+    def test_dispatch_terminates_background_process_group(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-process-") as temp_dir:
+            root = Path(temp_dir)
+            pid_file = root / "background.pid"
+            command = root / "action.sh"
+            command.write_text(
+                '#!/usr/bin/env bash\nsleep 30 &\nprintf "%s\\n" "$!" >"$PID_FILE"\n',
+                encoding="utf-8",
+            )
+            command.chmod(0o700)
+
+            returncode = DEV_INTEGRATION.dispatch_command(
+                command,
+                cwd=root,
+                env={**os.environ, "PID_FILE": str(pid_file)},
+            )
+
+            self.assertEqual(returncode, 0)
+            background_pid = int(pid_file.read_text(encoding="utf-8"))
+            deadline = time.monotonic() + 2
+            while Path(f"/proc/{background_pid}").exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if Path(f"/proc/{background_pid}/stat").is_file():
+                state = Path(f"/proc/{background_pid}/stat").read_text().split()[2]
+                self.assertEqual(state, "Z")
 
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:

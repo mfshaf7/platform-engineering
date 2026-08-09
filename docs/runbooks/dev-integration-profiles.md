@@ -14,6 +14,15 @@ Do not reconstruct this flow from scattered contracts, templates, and
 standards files. Those remain supporting governance sources, not the primary
 operator path.
 
+## Host Prerequisites
+
+The shared runner requires `bubblewrap` and unprivileged user-namespace support.
+Provision the local k3s/operator host through
+`ansible/playbooks/provision-k3s-node.yml`; its `dev_integration_host` role
+installs Bubblewrap and proves that the configured operator can create the PID
+namespace used for action containment. If that preflight fails, repair the host
+user-namespace policy before using any shared profile action.
+
 ## Operator Lanes At A Glance
 
 ```mermaid
@@ -243,8 +252,10 @@ return code, source-manifest digest, and complete source manifest captured
 before dispatch. The shared runner creates these read-only records only after
 the owner action's Bubblewrap PID namespace has ended. This also terminates
 descendants that detach into a separate session before evidence publication.
-Bubblewrap is a required local runner dependency. Use the record digests as
-local handoff inputs; they are not governed rollout evidence by themselves.
+The session archive is mounted read-only inside every action, preventing a
+later action from replacing an earlier manifest/result pair. Bubblewrap is a
+required local runner dependency. Use the record digests as local handoff
+inputs; they are not governed rollout evidence by themselves.
 
 State-model rule:
 

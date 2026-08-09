@@ -5,4 +5,5 @@
   vars_files:
     - ../group_vars/all/main.yml
   roles:
+    - dev_integration_host
     - k3s_node

@@ -1,0 +1,24 @@
+---
+- name: Install dev-integration action containment dependencies
+  package:
+    name: "{{ platform_dev_integration_required_packages }}"
+    state: present
+
+- name: Verify operator Bubblewrap PID namespace support
+  become: true
+  become_user: "{{ platform_linux_user }}"
+  command:
+    argv:
+      - bwrap
+      - --die-with-parent
+      - --ro-bind
+      - /
+      - /
+      - --proc
+      - /proc
+      - --dev
+      - /dev
+      - --unshare-pid
+      - --
+      - /bin/true
+  changed_when: false

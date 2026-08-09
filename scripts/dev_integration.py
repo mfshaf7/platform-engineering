@@ -378,7 +378,13 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
-def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
+def dispatch_command(
+    command_path: Path,
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    read_only_paths: tuple[Path, ...] = (),
+) -> int:
     if command_path.suffix == ".sh":
         action_cmd = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
@@ -391,13 +397,16 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
             "The shared dev-integration runner requires bubblewrap for action "
             "process containment. Install the bubblewrap package before dispatch."
         )
-    result = subprocess.run(
+    sandbox_cmd = [bubblewrap, "--die-with-parent", "--bind", "/", "/"]
+    for path in read_only_paths:
+        resolved_path = path.resolve()
+        if not resolved_path.is_dir():
+            raise SystemExit(
+                f"Dev-integration read-only action path is not a directory: {resolved_path}"
+            )
+        sandbox_cmd.extend(["--ro-bind", str(resolved_path), str(resolved_path)])
+    sandbox_cmd.extend(
         [
-            bubblewrap,
-            "--die-with-parent",
-            "--bind",
-            "/",
-            "/",
             "--proc",
             "/proc",
             "--dev-bind",
@@ -406,7 +415,10 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> i
             "--unshare-pid",
             "--",
             *action_cmd,
-        ],
+        ]
+    )
+    result = subprocess.run(
+        sandbox_cmd,
         cwd=str(cwd),
         env=env,
         text=True,
@@ -506,6 +518,7 @@ def main() -> int:
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
+    paths["sessions_root"].mkdir(parents=True, exist_ok=True)
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -541,7 +554,12 @@ def main() -> int:
         ) from exc
     command_path = owner_repo_root / command_relpath
     try:
-        returncode = dispatch_command(command_path, cwd=owner_repo_root, env=env)
+        returncode = dispatch_command(
+            command_path,
+            cwd=owner_repo_root,
+            env=env,
+            read_only_paths=(paths["sessions_root"],),
+        )
     except KeyboardInterrupt:
         returncode = 130
     write_execution_result(

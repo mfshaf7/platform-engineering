@@ -157,6 +157,39 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     surviving_commands.append(command_line)
             self.assertEqual(surviving_commands, [])
 
+    def test_dispatch_mounts_prior_action_evidence_read_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-read-only-") as temp_dir:
+            root = Path(temp_dir)
+            sessions_root = root / "sessions"
+            sessions_root.mkdir()
+            prior_evidence = sessions_root / "prior.result.yaml"
+            prior_evidence.write_text("result: succeeded\n", encoding="utf-8")
+            prior_evidence.chmod(0o400)
+            state_write = root / "state-write.txt"
+            command = root / "action.sh"
+            command.write_text(
+                "#!/usr/bin/env bash\n"
+                'if rm -f "$PRIOR_EVIDENCE" 2>/dev/null; then exit 9; fi\n'
+                'printf writable >"$STATE_WRITE"\n',
+                encoding="utf-8",
+            )
+            command.chmod(0o700)
+
+            returncode = DEV_INTEGRATION.dispatch_command(
+                command,
+                cwd=root,
+                env={
+                    **os.environ,
+                    "PRIOR_EVIDENCE": str(prior_evidence),
+                    "STATE_WRITE": str(state_write),
+                },
+                read_only_paths=(sessions_root,),
+            )
+
+            self.assertEqual(returncode, 0)
+            self.assertEqual(prior_evidence.read_text(encoding="utf-8"), "result: succeeded\n")
+            self.assertEqual(state_write.read_text(encoding="utf-8"), "writable")
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"

@@ -163,7 +163,9 @@ action descendant, including processes that created a separate session. Only
 then does the runner publish either action record. The result embeds the
 complete source manifest as well as its digest. Both archive files are created
 exclusively and made read-only after publication. Bubblewrap is therefore a
-required local runner dependency.
+required local runner dependency. The complete session archive is mounted
+read-only inside every owner action, so a later action cannot unlink or replace
+evidence from an earlier action in the same commissioning sequence.
 
 When an owner repo path override is selected, that checkout supplies the
 profile definition, working directory, command path, and recorded Git state as

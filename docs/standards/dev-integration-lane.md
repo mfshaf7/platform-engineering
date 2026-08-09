@@ -152,7 +152,12 @@ Every `dev-integration` run must record:
   - upstream tracking state
   - whether a path override or worktree was used
 
-The session manifest is local-only and does not become governed evidence.
+The current session manifest is local-only and does not become governed evidence.
+The shared runner also retains a no-overwrite manifest and result receipt for
+every dispatched action under the session archive. Those action records bind
+the result to the exact source state observed before dispatch. A governed
+Review Packet may cite their digests; the local files do not become governance
+authority by themselves.
 
 ## Required Operator Actions
 

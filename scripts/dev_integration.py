@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+from uuid import uuid4
 
 import yaml
 
@@ -34,6 +36,13 @@ def load_yaml(path: Path) -> dict:
 
 def dump_yaml(path: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump(payload, sort_keys=False))
+
+
+def dump_yaml_exclusive(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as stream:
+        stream.write(yaml.safe_dump(payload, sort_keys=False))
+    path.chmod(0o600)
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> str:
@@ -199,6 +208,11 @@ def build_manifest(
     state_root: Path,
     workspace_root: Path,
 ) -> dict:
+    execution_id = (
+        f"{session_id}-{slugify(action)}-"
+        f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-"
+        f"{uuid4().hex[:8]}"
+    )
     return {
         "schema_version": 1,
         "lane": "dev-integration",
@@ -211,6 +225,7 @@ def build_manifest(
         "runtime_owner": entry["runtime_owner"],
         "security_owner": entry["security_owner"],
         "action": action,
+        "execution_id": execution_id,
         "operator": operator,
         "namespace": namespace,
         "session_id": session_id,
@@ -227,13 +242,39 @@ def write_session_files(
     manifest: dict,
     current_manifest: Path,
     sessions_root: Path,
-) -> Path:
+) -> tuple[Path, Path]:
     current_manifest.parent.mkdir(parents=True, exist_ok=True)
     sessions_root.mkdir(parents=True, exist_ok=True)
+    session_root = sessions_root / manifest["session_id"]
+    archive_path = session_root / f"{manifest['execution_id']}.manifest.yaml"
+    result_path = session_root / f"{manifest['execution_id']}.result.yaml"
+    dump_yaml_exclusive(archive_path, manifest)
     dump_yaml(current_manifest, manifest)
-    archive_path = sessions_root / f"{manifest['session_id']}.yaml"
-    dump_yaml(archive_path, manifest)
-    return archive_path
+    current_manifest.chmod(0o600)
+    return archive_path, result_path
+
+
+def write_execution_result(
+    *,
+    manifest_path: Path,
+    result_path: Path,
+    returncode: int,
+) -> None:
+    manifest = load_yaml(manifest_path)
+    payload = {
+        "schema_version": 1,
+        "lane": "dev-integration",
+        "profile_id": manifest["profile_id"],
+        "session_id": manifest["session_id"],
+        "execution_id": manifest["execution_id"],
+        "action": manifest["action"],
+        "result": "succeeded" if returncode == 0 else "failed",
+        "returncode": returncode,
+        "manifest_path": str(manifest_path),
+        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "completed_at": now_utc(),
+    }
+    dump_yaml_exclusive(result_path, payload)
 
 
 def render_promotion_report(
@@ -271,7 +312,7 @@ def render_promotion_report(
     dump_yaml(report_path, report)
 
 
-def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> None:
+def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> int:
     if command_path.suffix == ".sh":
         cmd = ["bash", str(command_path)]
     elif command_path.suffix == ".py":
@@ -279,8 +320,7 @@ def dispatch_command(command_path: Path, *, cwd: Path, env: dict[str, str]) -> N
     else:
         cmd = [str(command_path)]
     result = subprocess.run(cmd, cwd=str(cwd), env=env, check=False, text=True)
-    if result.returncode:
-        raise SystemExit(result.returncode)
+    return result.returncode
 
 
 def main() -> int:
@@ -366,7 +406,7 @@ def main() -> int:
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )
-    archive_path = write_session_files(
+    archive_path, result_path = write_session_files(
         manifest=manifest,
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
@@ -379,6 +419,7 @@ def main() -> int:
     env = dict(
         **os.environ,
         DEVINT_ACTION=ACTIONS[args.action],
+        DEVINT_EXECUTION_RESULT=str(result_path),
         DEVINT_NAMESPACE=namespace,
         DEVINT_OPERATOR=operator,
         DEVINT_OWNER_REPO=entry["owner_repo"],
@@ -406,13 +447,22 @@ def main() -> int:
             f"Available actions: {available_actions or 'none'}."
         ) from exc
     command_path = workspace_root / entry["owner_repo"] / command_relpath
-    dispatch_command(command_path, cwd=owner_repo_root, env=env)
+    returncode = dispatch_command(command_path, cwd=owner_repo_root, env=env)
+    write_execution_result(
+        manifest_path=archive_path,
+        result_path=result_path,
+        returncode=returncode,
+    )
+    if returncode:
+        raise SystemExit(returncode)
 
     print(
         "dev-integration action complete: "
         f"profile={args.profile} action={args.action} namespace={namespace} session={session_id}"
     )
     print(f"session manifest: {current_manifest_path}")
+    print(f"archived action manifest: {archive_path}")
+    print(f"action result: {result_path}")
     if ACTIONS[args.action] == "promote_check":
         print(f"promotion report: {promotion_report_path}")
     return 0

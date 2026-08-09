@@ -64,6 +64,8 @@ backup, restore, and Security gates.
   - namespace-local NetworkPolicy isolation checks
   - content-address-preserving backup and restore verification
   - exact confirmation for restore and destructive reset
+  - owner-side activation gate bound to the active workspace profile and this
+    Platform acceptance record
   - profile tests that reject credential projection into the rendered manifest
 
 ## Artifact And Deployment Evidence

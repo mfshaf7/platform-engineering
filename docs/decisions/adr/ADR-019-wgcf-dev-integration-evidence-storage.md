@@ -41,6 +41,8 @@ The accepted local boundary:
 - requires digest verification for stored evidence and for backup/restore
   archives before live objects are replaced
 - requires exact operator confirmation for restore and destructive reset
+- requires storage-affecting owner commands to verify the active workspace
+  registry and this Platform acceptance record before changing runtime state
 - fails profile activation closed unless the referenced Security review exists
   at the declared `security-architecture` source path
 
@@ -94,4 +96,3 @@ The applied local proof is recorded in
 - [dev-integration profile runbook](../../runbooks/dev-integration-profiles.md)
 - [Security review for ART evidence custody and source provenance](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-09-art-evidence-custody-and-source-provenance.md)
 - [WGCF owner implementation PR #41](https://github.com/mfshaf7/workspace-governance-control-fabric/pull/41)
-

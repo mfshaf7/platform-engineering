@@ -5,6 +5,7 @@ import importlib.util
 import os
 from pathlib import Path
 import signal
+import subprocess
 import tempfile
 import time
 import unittest
@@ -165,6 +166,62 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "scripts/missing.sh",
                     description="Profile action",
                 )
+
+    def test_dirty_working_tree_digest_binds_changed_and_untracked_bytes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-source-state-") as temp_dir:
+            workspace_root = Path(temp_dir)
+            repo_root = workspace_root / "owner-repo"
+            repo_root.mkdir()
+            subprocess.run(["git", "init", "-q", str(repo_root)], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo_root), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(repo_root), "config", "user.name", "Test Operator"],
+                check=True,
+            )
+            source = repo_root / "source.txt"
+            source.write_text("baseline\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(repo_root), "add", "source.txt"], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo_root), "commit", "-qm", "baseline"],
+                check=True,
+            )
+
+            clean = DEV_INTEGRATION.git_state(
+                repo_root,
+                workspace_root=workspace_root,
+            )
+            self.assertFalse(clean["dirty"])
+            self.assertIsNone(clean["working_tree_sha256"])
+
+            source.write_text("first change\n", encoding="utf-8")
+            first = DEV_INTEGRATION.git_state(repo_root, workspace_root=workspace_root)
+            source.write_text("second change\n", encoding="utf-8")
+            second = DEV_INTEGRATION.git_state(repo_root, workspace_root=workspace_root)
+            self.assertTrue(first["dirty"])
+            self.assertRegex(first["working_tree_sha256"], r"^[0-9a-f]{64}$")
+            self.assertNotEqual(
+                first["working_tree_sha256"],
+                second["working_tree_sha256"],
+            )
+
+            untracked = repo_root / "local-input.txt"
+            untracked.write_text("first input\n", encoding="utf-8")
+            with_untracked = DEV_INTEGRATION.git_state(
+                repo_root,
+                workspace_root=workspace_root,
+            )
+            untracked.write_text("second input\n", encoding="utf-8")
+            changed_untracked = DEV_INTEGRATION.git_state(
+                repo_root,
+                workspace_root=workspace_root,
+            )
+            self.assertNotEqual(
+                with_untracked["working_tree_sha256"],
+                changed_untracked["working_tree_sha256"],
+            )
 
     def test_registry_contracts_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-registry-file-") as temp_dir:

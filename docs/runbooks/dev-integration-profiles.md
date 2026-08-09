@@ -270,7 +270,8 @@ Important boundaries:
 - it is not governed rollout evidence
 - it must not write to governed `stage` or `prod` backends
 - owner and declared source repos may use local branches, worktrees, and dirty
-  state
+  state; the runner records a working-tree SHA-256 for dirty sources so
+  different local source bytes do not share one manifest identity
 - the selected `platform-engineering` checkout that supplies the shared runner
   must be clean so its recorded Git head identifies the executing control-plane
   code exactly

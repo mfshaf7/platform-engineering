@@ -10,9 +10,11 @@ import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 import sys
 import time
+from typing import Protocol
 from uuid import uuid4
 
 import yaml
@@ -31,6 +33,10 @@ ACTIONS = {
 }
 
 ACTIVE_ONLY_ACTIONS = {"access", "backup", "restore", "up", "smoke"}
+
+
+class DigestWriter(Protocol):
+    def update(self, value: bytes) -> None: ...
 
 
 def load_yaml(path: Path) -> dict:
@@ -60,6 +66,99 @@ def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> str:
     if output:
         return output
     return (result.stderr or "").strip()
+
+
+def run_bytes(cmd: list[str], *, cwd: Path | None = None) -> bytes:
+    return subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
+def _add_digest_field(digest: DigestWriter, label: bytes, value: bytes) -> None:
+    digest.update(len(label).to_bytes(4, "big"))
+    digest.update(label)
+    digest.update(len(value).to_bytes(8, "big"))
+    digest.update(value)
+
+
+def working_tree_sha256(repo_root: Path) -> str:
+    changed_paths = run_bytes(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            "HEAD",
+            "--",
+        ]
+    ).split(b"\0")
+    untracked_paths = run_bytes(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ]
+    ).split(b"\0")
+    digest = hashlib.sha256()
+    for raw_path in sorted({path for path in (*changed_paths, *untracked_paths) if path}):
+        path = repo_root / os.fsdecode(raw_path)
+        _add_digest_field(digest, b"path", raw_path)
+        try:
+            path_stat = path.lstat()
+        except FileNotFoundError:
+            _add_digest_field(digest, b"kind", b"missing")
+            continue
+        _add_digest_field(digest, b"mode", f"{stat.S_IMODE(path_stat.st_mode):04o}".encode())
+        if stat.S_ISREG(path_stat.st_mode):
+            content_digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    content_digest.update(chunk)
+            _add_digest_field(digest, b"kind", b"file")
+            _add_digest_field(digest, b"content_sha256", content_digest.digest())
+        elif stat.S_ISLNK(path_stat.st_mode):
+            _add_digest_field(digest, b"kind", b"symlink")
+            _add_digest_field(digest, b"target", os.fsencode(os.readlink(path)))
+        elif stat.S_ISDIR(path_stat.st_mode):
+            submodule_head = run_bytes(
+                ["git", "-C", str(path), "rev-parse", "HEAD"]
+            ).strip()
+            submodule_dirty = bool(
+                run_bytes(
+                    [
+                        "git",
+                        "-C",
+                        str(path),
+                        "status",
+                        "--porcelain=v1",
+                        "-z",
+                        "--untracked-files=all",
+                    ]
+                )
+            )
+            _add_digest_field(digest, b"kind", b"submodule")
+            _add_digest_field(digest, b"submodule_head", submodule_head)
+            if submodule_dirty:
+                _add_digest_field(
+                    digest,
+                    b"submodule_working_tree_sha256",
+                    working_tree_sha256(path).encode(),
+                )
+        else:
+            raise SystemExit(f"Unsupported Git-visible source path type: {path}")
+    return digest.hexdigest()
 
 
 def slugify(value: str) -> str:
@@ -156,6 +255,7 @@ def git_state(repo_root: Path, *, workspace_root: Path) -> dict:
         "top_level": str(top_level),
         "upstream": upstream,
         "uses_worktree": git_dir_path != common_dir_path,
+        "working_tree_sha256": working_tree_sha256(repo_root) if dirty else None,
     }
 
 

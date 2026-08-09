@@ -128,7 +128,9 @@ these operator commitments explicit:
 The selected `platform-engineering` checkout that supplies the shared runner is
 the exception: it must be clean so the mandatory execution-source manifest
 binds the runner to one exact Git head. This does not require owner work to be
-clean or pushed.
+clean or pushed. Dirty owner and declared source repos are bound by the pair of
+their recorded Git head and a `working_tree_sha256` over every Git-visible
+changed or untracked path, including path, type, mode, and current content.
 
 It does not require:
 
@@ -154,10 +156,14 @@ Every `dev-integration` run must record:
   - branch
   - head SHA
   - dirty or clean
+  - working-tree SHA-256 when dirty
   - upstream tracking state
   - whether a path override or worktree was used
 
-The current session manifest is local-only and does not become governed evidence.
+For a clean repo, the head SHA is the source identity and
+`working_tree_sha256` is null. For a dirty repo, the head SHA plus
+`working_tree_sha256` identifies the Git-visible source bytes observed before
+dispatch. The current session manifest is local-only and does not become governed evidence.
 The shared runner also retains a no-overwrite manifest and result receipt for
 every dispatched action under the session archive. Those action records bind
 the result to the exact source state observed before dispatch. The owner action

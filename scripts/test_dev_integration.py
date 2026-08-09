@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).with_name("dev_integration.py")
@@ -80,6 +81,83 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     current_manifest=current,
                     sessions_root=sessions,
                 )
+
+    def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
+            workspace_root = Path(temp_dir) / "workspace"
+            default_owner = workspace_root / "owner-repo"
+            selected_owner = Path(temp_dir) / "selected-owner"
+            profile_relpath = Path("dev-integration/profiles/test/profile.yaml")
+            default_profile = default_owner / profile_relpath
+            selected_profile = selected_owner / profile_relpath
+            default_profile.parent.mkdir(parents=True)
+            selected_profile.parent.mkdir(parents=True)
+            default_profile.write_text("summary: wrong checkout\n", encoding="utf-8")
+            selected_profile.write_text(
+                "\n".join(
+                    [
+                        "summary: selected checkout",
+                        "runtime:",
+                        "  namespace_pattern: devint-{profile}-{operator}",
+                        "source_repos:",
+                        "  - repo: owner-repo",
+                        "stage_handoff:",
+                        "  required_checks: []",
+                        "commands:",
+                        "  up: scripts/up.sh",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            entry = {
+                "lifecycle": "active",
+                "owner_repo": "owner-repo",
+                "profile_path": profile_relpath.as_posix(),
+                "runtime_owner": "platform-engineering",
+                "security_owner": "security-architecture",
+            }
+            policy = {"profile_lifecycle": {"self_serve_statuses": ["active"]}}
+            registry = {"profiles": {"test-profile": entry}}
+            selected_state = {
+                "branch": "test",
+                "dirty": False,
+                "head_sha": "a" * 40,
+            }
+
+            with (
+                patch.object(
+                    DEV_INTEGRATION,
+                    "load_registry",
+                    return_value=(policy, registry),
+                ) as load_registry,
+                patch.object(
+                    DEV_INTEGRATION,
+                    "git_state",
+                    return_value=selected_state,
+                ) as git_state,
+            ):
+                resolved = DEV_INTEGRATION.resolve_profile(
+                    action="up",
+                    workspace_root=workspace_root,
+                    profile_id="test-profile",
+                    repo_overrides={"owner-repo": selected_owner},
+                )
+
+            _, profile, owner_root, profile_path, repo_paths, repo_states = resolved
+            load_registry.assert_called_once_with(
+                workspace_root,
+                {"owner-repo": selected_owner},
+            )
+            git_state.assert_called_once_with(
+                selected_owner.resolve(),
+                workspace_root=workspace_root,
+            )
+            self.assertEqual(profile["summary"], "selected checkout")
+            self.assertEqual(owner_root, selected_owner.resolve())
+            self.assertEqual(profile_path, selected_profile.resolve())
+            self.assertEqual(repo_paths["owner-repo"], selected_owner.resolve())
+            self.assertEqual(repo_states["owner-repo"], selected_state)
 
 
 if __name__ == "__main__":

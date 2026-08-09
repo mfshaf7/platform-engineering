@@ -155,8 +155,11 @@ Every `dev-integration` run must record:
 The current session manifest is local-only and does not become governed evidence.
 The shared runner also retains a no-overwrite manifest and result receipt for
 every dispatched action under the session archive. Those action records bind
-the result to the exact source state observed before dispatch. A governed
-Review Packet may cite their digests; the local files do not become governance
+the result to the exact source state observed before dispatch. When an owner
+repo path override is selected, that checkout supplies the profile definition,
+working directory, command path, and recorded Git state as one boundary; the
+runner must not record one checkout while executing another. A governed Review
+Packet may cite action-record digests; the local files do not become governance
 authority by themselves.
 
 ## Required Operator Actions

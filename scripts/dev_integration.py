@@ -127,8 +127,14 @@ def git_state(repo_root: Path, *, workspace_root: Path) -> dict:
     }
 
 
-def load_registry(workspace_root: Path) -> tuple[dict, dict]:
-    governance_root = workspace_root / "workspace-governance"
+def load_registry(
+    workspace_root: Path,
+    repo_overrides: dict[str, Path],
+) -> tuple[dict, dict]:
+    governance_root = repo_overrides.get(
+        "workspace-governance",
+        workspace_root / "workspace-governance",
+    ).resolve()
     policy = load_yaml(governance_root / "contracts" / "developer-integration-policy.yaml")
     registry = load_yaml(governance_root / "contracts" / "developer-integration-profiles.yaml")
     return policy, registry
@@ -141,7 +147,7 @@ def resolve_profile(
     profile_id: str,
     repo_overrides: dict[str, Path],
 ) -> tuple[dict, dict, Path, Path, dict[str, Path], dict[str, dict]]:
-    policy, registry = load_registry(workspace_root)
+    policy, registry = load_registry(workspace_root, repo_overrides)
     try:
         entry = registry["profiles"][profile_id]
     except KeyError as exc:
@@ -155,8 +161,21 @@ def resolve_profile(
             "Request or complete admission first, then activate the profile before launching or rehearsing it from the shared runner."
         )
 
-    owner_repo_root = workspace_root / entry["owner_repo"]
+    owner_repo_root = repo_overrides.get(
+        entry["owner_repo"],
+        workspace_root / entry["owner_repo"],
+    ).resolve()
+    if not owner_repo_root.exists():
+        raise SystemExit(
+            f"Owner repo path for {entry['owner_repo']!r} does not exist: "
+            f"{owner_repo_root}"
+        )
     profile_path = owner_repo_root / entry["profile_path"]
+    if not profile_path.is_file():
+        raise SystemExit(
+            f"Profile {profile_id!r} is unavailable in its selected owner repo: "
+            f"{profile_path}"
+        )
     profile = load_yaml(profile_path)
 
     repo_paths: dict[str, Path] = {}
@@ -168,6 +187,12 @@ def resolve_profile(
             raise SystemExit(f"Source repo path for {repo_name!r} does not exist: {repo_path}")
         repo_paths[repo_name] = repo_path
         repo_states[repo_name] = git_state(repo_path, workspace_root=workspace_root)
+
+    if repo_paths.get(entry["owner_repo"]) != owner_repo_root:
+        raise SystemExit(
+            f"Profile {profile_id!r} must declare its selected owner repo "
+            f"{entry['owner_repo']!r} as a source repo"
+        )
 
     return entry, profile, owner_repo_root, profile_path, repo_paths, repo_states
 
@@ -446,7 +471,7 @@ def main() -> int:
             f"dev-integration profile {args.profile!r} does not implement action {command_key!r}. "
             f"Available actions: {available_actions or 'none'}."
         ) from exc
-    command_path = workspace_root / entry["owner_repo"] / command_relpath
+    command_path = owner_repo_root / command_relpath
     try:
         returncode = dispatch_command(command_path, cwd=owner_repo_root, env=env)
     except KeyboardInterrupt:

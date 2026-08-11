@@ -10,10 +10,9 @@
 ## Classification
 
 - Type: shared component dev-integration admission extension
-- User-facing impact: WGCF has a bounded local Delivery ART evidence-custody
-  design ready for governed dev-integration activation and post-activation
-  commissioning, without exposing raw object-store access to OOS, OpenProject,
-  or a public endpoint.
+- User-facing impact: WGCF has completed bounded local Delivery ART
+  evidence-custody commissioning in dev-integration without exposing raw
+  object-store access to OOS, OpenProject, or a public endpoint.
 
 ## Ownership
 
@@ -63,13 +62,14 @@ transport or at-rest encryption. Stage and production remain denied pending
 approved workload identity, secret delivery, encryption, retention, deletion,
 backup, restore, and Security gates.
 
-This record authorizes the workspace registry to activate the local profile so
-the final commissioning sequence can run. It is not final operating evidence
-for the latest hardening. The owner action intentionally rejects an authority
-contract that is not on `origin/main`, so exact-head restore and smoke proof can
-only run after the owner, Platform, and registry PRs land in dependency order.
-ART #811 remains open until that post-activation proof is retained in a merged
-addendum.
+The initial acceptance authorized the workspace registry to activate the local
+profile so the final commissioning sequence could run; it did not itself count
+as final operating evidence. The owner action intentionally rejects an
+authority contract that is not on `origin/main`, so exact-head restore and
+smoke proof had to wait for the owner, Platform, and registry PRs to land in
+dependency order. The required post-activation proof is retained in the
+2026-08-11 commissioning addendum below. ART #811 may close only after this
+addendum lands and its owner-repository Review Packet is finalized.
 
 ## Source Changes
 
@@ -172,10 +172,9 @@ addendum.
 ## Live Verification
 
 The retained sessions below are historical operating proof for the bounded
-storage design at the explicitly recorded source heads. They do not claim that
-the later uncommissioned hardening listed above has run live. Final acceptance
-requires a new restore and read-only smoke sequence after the workspace
-authority contract lands and the profile becomes launchable from merged source.
+storage design at the explicitly recorded source heads. The later merged-source
+commissioning sequence is recorded separately in the 2026-08-11 addendum and
+does not retroactively change the source bindings of these earlier sessions.
 
 - Executed sessions:
   - `governance-control-fabric-mfshaf7-20260809T140544Z`
@@ -259,12 +258,48 @@ authority contract lands and the profile becomes launchable from merged source.
 - Residual risk: local HTTP, static profile-scoped Kubernetes Secrets, and
   local-path PVC storage are dev-integration evidence only.
 
+## Post-Activation Commissioning Addendum (2026-08-11)
+
+The required final commissioning sequence ran through the shared Platform
+runner after all participating repositories were clean on `main`:
+
+- WGCF: `2844698d069834dd8c6823f50b01f889f50c2704`
+- workspace authority: `79efb7f27d77ed5498a28b15bd68a37699e0c5d8`
+- Platform runner: `432db3b405e8777ea86975fe2ff70232f246d856`
+
+The single session `governance-control-fabric-mfshaf7-20260811T133008Z`
+completed these actions with return code `0`:
+
+- `up` reconciled the active profile and completed storage credential and
+  network-isolation proof.
+- `backup` retained one evidence object and one receipt binding without
+  credentials; archive SHA-256
+  `bcfd9aae2a88189ab9ddaccf9bf4ea1f552b457072a26e304b184acae7f7e4a7`.
+- confirmed `restore` consumed the sealed content-addressed input, preserved
+  content SHA-256
+  `1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c`,
+  and rebound the receipt to a newly server-assigned object version.
+- read-only `smoke` passed API health and readiness, authority load, database
+  migration, validation-plan dry run, receipt and ledger metadata reads,
+  version-bound evidence reads, credential isolation, and live network-policy
+  enforcement.
+
+The sanitized retained proof is
+[wgcf-devint-evidence-storage-commissioning-2026-08-11.json](../evidence/wgcf-devint-evidence-storage-commissioning-2026-08-11.json),
+SHA-256
+`156a88aceb9a7f978bac1f661971d5c1d9a2c7aa8668e3f96b76d8cb8e06ece0`.
+Raw action artifacts remain operator-local; the Git-tracked proof contains no
+credentials or absolute local paths.
+
+This addendum records the operating proof required for ART #811 when read from
+merged `main`. It accepts only profile-scoped local dev-integration custody and
+does not authorize a governed stage or production evidence store.
+
 ## Follow-Up
 
-- Required commissioning follow-up: after the owner, Platform, and workspace
-  registry PRs merge, rerun confirmed restore and read-only smoke through the
-  merged shared runner, retain the exact source-manifest/result bindings, and
-  merge the evidence addendum before closing ART #811.
+- Completed commissioning follow-up: confirmed restore and read-only smoke ran
+  through the merged shared runner, and the exact source-manifest and result
+  digests are retained in the 2026-08-11 evidence addendum.
 - Required future follow-up: governed stage or production design must separately
   close workload identity, transport and at-rest encryption, retention,
   deletion, backup, restore, and Security approval gates.

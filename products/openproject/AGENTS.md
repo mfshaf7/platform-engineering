@@ -120,8 +120,8 @@ For meaningful PRs, fill the shared governance declaration in:
 
 ## Review guidelines
 
-For Codex GitHub review, treat the following as `P1` when they plausibly
-misstate the OpenProject operating model:
+For owner review or optional advisory review, treat the following as `P1` when
+they plausibly misstate the OpenProject operating model:
 
 - wording or workflow changes that imply OpenProject already has an
   product-governed `source -> stage -> prod` promotion path

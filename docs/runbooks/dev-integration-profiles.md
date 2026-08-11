@@ -415,10 +415,10 @@ Additional rule:
   `stage_handoff.required_checks`, the profile README `Stage Handoff Checks`
   section, and the promote-check output in the same work
 
-For the workspace-level PR flow and Codex review procedure that begins after
-step 4, use:
+For the workspace-level PR flow and optional advisory-review procedure that
+begins after step 4, use:
 
-- [workspace-governance/docs/codex-github-review-and-automation.md](https://github.com/mfshaf7/workspace-governance/blob/main/docs/codex-github-review-and-automation.md)
+- [workspace-governance/docs/pull-request-review-and-automation.md](https://github.com/mfshaf7/workspace-governance/blob/main/docs/pull-request-review-and-automation.md)
 
 Supporting standard:
 

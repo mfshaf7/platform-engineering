@@ -197,8 +197,8 @@ Do not use one as a substitute for the other.
 
 ## Review guidelines
 
-For Codex GitHub review, treat the following as `P1` when they plausibly
-regress the repo's control model:
+For owner review or optional advisory review, treat the following as `P1` when
+they plausibly regress the repo's control model:
 
 - shared-vs-product placement drift, including product-local scripts, runbooks,
   or workflow lore leaking back into shared platform paths

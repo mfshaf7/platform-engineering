@@ -156,8 +156,8 @@ For meaningful PRs, fill the shared governance declaration in:
 
 ## Review guidelines
 
-For Codex GitHub review, treat the following as `P1` when they plausibly
-regress the governed OpenClaw release path:
+For owner review or optional advisory review, treat the following as `P1` when
+they plausibly regress the governed OpenClaw release path:
 
 - any change that bypasses stage candidate recording, stage verification,
   readiness validation, prod lifecycle controls, or post-promotion prod

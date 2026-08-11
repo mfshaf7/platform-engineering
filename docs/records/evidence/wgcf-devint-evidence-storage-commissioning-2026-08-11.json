@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "proof_type": "wgcf-dev-integration-evidence-storage-post-activation-commissioning",
+  "generated_at": "2026-08-11T13:35:05Z",
+  "scope": {
+    "art_work_item": "openproject://work_packages/811",
+    "lane": "dev-integration",
+    "profile_id": "governance-control-fabric",
+    "profile_lifecycle": "active",
+    "runtime_state_model": "persistent",
+    "governed_stage_or_prod_claim": false
+  },
+  "session": {
+    "session_id": "governance-control-fabric-mfshaf7-20260811T133008Z",
+    "namespace": "devint-governance-control-fabric-mfshaf7"
+  },
+  "source_repositories": {
+    "workspace-governance-control-fabric": {
+      "branch": "main",
+      "head_sha": "2844698d069834dd8c6823f50b01f889f50c2704",
+      "upstream": "origin/main",
+      "dirty": false
+    },
+    "workspace-governance": {
+      "branch": "main",
+      "head_sha": "79efb7f27d77ed5498a28b15bd68a37699e0c5d8",
+      "upstream": "origin/main",
+      "dirty": false
+    },
+    "platform-engineering": {
+      "branch": "main",
+      "head_sha": "432db3b405e8777ea86975fe2ff70232f246d856",
+      "upstream": "origin/main",
+      "dirty": false
+    }
+  },
+  "actions": [
+    {
+      "action": "up",
+      "result": "succeeded",
+      "returncode": 0,
+      "completed_at": "2026-08-11T13:31:42Z",
+      "manifest_sha256": "11d62829c5669a555a03b0fbea60f383cbbbe9f669d9c6b0039d4151296ff842",
+      "result_sha256": "edfb0e1414c9e30788ca58bbd5f7c771d4f9fe1b8d16bf602ec453f65b0994cb"
+    },
+    {
+      "action": "backup",
+      "result": "succeeded",
+      "returncode": 0,
+      "completed_at": "2026-08-11T13:32:33Z",
+      "manifest_sha256": "981e03b2919d907ad35401221bb1233ee4824e8dffffeb13b4a117589cf24cb0",
+      "result_sha256": "1d53a2f5f956ace6335830ca9909be13d41e0f8bc727830f40a56254244b383b"
+    },
+    {
+      "action": "restore",
+      "result": "succeeded",
+      "returncode": 0,
+      "completed_at": "2026-08-11T13:34:32Z",
+      "manifest_sha256": "b0f78bdb4276eed469346298fc28ed0a2f134b859c99a0e46553663720c0238c",
+      "result_sha256": "2a16ae236543d6778ab4c294f37ce935fa11b3368733e0328ec28315f44b96ad"
+    },
+    {
+      "action": "smoke",
+      "result": "succeeded",
+      "returncode": 0,
+      "completed_at": "2026-08-11T13:35:05Z",
+      "manifest_sha256": "17dfa8ed7bab2c59160d70a8a44c956a4aecaa095274b18e60dbded5049cc8f9",
+      "result_sha256": "5e16596e9827269702cf994a9d479a3cb0d1e506f23a9f7d2ff42b9e4e42fcf5"
+    }
+  ],
+  "backup": {
+    "archive_sha256": "bcfd9aae2a88189ab9ddaccf9bf4ea1f552b457072a26e304b184acae7f7e4a7",
+    "receipt_sha256": "81c10cd065a0f6b384e7b22a9adb85fae946c1d03273133b4288df607fd8473a",
+    "object_count": 1,
+    "receipt_binding_count": 1,
+    "credentials_included": false,
+    "restore_requires_receipt_rebinding": true
+  },
+  "restore": {
+    "receipt_sha256": "20a5081494e21dc67468f5d4da0cb63ce566cbb03775e3d76d12a9468e8cd90e",
+    "restored_from": "sha256:bcfd9aae2a88189ab9ddaccf9bf4ea1f552b457072a26e304b184acae7f7e4a7",
+    "content_addresses_preserved": true,
+    "receipt_identity_rebound": true,
+    "version_ids_preserved": false,
+    "content_sha256": "1aceed53c88ab2edf8286148a858fcc9ccb04ceec264bd526c6b4749f39cfd1c",
+    "prior_object_version_id": "1b2580af-cff6-40fd-9013-c5c19969c383",
+    "rebound_object_version_id": "dd095eac-c3ff-42eb-b3b8-861a6a683586",
+    "restored_current_version_id": "72c8fe24-3c3a-4064-8570-496494054971"
+  },
+  "smoke": {
+    "storage_verification_sha256": "49ed1501be9e3a75e8c4732b51de43f9320190a4eed63608b96196b50b7a7d14",
+    "storage_isolation_sha256": "2e4de925484448efa66989bfbd05612182014e570d319135023d96f9d41b3de8",
+    "network_enforcement_sha256": "d9b57e8156a27b078df4f6ee9e7c14d7ce710ae5d1e9790b4d8d59a4f1418e5a",
+    "api_health": "passed",
+    "api_readiness": "passed",
+    "authority_contract_load": "passed",
+    "database_migration": "passed",
+    "validation_planner_dry_run": "passed",
+    "receipt_and_ledger_metadata_read": "passed",
+    "version_bound_evidence_read": "passed"
+  },
+  "controls": {
+    "application_credential_read": true,
+    "application_credential_version_read": true,
+    "application_credential_delete_denied": true,
+    "application_credential_version_delete_denied": true,
+    "root_credential_absent_from_api": true,
+    "oos_credential_issued": false,
+    "openproject_credential_issued": false,
+    "maintenance_storage_connectivity": "allowed",
+    "unselected_storage_connectivity": "denied",
+    "api_storage_connectivity": "allowed-by-version-read"
+  },
+  "outcome": {
+    "result": "accepted",
+    "accepted_scope": "profile-scoped local dev-integration evidence custody",
+    "art_811_post_activation_proof_complete": true,
+    "stage_or_prod_authorized": false
+  },
+  "residual_risk": "Local namespace HTTP, static profile-scoped Kubernetes Secrets, and local-path PVC storage remain dev-integration-only evidence and do not authorize stage or production."
+}

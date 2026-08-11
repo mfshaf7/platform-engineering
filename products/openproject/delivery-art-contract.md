@@ -226,8 +226,8 @@ Description rules:
   the item becomes executable, PI-committed, blocked, or done
 - planned backlog `Feature`, `User story`, `Defect`, and `Risk` items may carry
   lightweight planning prose while they remain `new` or `parked`, have no
-  `Target PI`, and have no concrete iteration; the quality checker reports
-  that as backlog `polish`, not as a hard ART failure
+  `Target PI`, and have no concrete iteration; OOS owns the resulting
+  narrative-quality projection
 - keep `Acceptance Criteria`, `Definition of Ready`, and `Definition of Done`
   in custom fields only
 - use `Execution Context` for the fast human-readable bridge to repo, review,
@@ -244,8 +244,9 @@ Done-state narrative rules:
   - `Parent item` when the work item has a parent
   - `Delivery team` when that field is set
   - `Iteration` when that field is set
-- the broker and ART quality checker now fail closed when that done-state
-  narrative contract drifts
+- broker mutation and quality projections fail closed when that done-state
+  narrative contract drifts; the Platform quality command only reports the
+  broker projection
 
 ## Canonical Delivery Project
 
@@ -326,7 +327,6 @@ Canonical machine-readable workflow contract:
 That contract is the phase-and-gate source for:
 
 - `runbooks/plan-delivery-art.md`
-- `scripts/openproject_check_delivery_art_quality.py`
 - broker-side planning metadata in `operator-orchestration-service`
 - workspace-level cross-repo drift validation in `workspace-governance`
 
@@ -337,7 +337,6 @@ Canonical machine-readable blocker workflow contract:
 That contract is the trigger-and-gate source for:
 
 - `runbooks/manage-delivery-blockers.md`
-- blocker-related ART quality checks
 - broker-side blocker workflow metadata in `operator-orchestration-service`
 - workspace-level cross-repo drift validation in `workspace-governance`
 

@@ -185,17 +185,17 @@ Controls:
 | --- | --- | --- | --- |
 | `consume-top-level-shell-only` | machine | consume creates one top-level `Epic` shell only | broker consume route |
 | `consume-must-use-proposal-handoff` | machine | top-level initiatives cannot be created through generic work-item create | broker work-item create route |
-| `backlog-feature-must-stay-umbrella-shaped` | machine | backlog `Feature` items cannot own `User story` children | ART quality checker |
-| `pi-committed-initiative-must-have-pi-objective` | machine | initiative scope with PI-committed non-`Epic` work must include at least one `PI Objective` | ART quality checker |
-| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `Task`, and `Milestone` must carry `Target PI`; `User story` requires `Target PI` once executable or PI-committed | broker create/update/move + ART quality checker |
-| `active-non-epic-must-not-stay-uncommitted` | machine | `ready`, `in-progress`, or `blocked` non-`Epic` work must carry `Target PI` | broker create/update + ART quality checker |
-| `committed-non-epic-must-carry-non-backlog-iteration` | machine | committed non-`Epic` work must carry non-backlog `Iteration` | broker create/update + ART quality checker |
-| `target-pi-iteration-must-align-with-pi-lifecycle` | machine | committed work with `Target PI` must use an iteration aligned to the same PI or an allowed `Program-wide / ...` label | broker create/update/plan + ART quality checker + WGCF ART readiness |
+| `backlog-feature-must-stay-umbrella-shaped` | machine | backlog `Feature` items cannot own `User story` children | OOS planning validation and quality projection |
+| `pi-committed-initiative-must-have-pi-objective` | machine | initiative scope with PI-committed non-`Epic` work must include at least one `PI Objective` | OOS planning validation and quality projection |
+| `target-pi-required-on-committed-leaf-types` | machine | `PI Objective`, `Task`, and `Milestone` must carry `Target PI`; `User story` requires `Target PI` once executable or PI-committed | broker create/update/move and quality projection |
+| `active-non-epic-must-not-stay-uncommitted` | machine | `ready`, `in-progress`, or `blocked` non-`Epic` work must carry `Target PI` | broker create/update and quality projection |
+| `committed-non-epic-must-carry-non-backlog-iteration` | machine | committed non-`Epic` work must carry non-backlog `Iteration` | broker create/update and quality projection |
+| `target-pi-iteration-must-align-with-pi-lifecycle` | machine | committed work with `Target PI` must use an iteration aligned to the same PI or an allowed `Program-wide / ...` label | broker create/update/plan, OOS quality projection, and WGCF ART readiness |
 | `new-pi-created-by-planning-horizon-not-item-count` | operator | new PI creation is driven by planning horizon, carryover target, or closed/current-PI boundary, not child item count | PI planning checklist + operator review |
-| `pi-committed-feature-must-have-open-leaf-child` | machine | PI-committed `Feature` work must keep at least one open `User story` or `Defect` child | ART quality checker + broker plan/update guards |
+| `pi-committed-feature-must-have-open-leaf-child` | machine | PI-committed `Feature` work must keep at least one open `User story` or `Defect` child | broker plan/update guards and quality projection |
 | `story-and-task-parent-must-be-committed` | machine | executable story and task work may only live beneath PI-committed parents; backlog Features may keep `new` planned User story children | broker create/move |
-| `backlog-feature-child-scope-must-stay-non-executable` | machine | planned User story children under backlog Features must stay `new` or `parked`, blank `Target PI`, and backlog-iteration only | ART quality checker |
-| `roadmap-version-must-match-target-pi-projection` | machine | roadmap `version` stays a faithful projection of canonical `Target PI` | roadmap healer + ART quality checker |
+| `backlog-feature-child-scope-must-stay-non-executable` | machine | planned User story children under backlog Features must stay `new` or `parked`, blank `Target PI`, and backlog-iteration only | OOS planning validation and quality projection |
+| `roadmap-version-must-match-target-pi-projection` | machine | roadmap `version` stays a faithful projection of canonical `Target PI` | Platform roadmap healer and OOS workflow-health projection |
 | `execute-from-leaf-front` | operator | operators verify continuation context before treating umbrella work as the next front | broker continuation-context + ART skill |
 | `pi-review-must-carry-review-outcome-and-actual-value` | machine | reviewed PI objectives must record review outcome and actual value | broker PI-review route |
 | `carryover-must-be-retargeted-or-decommitted` | operator | open work at PI review must be re-targeted or decommitted explicitly | PI review checklist + ART planning read |
@@ -363,8 +363,9 @@ Use these as the planning contract:
 Committed non-`Epic` work must also carry a non-backlog `Iteration`.
 
 That non-backlog `Iteration` must align with the same PI as `Target PI`, or use
-an allowed `Program-wide / ...` label. The quality checker and broker guards
-reject stale prior-PI iteration labels on newly committed or active work.
+an allowed `Program-wide / ...` label. Broker guards and the OOS quality
+projection reject stale prior-PI iteration labels on newly committed or active
+work.
 
 ## Checks
 

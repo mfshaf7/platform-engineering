@@ -9,6 +9,11 @@ Normal ART work should now use broker-owned reads and writes. The commands in
 this runbook remain because they still manage OpenProject platform internals,
 not because they are the supported day-to-day ART execution surface.
 
+`make openproject-check-delivery-art-quality` remains as a compatibility
+entrypoint, but it is not an ART rule engine or a Platform-admin mutation. It
+projects one OOS-owned quality or workflow-health packet and applies no local
+ART semantics.
+
 ## Canonical Contract
 
 The machine-readable source of truth for this boundary is:

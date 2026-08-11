@@ -20,7 +20,7 @@ checks:
       - passed
   delivery-art-quality-smoke:
     category: workflow-plane
-    description: The governed delivery ART quality check still passes after the prod contract change.
+    description: The OOS-projected Delivery ART quality posture remains healthy through the Platform compatibility entrypoint after the prod contract change.
     capabilityTags:
       - delivery-art
       - operator-workflow

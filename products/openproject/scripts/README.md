@@ -37,7 +37,7 @@ The supported OpenProject script surface has two execution shapes:
 - `*_support.rb`
   - shared helper modules used by multiple runners
 - `*.py`
-  - repo-local validators or quality checks invoked by the shell entrypoints
+  - repo-local validators or broker-projection adapters invoked by shell entrypoints
   - includes the shared platform-admin adapter and the contract validator
 
 If a script is not listed as a supported operator entrypoint below, treat it
@@ -47,7 +47,7 @@ For `Workspace Delivery ART`, the remaining entrypoints here cover:
 
 - project bootstrap and schema provisioning
 - ART view synchronization
-- ART quality validation through the broker-native quality-pack read
+- broker-projected ART quality and OpenProject projection-health reporting
 - one-time ART normalization after a contract change
 - clean-start and service-identity admin controls
 

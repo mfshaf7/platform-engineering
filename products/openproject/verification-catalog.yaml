@@ -37,7 +37,7 @@ checks:
       - passed
   delivery-art-quality:
     category: workflow-plane
-    description: The current Workspace Delivery ART quality check still passes against the OpenProject product plane used for governed delivery work.
+    description: The OOS-projected Workspace Delivery ART quality posture remains healthy through the Platform compatibility entrypoint.
     capabilityTags:
       - delivery-art
       - operator-workflow

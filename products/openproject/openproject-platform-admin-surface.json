@@ -9,6 +9,8 @@
     ]
   },
   "surface_classes": {
+    "broker-projection-adapter": "Compatibility entrypoint that consumes broker-owned semantic truth without reimplementing it locally.",
+    "broker-projection-adapter-internal": "Internal implementation of a broker-projection-adapter entrypoint.",
     "product-runtime": "OpenProject product runtime or access entrypoint outside normal ART delivery execution.",
     "platform-admin": "Supported OpenProject bootstrap, repair, hygiene, or identity admin entrypoint.",
     "internal-helper": "Implementation helper that is not a direct operator surface.",
@@ -170,14 +172,14 @@
     },
     {
       "script": "openproject_check_delivery_art_quality.sh",
-      "surface_class": "platform-admin",
+      "surface_class": "broker-projection-adapter",
       "make_targets": [
         "openproject-check-delivery-art-quality"
       ],
       "runbooks": [
         "runbooks/check-delivery-art-quality.md"
       ],
-      "purpose": "Run the broker-backed scoped ART quality gate through the platform wrapper.",
+      "purpose": "Preserve the Platform quality entrypoint while projecting OOS-owned ART quality or workflow-health truth without local semantic evaluation.",
       "internal_runner_files": []
     },
     {
@@ -294,11 +296,11 @@
     },
     {
       "script": "openproject_check_delivery_art_quality.py",
-      "surface_class": "platform-admin-internal",
+      "surface_class": "broker-projection-adapter-internal",
       "invoked_by": [
         "openproject_check_delivery_art_quality.sh"
       ],
-      "purpose": "Broker-backed ART quality checker used by the shell wrapper."
+      "purpose": "Thin OOS quality and workflow-health projection adapter used by the shell wrapper."
     },
     {
       "script": "openproject_provision_delivery_art_identities.py",

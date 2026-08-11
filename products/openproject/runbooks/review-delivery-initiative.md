@@ -138,11 +138,11 @@ Controls:
 | Gate ID | Type | What It Enforces | Primary Surface |
 | --- | --- | --- | --- |
 | `initiative-closing-requires-system-demo` | machine | `Closing` requires recorded `System Demo Evidence` | broker initiative governance + system-demo route |
-| `initiative-closing-requires-clean-execution-state` | machine | `Closing` requires a clean execution tree and clean descendant closeout state | broker initiative governance + ART quality checker |
-| `initiative-done-requires-closing-phase` | machine | done initiatives must remain in PM² `Closing` | broker initiative governance + ART quality checker |
-| `initiative-done-requires-system-demo` | machine | done initiatives must retain `System Demo Evidence` | broker initiative governance + ART quality checker |
-| `initiative-done-requires-inspect-and-adapt` | machine | done initiatives must retain `Inspect & Adapt Actions` | broker initiative governance + ART quality checker |
-| `initiative-done-requires-final-closeout-readiness` | machine | done initiatives must still satisfy final closeout readiness | broker initiative governance + ART quality checker |
+| `initiative-closing-requires-clean-execution-state` | machine | `Closing` requires a clean execution tree and clean descendant closeout state | broker initiative governance and review-pack projection |
+| `initiative-done-requires-closing-phase` | machine | done initiatives must remain in PM² `Closing` | broker initiative governance and review-pack projection |
+| `initiative-done-requires-system-demo` | machine | done initiatives must retain `System Demo Evidence` | broker initiative governance and review-pack projection |
+| `initiative-done-requires-inspect-and-adapt` | machine | done initiatives must retain `Inspect & Adapt Actions` | broker initiative governance and review-pack projection |
+| `initiative-done-requires-final-closeout-readiness` | machine | done initiatives must still satisfy final closeout readiness | broker initiative governance and review-pack projection |
 
 ## Workflow
 
@@ -232,8 +232,7 @@ Run from `platform-engineering/`:
 ```bash
 make openproject-check-delivery-art-quality \
   OPENPROJECT_NAMESPACE=<namespace> \
-  TARGET_EPIC_ID=<epic-id> \
-  INCLUDE_DONE=true
+  TARGET_EPIC_ID=<epic-id>
 ```
 
 The quality report should come back clean before the initiative is treated as

@@ -21,11 +21,13 @@ def load_contract(path: Path | None = None) -> dict[str, object]:
 
 CONTRACT = load_contract()
 ALLOWED_SHELL_SURFACE_CLASSES = {
+    "broker-projection-adapter",
     "product-runtime",
     "platform-admin",
     "internal-helper",
 }
 ALLOWED_PYTHON_SURFACE_CLASSES = {
+    "broker-projection-adapter-internal",
     "platform-admin-adapter",
     "platform-admin-internal",
     "platform-admin-validator",

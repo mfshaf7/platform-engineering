@@ -18,7 +18,7 @@ help:
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
 	@printf "  openproject-configure-delivery-art Provision the workspace delivery ART project model\n"
 	@printf "  openproject-sync-delivery-art-views Reconcile delivery boards, PM² initiative register, PI objectives, risk views, and Program Increment views\n"
-	@printf "  openproject-check-delivery-art-quality Check whether the current delivery ART records are clean enough to use as primary work-state truth\n"
+	@printf "  openproject-check-delivery-art-quality Check the broker-projected Delivery ART quality posture\n"
 	@printf "  openproject-standardize-delivery-art Normalize the live delivery ART records to the current field and narrative standard\n"
 	@printf "  openproject-verify-clean-start Report production-activation hygiene and optionally enforce the stricter empty-plane gate\n"
 	@printf "  openproject-provision-delivery-art-identities Create or converge assignable repo-owner identities for Workspace Delivery ART\n"
@@ -142,7 +142,7 @@ openproject-sync-delivery-art-views:
 
 .PHONY: openproject-check-delivery-art-quality
 openproject-check-delivery-art-quality:
-	INCLUDE_DONE="$(INCLUDE_DONE)" TARGET_EPIC_ID="$(TARGET_EPIC_ID)" BROKER_NAMESPACE="$(BROKER_NAMESPACE)" BROKER_DEPLOYMENT="$(BROKER_DEPLOYMENT)" BROKER_PORT="$(BROKER_PORT)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" OPENPROJECT_DEPLOYMENT="$(OPENPROJECT_DEPLOYMENT)" OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER="$(OPENPROJECT_DELIVERY_PROJECT_IDENTIFIER)" \
+	TARGET_EPIC_ID="$(TARGET_EPIC_ID)" BROKER_NAMESPACE="$(BROKER_NAMESPACE)" BROKER_DEPLOYMENT="$(BROKER_DEPLOYMENT)" BROKER_PORT="$(BROKER_PORT)" OPENPROJECT_NAMESPACE="$(OPENPROJECT_NAMESPACE)" \
 		./products/openproject/scripts/openproject_check_delivery_art_quality.sh
 
 .PHONY: openproject-standardize-delivery-art

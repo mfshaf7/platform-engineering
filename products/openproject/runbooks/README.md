@@ -45,7 +45,8 @@ Read this as operator workflow families:
   platform-admin repair.
 - `provision-delivery-art-identities.md` is the control that converges the
   assignable repo-owner principals for `Workspace Delivery ART`.
-- `check-delivery-art-quality.md` is the scoped broker-native quality gate.
+- `check-delivery-art-quality.md` is the Platform compatibility adapter for
+  scoped OOS quality and unscoped workflow-health projections.
 - `manage-delivery-blockers.md` is the primary blocker trigger, recording, and
   clear checklist for active ART work.
 - `openproject-platform-admin-surface.md` defines the remaining OpenProject

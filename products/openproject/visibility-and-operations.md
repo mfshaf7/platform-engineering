@@ -33,6 +33,11 @@ fallback:
 
 - [runbooks/access-openproject.md](runbooks/access-openproject.md)
 
+The same runbook records the separate local-only access path for the
+`accepted-idea-delivery` dev-integration instance. Its NodePort and Windows
+localhost mapping are access plumbing only; profile status remains the source
+for that instance's runtime and credential state.
+
 ## Version And Package Evidence
 
 Operators should be able to identify:

@@ -46,6 +46,36 @@ curl -I http://127.0.0.1:32083/login
 make openproject-access
 ```
 
+## Accepted-Idea Delivery Dev Integration
+
+The persistent `accepted-idea-delivery` profile has a separate local-only
+OpenProject instance:
+
+- Windows browser URL: `http://127.0.0.1:18183/login`
+- WSL Kubernetes exposure: NodePort `32183`
+- Windows mapping: `127.0.0.1:18183` to the current WSL address on port
+  `32183`
+
+The enabled `PlatformCoreHostStack` Scheduled Task refreshes this mapping at
+Windows logon. The profile owns the Kubernetes Service declaration; Platform
+owns the Windows localhost mapping. To refresh the generated bootstrap and run
+the task immediately:
+
+```bash
+make openproject-refresh-devint-access
+```
+
+Use the shared profile entrypoint to inspect the runtime and print its local
+credential:
+
+```bash
+make devint-access PROFILE=accepted-idea-delivery
+```
+
+This endpoint is local `dev-integration` access only. It is not the
+platform-integrated OpenProject endpoint and provides no stage or production
+evidence.
+
 ## Fallback
 
 If Windows localhost is not responding but the service is healthy inside the
@@ -70,3 +100,10 @@ make openproject-access
 
 The managed Windows task should run the Windows-local bootstrap copy under
 `%LOCALAPPDATA%\OpenClaw\bootstrap\`.
+
+For the accepted-idea delivery profile, the bounded fallback is:
+
+```bash
+k3s kubectl -n devint-accepted-idea-delivery-mfshaf7 \
+  port-forward svc/devint-accepted-idea-delivery-openproject 18183:8080
+```

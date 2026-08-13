@@ -16,6 +16,28 @@
     platform_windows_transit_unseal_artifact_path_wsl: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}/openclaw-transit-vault-unseal.ps1"
     platform_windows_vault_unseal_artifact_path_wsl: "{{ platform_windows_bootstrap_artifact_dir_wsl_path }}/platform-vault-unseal.ps1"
   tasks:
+    - name: Validate Windows localhost remapping ports
+      assert:
+        that:
+          - (item.listen_port | int) > 0
+          - (item.listen_port | int) <= 65535
+          - (item.connect_port | int) > 0
+          - (item.connect_port | int) <= 65535
+          - (item.listen_port | int) not in platform_windows_localhost_forward_ports
+        fail_msg: >-
+          Invalid or duplicate Windows localhost remapping for {{ item.name }}:
+          {{ item.listen_port }} -> {{ item.connect_port }}.
+      loop: "{{ platform_windows_localhost_forward_mappings | default([]) }}"
+
+    - name: Reject duplicate Windows localhost remapping listeners
+      assert:
+        that:
+          - >-
+            (platform_windows_localhost_forward_mappings | default([]) |
+            map(attribute='listen_port') | list | unique | length) ==
+            (platform_windows_localhost_forward_mappings | default([]) | length)
+        fail_msg: Windows localhost remapping listener ports must be unique.
+
     - name: Ensure generated artifact directory exists
       file:
         path: "{{ openclaw_windows_bootstrap_artifact_dir }}"

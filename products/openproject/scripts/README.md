@@ -68,6 +68,7 @@ explicit token-handoff destination instead of forcing direct runner access.
 - `openproject_apply.sh`
 - `openproject_status.sh`
 - `openproject_access.sh`
+- `openproject_refresh_devint_access.sh`
 - `openproject_sync_admin_password.sh`
 - `openproject_configure_idea_backlog.sh`
 - `openproject_configure_delivery_art.sh`
@@ -84,6 +85,7 @@ explicit token-handoff destination instead of forcing direct runner access.
 - `make openproject-apply`
 - `make openproject-status`
 - `make openproject-access`
+- `make openproject-refresh-devint-access`
 - `make openproject-sync-admin-password`
 - `make openproject-configure-idea-backlog`
 - `make openproject-configure-delivery-art`

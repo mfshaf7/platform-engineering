@@ -68,6 +68,12 @@ plane, that plane must also pass the production-activation hygiene gate from:
 - WSL shell-local fallback should use `k3s kubectl -n openproject port-forward`
   rather than assuming the Windows localhost port is available in-shell
 
+The persistent `accepted-idea-delivery` dev-integration instance is a separate
+local runtime owned by its OOS profile. It follows the same platform access
+pattern with NodePort `32183` and a managed Windows localhost mapping on
+`127.0.0.1:18183`; it does not share the platform-integrated instance's data,
+credential, or release posture.
+
 ## Deferred In V1
 
 - ingress, TLS, and domain-based access

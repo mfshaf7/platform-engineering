@@ -14,6 +14,7 @@ help:
 	@printf "  openproject-apply  Register and wait for the OpenProject Argo apps\n"
 	@printf "  openproject-status Show current OpenProject Argo and workload status\n"
 	@printf "  openproject-access Show the preferred Windows and WSL OpenProject URLs\n"
+	@printf "  openproject-refresh-devint-access Refresh managed Windows localhost access for active OpenProject dev-integration profiles\n"
 	@printf "  openproject-sync-admin-password Reconcile the admin password from Vault-backed secret into OpenProject\n"
 	@printf "  openproject-configure-idea-backlog Remove demo projects and provision the workspace proposals backlog model\n"
 	@printf "  openproject-configure-delivery-art Provision the workspace delivery ART project model\n"
@@ -123,6 +124,10 @@ openproject-status:
 .PHONY: openproject-access
 openproject-access:
 	./products/openproject/scripts/openproject_access.sh
+
+.PHONY: openproject-refresh-devint-access
+openproject-refresh-devint-access: render-windows-bootstrap
+	./products/openproject/scripts/openproject_refresh_devint_access.sh
 
 .PHONY: openproject-sync-admin-password
 openproject-sync-admin-password:

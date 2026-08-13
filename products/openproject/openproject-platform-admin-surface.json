@@ -95,6 +95,18 @@
       "internal_runner_files": []
     },
     {
+      "script": "openproject_refresh_devint_access.sh",
+      "surface_class": "product-runtime",
+      "make_targets": [
+        "openproject-refresh-devint-access"
+      ],
+      "runbooks": [
+        "runbooks/access-openproject.md"
+      ],
+      "purpose": "Render and run the managed Windows localhost mapping for active OpenProject dev-integration profiles.",
+      "internal_runner_files": []
+    },
+    {
       "script": "openproject_sync_admin_password.sh",
       "surface_class": "platform-admin",
       "make_targets": [

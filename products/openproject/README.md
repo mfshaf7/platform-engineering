@@ -55,6 +55,11 @@ OpenProject is currently:
   storage
 - exposed through the existing Windows localhost-friendly operator access model
 
+The OOS-owned `accepted-idea-delivery` profile runs a separate local-only
+OpenProject instance for fast workflow iteration. Platform supplies its managed
+Windows localhost mapping; the profile remains the runtime-shape and credential
+authority for that instance.
+
 ## Current Workflow Maturity
 
 OpenProject is currently `platform-integrated`.

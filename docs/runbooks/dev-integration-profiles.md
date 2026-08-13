@@ -215,8 +215,10 @@ Meaning:
 - `devint-status`
   - shows the current session and runtime state
 - `devint-access`
-  - holds open the profile's primary inspection surface, such as a local
-    OpenProject UI port-forward, until you stop it
+  - reports or opens the profile's primary inspection surface
+  - disposable profiles may hold a foreground port-forward until you stop it
+  - persistent profiles may use a platform-managed localhost mapping and
+    return after reporting its health
 - `devint-smoke`
   - runs the profile’s smoke checks
   - for persistent ART profiles such as `accepted-idea-delivery`, this must
@@ -286,11 +288,14 @@ Important boundaries:
   runtime shape, but the profile's access and smoke scripts are the authority
   for how operators reach it
 
-Port-forward note for persistent OpenProject lanes:
+Access note for persistent OpenProject lanes:
 
-- if the normal UI access session is already holding the profile's default
-  OpenProject port, run smoke on an alternate local port while keeping the
-  canonical host header, for example:
+- `accepted-idea-delivery` uses Windows `127.0.0.1:18183` mapped by
+  `PlatformCoreHostStack` to its stable WSL NodePort `32183`
+- the foreground port-forward remains a fallback, not the normal persistent
+  access lifecycle
+- run smoke on alternate local ports while keeping the canonical host header,
+  for example:
   - `DEVINT_OPENPROJECT_LOCAL_PORT=28183 DEVINT_OPENPROJECT_HOST_HEADER=localhost:18183 DEVINT_BROKER_LOCAL_PORT=28180 make devint-smoke PROFILE=accepted-idea-delivery`
 
 ## 3. Request A New Profile When None Fits

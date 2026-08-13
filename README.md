@@ -233,6 +233,7 @@ product-neutral.
   - `make openproject-apply`
   - `make openproject-status`
   - `make openproject-access`
+  - `make openproject-refresh-devint-access`
   - `make openproject-sync-admin-password`
   - `make openproject-configure-idea-backlog`
   - `make openproject-configure-delivery-art`

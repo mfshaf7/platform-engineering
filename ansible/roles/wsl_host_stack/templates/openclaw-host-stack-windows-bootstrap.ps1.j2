@@ -28,6 +28,16 @@ $forwardPorts = @(
 {% endfor %}
 )
 
+$forwardMappings = @(
+{% for mapping in platform_windows_localhost_forward_mappings | default([]) %}
+  @{
+    Name = '{{ mapping.name }}'
+    ListenPort = {{ mapping.listen_port }}
+    ConnectPort = {{ mapping.connect_port }}
+  }{{ "," if not loop.last else "" }}
+{% endfor %}
+)
+
 $hostForwardRules = @(
 {% for rule in platform_windows_host_forward_rules | default([]) %}
   @{
@@ -114,6 +124,11 @@ function Update-LocalhostPortProxy {
   foreach ($port in $forwardPorts) {
     Remove-PortProxyEntriesByListenPort -ListenPort $port
     netsh interface portproxy add v4tov4 listenport=$port listenaddress=127.0.0.1 connectport=$port connectaddress=$wslIp | Out-Null
+  }
+
+  foreach ($mapping in $forwardMappings) {
+    Remove-PortProxyEntriesByListenPort -ListenPort $mapping.ListenPort
+    netsh interface portproxy add v4tov4 listenport=$($mapping.ListenPort) listenaddress=127.0.0.1 connectport=$($mapping.ConnectPort) connectaddress=$wslIp | Out-Null
   }
 
   $hostDockerInternalIp = $null

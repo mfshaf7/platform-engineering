@@ -16,7 +16,8 @@ Use a change record when a production issue required one or more of:
 - host/runtime drift repair
 
 Source-only admission does not create deployment evidence. The Temporal
-controlled-proof issuer and executor under ART #792 are indexed by
+controlled-proof issuer and executor originated under ART #792 and its
+approval-provenance correction is reviewed under ART #825. They are indexed by
 [ADR-018](../../decisions/adr/ADR-018-permit-gated-component-commissioning-proof.md),
 the finalized source Review Packet, and the component operations guide; a
 change record becomes required only when a later authorized proof changes live

@@ -30,7 +30,10 @@ from controlled_proof.authority import (  # noqa: E402
     OWNER_RUNTIME_IMAGES,
     PROBE_IDS,
     SURFACE_ORDER,
-    WORKSPACE_REPOS,
+    EXECUTION_SOURCE_REPOS,
+    SECURITY_AUTHORIZATION_MERGED_REF,
+    SECURITY_AUTHORIZATION_SOURCE_REPO,
+    GitSourceResolver,
     assemble_claims,
     capture_baseline,
     claim_execution,
@@ -117,11 +120,22 @@ SOURCE_REVISIONS = {
 class FakeSourceResolver:
     def __init__(self, dirty_repo: str | None = None):
         self.revisions = dict(SOURCE_REVISIONS)
+        self.merged_revisions = {
+            (repo, revision) for repo, revision in self.revisions.items()
+        }
         self.dirty_repo = dirty_repo
         self.source_files: dict[tuple[str, str, str], bytes] = {}
 
     def revision(self, repo: str) -> tuple[str, bool]:
         return self.revisions[repo], repo == self.dirty_repo
+
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        return (
+            ref == SECURITY_AUTHORIZATION_MERGED_REF
+            and (repo, revision) in self.merged_revisions
+        )
 
     def add_file(self, repo: str, relative_path: str, content: bytes) -> None:
         self.source_files[(repo, self.revisions[repo], relative_path)] = content
@@ -144,6 +158,149 @@ class FakeSourceResolver:
             return self.source_files[(repo, revision, relative_path)]
         except KeyError as exc:
             raise ControlledProofError("source artifact is unavailable") from exc
+
+
+def initialize_git_repo(root: Path, seed_name: str) -> str:
+    remote_root = root.parent / f"{root.name}-origin.git"
+    subprocess.run(
+        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote_root)],
+        check=True,
+    )
+    root.mkdir(parents=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main", str(root)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "remote", "add", "origin", str(remote_root)],
+        check=True,
+    )
+    (root / seed_name).write_text("reviewed source\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", seed_name], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Controlled Proof Test",
+            "-c",
+            "user.email=controlled-proof@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "seed reviewed source",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "push", "--quiet", "-u", "origin", "main"],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def merge_git_branch_to_main(root: Path, branch: str) -> str:
+    subprocess.run(["git", "-C", str(root), "checkout", "--quiet", "main"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Controlled Proof Test",
+            "-c",
+            "user.email=controlled-proof@example.invalid",
+            "merge",
+            "--quiet",
+            "--no-ff",
+            branch,
+            "-m",
+            "merge reviewed security authorization",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "push", "--quiet", "origin", "main"],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def commit_git_path(root: Path, relative_path: str, message: str) -> str:
+    subprocess.run(["git", "-C", str(root), "add", relative_path], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Controlled Proof Test",
+            "-c",
+            "user.email=controlled-proof@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            message,
+        ],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+class RealApprovalSourceResolver(FakeSourceResolver):
+    def __init__(self, workspace_root: Path):
+        super().__init__()
+        self.git = GitSourceResolver(workspace_root)
+
+    def revision(self, repo: str) -> tuple[str, bool]:
+        if repo in {"platform-engineering", SECURITY_AUTHORIZATION_SOURCE_REPO}:
+            return self.git.revision(repo)
+        return super().revision(repo)
+
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        if repo == SECURITY_AUTHORIZATION_SOURCE_REPO:
+            return self.git.revision_is_ancestor_of(repo, revision, ref)
+        return super().revision_is_ancestor_of(repo, revision, ref)
+
+    def read_file(
+        self,
+        repo: str,
+        revision: str,
+        relative_path: str,
+        *,
+        require_current_checkout: bool = True,
+    ) -> bytes:
+        if repo == SECURITY_AUTHORIZATION_SOURCE_REPO:
+            return self.git.read_file(
+                repo,
+                revision,
+                relative_path,
+                require_current_checkout=require_current_checkout,
+            )
+        return super().read_file(
+            repo,
+            revision,
+            relative_path,
+            require_current_checkout=require_current_checkout,
+        )
 
 
 class FakeProbe:
@@ -227,9 +384,9 @@ def runtime_images() -> list[dict[str, str]]:
 
 
 def claims_for(baseline: dict[str, object], baseline_digest: str) -> dict[str, object]:
-    source_revisions = [
+    execution_source_revisions = [
         {"repo": repo, "commit": SOURCE_REVISIONS[repo]}
-        for repo in WORKSPACE_REPOS
+        for repo in EXECUTION_SOURCE_REPOS
     ]
     scenarios = [
         {
@@ -243,12 +400,12 @@ def claims_for(baseline: dict[str, object], baseline_digest: str) -> dict[str, o
     ]
     reviewed_source = {
         "owner_repo": "platform-engineering",
-        "implementation_ref": "openproject://work_packages/792",
+        "implementation_ref": "openproject://work_packages/825",
         "source_revision": REVISION,
-        "review_packet_ref": "artifact://review-packets/platform-792",
+        "review_packet_ref": "artifact://review-packets/platform-825",
     }
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "authorization_id": "platform-controlled-proof://authorizations/session-001",
         "authority_type": "runtime-drill",
         "drill_type": "component-commissioning-proof",
@@ -264,7 +421,7 @@ def claims_for(baseline: dict[str, object], baseline_digest: str) -> dict[str, o
                     "definition_version": 1,
                 }
             ],
-            "source_revisions": source_revisions,
+            "execution_source_revisions": execution_source_revisions,
             "runtime_artifacts": runtime_artifacts(),
             "runtime_images": runtime_images(),
             "target_namespaces": [
@@ -1147,6 +1304,253 @@ class ControlledProofTests(unittest.TestCase):
                 contracts=fixture.contracts,
             )
 
+    def test_real_git_security_approval_is_bound_after_claims_without_digest_cycle(
+        self,
+    ) -> None:
+        root = self.root / "real-git-provenance"
+        workspace_root = root / "workspace"
+        platform_root = workspace_root / "platform-engineering"
+        security_root = workspace_root / SECURITY_AUTHORIZATION_SOURCE_REPO
+        platform_revision = initialize_git_repo(platform_root, "permit-issuer.txt")
+        security_preapproval_revision = initialize_git_repo(
+            security_root, "review-boundary.txt"
+        )
+        source = RealApprovalSourceResolver(workspace_root)
+        contracts = load_contracts()
+        baseline_path = root / "baseline.json"
+        baseline_evidence_root = root / "baseline-evidence"
+        baseline, baseline_digest = capture_baseline(
+            baseline_id="artifact://controlled-proof/baselines/real-git-session",
+            operator_id="alice",
+            output_path=baseline_path,
+            evidence_root=baseline_evidence_root,
+            source_resolver=source,
+            probe=FakeProbe(),
+            contracts=contracts,
+            captured_at=timestamp(timedelta(minutes=-10)),
+        )
+        claims, claims_digest = assemble_claims(
+            authorization_id=(
+                "platform-controlled-proof://authorizations/real-git-session"
+            ),
+            commissioning_session_id="real-git-session",
+            review_packet_ref="artifact://review-packets/platform-825",
+            issued_at=timestamp(timedelta(seconds=-30)),
+            expires_at=timestamp(timedelta(hours=1)),
+            baseline=baseline,
+            baseline_digest=baseline_digest,
+            baseline_evidence_root=baseline_evidence_root,
+            owner_image_digests={
+                image_ref: DIGEST for image_ref in OWNER_RUNTIME_IMAGES
+            },
+            source_resolver=source,
+            contracts=contracts,
+        )
+        self.assertEqual(
+            [
+                item["repo"]
+                for item in claims["scope"]["execution_source_revisions"]
+            ],
+            list(EXECUTION_SOURCE_REPOS),
+        )
+        self.assertNotIn(
+            SECURITY_AUTHORIZATION_SOURCE_REPO,
+            {
+                item["repo"]
+                for item in claims["scope"]["execution_source_revisions"]
+            },
+        )
+        self.assertEqual(
+            next(
+                item["commit"]
+                for item in claims["scope"]["execution_source_revisions"]
+                if item["repo"] == "platform-engineering"
+            ),
+            platform_revision,
+        )
+
+        operator_approval = root / "operator-approval.json"
+        security_source_path = (
+            "records/controlled-proof-authorizations/real-git-session.json"
+        )
+        security_approval = security_root / security_source_path
+        security_approval.parent.mkdir(parents=True)
+        write_approval(
+            operator_approval,
+            role="operator-approval",
+            claims=claims,
+            claims_digest=claims_digest,
+        )
+        write_approval(
+            security_approval,
+            role="security-authorization",
+            claims=claims,
+            claims_digest=claims_digest,
+            source_path=security_source_path,
+        )
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "source repo is dirty at permit issuance",
+        ):
+            issue_permit(
+                claims=claims,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                contracts=contracts,
+            )
+
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(security_root),
+                "checkout",
+                "--quiet",
+                "-b",
+                "security-approval-review",
+            ],
+            check=True,
+        )
+        commit_git_path(
+            security_root,
+            security_source_path,
+            "approve exact controlled proof claims",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(security_root),
+                "push",
+                "--quiet",
+                "-u",
+                "origin",
+                "security-approval-review",
+            ],
+            check=True,
+        )
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "not contained in merged refs/remotes/origin/main",
+        ):
+            issue_permit(
+                claims=claims,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                contracts=contracts,
+            )
+
+        security_revision = merge_git_branch_to_main(
+            security_root,
+            "security-approval-review",
+        )
+        authorization = issue_permit(
+            claims=claims,
+            operator_approval_path=operator_approval,
+            security_approval_path=security_approval,
+            baseline_path=baseline_path,
+            baseline_evidence_root=baseline_evidence_root,
+            source_resolver=source,
+            contracts=contracts,
+        )
+        self.assertEqual(canonical_digest(claims), claims_digest)
+        self.assertEqual(
+            canonical_digest(authority_module.claims_projection(authorization)),
+            claims_digest,
+        )
+        self.assertEqual(
+            authorization["approvals"]["security_authorization_source_revision"],
+            security_revision,
+        )
+        self.assertEqual(
+            authorization["approvals"]["security_authorization_source_path"],
+            security_source_path,
+        )
+        validate_authorization(
+            authorization,
+            contracts=contracts,
+            baseline_path=baseline_path,
+            baseline_evidence_root=baseline_evidence_root,
+            source_resolver=source,
+            operator_approval_path=operator_approval,
+            security_approval_path=security_approval,
+        )
+
+        wrong_revision = copy.deepcopy(authorization)
+        wrong_revision["approvals"][
+            "security_authorization_source_revision"
+        ] = security_preapproval_revision
+        with self.assertRaisesRegex(ControlledProofError, "source artifact"):
+            validate_authorization(
+                wrong_revision,
+                contracts=contracts,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+            )
+
+        wrong_path = copy.deepcopy(authorization)
+        wrong_path["approvals"]["security_authorization_source_path"] = (
+            "records/controlled-proof-authorizations/wrong.json"
+        )
+        with self.assertRaisesRegex(ControlledProofError, "source path"):
+            validate_authorization(
+                wrong_path,
+                contracts=contracts,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+            )
+
+        (platform_root / "post-review-change.txt").write_text(
+            "unreviewed change\n", encoding="utf-8"
+        )
+        commit_git_path(
+            platform_root,
+            "post-review-change.txt",
+            "change permit issuer after review",
+        )
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "authorization source revision drifted: platform-engineering",
+        ):
+            validate_authorization(
+                authorization,
+                contracts=contracts,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+            )
+
+    def test_legacy_self_referential_source_shape_is_rejected(self) -> None:
+        fixture = ProofFixture(self.root / "valid")
+        legacy = copy.deepcopy(fixture.claims)
+        legacy["scope"]["source_revisions"] = legacy["scope"].pop(
+            "execution_source_revisions"
+        )
+        legacy["scope"]["source_revisions"].append(
+            {
+                "repo": SECURITY_AUTHORIZATION_SOURCE_REPO,
+                "commit": SOURCE_REVISIONS[SECURITY_AUTHORIZATION_SOURCE_REPO],
+            }
+        )
+        legacy["schema_version"] = 3
+        with self.assertRaises(ControlledProofError):
+            prepare_claims(legacy, contracts=fixture.contracts)
+
     def test_runtime_action_revalidates_consumed_authority_and_exact_scope(self) -> None:
         fixture = ProofFixture(self.root / "fixture", operator_id="alice.example")
         workspace_root = self.root / "workspace"
@@ -1416,7 +1820,7 @@ class ControlledProofTests(unittest.TestCase):
         drifted = copy.deepcopy(fixture.claims)
         source = next(
             item
-            for item in drifted["scope"]["source_revisions"]
+            for item in drifted["scope"]["execution_source_revisions"]
             if item["repo"] == "operator-orchestration-service"
         )
         source["commit"] = "f" * 40

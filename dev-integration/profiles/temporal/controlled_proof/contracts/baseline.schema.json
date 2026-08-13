@@ -10,12 +10,12 @@
     "profile",
     "operator_id",
     "captured_at",
-    "source_revisions",
+    "execution_source_revisions",
     "surface_observations",
     "restore_scope"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "baseline_id": { "$ref": "#/$defs/uri" },
     "profile": {
       "type": "object",
@@ -29,10 +29,10 @@
     },
     "operator_id": { "$ref": "#/$defs/identifier" },
     "captured_at": { "$ref": "#/$defs/timestamp" },
-    "source_revisions": {
+    "execution_source_revisions": {
       "type": "array",
-      "minItems": 5,
-      "maxItems": 5,
+      "minItems": 4,
+      "maxItems": 4,
       "uniqueItems": true,
       "items": {
         "type": "object",
@@ -44,8 +44,7 @@
               "platform-engineering",
               "operator-orchestration-service",
               "workspace-governance",
-              "workspace-governance-control-fabric",
-              "security-architecture"
+              "workspace-governance-control-fabric"
             ]
           },
           "commit": { "$ref": "#/$defs/revision" },

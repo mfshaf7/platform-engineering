@@ -24,7 +24,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 3
+      "const": 4
     },
     "authorization_id": {
       "$ref": "#/$defs/uri"
@@ -60,7 +60,7 @@
       "additionalProperties": false,
       "required": [
         "allowed_definitions",
-        "source_revisions",
+        "execution_source_revisions",
         "runtime_artifacts",
         "runtime_images",
         "target_namespaces",
@@ -91,7 +91,7 @@
             }
           }
         },
-        "source_revisions": {
+        "execution_source_revisions": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
@@ -104,11 +104,19 @@
             ],
             "properties": {
               "repo": {
-                "$ref": "#/$defs/identifier"
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/identifier"
+                  },
+                  {
+                    "not": {
+                      "const": "security-architecture"
+                    }
+                  }
+                ]
               },
               "commit": {
-                "type": "string",
-                "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+                "$ref": "#/$defs/sourceRevision"
               }
             }
           }
@@ -288,6 +296,9 @@
         "canonical_claims_digest",
         "operator_approval_ref",
         "operator_approval_digest",
+        "security_authorization_source_repo",
+        "security_authorization_source_revision",
+        "security_authorization_source_path",
         "security_authorization_ref",
         "security_authorization_digest"
       ],
@@ -309,6 +320,15 @@
         },
         "operator_approval_digest": {
           "$ref": "#/$defs/digest"
+        },
+        "security_authorization_source_repo": {
+          "const": "security-architecture"
+        },
+        "security_authorization_source_revision": {
+          "$ref": "#/$defs/sourceRevision"
+        },
+        "security_authorization_source_path": {
+          "$ref": "#/$defs/repoPath"
         },
         "security_authorization_ref": {
           "$ref": "#/$defs/uri"
@@ -718,6 +738,16 @@
     "digest": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sourceRevision": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
     },
     "identifier": {
       "type": "string",

@@ -19,8 +19,8 @@ This section is the primary Platform operator surface for a bounded Temporal
 commissioning proof. The proof is not a normal profile launch and does not
 change the profile from `build-admitted`.
 
-The permit issuer and executor source is implemented and source-reviewed under
-ART #792. That source availability is not runtime authorization. No permit has
+The corrected permit issuer and executor source is reviewed under ART #825.
+That source availability is not runtime authorization. No permit has
 been issued, no commissioning session has run, and ordinary `devint-up`,
 access, smoke, backup, restore, and workflow commands remain denied while the
 profile is `build-admitted`.
@@ -61,21 +61,24 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
 Capture refuses dirty owner repos, a running operator-scoped Temporal footprint,
 operator-local Temporal state, or an installed operator-scoped OOS or WGCF
 controlled worker. The resulting baseline and three runtime-surface evidence
-files are immutable permit inputs. Source revisions remain authorization inputs;
-they are not runtime surfaces that terminal cleanup later attempts to restore.
+files are immutable permit inputs. Execution source revisions remain
+authorization inputs; Security approval provenance is bound later in the
+approval envelope. Neither is a runtime surface that terminal cleanup later
+attempts to restore.
 Do not edit or recapture the baseline under the same identity.
 
 ### 2. Assemble And Approve One Claims Set
 
 The claims JSON excludes the `approvals` envelope. It must bind the exact
-merged Platform #792 revision and finalized Review Packet, the exact reviewed
+merged Platform #825 revision and finalized Review Packet, the exact reviewed
 Workspace Governance, OOS, and WGCF revisions in the controlled-proof source
-manifest, the current Security revision, immutable image and artifact digests,
-one namespace, the three runtime identities, two task queues, eleven ordered
-scenarios, one baseline, and one expiry window. Validate and reproduce its RFC
-8785-subset digest. Choose a declared issue time after both approvals can be
-recorded and an expiry that bounds the whole proof, then build the claims from
-the immutable baseline and reviewed source:
+manifest, immutable image and artifact digests, one namespace, the three
+runtime identities, two task queues, eleven ordered scenarios, one baseline,
+and one expiry window. Security is deliberately excluded because its approval
+does not exist yet. Validate and reproduce the claims RFC 8785-subset digest.
+Choose a declared issue time after both approvals can be recorded and an expiry
+that bounds the whole proof, then build the claims from the immutable baseline
+and reviewed source:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
@@ -83,7 +86,7 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
   --workspace-root <workspace-root> \
   --authorization-id platform-controlled-proof://authorizations/<session-id> \
   --session-id <session-id> \
-  --review-packet-ref artifact://review-packets/<platform-792-packet> \
+  --review-packet-ref artifact://review-packets/<platform-825-packet> \
   --issued-at <rfc3339-utc> \
   --expires-at <rfc3339-utc> \
   --baseline <local-evidence-root>/baseline.json \
@@ -107,9 +110,14 @@ Security authorization under ART #790 and explicit operator approval must each
 be separate JSON artifacts binding that exact digest. The Security artifact
 must also be committed and merged in `security-architecture`, identify its own
 normalized JSON source path, and remain equivalent to that source-controlled
-record. The permit claims bind the exact Security revision used to load it, so
-the artifact does not embed its own containing commit. A self-declared local
-role or the contract review is not a per-run Security authorization.
+record. Before issuance, fetch `origin/main` in that repository and use a clean
+checkout whose revision is contained by `refs/remotes/origin/main`. Permit
+issuance fails closed if that merged ref is absent, stale, or does not contain
+the Security revision. It records the exact revision, normalized source path,
+artifact reference, and digest in the approval envelope without changing the
+canonical claims digest. The Security artifact therefore does not embed its own
+containing commit. A self-declared local role or the contract review is not a
+per-run Security authorization.
 
 ### 3. Issue The Final Permit
 
@@ -128,14 +136,14 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
 ```
 
 Issuance revalidates both approval files, including the Security artifact
-against the clean permit-bound `security-architecture` Git revision, plus the
-baseline files, every current source checkout, the pinned contract-source
-revisions, Platform artifacts, Temporal image locks, declared owner-image
-digests, identities, queues, namespace, scenario order, implementation and
-Review Packet bindings, and the validity window. ART #790 must separately
-verify that the referenced Review Packet is finalized and that each approved
-owner-image digest has the required source provenance. Issuance refuses to
-overwrite an existing permit.
+against the clean permit-bound `security-architecture` Git revision and its
+containment in `refs/remotes/origin/main`, plus the baseline files, every
+current source checkout, the pinned contract-source revisions, Platform
+artifacts, Temporal image locks, declared owner-image digests, identities,
+queues, namespace, scenario order, implementation and Review Packet bindings,
+and the validity window. ART #790 must separately verify that the referenced
+Review Packet is finalized and that each approved owner-image digest has the
+required source provenance. Issuance refuses to overwrite an existing permit.
 
 ### 4. Consume The Permit And Create The Ledger
 

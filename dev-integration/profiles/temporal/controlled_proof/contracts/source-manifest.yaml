@@ -1,11 +1,11 @@
 schema_version: 1
 sources:
   workspace-governance:
-    revision: 3be1c7125a1dbd33a5aa869f79feb24ac6616540
+    revision: 842943e949aff47e19835cc09ee24ed8c051723d
     files:
       controlled-runtime-proof-authorization.schema.json:
         source_path: contracts/schemas/controlled-runtime-proof-authorization.schema.json
-        digest: sha256:a392a93308ecbfc5e3a4735c2a37d388e410ea301c5b0734c425792f9be1c99b
+        digest: sha256:8c41760d409a000aeaef9b32fed76e09b8eea1ac5d44c99c742517a305bac89b
       controlled-runtime-proof-result.schema.json:
         source_path: contracts/schemas/controlled-runtime-proof-result.schema.json
         digest: sha256:5d58b78932f9848373fde1fc360f9c6461b956bb2de6273a409cdd72e90f68d3
@@ -32,6 +32,6 @@ sources:
         digest: sha256:7920c7b2550b7d85da87e936480eec4ab325d893a66a790b794f8ff9b3d0b703
 local_files:
   approval-binding.schema.json: sha256:725e5773840e5656201fd21aafd0e3afbcfc4848a370995c2f3d9cab0cca3260
-  baseline.schema.json: sha256:ee51931189b00a1cc0519bf9a6ff8f5c9cabf23f0967f4c8d8524cf52996cb2b
+  baseline.schema.json: sha256:1a7e3adf3fb603b474cf6d960830077a4ec4c758e6fef6de4b3b5fff1b7628e3
   consumption-receipt.schema.json: sha256:fba307a91f40b4c15fd049f6024dc04ef159584882f04bbd01de5a910f08c723
   platform-owner-receipt.schema.json: sha256:bf3ccab75d6f54a9f396a26957d2cff523d77761d8cf5a3fd6fe6c5bbbd1c8c5

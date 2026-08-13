@@ -19,7 +19,14 @@ runtime:
     state_root_pattern: .dev-integration/temporal/{collision-resistant-operator-scope}
     security_authorization:
       owner_repo: security-architecture
+      excluded_from_execution_source_claims: true
       provenance: exact-json-at-clean-permit-bound-git-revision
+      merged_source_ref: refs/remotes/origin/main
+      approval_envelope_bindings:
+        - source-revision
+        - normalized-source-path
+        - artifact-reference
+        - artifact-digest
       self_declared_role_allowed: false
     runtime_action_gate:
       revalidate_before_every_shell-mutation: true

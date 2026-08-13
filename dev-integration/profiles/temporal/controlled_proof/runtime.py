@@ -655,7 +655,7 @@ class LocalK3sRuntimeControl:
         self._assert_authorization_current()
         expected_sources = {
             item["repo"]: item["commit"]
-            for item in self.authorization["scope"]["source_revisions"]
+            for item in self.authorization["scope"]["execution_source_revisions"]
         }
         resolver = GitSourceResolver(self.workspace_root)
         for repo, expected_revision in expected_sources.items():
@@ -1447,7 +1447,7 @@ class LocalK3sRuntimeControl:
         source = self.workspace_root / "workspace-governance"
         expected_revision = next(
             item["commit"]
-            for item in self.authorization["scope"]["source_revisions"]
+            for item in self.authorization["scope"]["execution_source_revisions"]
             if item["repo"] == "workspace-governance"
         )
         self._run(
@@ -1630,12 +1630,15 @@ def _owner_runtime_manifest(
     wgcf_worker_image = images[
         "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker"
     ]
-    source_revisions = {
+    execution_source_revisions = {
         item["repo"]: item["commit"]
-        for item in authorization["scope"]["source_revisions"]
+        for item in authorization["scope"]["execution_source_revisions"]
     }
     common_oos_env = [
-        {"name": "GIT_COMMIT", "value": source_revisions["operator-orchestration-service"]},
+        {
+            "name": "GIT_COMMIT",
+            "value": execution_source_revisions["operator-orchestration-service"],
+        },
         {"name": "OOS_ORCHESTRATION_CONTROLLED_PROOF_ENABLED", "value": "true"},
         {
             "name": "OOS_ORCHESTRATION_CONTROLLED_PROOF_CONTEXT_PATH",

@@ -9,7 +9,7 @@ targetLanes:
 evidenceOwner: platform-engineering
 sourceEnablement:
   status: source-reviewed
-  implementationWorkItemRef: openproject://work_packages/792
+  implementationWorkItemRef: openproject://work_packages/825
   snapshotAllowed: true
   requiredControls:
     - capture-preauthorization-baseline-artifact
@@ -34,12 +34,21 @@ authorization:
   maxRuns: 1
   permitIssuer:
     ownerRepo: platform-engineering
-    sourceReviewWorkItemRef: openproject://work_packages/792
+    sourceReviewWorkItemRef: openproject://work_packages/825
     mergedSourceRequiredBeforeSecurityAuthorization: true
   executor:
     ownerRepo: platform-engineering
-    sourceReviewWorkItemRef: openproject://work_packages/792
+    sourceReviewWorkItemRef: openproject://work_packages/825
     mergedSourceRequiredBeforeSecurityAuthorization: true
+  securityAuthorization:
+    ownerRepo: security-architecture
+    excludedFromExecutionSourceClaims: true
+    mergedSourceRef: refs/remotes/origin/main
+    approvalEnvelopeBinds:
+      - source-revision
+      - normalized-source-path
+      - artifact-reference
+      - artifact-digest
   terminalCleanupAuthority:
     mode: exact-baseline-restore-only
     appliesTo: already-started-run
@@ -67,7 +76,6 @@ scope:
     - operator-orchestration-service
     - workspace-governance
     - workspace-governance-control-fabric
-    - security-architecture
   surfaces:
     - id: temporal-runtime
       ownerRepo: platform-engineering
@@ -90,9 +98,9 @@ preconditions:
   - id: baseline-attestations-complete
     summary: Import and verify the pre-issued baseline artifact and operator-reviewable evidence for every scoped surface before any mutation.
   - id: source-state-declared
-    summary: Record the exact source revisions and immutable runtime artifacts named by the permit.
+    summary: Record the exact execution source revisions and immutable runtime artifacts named by the permit.
   - id: security-and-operator-approval-bound
-    summary: Confirm the permit carries separate Security authorization and explicit operator approval.
+    summary: Confirm the permit separately binds the merged Security artifact revision, path, reference, and digest plus explicit operator approval.
   - id: normal-launch-remains-denied
     summary: Confirm ordinary profile launch and every unlisted definition or action remain unavailable.
 verificationPack:

@@ -39,7 +39,7 @@ CONTROLLED_PROOF_CLEANUP_TERMINATION_CONDITIONS = [
 ]
 CONTROLLED_PROOF_SOURCE_ENABLEMENT = {
     "status": "source-reviewed",
-    "implementationWorkItemRef": "openproject://work_packages/792",
+    "implementationWorkItemRef": "openproject://work_packages/825",
     "snapshotAllowed": True,
     "requiredControls": [
         "capture-preauthorization-baseline-artifact",
@@ -303,7 +303,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         if is_temporal_commissioning_profile:
             if source_enablement != CONTROLLED_PROOF_SOURCE_ENABLEMENT:
                 raise SystemExit(
-                    f"{path} sourceEnablement must bind the reviewed Platform #792 control path"
+                    f"{path} sourceEnablement must bind the reviewed Platform #825 control path"
                 )
             if result_artifact != CONTROLLED_PROOF_RESULT_ARTIFACT:
                 raise SystemExit(
@@ -368,14 +368,32 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
         if is_temporal_commissioning_profile:
             expected_reviewed_source = {
                 "ownerRepo": "platform-engineering",
-                "sourceReviewWorkItemRef": "openproject://work_packages/792",
+                "sourceReviewWorkItemRef": "openproject://work_packages/825",
                 "mergedSourceRequiredBeforeSecurityAuthorization": True,
             }
             for source_role in ("permitIssuer", "executor"):
                 if authorization.get(source_role) != expected_reviewed_source:
                     raise SystemExit(
-                        f"{path} authorization.{source_role} must bind Platform source review #792"
+                        f"{path} authorization.{source_role} must bind Platform source review #825"
                     )
+            expected_security_authorization = {
+                "ownerRepo": "security-architecture",
+                "excludedFromExecutionSourceClaims": True,
+                "mergedSourceRef": "refs/remotes/origin/main",
+                "approvalEnvelopeBinds": [
+                    "source-revision",
+                    "normalized-source-path",
+                    "artifact-reference",
+                    "artifact-digest",
+                ],
+            }
+            if (
+                authorization.get("securityAuthorization")
+                != expected_security_authorization
+            ):
+                raise SystemExit(
+                    f"{path} authorization.securityAuthorization must preserve the separate Security approval-provenance boundary"
+                )
         terminal_cleanup = authorization.get("terminalCleanupAuthority") or {}
         expected_terminal_cleanup = {
             "mode": "exact-baseline-restore-only",
@@ -400,6 +418,15 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     surfaces = scope.get("surfaces") or []
     if not isinstance(source_repos, list) or not source_repos:
         raise SystemExit(f"{path} scope.sourceRepos must be a non-empty list")
+    if payload.get("id") == "temporal-component-commissioning-proof" and source_repos != [
+        "platform-engineering",
+        "operator-orchestration-service",
+        "workspace-governance",
+        "workspace-governance-control-fabric",
+    ]:
+        raise SystemExit(
+            f"{path} scope.sourceRepos must contain only the ordered execution source set"
+        )
     if not isinstance(surfaces, list) or not surfaces:
         raise SystemExit(f"{path} scope.surfaces must be a non-empty list")
 
@@ -1184,10 +1211,8 @@ def _cmd_snapshot(
         implementation_ref = str(
             source_enablement.get("implementationWorkItemRef") or "reviewed implementation"
         )
-        implementation_label = (
-            "ART #792"
-            if implementation_ref == "openproject://work_packages/792"
-            else implementation_ref
+        implementation_label = implementation_ref.replace(
+            "openproject://work_packages/", "ART #"
         )
         if (
             contract.get("id") != "temporal-component-commissioning-proof"

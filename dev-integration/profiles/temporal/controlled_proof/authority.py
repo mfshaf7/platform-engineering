@@ -43,12 +43,17 @@ from .model import (
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_ROOT = Path(__file__).resolve().parent / "contracts"
-WORKSPACE_REPOS = (
+EXECUTION_SOURCE_REPOS = (
     "platform-engineering",
     "operator-orchestration-service",
     "workspace-governance",
     "workspace-governance-control-fabric",
-    "security-architecture",
+)
+SECURITY_AUTHORIZATION_SOURCE_REPO = "security-architecture"
+SECURITY_AUTHORIZATION_MERGED_REF = "refs/remotes/origin/main"
+CONTROLLED_SOURCE_REPOS = (
+    *EXECUTION_SOURCE_REPOS,
+    SECURITY_AUTHORIZATION_SOURCE_REPO,
 )
 SURFACE_ORDER = (
     "temporal-runtime",
@@ -61,7 +66,7 @@ PROBE_IDS = {
     "wgcf-readiness-activity-worker": "wgcf-controlled-proof-status-v1",
 }
 PLACEHOLDER_DIGEST = "sha256:" + "0" * 64
-REVIEW_WORK_ITEM_REF = "openproject://work_packages/792"
+REVIEW_WORK_ITEM_REF = "openproject://work_packages/825"
 EXPECTED_BASELINE_STATES = {
     "temporal-runtime": "not-installed",
     "oos-validation-readiness-worker": "not-installed",
@@ -229,6 +234,10 @@ class BaselineProbe(Protocol):
 class SourceResolver(Protocol):
     def revision(self, repo: str) -> tuple[str, bool]: ...
 
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool: ...
+
     def read_file(
         self,
         repo: str,
@@ -255,6 +264,37 @@ class GitSourceResolver:
         )
         return commit, dirty
 
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        if repo not in CONTROLLED_SOURCE_REPOS:
+            raise ControlledProofError(
+                f"source repo is outside the proof boundary: {repo}"
+            )
+        if REVISION_RE.fullmatch(revision) is None:
+            raise ControlledProofError(f"source revision is invalid: {repo}")
+        repo_root = self.workspace_root / repo
+        if not (repo_root / ".git").exists():
+            raise ControlledProofError(f"source repo is unavailable: {repo}")
+        target_revision = _run_checked(
+            ["git", "-C", str(repo_root), "rev-parse", "--verify", ref]
+        )
+        try:
+            _run_checked(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "merge-base",
+                    "--is-ancestor",
+                    revision,
+                    target_revision,
+                ]
+            )
+        except ControlledProofError:
+            return False
+        return True
+
     def read_file(
         self,
         repo: str,
@@ -263,7 +303,7 @@ class GitSourceResolver:
         *,
         require_current_checkout: bool = True,
     ) -> bytes:
-        if repo not in WORKSPACE_REPOS:
+        if repo not in CONTROLLED_SOURCE_REPOS:
             raise ControlledProofError(f"source repo is outside the proof boundary: {repo}")
         if REVISION_RE.fullmatch(revision) is None:
             raise ControlledProofError(f"source revision is invalid: {repo}")
@@ -432,12 +472,14 @@ def capture_baseline(
         raise ControlledProofError(
             f"baseline evidence root must not already exist: {evidence_root}"
         )
-    source_revisions = []
-    for repo in WORKSPACE_REPOS:
+    execution_source_revisions = []
+    for repo in EXECUTION_SOURCE_REPOS:
         revision, dirty = source_resolver.revision(repo)
         if dirty:
             raise ControlledProofError(f"baseline source repo is dirty: {repo}")
-        source_revisions.append({"repo": repo, "commit": revision, "dirty": False})
+        execution_source_revisions.append(
+            {"repo": repo, "commit": revision, "dirty": False}
+        )
 
     captured_observations = []
     for surface_id in SURFACE_ORDER:
@@ -470,7 +512,7 @@ def capture_baseline(
         )
 
     baseline = {
-        "schema_version": 1,
+        "schema_version": 2,
         "baseline_id": baseline_id,
         "profile": {
             "profile_id": "temporal",
@@ -479,7 +521,7 @@ def capture_baseline(
         },
         "operator_id": require_identifier(operator_id, "operator_id"),
         "captured_at": captured_timestamp,
-        "source_revisions": source_revisions,
+        "execution_source_revisions": execution_source_revisions,
         "surface_observations": observations,
         "restore_scope": list(SURFACE_ORDER),
     }
@@ -491,13 +533,15 @@ def capture_baseline(
 def validate_baseline_semantics(
     baseline: dict[str, Any], *, evidence_root: Path | None = None
 ) -> None:
-    repos = [item["repo"] for item in baseline["source_revisions"]]
-    if repos != list(WORKSPACE_REPOS):
-        raise ControlledProofError("baseline source revisions do not preserve the exact owner order")
+    repos = [item["repo"] for item in baseline["execution_source_revisions"]]
+    if repos != list(EXECUTION_SOURCE_REPOS):
+        raise ControlledProofError(
+            "baseline execution source revisions do not preserve the exact owner order"
+        )
     surfaces = [item["surface_id"] for item in baseline["surface_observations"]]
     if surfaces != list(SURFACE_ORDER):
         raise ControlledProofError("baseline observations do not preserve the exact surface order")
-    if any(item["dirty"] for item in baseline["source_revisions"]):
+    if any(item["dirty"] for item in baseline["execution_source_revisions"]):
         raise ControlledProofError("baseline cannot bind dirty source")
     states = {item["surface_id"]: item["state"] for item in baseline["surface_observations"]}
     if states != EXPECTED_BASELINE_STATES:
@@ -576,12 +620,12 @@ def assemble_claims(
             "claims require a finalized Review Packet artifact reference"
         )
 
-    source_revisions: list[dict[str, str]] = []
-    for repo in WORKSPACE_REPOS:
+    execution_source_revisions: list[dict[str, str]] = []
+    for repo in EXECUTION_SOURCE_REPOS:
         revision, dirty = source_resolver.revision(repo)
         if dirty:
             raise ControlledProofError(f"claims source repo is dirty: {repo}")
-        source_revisions.append({"repo": repo, "commit": revision})
+        execution_source_revisions.append({"repo": repo, "commit": revision})
 
     if set(owner_image_digests) != OWNER_RUNTIME_IMAGES:
         raise ControlledProofError(
@@ -603,7 +647,7 @@ def assemble_claims(
         "implementation_ref": REVIEW_WORK_ITEM_REF,
         "source_revision": next(
             item["commit"]
-            for item in source_revisions
+            for item in execution_source_revisions
             if item["repo"] == "platform-engineering"
         ),
         "review_packet_ref": review_packet_ref,
@@ -621,7 +665,7 @@ def assemble_claims(
         for index, scenario_id in enumerate(SCENARIO_ORDER, start=1)
     ]
     claims = {
-        "schema_version": 3,
+        "schema_version": 4,
         "authorization_id": authorization_id,
         "authority_type": "runtime-drill",
         "drill_type": "component-commissioning-proof",
@@ -637,7 +681,7 @@ def assemble_claims(
                     "definition_version": 1,
                 }
             ],
-            "source_revisions": source_revisions,
+            "execution_source_revisions": execution_source_revisions,
             "runtime_artifacts": _platform_runtime_artifacts(),
             "runtime_images": runtime_images,
             "target_namespaces": [_controlled_namespace(baseline["operator_id"])],
@@ -714,6 +758,11 @@ def _placeholder_approvals() -> dict[str, Any]:
         "canonical_claims_digest": PLACEHOLDER_DIGEST,
         "operator_approval_ref": "artifact://controlled-proof/approvals/operator-placeholder",
         "operator_approval_digest": PLACEHOLDER_DIGEST,
+        "security_authorization_source_repo": SECURITY_AUTHORIZATION_SOURCE_REPO,
+        "security_authorization_source_revision": "0" * 40,
+        "security_authorization_source_path": (
+            "records/controlled-proof-authorizations/security-placeholder.json"
+        ),
         "security_authorization_ref": "artifact://controlled-proof/approvals/security-placeholder",
         "security_authorization_digest": PLACEHOLDER_DIGEST,
     }
@@ -755,7 +804,7 @@ def issue_permit(
         contracts,
         source_resolver=source_resolver,
     )
-    validate_approval(
+    security_source_binding = validate_approval(
         security,
         "security-authorization",
         claims,
@@ -763,6 +812,10 @@ def issue_permit(
         contracts,
         source_resolver=source_resolver,
     )
+    if security_source_binding is None:
+        raise ControlledProofError(
+            "security authorization did not produce a source binding"
+        )
     authorization = {
         **claims,
         "approvals": {
@@ -772,6 +825,7 @@ def issue_permit(
             "canonical_claims_digest": claims_digest,
             "operator_approval_ref": operator["approval_id"],
             "operator_approval_digest": operator_digest,
+            **security_source_binding,
             "security_authorization_ref": security["approval_id"],
             "security_authorization_digest": security_digest,
         },
@@ -797,8 +851,9 @@ def validate_approval(
     contracts: ContractSet,
     *,
     source_resolver: SourceResolver,
+    security_source_binding: dict[str, Any] | None = None,
     allow_source_checkout_drift: bool = False,
-) -> None:
+) -> dict[str, str] | None:
     validate_schema(approval, contracts.approval, f"{expected_role} artifact")
     if approval["approval_role"] != expected_role:
         raise ControlledProofError(f"approval role mismatch: expected {expected_role}")
@@ -816,42 +871,77 @@ def validate_approval(
     if approved_at >= expires_at:
         raise ControlledProofError(f"{expected_role} was recorded after authorization expiry")
     if expected_role == "security-authorization":
-        _validate_security_approval_provenance(
+        return _validate_security_approval_provenance(
             approval,
-            claims=claims,
             source_resolver=source_resolver,
+            source_binding=security_source_binding,
             allow_source_checkout_drift=allow_source_checkout_drift,
         )
+    return None
 
 
 def _validate_security_approval_provenance(
     approval: dict[str, Any],
     *,
-    claims: dict[str, Any],
     source_resolver: SourceResolver,
+    source_binding: dict[str, Any] | None,
     allow_source_checkout_drift: bool,
-) -> None:
+) -> dict[str, str]:
     provenance = approval.get("source_provenance")
     if not isinstance(provenance, dict):
         raise ControlledProofError(
             "security authorization requires source-controlled provenance"
         )
-    if provenance.get("owner_repo") != "security-architecture":
+    if provenance.get("owner_repo") != SECURITY_AUTHORIZATION_SOURCE_REPO:
         raise ControlledProofError(
             "security authorization provenance is not owned by Security Architecture"
         )
-    source_revisions = {
-        item["repo"]: item["commit"] for item in claims["scope"]["source_revisions"]
-    }
-    expected_revision = source_revisions.get("security-architecture")
-    if not isinstance(expected_revision, str):
-        raise ControlledProofError(
-            "security authorization has no permit-bound source revision"
-        )
     source_path = _source_relative_path(provenance.get("source_path"))
+    if source_binding is None:
+        expected_revision, dirty = source_resolver.revision(
+            SECURITY_AUTHORIZATION_SOURCE_REPO
+        )
+        if dirty:
+            raise ControlledProofError(
+                "security authorization source repo is dirty at permit issuance"
+            )
+    else:
+        if (
+            source_binding.get("security_authorization_source_repo")
+            != SECURITY_AUTHORIZATION_SOURCE_REPO
+        ):
+            raise ControlledProofError(
+                "security authorization source binding is not owned by Security Architecture"
+            )
+        expected_revision = source_binding.get(
+            "security_authorization_source_revision"
+        )
+        bound_path = _source_relative_path(
+            source_binding.get("security_authorization_source_path")
+        )
+        if bound_path != source_path:
+            raise ControlledProofError(
+                "security authorization source path does not match its approval artifact"
+            )
+    if (
+        not isinstance(expected_revision, str)
+        or REVISION_RE.fullmatch(expected_revision) is None
+    ):
+        raise ControlledProofError(
+            "security authorization has no valid permit-bound source revision"
+        )
+    if not source_resolver.revision_is_ancestor_of(
+        SECURITY_AUTHORIZATION_SOURCE_REPO,
+        expected_revision,
+        SECURITY_AUTHORIZATION_MERGED_REF,
+    ):
+        raise ControlledProofError(
+            "security authorization source revision is not contained in merged "
+            f"{SECURITY_AUTHORIZATION_MERGED_REF}"
+        )
     source_artifact = decode_bounded_json(
         source_resolver.read_file(
-            "security-architecture",
+            SECURITY_AUTHORIZATION_SOURCE_REPO,
             expected_revision,
             source_path,
             require_current_checkout=not allow_source_checkout_drift,
@@ -862,6 +952,11 @@ def _validate_security_approval_provenance(
         raise ControlledProofError(
             "security authorization does not match its source-controlled artifact"
         )
+    return {
+        "security_authorization_source_repo": SECURITY_AUTHORIZATION_SOURCE_REPO,
+        "security_authorization_source_revision": expected_revision,
+        "security_authorization_source_path": source_path,
+    }
 
 
 def validate_authorization(
@@ -908,6 +1003,7 @@ def validate_authorization(
         claims_digest,
         contracts,
         source_resolver=source_resolver,
+        security_source_binding=approvals,
         allow_source_checkout_drift=allow_terminal_cleanup,
     )
     if operator["approval_id"] != approvals["operator_approval_ref"]:
@@ -930,9 +1026,15 @@ def validate_authorization(
             "authorization namespace does not match the baseline operator scope"
         )
 
-    expected_sources = {item["repo"]: item["commit"] for item in authorization["scope"]["source_revisions"]}
-    baseline_sources = {item["repo"]: item["commit"] for item in baseline["source_revisions"]}
-    for repo in WORKSPACE_REPOS:
+    expected_sources = {
+        item["repo"]: item["commit"]
+        for item in authorization["scope"]["execution_source_revisions"]
+    }
+    baseline_sources = {
+        item["repo"]: item["commit"]
+        for item in baseline["execution_source_revisions"]
+    }
+    for repo in EXECUTION_SOURCE_REPOS:
         if baseline_sources.get(repo) != expected_sources.get(repo):
             raise ControlledProofError(
                 f"baseline source revision does not match authorization: {repo}"
@@ -998,7 +1100,11 @@ def validate_authorization_semantics(
     definitions = authorization["scope"]["allowed_definitions"]
     if definitions != [{"definition_id": "validation-readiness-run", "definition_version": 1}]:
         raise ControlledProofError("authorization must bind only validation-readiness-run version 1")
-    _require_unique_key(authorization["scope"]["source_revisions"], "repo", "source revision")
+    _require_unique_key(
+        authorization["scope"]["execution_source_revisions"],
+        "repo",
+        "execution source revision",
+    )
     _require_unique_key(authorization["scope"]["runtime_artifacts"], "artifact_id", "runtime artifact")
     _require_unique_key(authorization["scope"]["runtime_images"], "image_ref", "runtime image")
     _require_unique_key(
@@ -1013,17 +1119,20 @@ def validate_authorization_semantics(
     )
     if set(authorization["scope"]["permitted_actions"]) != set(PERMITTED_ACTIONS):
         raise ControlledProofError("authorization permitted actions do not match the reviewed executor")
-    source_repos = [item["repo"] for item in authorization["scope"]["source_revisions"]]
-    if source_repos != list(WORKSPACE_REPOS):
+    source_repos = [
+        item["repo"]
+        for item in authorization["scope"]["execution_source_revisions"]
+    ]
+    if source_repos != list(EXECUTION_SOURCE_REPOS):
         raise ControlledProofError(
-            "authorization source revisions do not preserve the exact reviewed owner order"
+            "authorization execution source revisions do not preserve the exact reviewed owner order"
         )
-    source_revisions = {
+    execution_source_revisions = {
         item["repo"]: item["commit"]
-        for item in authorization["scope"]["source_revisions"]
+        for item in authorization["scope"]["execution_source_revisions"]
     }
     for repo, reviewed_revision in reviewed_contract_source_revisions().items():
-        if source_revisions.get(repo) != reviewed_revision:
+        if execution_source_revisions.get(repo) != reviewed_revision:
             raise ControlledProofError(
                 f"authorization source revision is outside the reviewed contract set: {repo}"
             )
@@ -1087,7 +1196,7 @@ def validate_authorization_semantics(
         binding = authorization[source_role]
         if binding["implementation_ref"] != REVIEW_WORK_ITEM_REF:
             raise ControlledProofError(
-                f"authorization {source_role} does not bind Platform source review #792"
+                f"authorization {source_role} does not bind Platform source review #825"
             )
         if not binding["review_packet_ref"].startswith(
             "artifact://review-packets/"
@@ -1100,7 +1209,7 @@ def validate_authorization_semantics(
         != authorization["executor"]["review_packet_ref"]
     ):
         raise ControlledProofError(
-            "permit issuer and executor must bind the same #792 Review Packet"
+            "permit issuer and executor must bind the same #825 Review Packet"
         )
 
 

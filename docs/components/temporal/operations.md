@@ -19,11 +19,15 @@ This section is the primary Platform operator surface for a bounded Temporal
 commissioning proof. The proof is not a normal profile launch and does not
 change the profile from `build-admitted`.
 
-The corrected permit issuer and executor source is reviewed under ART #825.
-That source availability is not runtime authorization. No permit has
-been issued, no commissioning session has run, and ordinary `devint-up`,
-access, smoke, backup, restore, and workflow commands remain denied while the
-profile is `build-admitted`.
+The permit issuer and executor source is reviewed under ART #825. One permit
+was issued and consumed for the first commissioning attempt. That session
+stopped before scenario execution when the WGCF owner-context source binding
+and sealed cleanup state-root projection failed closed. ART #832 and #833 own
+those Platform corrections. The consumed permit cannot be reused; another
+attempt requires a fresh baseline, claims set, Security authorization, operator
+approval, and permit after the corrections land. Ordinary `devint-up`, access,
+smoke, backup, restore, and workflow commands remain denied while the profile
+is `build-admitted`.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 

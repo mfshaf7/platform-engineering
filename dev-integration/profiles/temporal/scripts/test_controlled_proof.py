@@ -879,6 +879,10 @@ class ControlledProofTests(unittest.TestCase):
             str(controlled_runtime_state_root(workspace_root, "alice.example")),
         )
         self.assertEqual(
+            runner.environment["DEVINT_WORKSPACE_ROOT"],
+            str(workspace_root / "platform-engineering"),
+        )
+        self.assertEqual(
             runner.environment["CONTROLLED_PROOF_OPERATOR_SCOPE"],
             operator_scope_id("alice.example"),
         )
@@ -941,13 +945,30 @@ class ControlledProofTests(unittest.TestCase):
         runtime_path.chmod(0o755)
         attested_runtime = (
             b"#!/usr/bin/env bash\n"
+            b"set -euo pipefail\n"
+            b"readonly STATE_ROOT=\"${DEVINT_STATE_ROOT:?}\"\n"
+            b"readonly OWNER_REPO_ROOT=/sealed-owner-repo\n"
+            b"readonly PROFILE_ID=\"${DEVINT_PROFILE_ID:?}\"\n"
+            b"readonly OPERATOR_SLUG=unused\n"
+            b"source \"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)"
+            b"/lib/persistence.sh\"\n"
+            b"assert_state_root_boundary\n"
             b"printf 'sealed-attested\\n' > "
             b'"${CONTROLLED_PROOF_OUTPUT_ROOT}/executed.txt"\n'
+        )
+        persistence_relative = PurePosixPath(
+            "dev-integration/profiles/temporal/scripts/lib/persistence.sh"
         )
         with mock.patch.object(
             control,
             "_assert_platform_executor_snapshot",
-            return_value={runtime_relative: (attested_runtime, 0o755)},
+            return_value={
+                runtime_relative: (attested_runtime, 0o755),
+                persistence_relative: (
+                    (PROFILE_ROOT / "scripts" / "lib" / "persistence.sh").read_bytes(),
+                    0o644,
+                ),
+            },
         ):
             control._runtime_script("prepare")
 
@@ -1229,6 +1250,60 @@ class ControlledProofTests(unittest.TestCase):
             env=environment,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_state_root_guard_rejects_scope_outside_platform_profile_root(self) -> None:
+        operator_id = "Alice"
+        operator_scope = operator_scope_id(operator_id)
+        workspace_root = self.root / "workspace"
+        owner_root = workspace_root / "platform-engineering"
+        state_root = workspace_root / "outside" / "temporal" / operator_scope
+        environment = controlled_subprocess_environment(
+            {
+                "CONTROLLED_PROOF_OPERATOR_SCOPE": operator_scope,
+                "DEVINT_OPERATOR": operator_id,
+                "DEVINT_PROFILE_ID": "temporal",
+                "DEVINT_STATE_ROOT": str(state_root),
+                "DEVINT_WORKSPACE_ROOT": str(owner_root),
+                "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": operator_scoped_dns_label(
+                    "governance", operator_id
+                ),
+            }
+        )
+        completed = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; assert_state_root_boundary',
+                "state-root-boundary-test",
+                str(PROFILE_ROOT / "scripts" / "common.sh"),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn(
+            "Temporal state root is outside an approved profile root",
+            completed.stderr,
+        )
+
+    def test_owner_contexts_bind_the_pinned_wgcf_source_revision(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        expected_source_ref = (
+            "git:workspace-governance-control-fabric:"
+            f"{SOURCE_REVISIONS['workspace-governance-control-fabric']}"
+        )
+
+        self.assertEqual(
+            fixture.contexts.oos["request_binding"]["source_version_ref"],
+            expected_source_ref,
+        )
+        self.assertEqual(
+            fixture.contexts.wgcf["request_binding"]["source_version_ref"],
+            expected_source_ref,
+        )
+        self.assertNotEqual(expected_source_ref, fixture.authorization_digest)
 
     def test_temporal_restart_scenario_restarts_runtime_once(self) -> None:
         fixture = ProofFixture(self.root)

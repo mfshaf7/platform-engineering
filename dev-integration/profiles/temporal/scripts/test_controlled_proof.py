@@ -1756,6 +1756,50 @@ class ControlledProofTests(unittest.TestCase):
         self.assertFalse((self.root / "baseline.json").exists())
         self.assertFalse((self.root / "evidence").exists())
 
+    def test_local_baseline_probe_writes_canonical_safe_evidence(self) -> None:
+        workspace_root = self.root / "workspace"
+        (workspace_root / "platform-engineering").mkdir(parents=True)
+        completed = subprocess.CompletedProcess(
+            args=["k3s", "kubectl"],
+            returncode=0,
+            stdout="",
+            stderr="warning one\nwarning two",
+        )
+        baseline_path = self.root / "baseline.json"
+        evidence_root = self.root / "evidence"
+        with (
+            mock.patch.object(
+                authority_module,
+                "resolve_controlled_command",
+                side_effect=lambda command, environment: command,
+            ),
+            mock.patch.object(
+                authority_module.subprocess,
+                "run",
+                return_value=completed,
+            ),
+        ):
+            baseline, _digest = capture_baseline(
+                baseline_id="artifact://controlled-proof/baselines/local-probe",
+                operator_id="alice",
+                output_path=baseline_path,
+                evidence_root=evidence_root,
+                source_resolver=FakeSourceResolver(),
+                probe=authority_module.LocalBaselineProbe(workspace_root, "alice"),
+                contracts=load_contracts(),
+            )
+
+        temporal = read_bounded_json(evidence_root / "temporal-runtime.json")
+        self.assertEqual(
+            temporal["stdout"],
+            "scoped runtime resource: absent; operator state: absent",
+        )
+        self.assertEqual(temporal["stderr"], "warning one warning two")
+        self.assertEqual(
+            [item["state"] for item in baseline["surface_observations"]],
+            ["not-installed", "not-installed", "not-installed"],
+        )
+
     def test_permit_rejects_approval_for_another_claims_digest(self) -> None:
         fixture = ProofFixture(self.root / "valid")
         wrong = read_bounded_json(fixture.operator_approval)

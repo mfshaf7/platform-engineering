@@ -415,14 +415,14 @@ class LocalBaselineProbe:
                 self.workspace_root, self.operator_id
             )
             local_state = "present" if state_root.exists() else "absent"
-            observation_stdout += f"\noperator state: {local_state}"
+            observation_stdout += f"; operator state: {local_state}"
         observation = {
             "schema_version": 1,
             "surface_id": surface_id,
             "probe_id": PROBE_IDS[surface_id],
             "exit_code": completed.returncode,
             "stdout": observation_stdout,
-            "stderr": completed.stderr.strip(),
+            "stderr": " ".join(completed.stderr.split()),
         }
         encoded_output = (
             observation["stdout"].encode("utf-8")
@@ -441,7 +441,9 @@ def _surface_state(surface_id: str, observation: dict[str, Any]) -> str:
         raise ControlledProofError(f"baseline probe failed for {surface_id}")
     stdout = str(observation.get("stdout") or "")
     lines = dict(
-        line.split(":", 1) for line in stdout.splitlines() if ":" in line
+        segment.strip().split(":", 1)
+        for segment in stdout.split(";")
+        if ":" in segment
     )
     if lines.get("scoped runtime resource", "").strip() != "absent":
         raise ControlledProofError(

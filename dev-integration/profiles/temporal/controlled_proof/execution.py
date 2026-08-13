@@ -465,6 +465,7 @@ class ControlledProofExecutor:
         preparation_failed = False
         restore_passed = False
         cleanup_failure: ControlledProofError | None = None
+        preparation_evidence_recorded = False
 
         try:
             try:
@@ -476,6 +477,10 @@ class ControlledProofExecutor:
 
             for scenario in scenarios[:-1]:
                 if first_failure is not None:
+                    terminal_error = None
+                    if preparation_failed and not preparation_evidence_recorded:
+                        terminal_error = first_failure
+                        preparation_evidence_recorded = True
                     scenario_outcomes.append(
                         self._record_terminal_outcome(
                             scenario,
@@ -485,6 +490,7 @@ class ControlledProofExecutor:
                                 if preparation_failed
                                 else "earlier-scenario-failed"
                             ),
+                            error=terminal_error,
                         )
                     )
                     continue
@@ -505,6 +511,7 @@ class ControlledProofExecutor:
                             scenario,
                             status="failed",
                             reason="scenario-executor-failed",
+                            error=first_failure,
                         )
                     )
 
@@ -530,6 +537,7 @@ class ControlledProofExecutor:
                     restore_scenario,
                     status="failed",
                     reason="exact-baseline-restore-failed",
+                    error=self._controlled_error(exc),
                 )
                 scenario_outcomes.append(restore_outcome)
                 owner_receipts.append(
@@ -561,6 +569,7 @@ class ControlledProofExecutor:
                 restore_scenario,
                 status="failed",
                 reason="terminal-cleanup-failed",
+                error=cleanup_failure,
             )
             if scenario_outcomes and scenario_outcomes[-1]["scenario_id"] == (
                 restore_scenario["scenario_id"]
@@ -655,6 +664,7 @@ class ControlledProofExecutor:
         *,
         status: str,
         reason: str,
+        error: ControlledProofError | None = None,
     ) -> dict[str, Any]:
         timestamp = now_utc()
         payload = {
@@ -675,19 +685,22 @@ class ControlledProofExecutor:
             / f"{scenario['scenario_id']}-{status}-{reason}.json"
         )
         evidence_digest = write_json_atomic(evidence_path, payload)
+        evidence_refs = [
+            {
+                "artifact_ref": (
+                    "platform-controlled-proof://scenario-evidence/"
+                    f"{scenario['scenario_execution_id']}/{status}/{reason}"
+                ),
+                "artifact_digest": evidence_digest,
+            }
+        ]
+        if error is not None:
+            evidence_refs.extend(error.evidence_refs)
         return {
             "scenario_id": scenario["scenario_id"],
             "scenario_execution_id": scenario["scenario_execution_id"],
             "status": status,
-            "evidence_refs": [
-                {
-                    "artifact_ref": (
-                        "platform-controlled-proof://scenario-evidence/"
-                        f"{scenario['scenario_execution_id']}/{status}/{reason}"
-                    ),
-                    "artifact_digest": evidence_digest,
-                }
-            ],
+            "evidence_refs": evidence_refs,
             "started_at": timestamp,
             "completed_at": timestamp,
         }

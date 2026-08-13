@@ -598,7 +598,7 @@ class LocalK3sRuntimeControl:
         *,
         authorization: dict[str, Any],
         baseline: dict[str, Any],
-        contexts: ProjectedContexts,
+        contexts: ProjectedContexts | None,
         artifacts: RuntimeArtifactBindings,
         output_root: Path,
         workspace_root: Path,
@@ -668,7 +668,7 @@ class LocalK3sRuntimeControl:
         validate_runtime_bindings(self.authorization)
 
     def prepare(self, contexts: ProjectedContexts) -> None:
-        if contexts != self.contexts:
+        if self.contexts is None or contexts != self.contexts:
             raise ControlledProofError("runtime contexts changed before preparation")
         self.assert_current()
         self._require_tools()
@@ -858,11 +858,11 @@ class LocalK3sRuntimeControl:
             )
         return restored
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> list[dict[str, str]]:
         self._stop_port_forward()
         if not self.restored and self.platform_executor_snapshot.exists():
             self._runtime_script("cleanup", allow_expired=True)
-        self._verify_baseline(self.baseline)
+        restored = self._verify_baseline(self.baseline)
         release_execution_scope_lease(
             authorization=self.authorization,
             authorization_digest=self.artifacts.authorization_digest,
@@ -875,6 +875,7 @@ class LocalK3sRuntimeControl:
         )
         if self.workspace_governance_snapshot.parent.exists():
             shutil.rmtree(self.workspace_governance_snapshot.parent, ignore_errors=True)
+        return restored
 
     def _control(
         self,
@@ -1404,8 +1405,52 @@ class LocalK3sRuntimeControl:
             timeout=effective_timeout,
         )
         if result.returncode != 0:
+            recorded_at = now_utc()
+            command_digest = hashlib.sha256(
+                "\0".join(command).encode("utf-8")
+            ).hexdigest()
+            attempt_key = hashlib.sha256(
+                f"{command_digest}\0{recorded_at}\0{time.time_ns()}".encode("utf-8")
+            ).hexdigest()
+            failure_path = (
+                self.output_root
+                / "runtime"
+                / "command-failures"
+                / f"{attempt_key}.json"
+            )
+            failure = {
+                "schema_version": 1,
+                "authorization_id": self.authorization["authorization_id"],
+                "commissioning_session_id": self.authorization[
+                    "commissioning_session"
+                ]["commissioning_session_id"],
+                "command_digest": f"sha256:{command_digest}",
+                "executable": Path(command[0]).name,
+                "returncode": result.returncode,
+                "stdout": {
+                    "sha256": "sha256:"
+                    + hashlib.sha256(result.stdout.encode("utf-8")).hexdigest(),
+                    "bytes": len(result.stdout.encode("utf-8")),
+                },
+                "stderr": {
+                    "sha256": "sha256:"
+                    + hashlib.sha256(result.stderr.encode("utf-8")).hexdigest(),
+                    "bytes": len(result.stderr.encode("utf-8")),
+                },
+                "recorded_at": recorded_at,
+            }
+            failure_digest = write_json_atomic(failure_path, failure)
             raise ControlledProofError(
-                f"controlled runtime command failed: {command[0]} {command[1]}"
+                "controlled runtime command failed; bounded failure evidence was recorded",
+                evidence_refs=[
+                    {
+                        "artifact_ref": (
+                            "platform-controlled-proof://runtime-command-failures/"
+                            f"{attempt_key}"
+                        ),
+                        "artifact_digest": failure_digest,
+                    }
+                ],
             )
         return result
 

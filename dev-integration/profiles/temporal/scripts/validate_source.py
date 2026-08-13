@@ -39,6 +39,19 @@ def resource(items: list[dict], kind: str, name: str) -> dict:
     raise KeyError(f"missing {kind}/{name}")
 
 
+def postgresql_init_script_mode(statefulset: dict) -> int | None:
+    volumes = statefulset.get("spec", {}).get("template", {}).get("spec", {}).get(
+        "volumes", []
+    )
+    init_volume = next(
+        (volume for volume in volumes if volume.get("name") == "init"),
+        None,
+    )
+    if not isinstance(init_volume, dict):
+        return None
+    return (init_volume.get("configMap") or {}).get("defaultMode")
+
+
 def validate_rendered_chart(path: Path, errors: list[str]) -> None:
     items = docs(path)
     for item in items:
@@ -561,6 +574,11 @@ def main() -> int:
             "00-create-databases.sh" in init_config
             and "CREATE ROLE" in init_config["00-create-databases.sh"],
             "PostgreSQL init must create the bounded Temporal application role",
+            errors,
+        )
+        require(
+            postgresql_init_script_mode(statefulset) == 0o555,
+            "PostgreSQL init ConfigMap must be read-only and executable by the runtime identity",
             errors,
         )
 

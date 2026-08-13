@@ -33,6 +33,7 @@ ACTIONS = {
 }
 
 ACTIVE_ONLY_ACTIONS = {"access", "backup", "restore", "up", "smoke"}
+READ_ONLY_ACTIONS = {"status"}
 
 
 class DigestWriter(Protocol):
@@ -470,6 +471,24 @@ def prepare_session_files(
     return archive_path, result_path, manifest_snapshot
 
 
+def prepare_action_session_files(
+    *,
+    action: str,
+    manifest: dict,
+    current_manifest: Path,
+    sessions_root: Path,
+) -> tuple[Path, Path, bytes] | None:
+    """Create action evidence only for commands that can change local state."""
+
+    if action in READ_ONLY_ACTIONS:
+        return None
+    return prepare_session_files(
+        manifest=manifest,
+        current_manifest=current_manifest,
+        sessions_root=sessions_root,
+    )
+
+
 def write_execution_result(
     *,
     manifest_snapshot: bytes,
@@ -700,12 +719,12 @@ def main() -> int:
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )
-    archive_path, result_path, manifest_snapshot = prepare_session_files(
+    action_files = prepare_action_session_files(
+        action=ACTIONS[args.action],
         manifest=manifest,
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
-    paths["sessions_root"].mkdir(parents=True, exist_ok=True)
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -744,16 +763,20 @@ def main() -> int:
         command_relpath,
         description=f"Profile {args.profile!r} action {command_key!r}",
     )
-    returncode = dispatch_command(
-        command_path,
-        cwd=owner_repo_root,
-        env=env,
-        publish_result=lambda action_returncode: write_execution_result(
+    publish_result = None
+    if action_files is not None:
+        archive_path, result_path, manifest_snapshot = action_files
+        publish_result = lambda action_returncode: write_execution_result(
             manifest_snapshot=manifest_snapshot,
             manifest_path=archive_path,
             result_path=result_path,
             returncode=action_returncode,
-        ),
+        )
+    returncode = dispatch_command(
+        command_path,
+        cwd=owner_repo_root,
+        env=env,
+        publish_result=publish_result,
     )
     if returncode:
         raise SystemExit(returncode)
@@ -762,9 +785,10 @@ def main() -> int:
         "dev-integration action complete: "
         f"profile={args.profile} action={args.action} namespace={namespace} session={session_id}"
     )
-    print(f"session manifest: {current_manifest_path}")
-    print(f"archived action manifest: {archive_path}")
-    print(f"action result: {result_path}")
+    if action_files is not None:
+        print(f"session manifest: {current_manifest_path}")
+        print(f"archived action manifest: {archive_path}")
+        print(f"action result: {result_path}")
     if ACTIONS[args.action] == "promote_check":
         print(f"promotion report: {promotion_report_path}")
     return 0

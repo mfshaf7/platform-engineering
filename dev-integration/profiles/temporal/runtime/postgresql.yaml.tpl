@@ -158,7 +158,7 @@ spec:
         - name: init
           configMap:
             name: temporal-postgresql-init
-            defaultMode: 0550
+            defaultMode: 0555
   volumeClaimTemplates:
     - metadata:
         name: data

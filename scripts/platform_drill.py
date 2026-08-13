@@ -724,6 +724,11 @@ def parse_args() -> argparse.Namespace:
     controlled_exception.add_argument("--review-on", required=True)
     controlled_exception.add_argument("--note", default="")
 
+    controlled_cleanup = subparsers.add_parser("controlled-cleanup")
+    controlled_cleanup.add_argument(
+        "--run", required=True, help="stopped controlled proof run directory"
+    )
+
     controlled_finalize = subparsers.add_parser("controlled-finalize")
     controlled_finalize.add_argument(
         "--run", required=True, help="controlled proof run directory"
@@ -818,6 +823,30 @@ def recover_incomplete_controlled_run(
     shutil.rmtree(run_dir)
 
 
+def reject_control_inputs_below_run_dir(
+    run_dir: Path,
+    inputs: dict[str, Path],
+) -> None:
+    """Keep immutable control inputs outside snapshot recovery's delete scope."""
+
+    run_dir = run_dir.expanduser().absolute()
+    unsafe: list[str] = []
+    for label, path in inputs.items():
+        candidate = path.expanduser().absolute()
+        for location in (candidate, candidate.resolve()):
+            try:
+                location.relative_to(run_dir)
+            except ValueError:
+                continue
+            unsafe.append(label)
+            break
+    if unsafe:
+        raise SystemExit(
+            "controlled commissioning inputs must remain outside the canonical run "
+            "directory: " + ", ".join(sorted(unsafe))
+        )
+
+
 def prepare_controlled_proof_snapshot(
     args: argparse.Namespace,
     contract: dict[str, Any],
@@ -852,9 +881,8 @@ def prepare_controlled_proof_snapshot(
     operator_approval_path = input_artifact_path(args.operator_approval_file)
     security_approval_path = input_artifact_path(args.security_authorization_file)
     baseline_path = input_artifact_path(args.baseline_file)
-    baseline_evidence_root = Path(
-        args.baseline_evidence_root
-    ).expanduser().resolve()
+    baseline_evidence_input = Path(args.baseline_evidence_root).expanduser().absolute()
+    baseline_evidence_root = baseline_evidence_input.resolve()
     contracts = load_contracts()
     authorization = read_bounded_json(
         authorization_path,
@@ -895,6 +923,16 @@ def prepare_controlled_proof_snapshot(
         raise SystemExit(f"run directory must not be a symbolic link: {canonical_run_dir}")
     if (canonical_run_dir / "run.yaml").exists():
         raise SystemExit(f"run directory already exists: {canonical_run_dir}")
+    reject_control_inputs_below_run_dir(
+        canonical_run_dir,
+        {
+            "--authorization-file": authorization_path,
+            "--operator-approval-file": operator_approval_path,
+            "--security-authorization-file": security_approval_path,
+            "--baseline-file": baseline_path,
+            "--baseline-evidence-root": baseline_evidence_input,
+        },
+    )
 
     workspace_root = args.repo_root.resolve().parent
     validate_authorization(
@@ -1863,6 +1901,123 @@ def cmd_controlled_exception(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_controlled_cleanup(args: argparse.Namespace) -> int:
+    """Retry only the stopped run's exact permit-bound cleanup scope."""
+
+    run_dir, paths, run_payload, _, _, _, _ = load_run(args.run)
+    artifacts = load_controlled_proof_artifacts(run_dir, run_payload)
+    controlled = artifacts["controlled"]
+    required = {
+        "operatorApprovalPath",
+        "securityAuthorizationPath",
+        "baselinePath",
+        "baselineEvidenceRoot",
+    }
+    missing = sorted(required - set(controlled))
+    if missing:
+        raise SystemExit(
+            "controlled cleanup is missing immutable artifact bindings: "
+            + ", ".join(missing)
+        )
+    if controlled.get("cleanupRetryPath"):
+        raise SystemExit("controlled cleanup retry already completed for this run")
+
+    platform_root = run_dir.parents[2]
+    if platform_root.name != "platform-engineering":
+        raise SystemExit("controlled proof run is outside a Platform repository root")
+    workspace_root = platform_root.parent
+
+    profile_root = (
+        Path(__file__).resolve().parents[1]
+        / "dev-integration"
+        / "profiles"
+        / "temporal"
+    )
+    if str(profile_root) not in sys.path:
+        sys.path.insert(0, str(profile_root))
+    from controlled_proof.cli import _execution_lock  # noqa: PLC0415
+    from controlled_proof.model import (  # noqa: PLC0415
+        ControlledProofError,
+        read_bounded_json,
+        write_json_atomic,
+    )
+    from controlled_proof.runtime import (  # noqa: PLC0415
+        LocalK3sRuntimeControl,
+        RuntimeArtifactBindings,
+    )
+
+    authorization = artifacts["authorization"]
+    baseline_path = input_artifact_path(str(controlled["baselinePath"]))
+    baseline = read_bounded_json(
+        baseline_path,
+        expected_digest=authorization["baseline_and_restore"][
+            "baseline_snapshot_digest"
+        ],
+    )
+    bindings = RuntimeArtifactBindings(
+        authorization_path=input_artifact_path(str(controlled["authorizationPath"])),
+        authorization_digest=artifacts["authorization_digest"],
+        operator_approval_path=input_artifact_path(
+            str(controlled["operatorApprovalPath"])
+        ),
+        security_approval_path=input_artifact_path(
+            str(controlled["securityAuthorizationPath"])
+        ),
+        baseline_path=baseline_path,
+        baseline_evidence_root=input_artifact_path(
+            str(controlled["baselineEvidenceRoot"])
+        ),
+        consumption_receipt_path=input_artifact_path(
+            str(controlled["consumptionReceiptPath"])
+        ),
+        consumption_receipt_digest=artifacts["consumption_receipt_digest"],
+        execution_claim_path=input_artifact_path(
+            str(controlled["executionClaimPath"])
+        ),
+        execution_claim_digest=artifacts["execution_claim_digest"],
+    )
+    control = LocalK3sRuntimeControl(
+        authorization=authorization,
+        baseline=baseline,
+        contexts=None,
+        artifacts=bindings,
+        output_root=artifacts["output_root"],
+        workspace_root=workspace_root,
+    )
+    try:
+        with _execution_lock(platform_root, authorization["authorization_id"]):
+            restored_surfaces = control.cleanup()
+    except ControlledProofError as exc:
+        raise SystemExit(f"controlled cleanup denied: {exc}") from exc
+
+    cleanup_result = {
+        "schema_version": 1,
+        "authorization_id": authorization["authorization_id"],
+        "commissioning_session_id": authorization["commissioning_session"][
+            "commissioning_session_id"
+        ],
+        "stopped_draft_digest": artifacts["stopped_draft_digest"],
+        "status": "exact-baseline-restored",
+        "restored_surfaces": restored_surfaces,
+        "completed_at": now_utc(),
+    }
+    cleanup_path = (
+        artifacts["output_root"] / "restore" / "terminal-cleanup-retry.json"
+    )
+    cleanup_digest = write_json_atomic(cleanup_path, cleanup_result)
+    controlled.update(
+        {
+            "cleanupRetryPath": str(cleanup_path),
+            "cleanupRetryDigest": cleanup_digest,
+            "cleanupStatus": "exact-baseline-restored",
+        }
+    )
+    write_run(paths, run_payload)
+    print(f"run_id={run_payload['run_id']} cleanup=exact-baseline-restored")
+    print(f"cleanup_digest={cleanup_digest}")
+    return 0
+
+
 def cmd_controlled_finalize(args: argparse.Namespace) -> int:
     run_dir, paths, run_payload, _, _, _, _ = load_run(args.run)
     artifacts = load_controlled_proof_artifacts(run_dir, run_payload)
@@ -2039,6 +2194,8 @@ def main() -> int:
         return cmd_restore(args)
     if args.command == "controlled-exception":
         return cmd_controlled_exception(args)
+    if args.command == "controlled-cleanup":
+        return cmd_controlled_cleanup(args)
     if args.command == "controlled-finalize":
         return cmd_controlled_finalize(args)
     if args.command == "status":

@@ -94,8 +94,9 @@ before runtime activation.
 - callers and workers must be authenticated before shared runtime admission
 - controlled commissioning accepts a Security decision only from the exact
   revision and normalized path bound in the permit approval envelope; Security
-  is excluded from executable source claims, and the consumed permit and
-  execution claim are revalidated before every internal runtime mutation
+  is excluded from executable source claims, that revision must be contained in
+  the local `refs/remotes/origin/main` Security ref, and the consumed permit
+  and execution claim are revalidated before every internal runtime mutation
 - one atomic lease owns each collision-resistant operator scope; another
   authorization cannot prepare or clean up that scope until successful restore
   verification releases the lease

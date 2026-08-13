@@ -379,6 +379,7 @@ def validate_contract(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
             expected_security_authorization = {
                 "ownerRepo": "security-architecture",
                 "excludedFromExecutionSourceClaims": True,
+                "mergedSourceRef": "refs/remotes/origin/main",
                 "approvalEnvelopeBinds": [
                     "source-revision",
                     "normalized-source-path",

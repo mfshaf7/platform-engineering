@@ -21,6 +21,7 @@ runtime:
       owner_repo: security-architecture
       excluded_from_execution_source_claims: true
       provenance: exact-json-at-clean-permit-bound-git-revision
+      merged_source_ref: refs/remotes/origin/main
       approval_envelope_bindings:
         - source-revision
         - normalized-source-path

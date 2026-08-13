@@ -50,6 +50,7 @@ EXECUTION_SOURCE_REPOS = (
     "workspace-governance-control-fabric",
 )
 SECURITY_AUTHORIZATION_SOURCE_REPO = "security-architecture"
+SECURITY_AUTHORIZATION_MERGED_REF = "refs/remotes/origin/main"
 CONTROLLED_SOURCE_REPOS = (
     *EXECUTION_SOURCE_REPOS,
     SECURITY_AUTHORIZATION_SOURCE_REPO,
@@ -233,6 +234,10 @@ class BaselineProbe(Protocol):
 class SourceResolver(Protocol):
     def revision(self, repo: str) -> tuple[str, bool]: ...
 
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool: ...
+
     def read_file(
         self,
         repo: str,
@@ -258,6 +263,37 @@ class GitSourceResolver:
             _run_checked(["git", "-C", str(repo_root), "status", "--short"])
         )
         return commit, dirty
+
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        if repo not in CONTROLLED_SOURCE_REPOS:
+            raise ControlledProofError(
+                f"source repo is outside the proof boundary: {repo}"
+            )
+        if REVISION_RE.fullmatch(revision) is None:
+            raise ControlledProofError(f"source revision is invalid: {repo}")
+        repo_root = self.workspace_root / repo
+        if not (repo_root / ".git").exists():
+            raise ControlledProofError(f"source repo is unavailable: {repo}")
+        target_revision = _run_checked(
+            ["git", "-C", str(repo_root), "rev-parse", "--verify", ref]
+        )
+        try:
+            _run_checked(
+                [
+                    "git",
+                    "-C",
+                    str(repo_root),
+                    "merge-base",
+                    "--is-ancestor",
+                    revision,
+                    target_revision,
+                ]
+            )
+        except ControlledProofError:
+            return False
+        return True
 
     def read_file(
         self,
@@ -893,6 +929,15 @@ def _validate_security_approval_provenance(
     ):
         raise ControlledProofError(
             "security authorization has no valid permit-bound source revision"
+        )
+    if not source_resolver.revision_is_ancestor_of(
+        SECURITY_AUTHORIZATION_SOURCE_REPO,
+        expected_revision,
+        SECURITY_AUTHORIZATION_MERGED_REF,
+    ):
+        raise ControlledProofError(
+            "security authorization source revision is not contained in merged "
+            f"{SECURITY_AUTHORIZATION_MERGED_REF}"
         )
     source_artifact = decode_bounded_json(
         source_resolver.read_file(

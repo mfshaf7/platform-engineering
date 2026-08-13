@@ -110,11 +110,14 @@ Security authorization under ART #790 and explicit operator approval must each
 be separate JSON artifacts binding that exact digest. The Security artifact
 must also be committed and merged in `security-architecture`, identify its own
 normalized JSON source path, and remain equivalent to that source-controlled
-record. Permit issuance records the exact clean Security revision, normalized
-source path, artifact reference, and digest in the approval envelope without
-changing the canonical claims digest. The Security artifact therefore does not
-embed its own containing commit. A self-declared local role or the contract
-review is not a per-run Security authorization.
+record. Before issuance, fetch `origin/main` in that repository and use a clean
+checkout whose revision is contained by `refs/remotes/origin/main`. Permit
+issuance fails closed if that merged ref is absent, stale, or does not contain
+the Security revision. It records the exact revision, normalized source path,
+artifact reference, and digest in the approval envelope without changing the
+canonical claims digest. The Security artifact therefore does not embed its own
+containing commit. A self-declared local role or the contract review is not a
+per-run Security authorization.
 
 ### 3. Issue The Final Permit
 
@@ -133,14 +136,14 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
 ```
 
 Issuance revalidates both approval files, including the Security artifact
-against the clean permit-bound `security-architecture` Git revision, plus the
-baseline files, every current source checkout, the pinned contract-source
-revisions, Platform artifacts, Temporal image locks, declared owner-image
-digests, identities, queues, namespace, scenario order, implementation and
-Review Packet bindings, and the validity window. ART #790 must separately
-verify that the referenced Review Packet is finalized and that each approved
-owner-image digest has the required source provenance. Issuance refuses to
-overwrite an existing permit.
+against the clean permit-bound `security-architecture` Git revision and its
+containment in `refs/remotes/origin/main`, plus the baseline files, every
+current source checkout, the pinned contract-source revisions, Platform
+artifacts, Temporal image locks, declared owner-image digests, identities,
+queues, namespace, scenario order, implementation and Review Packet bindings,
+and the validity window. ART #790 must separately verify that the referenced
+Review Packet is finalized and that each approved owner-image digest has the
+required source provenance. Issuance refuses to overwrite an existing permit.
 
 ### 4. Consume The Permit And Create The Ledger
 

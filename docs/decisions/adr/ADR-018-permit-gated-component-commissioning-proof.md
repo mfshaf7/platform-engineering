@@ -37,8 +37,9 @@ This drill type:
   final `run.yaml` commit marker and before execution is claimed
 - excludes Security from executable-source claims, then accepts the Security
   approval only when the exact approval JSON is present at the revision and
-  normalized path recorded in the permit approval envelope; a self-declared
-  local Security role is not authority
+  normalized path recorded in the permit approval envelope and that revision
+  is contained in `refs/remotes/origin/main`; a self-declared local Security
+  role or unmerged Security branch is not authority
 - revalidates the permit, both approvals, canonical consumption receipt,
   execution claim, atomic operator-scope lease, output root, namespaces, and
   collision-resistant state root before every internal shell mutation

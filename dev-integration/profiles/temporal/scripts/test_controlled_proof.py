@@ -31,6 +31,7 @@ from controlled_proof.authority import (  # noqa: E402
     PROBE_IDS,
     SURFACE_ORDER,
     EXECUTION_SOURCE_REPOS,
+    SECURITY_AUTHORIZATION_MERGED_REF,
     SECURITY_AUTHORIZATION_SOURCE_REPO,
     GitSourceResolver,
     assemble_claims,
@@ -119,11 +120,22 @@ SOURCE_REVISIONS = {
 class FakeSourceResolver:
     def __init__(self, dirty_repo: str | None = None):
         self.revisions = dict(SOURCE_REVISIONS)
+        self.merged_revisions = {
+            (repo, revision) for repo, revision in self.revisions.items()
+        }
         self.dirty_repo = dirty_repo
         self.source_files: dict[tuple[str, str, str], bytes] = {}
 
     def revision(self, repo: str) -> tuple[str, bool]:
         return self.revisions[repo], repo == self.dirty_repo
+
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        return (
+            ref == SECURITY_AUTHORIZATION_MERGED_REF
+            and (repo, revision) in self.merged_revisions
+        )
 
     def add_file(self, repo: str, relative_path: str, content: bytes) -> None:
         self.source_files[(repo, self.revisions[repo], relative_path)] = content
@@ -149,8 +161,20 @@ class FakeSourceResolver:
 
 
 def initialize_git_repo(root: Path, seed_name: str) -> str:
+    remote_root = root.parent / f"{root.name}-origin.git"
+    subprocess.run(
+        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote_root)],
+        check=True,
+    )
     root.mkdir(parents=True)
-    subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main", str(root)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "remote", "add", "origin", str(remote_root)],
+        check=True,
+    )
     (root / seed_name).write_text("reviewed source\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(root), "add", seed_name], check=True)
     subprocess.run(
@@ -167,6 +191,42 @@ def initialize_git_repo(root: Path, seed_name: str) -> str:
             "-m",
             "seed reviewed source",
         ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "push", "--quiet", "-u", "origin", "main"],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def merge_git_branch_to_main(root: Path, branch: str) -> str:
+    subprocess.run(["git", "-C", str(root), "checkout", "--quiet", "main"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Controlled Proof Test",
+            "-c",
+            "user.email=controlled-proof@example.invalid",
+            "merge",
+            "--quiet",
+            "--no-ff",
+            branch,
+            "-m",
+            "merge reviewed security authorization",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "push", "--quiet", "origin", "main"],
         check=True,
     )
     return subprocess.run(
@@ -212,6 +272,13 @@ class RealApprovalSourceResolver(FakeSourceResolver):
         if repo in {"platform-engineering", SECURITY_AUTHORIZATION_SOURCE_REPO}:
             return self.git.revision(repo)
         return super().revision(repo)
+
+    def revision_is_ancestor_of(
+        self, repo: str, revision: str, ref: str
+    ) -> bool:
+        if repo == SECURITY_AUTHORIZATION_SOURCE_REPO:
+            return self.git.revision_is_ancestor_of(repo, revision, ref)
+        return super().revision_is_ancestor_of(repo, revision, ref)
 
     def read_file(
         self,
@@ -1336,10 +1403,53 @@ class ControlledProofTests(unittest.TestCase):
                 contracts=contracts,
             )
 
-        security_revision = commit_git_path(
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(security_root),
+                "checkout",
+                "--quiet",
+                "-b",
+                "security-approval-review",
+            ],
+            check=True,
+        )
+        commit_git_path(
             security_root,
             security_source_path,
             "approve exact controlled proof claims",
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(security_root),
+                "push",
+                "--quiet",
+                "-u",
+                "origin",
+                "security-approval-review",
+            ],
+            check=True,
+        )
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "not contained in merged refs/remotes/origin/main",
+        ):
+            issue_permit(
+                claims=claims,
+                operator_approval_path=operator_approval,
+                security_approval_path=security_approval,
+                baseline_path=baseline_path,
+                baseline_evidence_root=baseline_evidence_root,
+                source_resolver=source,
+                contracts=contracts,
+            )
+
+        security_revision = merge_git_branch_to_main(
+            security_root,
+            "security-approval-review",
         )
         authorization = issue_permit(
             claims=claims,

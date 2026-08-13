@@ -76,6 +76,15 @@ REQUIRED_STOP_CONDITIONS = (
 class ControlledProofError(RuntimeError):
     """Raised when a controlled-proof boundary fails closed."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        evidence_refs: list[dict[str, str]] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.evidence_refs = list(evidence_refs or [])
+
 
 def controlled_subprocess_environment(
     overrides: Mapping[str, str] | None = None,

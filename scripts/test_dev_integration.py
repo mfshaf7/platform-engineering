@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -18,6 +19,7 @@ if SPEC is None or SPEC.loader is None:
     raise RuntimeError(f"cannot load {MODULE_PATH}")
 DEV_INTEGRATION = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DEV_INTEGRATION)
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DevIntegrationRunnerTests(unittest.TestCase):
@@ -125,6 +127,71 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             self.assertEqual(archive.stat().st_mode & 0o777, 0o400)
             self.assertEqual(result.stat().st_mode & 0o777, 0o400)
+
+    def test_status_action_does_not_create_session_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-status-runner-") as temp_dir:
+            root = Path(temp_dir)
+            action_files = DEV_INTEGRATION.prepare_action_session_files(
+                action="status",
+                manifest=self.manifest("execution-status", "status"),
+                current_manifest=root / "state/current-session.yaml",
+                sessions_root=root / "sessions",
+            )
+            self.assertIsNone(action_files)
+            self.assertEqual(list(root.iterdir()), [])
+
+    def test_temporal_status_script_does_not_create_profile_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="temporal-status-") as temp_dir:
+            root = Path(temp_dir)
+            state_root = root / "state"
+            command_path = (
+                REPO_ROOT
+                / "dev-integration/profiles/temporal/scripts/status.sh"
+            )
+            executable_root = root / "bin"
+            executable_root.mkdir()
+            (executable_root / "python3").symlink_to(sys.executable)
+            result = subprocess.run(
+                ["/bin/bash", str(command_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "PATH": f"{executable_root}:/usr/bin:/bin",
+                    "DEVINT_OPERATOR": "status-test",
+                    "DEVINT_PROFILE_ID": "temporal",
+                    "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
+                    "DEVINT_STATE_ROOT": str(state_root),
+                },
+            )
+            self.assertIn("runtime state: cluster-client-unavailable", result.stdout)
+            self.assertFalse(state_root.exists())
+
+    def test_governed_ai_status_script_does_not_create_profile_state(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-status-") as temp_dir:
+            root = Path(temp_dir)
+            state_root = root / "state"
+            command_path = (
+                REPO_ROOT
+                / "dev-integration/profiles/governed-ai-gateway/scripts/status.sh"
+            )
+            result = subprocess.run(
+                ["/bin/bash", str(command_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "PATH": "/usr/bin:/bin",
+                    "DEVINT_OPERATOR": "status-test",
+                    "DEVINT_PROFILE_ID": "governed-ai-gateway",
+                    "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
+                    "DEVINT_STATE_ROOT": str(state_root),
+                },
+            )
+            self.assertIn("launchable: false", result.stdout)
+            self.assertFalse(state_root.exists())
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:

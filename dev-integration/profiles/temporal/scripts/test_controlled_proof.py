@@ -23,6 +23,7 @@ sys.path.insert(0, str(PROFILE_ROOT))
 import controlled_proof.authority as authority_module  # noqa: E402
 import controlled_proof.execution as execution_module  # noqa: E402
 import controlled_proof.model as model_module  # noqa: E402
+import validate_source as validate_source_module  # noqa: E402
 from controlled_proof.authority import (  # noqa: E402
     EXPECTED_BASELINE_STATES,
     EXPECTED_RUNTIME_IDENTITIES,
@@ -697,7 +698,15 @@ class FakeDriver:
 
     def prepare(self, contexts: ProjectedContexts) -> None:
         if self.fail_prepare:
-            raise ControlledProofError("prepare failed")
+            raise ControlledProofError(
+                "prepare failed",
+                evidence_refs=[
+                    {
+                        "artifact_ref": "artifact://test/runtime/prepare-failure",
+                        "artifact_digest": DIGEST,
+                    }
+                ],
+            )
         self._check_contexts(contexts)
 
     def execute_scenario(
@@ -947,6 +956,55 @@ class ControlledProofTests(unittest.TestCase):
             "sealed-attested\n",
         )
 
+    def test_runtime_command_failure_records_bounded_diagnostic_evidence(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+
+        class FailingRunner:
+            def run(self, command, **kwargs):
+                del command, kwargs
+                return CommandResult(
+                    stdout="sensitive stdout",
+                    stderr="sensitive stderr",
+                    returncode=17,
+                )
+
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+            runner=FailingRunner(),
+        )
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "bounded failure evidence",
+        ) as raised:
+            control._run(["k3s", "kubectl", "get", "namespace"])
+
+        self.assertEqual(len(raised.exception.evidence_refs), 1)
+        failure_path = next(
+            (output_root / "runtime" / "command-failures").glob("*.json")
+        )
+        failure = read_bounded_json(failure_path)
+        self.assertEqual(failure["returncode"], 17)
+        self.assertEqual(failure["stderr"]["bytes"], len("sensitive stderr"))
+        self.assertNotIn("sensitive stderr", failure_path.read_text(encoding="utf-8"))
+
     def test_executor_snapshot_rejects_index_hidden_and_ignored_changes(self) -> None:
         fixture = ProofFixture(self.root / "fixture")
         output_root = self.root / "output"
@@ -1097,6 +1155,19 @@ class ControlledProofTests(unittest.TestCase):
             namespace_document["metadata"]["name"], kubernetes_namespace
         )
         self.assertTrue(postgresql_documents)
+        postgresql_statefulset = next(
+            document
+            for document in postgresql_documents
+            if document.get("kind") == "StatefulSet"
+            and document.get("metadata", {}).get("name")
+            == "temporal-postgresql"
+        )
+        self.assertEqual(
+            validate_source_module.postgresql_init_script_mode(
+                postgresql_statefulset
+            ),
+            0o555,
+        )
         self.assertTrue(
             all(
                 document["metadata"]["namespace"] == kubernetes_namespace
@@ -1105,6 +1176,26 @@ class ControlledProofTests(unittest.TestCase):
             )
         )
         self.assertNotEqual(temporal_namespace, "governance-alice-example")
+
+    def test_postgresql_init_mode_rejects_non_world_executable_mount(self) -> None:
+        statefulset = {
+            "spec": {
+                "template": {
+                    "spec": {
+                        "volumes": [
+                            {
+                                "name": "init",
+                                "configMap": {"defaultMode": 0o550},
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        self.assertNotEqual(
+            validate_source_module.postgresql_init_script_mode(statefulset),
+            0o555,
+        )
 
     def test_state_root_guard_accepts_exact_collision_resistant_scope(self) -> None:
         operator_id = "Alice"
@@ -2157,6 +2248,35 @@ class ControlledProofTests(unittest.TestCase):
                 run_dir, execution_claim_path
             )
 
+    def test_snapshot_control_inputs_must_stay_outside_recovery_scope(self) -> None:
+        run_dir = self.root / "run"
+        with self.assertRaisesRegex(
+            SystemExit,
+            "inputs must remain outside the canonical run directory",
+        ):
+            platform_drill.reject_control_inputs_below_run_dir(
+                run_dir,
+                {
+                    "--authorization-file": run_dir / "authorization.json",
+                    "--baseline-file": self.root / "baseline.json",
+                },
+            )
+        platform_drill.reject_control_inputs_below_run_dir(
+            run_dir,
+            {"--authorization-file": self.root / "authorization.json"},
+        )
+        run_dir.mkdir()
+        linked_input = self.root / "linked-authorization.json"
+        linked_input.symlink_to(run_dir / "authorization.json")
+        with self.assertRaisesRegex(
+            SystemExit,
+            "inputs must remain outside the canonical run directory",
+        ):
+            platform_drill.reject_control_inputs_below_run_dir(
+                run_dir,
+                {"--authorization-file": linked_input},
+            )
+
     def test_controlled_execution_claim_resumes_only_the_exact_binding(self) -> None:
         fixture = ProofFixture(self.root)
         output_root = self.root / "claimed-output"
@@ -2437,6 +2557,12 @@ class ControlledProofTests(unittest.TestCase):
         self.assertEqual(result["outcome"], "failed")
         self.assertEqual(statuses[:-1], ["not-run"] * (len(SCENARIO_ORDER) - 1))
         self.assertEqual(statuses[-1], "passed")
+        preparation_evidence_count = sum(
+            evidence["artifact_ref"] == "artifact://test/runtime/prepare-failure"
+            for outcome in result["scenario_outcomes"]
+            for evidence in outcome["evidence_refs"]
+        )
+        self.assertEqual(preparation_evidence_count, 1)
         self.assertTrue(driver.cleaned)
 
     def test_generic_drill_commands_cannot_mutate_controlled_run(self) -> None:
@@ -2552,7 +2678,14 @@ class ControlledProofTests(unittest.TestCase):
         self.assertFalse((output / STOPPED_RESULT_NAME).exists())
 
     def test_platform_ledger_records_and_finalizes_stopped_result(self) -> None:
-        run_dir = self.root / "runs" / "session-001"
+        run_dir = (
+            self.root
+            / "workspace"
+            / "platform-engineering"
+            / ".platform-drills"
+            / "temporal-component-commissioning-proof"
+            / "session-001"
+        )
         output = run_dir / "controlled-proof-output"
         fixture = ProofFixture(self.root / "fixture")
         executor = executor_for(
@@ -2581,6 +2714,10 @@ class ControlledProofTests(unittest.TestCase):
                 "authorization": {"digest": fixture.authorization_digest},
                 "controlledProof": {
                     "authorizationPath": str(fixture.authorization_path),
+                    "operatorApprovalPath": str(fixture.operator_approval),
+                    "securityAuthorizationPath": str(fixture.security_approval),
+                    "baselinePath": str(fixture.baseline_path),
+                    "baselineEvidenceRoot": str(fixture.evidence_root),
                     "consumptionReceiptPath": str(fixture.consumption_path),
                     "consumptionReceiptDigest": fixture.consumption_digest,
                     "executionClaimPath": str(execution_claim_path),
@@ -2613,6 +2750,37 @@ class ControlledProofTests(unittest.TestCase):
                 platform_drill.load_yaml(run_dir / "run.yaml"),
             ),
             "stopped-awaiting-exception",
+        )
+        restored_surfaces = [
+            {
+                "surface_id": surface_id,
+                "state": "not-installed",
+                "observation_digest": DIGEST,
+            }
+            for surface_id in (
+                "temporal-runtime",
+                "oos-validation-readiness-worker",
+                "wgcf-readiness-activity-worker",
+            )
+        ]
+        with mock.patch(
+            "controlled_proof.runtime.LocalK3sRuntimeControl"
+        ) as runtime_control:
+            runtime_control.return_value.cleanup.return_value = restored_surfaces
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    platform_drill.cmd_controlled_cleanup(
+                        SimpleNamespace(run=str(run_dir))
+                    ),
+                    0,
+                )
+        run_payload = platform_drill.load_yaml(run_dir / "run.yaml")
+        self.assertEqual(
+            run_payload["controlledProof"]["cleanupStatus"],
+            "exact-baseline-restored",
+        )
+        self.assertTrue(
+            (output / "restore" / "terminal-cleanup-retry.json").is_file()
         )
         exception_args = SimpleNamespace(
             run=str(run_dir),

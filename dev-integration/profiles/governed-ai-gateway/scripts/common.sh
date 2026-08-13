@@ -100,9 +100,8 @@ is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
 }
 
-write_status_file() {
-  ensure_state_dirs
-  cat >"${STATUS_FILE}" <<EOF
+render_status() {
+  cat <<EOF
 profile: ${PROFILE_ID}
 lifecycle: ${PROFILE_LIFECYCLE}
 namespace: ${NAMESPACE}
@@ -118,13 +117,18 @@ profile status input: ${GOVERNED_AI_PROFILE_STATUS:-suspended}
 EOF
 }
 
+write_status_file() {
+  ensure_state_dirs
+  render_status >"${STATUS_FILE}"
+}
+
 print_status() {
-  write_status_file
-  cat "${STATUS_FILE}"
+  render_status
 }
 
 fail_not_active() {
-  print_status
+  write_status_file
+  cat "${STATUS_FILE}"
   echo
   echo "refused: ${PROFILE_ID} is ${PROFILE_LIFECYCLE}, not active; governed AI gateway runtime launch is intentionally blocked." >&2
   exit 2

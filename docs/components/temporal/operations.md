@@ -238,7 +238,18 @@ checkouts to equal the pre-proof revisions. If exact restoration or its
 terminal verification fails, the executor
 emits an immutable stopped-result draft and no final result.
 
-Record one governed exception against the run's exact captured restore scope.
+If automated cleanup stops before exact restoration, retry only the consumed
+session's original cleanup scope. This command revalidates the immutable permit,
+approvals, consumption receipt, execution claim, scope lease, executor snapshot,
+and baseline. It cannot resume proof scenarios or authorize new work:
+
+```bash
+make platform-drill ACTION=controlled-cleanup RUN=<run-dir>
+```
+
+Record one governed exception against the run's exact captured restore scope,
+including the original automated-cleanup failure even when the bounded retry
+restored the baseline.
 The controlled action requires the executor-created draft and cannot claim a
 successful restore, select a smaller surface, or resume proof work:
 

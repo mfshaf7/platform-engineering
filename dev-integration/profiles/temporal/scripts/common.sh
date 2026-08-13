@@ -138,9 +138,8 @@ is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
 }
 
-write_status_file() {
-  ensure_state_dirs
-  cat >"${STATUS_FILE}" <<EOF
+render_status() {
+  cat <<EOF
 profile: ${PROFILE_ID}
 lifecycle: ${PROFILE_LIFECYCLE}
 kubernetes namespace: ${NAMESPACE}
@@ -160,13 +159,18 @@ aggregate orchestrator: operator-orchestration-service
 EOF
 }
 
+write_status_file() {
+  ensure_state_dirs
+  render_status >"${STATUS_FILE}"
+}
+
 print_status() {
-  write_status_file
-  cat "${STATUS_FILE}"
+  render_status
 }
 
 fail_not_active() {
-  print_status
+  write_status_file
+  cat "${STATUS_FILE}"
   printf '\nrefused: %s is %s, not active; runtime action %s remains intentionally blocked\n' \
     "${PROFILE_ID}" "${PROFILE_LIFECYCLE}" "${1:-unknown}" >&2
   exit 2

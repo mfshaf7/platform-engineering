@@ -153,7 +153,10 @@ def project_owner_contexts(
             "commissioning session must preserve the exact-restore start reserve"
         )
 
-    sources = {item["repo"]: item["commit"] for item in authorization["scope"]["source_revisions"]}
+    sources = {
+        item["repo"]: item["commit"]
+        for item in authorization["scope"]["execution_source_revisions"]
+    }
     identities = {
         item["role"]: item["identity"] for item in authorization["scope"]["runtime_identities"]
     }

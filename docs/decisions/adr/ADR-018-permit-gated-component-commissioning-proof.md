@@ -28,15 +28,16 @@ This drill type:
 - requires an exact, unexpired authorization artifact issued by Platform,
   separately authorized by Security, and explicitly accepted by the operator
 - binds its component, the exact reviewed permit-issuer and executor revisions,
-  source revisions, immutable artifacts, identities, queues, scenarios,
-  permitted actions, evidence owner, expiry, and run limit
+  executable-source revisions, immutable artifacts, identities, queues,
+  scenarios, permitted actions, evidence owner, expiry, and run limit
 - rejects conflicting logical bindings, binds both approvals to an RFC 8785
   digest of every authorization field outside the approval envelope, and
   atomically consumes one authorization for one run before the first mutation;
   an interrupted ledger snapshot may resume only its exact receipt before the
   final `run.yaml` commit marker and before execution is claimed
-- accepts the Security approval only when the exact approval JSON is present in
-  the clean, permit-bound `security-architecture` revision; a self-declared
+- excludes Security from executable-source claims, then accepts the Security
+  approval only when the exact approval JSON is present at the revision and
+  normalized path recorded in the permit approval envelope; a self-declared
   local Security role is not authority
 - revalidates the permit, both approvals, canonical consumption receipt,
   execution claim, atomic operator-scope lease, output root, namespaces, and
@@ -57,9 +58,10 @@ This drill type:
   issuance and emits a schema-valid controlled-proof result artifact after
   restoration with exact keyed coverage of every authorized scenario and no
   passing outcome when restoration ends through an exception
-- treats source revisions as immutable authorization inputs while terminal
-  restoration attests only the operator-scoped runtime namespace, deployments,
-  and local state
+- treats executable-source revisions and separately bound Security approval
+  provenance as immutable authorization inputs while terminal restoration
+  attests only the operator-scoped runtime namespace, deployments, and local
+  state
 - creates a governed local ledger before mutation
 - keeps baseline capture pending until every scoped surface has an operator-
   reviewable evidence reference

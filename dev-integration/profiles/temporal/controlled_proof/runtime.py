@@ -1019,6 +1019,9 @@ class LocalK3sRuntimeControl:
             "DEVINT_PROFILE_LIFECYCLE": "build-admitted",
             "DEVINT_NAMESPACE": self.kubernetes_namespace,
             "DEVINT_STATE_ROOT": str(self.state_root),
+            "DEVINT_WORKSPACE_ROOT": str(
+                self.workspace_root / "platform-engineering"
+            ),
             "DEVINT_TEMPORAL_WORKFLOW_NAMESPACE": self.temporal_namespace,
             "DEVINT_KUBECONFIG": "/etc/rancher/k3s/k3s.yaml",
             "DEVINT_KUBECTL": "k3s kubectl",

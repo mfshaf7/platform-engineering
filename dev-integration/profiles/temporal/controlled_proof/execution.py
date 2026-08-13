@@ -208,6 +208,10 @@ def project_owner_contexts(
         "platform-controlled-proof://contexts/oos/"
         f"{authorization['commissioning_session']['commissioning_session_id']}"
     )
+    wgcf_source_version_ref = (
+        "git:workspace-governance-control-fabric:"
+        f"{sources['workspace-governance-control-fabric']}"
+    )
     oos_context = {
         "schema_version": 1,
         "context_id": oos_context_id,
@@ -219,10 +223,7 @@ def project_owner_contexts(
         },
         "request_binding": {
             "source_record_ref": verification_ref,
-            "source_version_ref": (
-                "git:workspace-governance-control-fabric:"
-                f"{sources['workspace-governance-control-fabric']}"
-            ),
+            "source_version_ref": wgcf_source_version_ref,
             "source_projection_ref": verification_ref,
             "source_projection_version": sources[
                 "workspace-governance-control-fabric"
@@ -277,7 +278,7 @@ def project_owner_contexts(
         },
         "request_binding": {
             "source_record_ref": verification_ref,
-            "source_version_ref": authorization_digest,
+            "source_version_ref": wgcf_source_version_ref,
             "operator_id": operator_id,
         },
         "runtime": {

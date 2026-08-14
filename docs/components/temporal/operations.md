@@ -147,7 +147,14 @@ containment in `refs/remotes/origin/main`, plus the baseline files, every
 current source checkout, the pinned contract-source revisions, Platform
 artifacts, Temporal image locks, declared owner-image digests, identities,
 queues, namespace, scenario order, implementation and Review Packet bindings,
-and the validity window. ART #790 must separately verify that the referenced
+and the validity window. Before writing the permit, it uses Docker Buildx with
+an isolated credential-free configuration to resolve every exact runtime-image
+digest and prove that its manifest supports the `linux/amd64` runtime platform
+declared by the Temporal artifact lock. This matches the scoped runtime's
+anonymous image-pull boundary instead of relying on operator registry access. A
+missing registry object, another returned digest, an unsupported target
+platform, or an unavailable image-inspection command fails before permit
+creation or consumption. ART #790 must separately verify that the referenced
 Review Packet is finalized and that each approved owner-image digest has the
 required source provenance. Issuance refuses to overwrite an existing permit.
 

@@ -54,6 +54,7 @@ from controlled_proof.authority import (  # noqa: E402
 from controlled_proof.cli import (  # noqa: E402
     _canonical_execution_output_root,
     _execution_lock,
+    _validate_runtime_image_retrievability,
     _validate_execution_output_root,
     validate_claims_command,
 )
@@ -162,6 +163,14 @@ class FakeSourceResolver:
             return self.source_files[(repo, revision, relative_path)]
         except KeyError as exc:
             raise ControlledProofError("source artifact is unavailable") from exc
+
+
+def accept_runtime_images(
+    runtime_images: list[dict[str, str]],
+    target_platform: dict[str, str],
+) -> None:
+    if not runtime_images or target_platform != {"os": "linux", "architecture": "amd64"}:
+        raise AssertionError("test runtime image validation input is invalid")
 
 
 def initialize_git_repo(root: Path, seed_name: str) -> str:
@@ -573,6 +582,7 @@ class ProofFixture:
             baseline_evidence_root=self.evidence_root,
             source_resolver=self.source,
             contracts=self.contracts,
+            runtime_image_validator=accept_runtime_images,
         )
         self.authorization_path = root / "authorization.json"
         self.authorization_digest = write_json_atomic(
@@ -1739,6 +1749,7 @@ class ControlledProofTests(unittest.TestCase):
                 baseline_evidence_root=fixture.evidence_root,
                 source_resolver=fixture.source,
                 contracts=fixture.contracts,
+                runtime_image_validator=accept_runtime_images,
             )
 
     def test_security_authorization_is_loaded_from_permit_bound_source_revision(
@@ -1770,6 +1781,7 @@ class ControlledProofTests(unittest.TestCase):
                 baseline_evidence_root=fixture.evidence_root,
                 source_resolver=fixture.source,
                 contracts=fixture.contracts,
+                runtime_image_validator=accept_runtime_images,
             )
 
     def test_real_git_security_approval_is_bound_after_claims_without_digest_cycle(
@@ -1869,6 +1881,7 @@ class ControlledProofTests(unittest.TestCase):
                 baseline_evidence_root=baseline_evidence_root,
                 source_resolver=source,
                 contracts=contracts,
+                runtime_image_validator=accept_runtime_images,
             )
 
         subprocess.run(
@@ -1913,6 +1926,7 @@ class ControlledProofTests(unittest.TestCase):
                 baseline_evidence_root=baseline_evidence_root,
                 source_resolver=source,
                 contracts=contracts,
+                runtime_image_validator=accept_runtime_images,
             )
 
         security_revision = merge_git_branch_to_main(
@@ -1927,6 +1941,7 @@ class ControlledProofTests(unittest.TestCase):
             baseline_evidence_root=baseline_evidence_root,
             source_resolver=source,
             contracts=contracts,
+            runtime_image_validator=accept_runtime_images,
         )
         self.assertEqual(canonical_digest(claims), claims_digest)
         self.assertEqual(
@@ -2283,6 +2298,113 @@ class ControlledProofTests(unittest.TestCase):
                 baseline_evidence_root=fixture.evidence_root,
                 source_resolver=fixture.source,
                 contracts=fixture.contracts,
+                runtime_image_validator=accept_runtime_images,
+            )
+
+    def test_runtime_image_retrievability_accepts_target_manifest(self) -> None:
+        inspection = {
+            "manifest": {
+                "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                "digest": DIGEST,
+            },
+            "image": {"os": "linux", "architecture": "amd64"},
+        }
+
+        def inspect_image(
+            command: list[str], **kwargs: Any
+        ) -> subprocess.CompletedProcess[bytes]:
+            self.assertEqual(command[-1], f"temporalio/server:1.31.2@{DIGEST}")
+            docker_config = Path(kwargs["env"]["DOCKER_CONFIG"])
+            self.assertTrue(docker_config.is_dir())
+            self.assertNotEqual(docker_config, Path.home() / ".docker")
+            self.assertEqual(list(docker_config.iterdir()), [])
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=json.dumps(inspection).encode("utf-8"),
+                stderr=b"",
+            )
+
+        _validate_runtime_image_retrievability(
+            [{"image_ref": "temporalio/server:1.31.2", "digest": DIGEST}],
+            {"os": "linux", "architecture": "amd64"},
+            run=inspect_image,
+        )
+
+    def test_runtime_image_retrievability_rejects_unavailable_exact_digest(
+        self,
+    ) -> None:
+        def reject_image(command: list[str], **_: Any) -> subprocess.CompletedProcess[bytes]:
+            return subprocess.CompletedProcess(command, 1, stdout=b"", stderr=b"not found")
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "not retrievable by exact digest",
+        ):
+            _validate_runtime_image_retrievability(
+                [{"image_ref": "temporalio/server:1.31.2", "digest": DIGEST}],
+                {"os": "linux", "architecture": "amd64"},
+                run=reject_image,
+            )
+
+    def test_runtime_image_retrievability_rejects_missing_target_platform(
+        self,
+    ) -> None:
+        inspection = {
+            "manifest": {
+                "mediaType": "application/vnd.oci.image.index.v1+json",
+                "digest": DIGEST,
+                "manifests": [
+                    {"platform": {"os": "linux", "architecture": "arm64"}}
+                ],
+            }
+        }
+
+        def inspect_image(command: list[str], **_: Any) -> subprocess.CompletedProcess[bytes]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=json.dumps(inspection).encode("utf-8"),
+                stderr=b"",
+            )
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "does not support the controlled target platform",
+        ):
+            _validate_runtime_image_retrievability(
+                [{"image_ref": "temporalio/server:1.31.2", "digest": DIGEST}],
+                {"os": "linux", "architecture": "amd64"},
+                run=inspect_image,
+            )
+
+    def test_permit_issuance_fails_closed_on_runtime_image_rejection(self) -> None:
+        fixture = ProofFixture(self.root / "runtime-image-rejection")
+
+        def reject_runtime_images(
+            runtime_images: list[dict[str, str]],
+            target_platform: dict[str, str],
+        ) -> None:
+            self.assertEqual(len(runtime_images), 7)
+            self.assertEqual(
+                target_platform,
+                {"os": "linux", "architecture": "amd64"},
+            )
+            raise ControlledProofError("injected runtime image rejection")
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "injected runtime image rejection",
+        ):
+            issue_permit(
+                claims=fixture.claims,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                source_resolver=fixture.source,
+                contracts=fixture.contracts,
+                runtime_image_validator=reject_runtime_images,
             )
 
     def test_permit_rejects_duplicate_runtime_binding(self) -> None:

@@ -165,6 +165,12 @@ def main() -> int:
             )
 
     chart = lock.get("chart", {})
+    runtime_platform = lock.get("runtime_platform", {})
+    require(
+        runtime_platform == {"os": "linux", "architecture": "amd64"},
+        "runtime_platform must bind linux/amd64",
+        errors,
+    )
     require(chart.get("name") == "temporal", "chart.name must be temporal", errors)
     require(bool(chart.get("version")), "chart.version must be pinned", errors)
     require(

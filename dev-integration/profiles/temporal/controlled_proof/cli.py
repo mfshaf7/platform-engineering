@@ -5,10 +5,12 @@ import fcntl
 import json
 import os
 import stat
+import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Callable, Iterator
 
 from .authority import (
     ContractSet,
@@ -23,14 +25,18 @@ from .authority import (
     issue_permit,
     load_contracts,
     prepare_claims,
+    runtime_platform,
     validate_authorization,
 )
 from .execution import ControlledProofExecutor, project_owner_contexts
 from .model import (
     ControlledProofError,
+    controlled_subprocess_environment,
     create_json_exclusive,
+    decode_bounded_json,
     read_bounded_json,
     read_bounded_json_with_digest,
+    resolve_controlled_command,
 )
 from .runtime import (
     ControlledRuntimeDriver,
@@ -40,6 +46,88 @@ from .runtime import (
 )
 
 DEFAULT_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+IMAGE_INSPECTION_TIMEOUT_SECONDS = 30
+
+
+def _validate_runtime_image_retrievability(
+    runtime_images: list[dict[str, str]],
+    target_platform: dict[str, str],
+    *,
+    run: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+) -> None:
+    target_os = target_platform.get("os")
+    target_architecture = target_platform.get("architecture")
+    if target_os != "linux" or target_architecture != "amd64":
+        raise ControlledProofError("controlled proof runtime platform is unsupported")
+
+    with tempfile.TemporaryDirectory(
+        prefix="temporal-controlled-image-inspection-"
+    ) as docker_config:
+        environment = controlled_subprocess_environment(
+            {"DOCKER_CONFIG": docker_config}
+        )
+        for image in sorted(runtime_images, key=lambda item: item["image_ref"]):
+            image_ref = image["image_ref"]
+            digest = image["digest"]
+            reference = f"{image_ref}@{digest}"
+            command = resolve_controlled_command(
+                [
+                    "docker",
+                    "buildx",
+                    "imagetools",
+                    "inspect",
+                    "--format",
+                    "{{json .}}",
+                    reference,
+                ],
+                environment=environment,
+            )
+            try:
+                result = run(
+                    command,
+                    env=environment,
+                    capture_output=True,
+                    timeout=IMAGE_INSPECTION_TIMEOUT_SECONDS,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise ControlledProofError(
+                    f"runtime image retrievability check failed: {image_ref}"
+                ) from exc
+            if result.returncode != 0:
+                raise ControlledProofError(
+                    f"runtime image is not retrievable by exact digest: {image_ref}"
+                )
+
+            payload = decode_bounded_json(
+                result.stdout,
+                label=f"runtime image inspection for {image_ref}",
+            )
+            manifest = payload.get("manifest")
+            if not isinstance(manifest, dict) or manifest.get("digest") != digest:
+                raise ControlledProofError(
+                    f"runtime image inspection returned another digest: {image_ref}"
+                )
+            manifests = manifest.get("manifests")
+            if isinstance(manifests, list):
+                platform_matches = any(
+                    isinstance(item, dict)
+                    and isinstance(item.get("platform"), dict)
+                    and item["platform"].get("os") == target_os
+                    and item["platform"].get("architecture") == target_architecture
+                    for item in manifests
+                )
+            else:
+                image_config = payload.get("image")
+                platform_matches = (
+                    isinstance(image_config, dict)
+                    and image_config.get("os") == target_os
+                    and image_config.get("architecture") == target_architecture
+                )
+            if not platform_matches:
+                raise ControlledProofError(
+                    "runtime image does not support the controlled target platform: "
+                    f"{image_ref}"
+                )
 
 
 def _path(value: str) -> Path:
@@ -325,6 +413,7 @@ def issue_permit_command(args: argparse.Namespace) -> int:
         baseline_evidence_root=_path(args.baseline_evidence_root),
         source_resolver=GitSourceResolver(workspace_root),
         contracts=contracts,
+        runtime_image_validator=_validate_runtime_image_retrievability,
     )
     output = _path(args.output)
     digest = create_json_exclusive(output, permit)

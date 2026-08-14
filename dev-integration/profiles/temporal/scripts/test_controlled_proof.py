@@ -77,6 +77,7 @@ from controlled_proof.model import (  # noqa: E402
     REQUIRED_SCENARIO_OWNERS,
     REQUIRED_STOP_CONDITIONS,
     SCENARIO_ORDER,
+    TEMPORAL_NAMESPACE_MAX_LENGTH,
     TERMINAL_CLEANUP_START_RESERVE_SECONDS,
     ControlledProofError,
     canonical_digest,
@@ -438,7 +439,11 @@ def claims_for(baseline: dict[str, object], baseline_digest: str) -> dict[str, o
             "runtime_artifacts": runtime_artifacts(),
             "runtime_images": runtime_images(),
             "target_namespaces": [
-                operator_scoped_dns_label("governance", str(baseline["operator_id"]))
+                operator_scoped_dns_label(
+                    "governance",
+                    str(baseline["operator_id"]),
+                    max_length=TEMPORAL_NAMESPACE_MAX_LENGTH,
+                )
             ],
             "runtime_identities": [
                 {"role": role, "identity": identity}
@@ -819,6 +824,13 @@ class ControlledProofTests(unittest.TestCase):
             operator_scoped_dns_label("governance", "Alice"),
             operator_scoped_dns_label("governance", "alice"),
         )
+        temporal_namespace = operator_scoped_dns_label(
+            "governance",
+            "operator:workspace-owner",
+            max_length=TEMPORAL_NAMESPACE_MAX_LENGTH,
+        )
+        self.assertLessEqual(len(temporal_namespace), TEMPORAL_NAMESPACE_MAX_LENGTH)
+        self.assertLessEqual(len(f"create-{temporal_namespace}-namespace"), 63)
 
     def test_runtime_adapter_propagates_exact_collision_resistant_scope(self) -> None:
         fixture = ProofFixture(self.root / "fixture", operator_id="alice.example")
@@ -882,7 +894,9 @@ class ControlledProofTests(unittest.TestCase):
             control._runtime_script("prepare")
 
         expected_temporal_namespace = operator_scoped_dns_label(
-            "governance", "alice.example"
+            "governance",
+            "alice.example",
+            max_length=TEMPORAL_NAMESPACE_MAX_LENGTH,
         )
         self.assertEqual(
             runner.environment["DEVINT_TEMPORAL_WORKFLOW_NAMESPACE"],
@@ -1437,7 +1451,11 @@ class ControlledProofTests(unittest.TestCase):
         kubernetes_namespace = operator_scoped_dns_label(
             "devint-temporal", operator_id
         )
-        temporal_namespace = operator_scoped_dns_label("governance", operator_id)
+        temporal_namespace = operator_scoped_dns_label(
+            "governance",
+            operator_id,
+            max_length=TEMPORAL_NAMESPACE_MAX_LENGTH,
+        )
         operator_scope = operator_scope_id(operator_id)
         output_root = self.root / "rendered"
 
@@ -1509,6 +1527,30 @@ class ControlledProofTests(unittest.TestCase):
             )
         )
         self.assertNotEqual(temporal_namespace, "governance-alice-example")
+
+    def test_runtime_renderer_rejects_temporal_namespace_beyond_chart_budget(
+        self,
+    ) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(PROFILE_ROOT / "scripts" / "render_runtime.py"),
+                "--profile-root",
+                str(PROFILE_ROOT),
+                "--output-dir",
+                str(self.root / "overlong-render"),
+                "--namespace",
+                "devint-temporal-validator",
+                "--operator-scope",
+                "validator",
+                "--temporal-namespace",
+                "governance-" + "a" * 40,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("46-character", completed.stderr)
 
     def test_postgresql_init_mode_rejects_non_world_executable_mount(self) -> None:
         statefulset = {

@@ -2,6 +2,8 @@ schema_version: 1
 runtime:
   kubernetes_namespace_source: dev-integration-session
   temporal_namespace_pattern: governance-{operator}
+  temporal_namespace_max_length: 46
+  temporal_namespace_derived_name_pattern: create-{namespace}-namespace
   operator_namespace_encoding: dns-label-with-sha256-suffix-on-lossy-normalization
   local_only: true
   public_ingress: false

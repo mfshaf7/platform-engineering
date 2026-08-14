@@ -21,10 +21,13 @@ change the profile from `build-admitted`.
 
 The permit issuer and executor source is reviewed under ART #825. The latest
 permit-bound session under ART #751 restored the exact baseline but failed its
-permit-bound `prepare` action before scenarios 1-10 ran. Its retained command
-failure contained only output hashes and byte counts, so it could not identify
-the failed preparation phase. ART #840 owns the bounded semantic diagnostic
-correction. The consumed v3 permit cannot be reused; another attempt requires a
+permit-bound `prepare` action before scenarios 1-10 ran. The bounded v7
+diagnostic identified `temporal-install`; an exact isolated reproduction then
+proved that the chart-generated init-container name exceeded Kubernetes' 63-
+character limit when the authorized Temporal namespace used the general DNS-
+label maximum. ART #846 bounds Temporal namespaces to 46 characters while
+preserving the collision-resistant suffix and rejects overlong overrides during
+rendering. The consumed v7 permit cannot be reused; another attempt requires a
 fresh baseline, claims set, Security authorization, operator approval, and
 permit after the correction lands. Ordinary `devint-up`, access, smoke, backup,
 restore, and workflow commands remain denied while the profile is

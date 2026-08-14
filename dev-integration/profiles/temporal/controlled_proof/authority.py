@@ -18,6 +18,7 @@ from .model import (
     REQUIRED_STOP_CONDITIONS,
     REVISION_RE,
     SCENARIO_ORDER,
+    TEMPORAL_NAMESPACE_MAX_LENGTH,
     TERMINAL_CLEANUP_START_RESERVE_SECONDS,
     ControlledProofError,
     canonical_digest,
@@ -1338,7 +1339,11 @@ def _artifact_lock() -> dict[str, Any]:
 
 
 def _controlled_namespace(operator_id: str) -> str:
-    return operator_scoped_dns_label("governance", operator_id)
+    return operator_scoped_dns_label(
+        "governance",
+        operator_id,
+        max_length=TEMPORAL_NAMESPACE_MAX_LENGTH,
+    )
 
 
 def controlled_runtime_state_root(workspace_root: Path, operator_id: str) -> Path:

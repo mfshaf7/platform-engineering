@@ -120,10 +120,28 @@ def resolve_controlled_command(
     return [executable, *command[1:]]
 
 
-def operator_scoped_dns_label(prefix: str, operator_id: str) -> str:
+DNS_LABEL_MAX_LENGTH = 63
+TEMPORAL_NAMESPACE_MAX_LENGTH = 46
+
+
+def operator_scoped_dns_label(
+    prefix: str,
+    operator_id: str,
+    *,
+    max_length: int = DNS_LABEL_MAX_LENGTH,
+) -> str:
     """Render a collision-resistant DNS label for one operator-scoped resource."""
     if re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", prefix) is None:
         raise ControlledProofError("controlled resource prefix is not a DNS label")
+    if (
+        not isinstance(max_length, int)
+        or not 1 <= max_length <= DNS_LABEL_MAX_LENGTH
+    ):
+        raise ControlledProofError("controlled resource maximum length is invalid")
+    if len(prefix) + 3 > max_length:
+        raise ControlledProofError(
+            "controlled resource prefix cannot fit its maximum length"
+        )
     operator = require_identifier(operator_id, "operator_id")
     normalized_operator = operator.lower()
     slug = re.sub(r"[^a-z0-9-]+", "-", normalized_operator)
@@ -132,11 +150,11 @@ def operator_scoped_dns_label(prefix: str, operator_id: str) -> str:
         raise ControlledProofError("operator id does not produce a DNS label")
 
     candidate = f"{prefix}-{slug}"
-    if len(candidate) <= 63 and slug == operator:
+    if len(candidate) <= max_length and slug == operator:
         return candidate
 
     suffix = hashlib.sha256(operator.encode("utf-8")).hexdigest()[:12]
-    head_length = 63 - len(prefix) - len(suffix) - 2
+    head_length = max_length - len(prefix) - len(suffix) - 2
     head = slug[:head_length].rstrip("-")
     if not head:
         raise ControlledProofError("operator id cannot fit a scoped DNS label")

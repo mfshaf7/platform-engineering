@@ -19,15 +19,16 @@ This section is the primary Platform operator surface for a bounded Temporal
 commissioning proof. The proof is not a normal profile launch and does not
 change the profile from `build-admitted`.
 
-The permit issuer and executor source is reviewed under ART #825. One permit
-was issued and consumed for the first commissioning attempt. That session
-stopped before scenario execution when the WGCF owner-context source binding
-and sealed cleanup state-root projection failed closed. ART #832 and #833 own
-those Platform corrections. The consumed permit cannot be reused; another
-attempt requires a fresh baseline, claims set, Security authorization, operator
-approval, and permit after the corrections land. Ordinary `devint-up`, access,
-smoke, backup, restore, and workflow commands remain denied while the profile
-is `build-admitted`.
+The permit issuer and executor source is reviewed under ART #825. The latest
+permit-bound session under ART #751 restored the exact baseline but failed its
+first scenario because Deployment readiness did not prove that the admitted
+OOS workflow and WGCF activity pollers were registered with Temporal. The first
+retained read timed out, and the request adapter did not preserve bounded
+diagnostic evidence. ART #837 owns that Platform correction. The consumed
+permit cannot be reused; another attempt requires a fresh baseline, claims set,
+Security authorization, operator approval, and permit after the correction
+lands. Ordinary `devint-up`, access, smoke, backup, restore, and workflow
+commands remain denied while the profile is `build-admitted`.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 
@@ -80,9 +81,10 @@ manifest, immutable image and artifact digests, one namespace, the three
 runtime identities, two task queues, eleven ordered scenarios, one baseline,
 and one expiry window. Security is deliberately excluded because its approval
 does not exist yet. Validate and reproduce the claims RFC 8785-subset digest.
-Choose a declared issue time after both approvals can be recorded and an expiry
-that bounds the whole proof, then build the claims from the immutable baseline
-and reviewed source:
+Choose the earliest valid issue time after both approvals can be recorded,
+allowing only a small clock-skew margin, and an expiry that bounds the whole
+proof. Do not add an idle authorization buffer when no intervening work exists.
+Then build the claims from the immutable baseline and reviewed source:
 
 ```bash
 python3 dev-integration/profiles/temporal/scripts/controlled_proof.py \
@@ -228,19 +230,24 @@ attestation. The commissioning host must provide `bwrap` in the controlled
 executable path and permit its unprivileged user-namespace sandbox. The
 executor probes that capability before creating the source snapshot. It
 installs only the permit-bound local runtime, projects immutable
-OOS and WGCF contexts, and runs the eleven scenarios in fixed order. It reserves
-the final 120 seconds of the authorization window for starting exact-baseline
-restore; normal proof commands are denied once that reserve is reached. A
-scenario failure stops new proof work; terminal restore and cleanup still
-validate the immutable permit, approvals, canonical consumption receipt,
+OOS and WGCF contexts, waits until the exact admitted OOS workflow poller and
+WGCF activity poller are visible on their pinned Temporal task queues, and
+records that readiness before starting the first scenario. Unexpected poller
+identities fail closed. OOS HTTP, transport, and invalid-response failures are
+retained as bounded redacted evidence rather than collapsed to an evidence-free
+scenario error. The executor then runs the eleven scenarios in fixed order. It
+reserves the final 120 seconds of the authorization window for starting exact-
+baseline restore; normal proof commands are denied once that reserve is
+reached. A scenario failure stops new proof work; terminal restore and cleanup
+still validate the immutable permit, approvals, canonical consumption receipt,
 execution claim, exact scope, and historical Security artifact at the permit-
 bound revision before removing the scoped runtime. Current checkout drift or
 permit expiry cannot authorize new proof work and cannot prevent that bounded
 removal. Terminal verification checks the captured operator-scoped namespace,
 deployments, and local runtime state; it does not require current source
 checkouts to equal the pre-proof revisions. If exact restoration or its
-terminal verification fails, the executor
-emits an immutable stopped-result draft and no final result.
+terminal verification fails, the executor emits an immutable stopped-result
+draft and no final result.
 
 If automated cleanup stops before exact restoration, retry only the consumed
 session's original cleanup scope. This command revalidates the immutable permit,

@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 import yaml
 
@@ -86,6 +86,7 @@ OWNER_RUNTIME_IMAGES = {
     "ghcr.io/mfshaf7/operator-orchestration-service-worker",
     "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker",
 }
+RuntimeImageValidator = Callable[[list[dict[str, str]], dict[str, str]], None]
 VENDORED_CONTRACT_SOURCES = {
     "workspace-governance": {
         "controlled-runtime-proof-authorization.schema.json": (
@@ -793,6 +794,7 @@ def issue_permit(
     baseline_evidence_root: Path,
     source_resolver: SourceResolver,
     contracts: ContractSet,
+    runtime_image_validator: RuntimeImageValidator,
     issued_at: datetime | None = None,
 ) -> dict[str, Any]:
     claims, claims_digest = prepare_claims(claims, contracts=contracts)
@@ -841,6 +843,10 @@ def issue_permit(
         operator_approval_path=operator_approval_path,
         security_approval_path=security_approval_path,
         at_time=issued_at,
+    )
+    runtime_image_validator(
+        copy.deepcopy(authorization["scope"]["runtime_images"]),
+        runtime_platform(),
     )
     return authorization
 
@@ -1290,6 +1296,11 @@ def _temporal_runtime_images() -> list[dict[str, str]]:
     ]
 
 
+def runtime_platform() -> dict[str, str]:
+    lock = _artifact_lock()
+    return copy.deepcopy(lock["runtime_platform"])
+
+
 def _artifact_lock() -> dict[str, Any]:
     lock = yaml.safe_load(
         (PROFILE_ROOT / "runtime" / "artifact-lock.yaml").read_text(
@@ -1300,11 +1311,18 @@ def _artifact_lock() -> dict[str, Any]:
         not isinstance(lock, dict)
         or not isinstance(lock.get("chart"), dict)
         or not isinstance(lock.get("images"), dict)
+        or not isinstance(lock.get("runtime_platform"), dict)
     ):
         raise ControlledProofError("Temporal artifact lock is invalid")
     chart = lock["chart"]
     images = lock["images"]
-    if not isinstance(chart.get("sha256"), str) or not images:
+    platform = lock["runtime_platform"]
+    if (
+        not isinstance(chart.get("sha256"), str)
+        or not images
+        or platform.get("os") != "linux"
+        or platform.get("architecture") != "amd64"
+    ):
         raise ControlledProofError("Temporal artifact lock is incomplete")
     for image_name, entry in images.items():
         if (

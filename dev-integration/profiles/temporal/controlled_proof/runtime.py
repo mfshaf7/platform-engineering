@@ -68,6 +68,8 @@ OOS_API_DEPLOYMENT = "controlled-proof-oos-api"
 OOS_WORKER_DEPLOYMENT = "controlled-proof-oos-worker"
 WGCF_WORKER_DEPLOYMENT = "controlled-proof-wgcf-worker"
 OOS_API_SERVICE = "controlled-proof-oos-api"
+TEMPORAL_ADMIN_DEPLOYMENT = "temporal-admintools"
+TEMPORAL_POLLER_READY_TIMEOUT_SECONDS = 60
 EXTERNAL_EVIDENCE_KINDS = {
     "workflow-worker-restart": "workflow-worker-restart-observed",
     "temporal-runtime-restart": "temporal-runtime-restart-observed",
@@ -124,6 +126,36 @@ def _local_api_endpoint(api_url: str, path: str) -> str:
     ):
         raise ControlledProofError("OOS API endpoint must remain fixed to loopback HTTP")
     return f"http://127.0.0.1:{port}{path}"
+
+
+def _task_queue_poller_identities(payload: dict[str, Any]) -> set[str]:
+    pollers = payload.get("pollers")
+    if pollers is None:
+        return set()
+    if not isinstance(pollers, list):
+        raise ControlledProofError("Temporal task-queue pollers are invalid")
+    identities: set[str] = set()
+    for poller in pollers:
+        if not isinstance(poller, dict):
+            raise ControlledProofError("Temporal task-queue poller is invalid")
+        identity = poller.get("identity")
+        if not isinstance(identity, str) or not identity.strip():
+            raise ControlledProofError("Temporal task-queue poller identity is invalid")
+        identities.add(identity.strip())
+    return identities
+
+
+def _controlled_request_operation(method: str, path: str) -> str:
+    root = "/v1/orchestration/controlled-proof/executions"
+    if method == "POST" and path == root:
+        return "start-controlled-proof-execution"
+    if method == "GET" and path.startswith(f"{root}/"):
+        return "read-controlled-proof-execution"
+    if method == "POST" and path.startswith(f"{root}/") and path.endswith(
+        "/controls"
+    ):
+        return "control-controlled-proof-execution"
+    return "unknown-controlled-proof-request"
 
 
 @dataclass(frozen=True)
@@ -711,7 +743,161 @@ class LocalK3sRuntimeControl:
                     "--timeout=300s",
                 ]
             )
+        self._wait_for_temporal_pollers()
         self._start_port_forward()
+
+    def _wait_for_temporal_pollers(
+        self,
+        *,
+        timeout_seconds: float = TEMPORAL_POLLER_READY_TIMEOUT_SECONDS,
+        poll_interval_seconds: float = 0.5,
+    ) -> None:
+        if self.contexts is None:
+            raise ControlledProofError("controlled runtime owner contexts are unavailable")
+        requirements = (
+            {
+                "task_queue_type": "workflow",
+                "task_queue": self.contexts.oos["runtime"]["workflow_task_queue"],
+                "expected_identity": self.contexts.oos["runtime"][
+                    "workflow_worker_identity"
+                ],
+            },
+            {
+                "task_queue_type": "activity",
+                "task_queue": self.contexts.wgcf["runtime"]["activity_task_queue"],
+                "expected_identity": self.contexts.wgcf["runtime"]["worker_identity"],
+            },
+        )
+        deadline = time.monotonic() + min(
+            timeout_seconds,
+            self._remaining_authorization_seconds(),
+        )
+        observations: dict[str, list[str]] = {}
+        while True:
+            pending = False
+            for requirement in requirements:
+                result = self._run(
+                    [
+                        "k3s",
+                        "kubectl",
+                        "-n",
+                        self.kubernetes_namespace,
+                        "exec",
+                        f"deployment/{TEMPORAL_ADMIN_DEPLOYMENT}",
+                        "--",
+                        "temporal",
+                        "task-queue",
+                        "describe",
+                        "--namespace",
+                        self.temporal_namespace,
+                        "--task-queue",
+                        requirement["task_queue"],
+                        "--task-queue-type",
+                        requirement["task_queue_type"],
+                        "--disable-stats",
+                        "--output",
+                        "json",
+                    ],
+                    timeout=15,
+                )
+                try:
+                    payload = decode_bounded_json(
+                        result.stdout.encode("utf-8"),
+                        label="Temporal task-queue readiness",
+                    )
+                    identities = _task_queue_poller_identities(payload)
+                except Exception as exc:
+                    evidence = self._record_bounded_runtime_failure(
+                        category="poller-readiness-failures",
+                        detail={
+                            "failure_kind": "invalid-task-queue-response",
+                            "task_queue_type": requirement["task_queue_type"],
+                            "task_queue_digest": "sha256:"
+                            + hashlib.sha256(
+                                requirement["task_queue"].encode("utf-8")
+                            ).hexdigest(),
+                            "stdout": {
+                                "sha256": "sha256:"
+                                + hashlib.sha256(
+                                    result.stdout.encode("utf-8")
+                                ).hexdigest(),
+                                "bytes": len(result.stdout.encode("utf-8")),
+                            },
+                        },
+                    )
+                    raise ControlledProofError(
+                        "Temporal poller readiness returned invalid bounded evidence",
+                        evidence_refs=[evidence],
+                    ) from exc
+                observations[requirement["task_queue_type"]] = sorted(identities)
+                expected = {requirement["expected_identity"]}
+                if identities - expected:
+                    evidence = self._record_bounded_runtime_failure(
+                        category="poller-readiness-failures",
+                        detail={
+                            "failure_kind": "unexpected-poller-identity",
+                            "task_queue_type": requirement["task_queue_type"],
+                            "expected_identities": sorted(expected),
+                            "observed_identities": sorted(identities),
+                        },
+                    )
+                    raise ControlledProofError(
+                        "Temporal task queue has an unadmitted poller identity",
+                        evidence_refs=[evidence],
+                    )
+                if identities != expected:
+                    pending = True
+            if not pending:
+                readiness = {
+                    "schema_version": 1,
+                    "authorization_id": self.authorization["authorization_id"],
+                    "commissioning_session_id": self.authorization[
+                        "commissioning_session"
+                    ]["commissioning_session_id"],
+                    "status": "ready",
+                    "pollers": [
+                        {
+                            "task_queue_type": requirement["task_queue_type"],
+                            "expected_identity": requirement["expected_identity"],
+                            "observed_identities": observations[
+                                requirement["task_queue_type"]
+                            ],
+                        }
+                        for requirement in requirements
+                    ],
+                    "recorded_at": now_utc(),
+                }
+                write_json_atomic(
+                    self.output_root / "runtime" / "temporal-poller-readiness.json",
+                    readiness,
+                )
+                return
+            if time.monotonic() >= deadline:
+                evidence = self._record_bounded_runtime_failure(
+                    category="poller-readiness-failures",
+                    detail={
+                        "failure_kind": "poller-readiness-timeout",
+                        "requirements": [
+                            {
+                                "task_queue_type": requirement[
+                                    "task_queue_type"
+                                ],
+                                "expected_identity": requirement[
+                                    "expected_identity"
+                                ],
+                                "observed_identities": observations.get(
+                                    requirement["task_queue_type"], []
+                                ),
+                            }
+                            for requirement in requirements
+                        ],
+                    },
+                )
+                raise ControlledProofError(
+                    "Temporal controlled-proof pollers did not become ready",
+                    evidence_refs=[evidence],
+                )
+            time.sleep(min(poll_interval_seconds, max(deadline - time.monotonic(), 0)))
 
     def start(self, scenario_execution_id: str) -> dict[str, Any]:
         self.assert_current()
@@ -936,12 +1122,100 @@ class LocalK3sRuntimeControl:
                 timeout=min(15.0, self._remaining_authorization_seconds()),
             ) as response:
                 raw = response.read(MAX_ARTIFACT_BYTES + 1)
-                result = decode_bounded_json(raw, label="OOS controlled-proof response")
-        except (urlerror.URLError, TimeoutError) as exc:
+        except urlerror.HTTPError as exc:
+            raw = exc.read(MAX_ARTIFACT_BYTES + 1)
+            response_error = None
+            try:
+                candidate = decode_bounded_json(
+                    raw,
+                    label="OOS controlled-proof error response",
+                )
+                value = candidate.get("error")
+                if isinstance(value, str) and re.fullmatch(r"[a-z0-9_]{1,96}", value):
+                    response_error = value
+            except Exception:
+                pass
+            evidence = self._record_bounded_runtime_failure(
+                category="request-failures",
+                detail={
+                    "failure_kind": "http-error",
+                    "operation": _controlled_request_operation(method, path),
+                    "http_status": exc.code,
+                    "response_error": response_error,
+                    "response": {
+                        "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+                        "bytes": len(raw),
+                    },
+                },
+            )
             raise ControlledProofError(
-                "OOS controlled-proof request failed within the admitted boundary"
+                "OOS controlled-proof request failed; bounded failure evidence was recorded",
+                evidence_refs=[evidence],
+            ) from exc
+        except (urlerror.URLError, TimeoutError) as exc:
+            evidence = self._record_bounded_runtime_failure(
+                category="request-failures",
+                detail={
+                    "failure_kind": "transport-error",
+                    "operation": _controlled_request_operation(method, path),
+                    "transport_error_type": exc.__class__.__name__,
+                },
+            )
+            raise ControlledProofError(
+                "OOS controlled-proof request failed; bounded failure evidence was recorded",
+                evidence_refs=[evidence],
+            ) from exc
+        try:
+            result = decode_bounded_json(raw, label="OOS controlled-proof response")
+        except Exception as exc:
+            evidence = self._record_bounded_runtime_failure(
+                category="request-failures",
+                detail={
+                    "failure_kind": "invalid-response",
+                    "operation": _controlled_request_operation(method, path),
+                    "response": {
+                        "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+                        "bytes": len(raw),
+                    },
+                },
+            )
+            raise ControlledProofError(
+                "OOS controlled-proof response was invalid; bounded failure evidence was recorded",
+                evidence_refs=[evidence],
             ) from exc
         return result
+
+    def _record_bounded_runtime_failure(
+        self,
+        *,
+        category: str,
+        detail: dict[str, Any],
+    ) -> dict[str, str]:
+        recorded_at = now_utc()
+        failure_key = hashlib.sha256(
+            json.dumps(
+                {"category": category, "detail": detail, "recorded_at": recorded_at},
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        payload = {
+            "schema_version": 1,
+            "authorization_id": self.authorization["authorization_id"],
+            "commissioning_session_id": self.authorization[
+                "commissioning_session"
+            ]["commissioning_session_id"],
+            **detail,
+            "recorded_at": recorded_at,
+        }
+        path = self.output_root / "runtime" / category / f"{failure_key}.json"
+        digest = write_json_atomic(path, payload)
+        return {
+            "artifact_ref": (
+                f"platform-controlled-proof://runtime-{category}/{failure_key}"
+            ),
+            "artifact_digest": digest,
+        }
 
     def _restart_deployment(self, deployment: str) -> None:
         self._run(

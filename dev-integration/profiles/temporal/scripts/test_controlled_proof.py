@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import io
+import json
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
+from urllib import error as urlerror
 
 import yaml
 
@@ -23,6 +25,7 @@ sys.path.insert(0, str(PROFILE_ROOT))
 import controlled_proof.authority as authority_module  # noqa: E402
 import controlled_proof.execution as execution_module  # noqa: E402
 import controlled_proof.model as model_module  # noqa: E402
+import controlled_proof.runtime as runtime_module  # noqa: E402
 import validate_source as validate_source_module  # noqa: E402
 from controlled_proof.authority import (  # noqa: E402
     EXPECTED_BASELINE_STATES,
@@ -1025,6 +1028,261 @@ class ControlledProofTests(unittest.TestCase):
         self.assertEqual(failure["returncode"], 17)
         self.assertEqual(failure["stderr"]["bytes"], len("sensitive stderr"))
         self.assertNotIn("sensitive stderr", failure_path.read_text(encoding="utf-8"))
+
+    def test_runtime_waits_for_exact_admitted_temporal_pollers(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+
+        class PollerRunner:
+            def __init__(self) -> None:
+                self.commands: list[list[str]] = []
+                self.attempts: dict[str, int] = {}
+
+            def run(self, command, **kwargs):
+                del kwargs
+                self.commands.append(command)
+                queue_type = command[command.index("--task-queue-type") + 1]
+                self.attempts[queue_type] = self.attempts.get(queue_type, 0) + 1
+                identity = (
+                    "oos-workflow-worker"
+                    if queue_type == "workflow"
+                    else "wgcf-controlled-proof-activity-worker"
+                )
+                pollers = (
+                    None
+                    if queue_type == "workflow" and self.attempts[queue_type] == 1
+                    else [{"identity": identity}]
+                )
+                return CommandResult(
+                    stdout=json.dumps(
+                        {
+                            "reachability": None,
+                            "pollers": pollers,
+                            "stats": None,
+                        }
+                    ),
+                    stderr="",
+                    returncode=0,
+                )
+
+        runner = PollerRunner()
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+            runner=runner,
+        )
+
+        control._wait_for_temporal_pollers(
+            timeout_seconds=1,
+            poll_interval_seconds=0,
+        )
+
+        readiness = read_bounded_json(
+            output_root / "runtime" / "temporal-poller-readiness.json"
+        )
+        self.assertEqual(readiness["status"], "ready")
+        self.assertEqual(len(readiness["pollers"]), 2)
+        self.assertEqual(len(runner.commands), 4)
+
+    def test_runtime_rejects_an_unadmitted_temporal_poller(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+
+        class UnexpectedPollerRunner:
+            def run(self, command, **kwargs):
+                del command, kwargs
+                return CommandResult(
+                    stdout=json.dumps(
+                        {
+                            "reachability": None,
+                            "pollers": [{"identity": "unadmitted-worker"}],
+                            "stats": None,
+                        }
+                    ),
+                    stderr="",
+                    returncode=0,
+                )
+
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+            runner=UnexpectedPollerRunner(),
+        )
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "unadmitted poller identity",
+        ) as raised:
+            control._wait_for_temporal_pollers(timeout_seconds=1)
+
+        self.assertEqual(len(raised.exception.evidence_refs), 1)
+        failure = next(
+            (output_root / "runtime" / "poller-readiness-failures").glob(
+                "*.json"
+            )
+        )
+        self.assertEqual(
+            read_bounded_json(failure)["failure_kind"],
+            "unexpected-poller-identity",
+        )
+
+    def test_runtime_records_bounded_evidence_when_pollers_are_absent(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+
+        class MissingPollerRunner:
+            def run(self, command, **kwargs):
+                del command, kwargs
+                return CommandResult(
+                    stdout=json.dumps(
+                        {
+                            "reachability": None,
+                            "pollers": None,
+                            "stats": None,
+                        }
+                    ),
+                    stderr="",
+                    returncode=0,
+                )
+
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+            runner=MissingPollerRunner(),
+        )
+
+        with self.assertRaisesRegex(
+            ControlledProofError,
+            "pollers did not become ready",
+        ) as raised:
+            control._wait_for_temporal_pollers(timeout_seconds=0)
+
+        self.assertEqual(len(raised.exception.evidence_refs), 1)
+        failure = next(
+            (output_root / "runtime" / "poller-readiness-failures").glob(
+                "*.json"
+            )
+        )
+        payload = read_bounded_json(failure)
+        self.assertEqual(payload["failure_kind"], "poller-readiness-timeout")
+        self.assertEqual(
+            [
+                requirement["observed_identities"]
+                for requirement in payload["requirements"]
+            ],
+            [[], []],
+        )
+
+    def test_runtime_http_failure_records_bounded_request_evidence(self) -> None:
+        fixture = ProofFixture(self.root / "fixture")
+        output_root = self.root / "output"
+        _claim, claim_path, claim_digest = fixture.claim_for(output_root)
+        control = LocalK3sRuntimeControl(
+            authorization=fixture.authorization,
+            baseline=fixture.baseline,
+            contexts=fixture.contexts,
+            artifacts=RuntimeArtifactBindings(
+                authorization_path=fixture.authorization_path,
+                authorization_digest=fixture.authorization_digest,
+                operator_approval_path=fixture.operator_approval,
+                security_approval_path=fixture.security_approval,
+                baseline_path=fixture.baseline_path,
+                baseline_evidence_root=fixture.evidence_root,
+                consumption_receipt_path=fixture.consumption_path,
+                consumption_receipt_digest=fixture.consumption_digest,
+                execution_claim_path=claim_path,
+                execution_claim_digest=claim_digest,
+            ),
+            output_root=output_root,
+            workspace_root=self.root / "workspace",
+        )
+        control.api_url = "http://127.0.0.1:18080"
+        response_body = (
+            b'{"error":"controlled_proof_not_admitted",'
+            b'"message":"sensitive runtime detail"}'
+        )
+        error = urlerror.HTTPError(
+            "http://127.0.0.1:18080/v1/orchestration/controlled-proof/executions",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(response_body),
+        )
+
+        with mock.patch.object(
+            runtime_module.LOCAL_HTTP_OPENER,
+            "open",
+            side_effect=error,
+        ):
+            with self.assertRaisesRegex(
+                ControlledProofError,
+                "bounded failure evidence",
+            ) as raised:
+                control._request(
+                    "POST",
+                    "/v1/orchestration/controlled-proof/executions",
+                    {"schema_version": 1},
+                )
+
+        self.assertEqual(len(raised.exception.evidence_refs), 1)
+        failure_path = next(
+            (output_root / "runtime" / "request-failures").glob("*.json")
+        )
+        failure = read_bounded_json(failure_path)
+        self.assertEqual(failure["http_status"], 503)
+        self.assertEqual(failure["response_error"], "controlled_proof_not_admitted")
+        self.assertNotIn(
+            "sensitive runtime detail",
+            failure_path.read_text(encoding="utf-8"),
+        )
 
     def test_executor_snapshot_rejects_index_hidden_and_ignored_changes(self) -> None:
         fixture = ProofFixture(self.root / "fixture")

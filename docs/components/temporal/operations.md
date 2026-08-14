@@ -21,14 +21,14 @@ change the profile from `build-admitted`.
 
 The permit issuer and executor source is reviewed under ART #825. The latest
 permit-bound session under ART #751 restored the exact baseline but failed its
-first scenario because Deployment readiness did not prove that the admitted
-OOS workflow and WGCF activity pollers were registered with Temporal. The first
-retained read timed out, and the request adapter did not preserve bounded
-diagnostic evidence. ART #837 owns that Platform correction. The consumed
-permit cannot be reused; another attempt requires a fresh baseline, claims set,
-Security authorization, operator approval, and permit after the correction
-lands. Ordinary `devint-up`, access, smoke, backup, restore, and workflow
-commands remain denied while the profile is `build-admitted`.
+permit-bound `prepare` action before scenarios 1-10 ran. Its retained command
+failure contained only output hashes and byte counts, so it could not identify
+the failed preparation phase. ART #840 owns the bounded semantic diagnostic
+correction. The consumed v3 permit cannot be reused; another attempt requires a
+fresh baseline, claims set, Security authorization, operator approval, and
+permit after the correction lands. Ordinary `devint-up`, access, smoke, backup,
+restore, and workflow commands remain denied while the profile is
+`build-admitted`.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 

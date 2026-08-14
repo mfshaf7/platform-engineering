@@ -235,7 +235,12 @@ WGCF activity poller are visible on their pinned Temporal task queues, and
 records that readiness before starting the first scenario. Unexpected poller
 identities fail closed. OOS HTTP, transport, and invalid-response failures are
 retained as bounded redacted evidence rather than collapsed to an evidence-free
-scenario error. The executor then runs the eleven scenarios in fixed order. It
+scenario error. A failed permit-bound runtime command retains hashes and byte
+counts for its raw streams plus one validated diagnostic made only from the
+fixed runtime action, fixed execution phase, and exit code emitted by the
+permit-bound shell. Raw command output is not promoted. Unknown actions,
+phases, or mismatched exit codes leave the diagnostic explicitly unavailable.
+The executor then runs the eleven scenarios in fixed order. It
 reserves the final 120 seconds of the authorization window for starting exact-
 baseline restore; normal proof commands are denied once that reserve is
 reached. A scenario failure stops new proof work; terminal restore and cleanup

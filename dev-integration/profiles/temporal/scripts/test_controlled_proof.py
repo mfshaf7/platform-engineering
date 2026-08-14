@@ -611,6 +611,7 @@ class ProofFixture:
             operator_id=self.baseline["operator_id"],
             execution_root=self.root / "execution-claims",
             contracts=self.contracts,
+            claimed_at=self.consumption["consumed_at"],
         )
 
 
@@ -990,7 +991,11 @@ class ControlledProofTests(unittest.TestCase):
                 del command, kwargs
                 return CommandResult(
                     stdout="sensitive stdout",
-                    stderr="sensitive stderr",
+                    stderr=(
+                        "sensitive stderr\n"
+                        "controlled-proof-runtime-failure:v1 "
+                        "action=prepare phase=postgresql-readiness exit_code=17"
+                    ),
                     returncode=17,
                 )
 
@@ -1018,7 +1023,10 @@ class ControlledProofTests(unittest.TestCase):
             ControlledProofError,
             "bounded failure evidence",
         ) as raised:
-            control._run(["k3s", "kubectl", "get", "namespace"])
+            control._run(
+                ["k3s", "kubectl", "get", "namespace"],
+                expected_runtime_action="prepare",
+            )
 
         self.assertEqual(len(raised.exception.evidence_refs), 1)
         failure_path = next(
@@ -1026,8 +1034,44 @@ class ControlledProofTests(unittest.TestCase):
         )
         failure = read_bounded_json(failure_path)
         self.assertEqual(failure["returncode"], 17)
-        self.assertEqual(failure["stderr"]["bytes"], len("sensitive stderr"))
+        self.assertEqual(
+            failure["stderr"]["bytes"],
+            len(
+                "sensitive stderr\n"
+                "controlled-proof-runtime-failure:v1 "
+                "action=prepare phase=postgresql-readiness exit_code=17"
+            ),
+        )
+        self.assertEqual(
+            failure["runtime_diagnostic"],
+            {
+                "schema_version": 1,
+                "status": "available",
+                "action": "prepare",
+                "phase": "postgresql-readiness",
+                "exit_code": 17,
+            },
+        )
         self.assertNotIn("sensitive stderr", failure_path.read_text(encoding="utf-8"))
+
+    def test_runtime_command_failure_rejects_untrusted_diagnostic_marker(self) -> None:
+        diagnostic = LocalK3sRuntimeControl._runtime_failure_diagnostic(
+            stderr=(
+                "controlled-proof-runtime-failure:v1 "
+                "action=prepare phase=unbounded-detail exit_code=17"
+            ),
+            expected_action="prepare",
+            returncode=17,
+        )
+
+        self.assertEqual(
+            diagnostic,
+            {
+                "schema_version": 1,
+                "status": "unavailable",
+                "action": "prepare",
+            },
+        )
 
     def test_runtime_waits_for_exact_admitted_temporal_pollers(self) -> None:
         fixture = ProofFixture(self.root / "fixture")
@@ -3225,6 +3269,11 @@ class ControlledProofTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 2)
         self.assertIn("missing a permit-bound artifact", completed.stderr)
+        self.assertIn(
+            "controlled-proof-runtime-failure:v1 "
+            "action=prepare phase=authorization-validation exit_code=2",
+            completed.stderr,
+        )
 
 
 if __name__ == "__main__":

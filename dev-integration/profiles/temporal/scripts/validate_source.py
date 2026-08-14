@@ -517,6 +517,15 @@ def main() -> int:
         errors,
     )
     require(
+        boundary.get("runtime", {}).get("temporal_namespace_max_length") == 46
+        and boundary.get("runtime", {}).get(
+            "temporal_namespace_derived_name_pattern"
+        )
+        == "create-{namespace}-namespace",
+        "Temporal namespace must preserve the Helm generated-name budget",
+        errors,
+    )
+    require(
         boundary.get("observability", {}).get("logs", {}).get("payload_bodies_allowed")
         is False,
         "logs must deny payload bodies",

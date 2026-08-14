@@ -79,18 +79,35 @@ if [[ -n "${DEVINT_TEMPORAL_WORKFLOW_NAMESPACE:-}" ]]; then
 else
   readonly TEMPORAL_WORKFLOW_NAMESPACE="$(
     python3 - "${BOUNDARY_CONTRACT}" "${OPERATOR}" <<'PY'
+import hashlib
 import pathlib
 import re
 import sys
 import yaml
 
 contract = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-value = contract["runtime"]["temporal_namespace_pattern"].format(operator=sys.argv[2])
-value = re.sub(r"[^a-z0-9-]+", "-", value.lower())
-value = re.sub(r"-{2,}", "-", value).strip("-")[:63].rstrip("-")
-if not value:
+runtime = contract["runtime"]
+pattern = runtime["temporal_namespace_pattern"]
+maximum = runtime["temporal_namespace_max_length"]
+prefix, marker, suffix_text = pattern.partition("{operator}")
+if marker != "{operator}" or suffix_text:
+    raise SystemExit("Temporal namespace pattern must end with {operator}")
+prefix = re.sub(r"[^a-z0-9-]+", "-", prefix.lower()).strip("-")
+operator = sys.argv[2]
+slug = re.sub(r"[^a-z0-9-]+", "-", operator.lower())
+slug = re.sub(r"-{2,}", "-", slug).strip("-")
+if not prefix or not slug:
     raise SystemExit("Temporal workflow namespace rendered empty")
-print(value)
+candidate = f"{prefix}-{slug}"
+if len(candidate) <= maximum and slug == operator:
+    print(candidate)
+else:
+    digest = hashlib.sha256(operator.encode("utf-8")).hexdigest()[:12]
+    head_length = maximum - len(prefix) - len(digest) - 2
+    head = slug[:head_length].rstrip("-")
+    if not head:
+        raise SystemExit("Temporal workflow namespace cannot fit its chart budget")
+    print(f"{prefix}-{head}-{digest}")
 PY
   )"
 fi

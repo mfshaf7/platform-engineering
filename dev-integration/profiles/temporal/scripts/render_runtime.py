@@ -43,6 +43,13 @@ def main() -> int:
     parser.add_argument("--temporal-namespace", required=True)
     args = parser.parse_args()
 
+    profile_root = args.profile_root.resolve()
+    runtime_root = profile_root / "runtime"
+    boundary = load_yaml(runtime_root / "boundary-contract.yaml")
+    temporal_namespace_max_length = boundary["runtime"][
+        "temporal_namespace_max_length"
+    ]
+
     for label, value in (
         ("Kubernetes namespace", args.namespace),
         ("operator scope", args.operator_scope),
@@ -50,9 +57,13 @@ def main() -> int:
     ):
         if DNS_LABEL_RE.fullmatch(value) is None:
             raise ValueError(f"{label} is not a DNS label")
+    if len(args.temporal_namespace) > temporal_namespace_max_length:
+        raise ValueError(
+            "Temporal namespace exceeds the "
+            f"{temporal_namespace_max_length}-character chart-generated "
+            "container-name budget"
+        )
 
-    profile_root = args.profile_root.resolve()
-    runtime_root = profile_root / "runtime"
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 

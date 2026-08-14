@@ -4,6 +4,24 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 readonly ACTION="${1:-}"
+CURRENT_PHASE="authorization-validation"
+
+emit_runtime_failure() {
+  local status="$?"
+  emit_runtime_failure_for_status "${status}"
+}
+
+emit_runtime_failure_for_status() {
+  local status="$1"
+  trap - EXIT
+  if [[ "${status}" != "0" ]]; then
+    printf 'controlled-proof-runtime-failure:v1 action=%s phase=%s exit_code=%s\n' \
+      "${ACTION:-unknown}" "${CURRENT_PHASE}" "${status}" >&2
+  fi
+  exit "${status}"
+}
+
+trap emit_runtime_failure EXIT
 
 refuse() {
   printf 'refused: %s\n' "$1" >&2
@@ -63,81 +81,120 @@ require_runtime_state() {
 }
 
 prepare_runtime() {
+  CURRENT_PHASE="prerequisite-validation"
   need_cmd helm
   need_cmd k3s
   need_cmd python3
   need_cmd sha256sum
+  CURRENT_PHASE="baseline-validation"
   require_runtime_state "not-installed"
   [[ ! -e "${STATE_ROOT}" ]] || \
     refuse "controlled proof baseline requires absent operator-local state"
 
+  CURRENT_PHASE="runtime-render"
   render_runtime
+  CURRENT_PHASE="chart-acquisition"
   ensure_chart
+  CURRENT_PHASE="namespace-create"
   kubectl_cmd create namespace "${NAMESPACE}" --dry-run=client -o yaml | \
     kubectl_cmd apply -f -
+  CURRENT_PHASE="namespace-label"
   kubectl_cmd label namespace "${NAMESPACE}" \
     app.kubernetes.io/part-of=temporal \
     dev-integration-profile=temporal \
     "dev-integration-operator=${CONTROLLED_PROOF_OPERATOR_SCOPE}" \
     controlled-proof-session=true \
     --overwrite
+  CURRENT_PHASE="database-secret"
   apply_database_secret
+  CURRENT_PHASE="postgresql-apply"
   kubectl_cmd apply -f "${RENDERED_DIR}/postgresql.yaml"
+  CURRENT_PHASE="network-boundary-apply"
   kubectl_cmd apply -f "${RENDERED_DIR}/network-boundaries.yaml"
+  CURRENT_PHASE="postgresql-readiness"
   wait_for_postgresql
 
+  CURRENT_PHASE="temporal-install"
   helm upgrade --install "${RELEASE_NAME}" "${CHART_ARCHIVE}" \
     --namespace "${NAMESPACE}" \
     --values "${RENDERED_DIR}/temporal-values.yaml" \
     --atomic \
     --timeout 10m \
     --wait
+  CURRENT_PHASE="runtime-readiness"
   wait_for_runtime_ready
+  CURRENT_PHASE="baseline-verification"
   require_runtime_state "running"
 }
 
 restart_temporal() {
+  CURRENT_PHASE="prerequisite-validation"
   need_cmd k3s
+  CURRENT_PHASE="baseline-validation"
   require_runtime_state "running"
+  CURRENT_PHASE="temporal-suspend"
   scale_temporal_deployments 0
   wait_for_temporal_deployments_suspended
+  CURRENT_PHASE="temporal-resume"
   scale_temporal_deployments 1
+  CURRENT_PHASE="runtime-readiness"
   wait_for_runtime_ready
+  CURRENT_PHASE="baseline-verification"
   require_runtime_state "running"
 }
 
 backup_restore() {
+  CURRENT_PHASE="prerequisite-validation"
   need_cmd k3s
   need_cmd sha256sum
+  CURRENT_PHASE="baseline-validation"
   require_runtime_state "running"
 
+  CURRENT_PHASE="temporal-suspend"
   scale_temporal_deployments 0
   wait_for_temporal_deployments_suspended
   restore_runtime_after_failure() {
+    local status="$?"
+    local failed_phase="${CURRENT_PHASE}"
+    trap - EXIT
+    CURRENT_PHASE="temporal-resume"
     scale_temporal_deployments 1 || true
+    CURRENT_PHASE="runtime-readiness"
     wait_for_runtime_ready || true
+    CURRENT_PHASE="${failed_phase}"
+    emit_runtime_failure_for_status "${status}"
   }
   trap restore_runtime_after_failure EXIT
 
   local backup_path
   backup_path="${BACKUPS_DIR}/controlled-proof-${CONTROLLED_PROOF_CONSUMPTION_RECEIPT_DIGEST#sha256:}.sql"
+  CURRENT_PHASE="backup-create"
   backup_database "${backup_path}" >/dev/null
+  CURRENT_PHASE="backup-restore"
   kubectl_cmd -n "${NAMESPACE}" exec -i \
     "statefulset/${POSTGRESQL_STATEFULSET}" -- \
     sh -ec 'PGPASSWORD="$POSTGRES_PASSWORD" psql --set ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres' \
     <"${backup_path}"
 
+  CURRENT_PHASE="temporal-resume"
   scale_temporal_deployments 1
+  CURRENT_PHASE="runtime-readiness"
   wait_for_runtime_ready
   trap - EXIT
+  trap emit_runtime_failure EXIT
+  CURRENT_PHASE="baseline-verification"
   require_runtime_state "running"
 }
 
 remove_scoped_runtime() {
+  CURRENT_PHASE="prerequisite-validation"
   need_cmd k3s
+  CURRENT_PHASE="baseline-validation"
   assert_state_root_boundary
+  CURRENT_PHASE="runtime-remove"
   kubectl_cmd delete namespace "${NAMESPACE}" --ignore-not-found=true --wait=true
   rm -rf "${STATE_ROOT}"
+  CURRENT_PHASE="baseline-verification"
   require_runtime_state "not-installed"
 }
 

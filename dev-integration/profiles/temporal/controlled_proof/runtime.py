@@ -85,6 +85,31 @@ RUNTIME_SCRIPT_ACTIONS = {
     "restore-baseline",
     "cleanup",
 }
+RUNTIME_FAILURE_PHASES = {
+    "authorization-validation",
+    "prerequisite-validation",
+    "baseline-validation",
+    "runtime-render",
+    "chart-acquisition",
+    "namespace-create",
+    "namespace-label",
+    "database-secret",
+    "postgresql-apply",
+    "network-boundary-apply",
+    "postgresql-readiness",
+    "temporal-install",
+    "runtime-readiness",
+    "temporal-suspend",
+    "temporal-resume",
+    "backup-create",
+    "backup-restore",
+    "runtime-remove",
+    "baseline-verification",
+}
+RUNTIME_FAILURE_MARKER_RE = re.compile(
+    r"^controlled-proof-runtime-failure:v1 "
+    r"action=([a-z-]+) phase=([a-z-]+) exit_code=([1-9][0-9]{0,2})$"
+)
 TERMINAL_CLEANUP_ACTIONS = {"restore-baseline", "cleanup"}
 WGCF_RECEIPT_PREFIX = "wgcf-controlled-proof://receipts/"
 WGCF_RECEIPT_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -1313,6 +1338,7 @@ class LocalK3sRuntimeControl:
                 ),
                 timeout=900,
                 allow_expired=allow_expired,
+                expected_runtime_action=action,
             )
 
     def _prepare_platform_executor_snapshot(self) -> None:
@@ -1669,6 +1695,7 @@ class LocalK3sRuntimeControl:
         pass_fds: tuple[int, ...] = (),
         timeout: float = 600,
         allow_expired: bool = False,
+        expected_runtime_action: str | None = None,
     ) -> CommandResult:
         effective_timeout = timeout
         if not allow_expired:
@@ -1716,6 +1743,12 @@ class LocalK3sRuntimeControl:
                 },
                 "recorded_at": recorded_at,
             }
+            if expected_runtime_action is not None:
+                failure["runtime_diagnostic"] = self._runtime_failure_diagnostic(
+                    stderr=result.stderr,
+                    expected_action=expected_runtime_action,
+                    returncode=result.returncode,
+                )
             failure_digest = write_json_atomic(failure_path, failure)
             raise ControlledProofError(
                 "controlled runtime command failed; bounded failure evidence was recorded",
@@ -1730,6 +1763,40 @@ class LocalK3sRuntimeControl:
                 ],
             )
         return result
+
+    @staticmethod
+    def _runtime_failure_diagnostic(
+        *,
+        stderr: str,
+        expected_action: str,
+        returncode: int,
+    ) -> dict[str, Any]:
+        diagnostic: dict[str, Any] = {
+            "schema_version": 1,
+            "status": "unavailable",
+            "action": expected_action,
+        }
+        for line in reversed(stderr.splitlines()):
+            match = RUNTIME_FAILURE_MARKER_RE.fullmatch(line.strip())
+            if match is None:
+                continue
+            action, phase, exit_code_text = match.groups()
+            exit_code = int(exit_code_text)
+            if (
+                action != expected_action
+                or action not in RUNTIME_SCRIPT_ACTIONS
+                or phase not in RUNTIME_FAILURE_PHASES
+                or exit_code != returncode
+            ):
+                continue
+            return {
+                "schema_version": 1,
+                "status": "available",
+                "action": action,
+                "phase": phase,
+                "exit_code": exit_code,
+            }
+        return diagnostic
 
     def _assert_authorization_current(self) -> None:
         current = datetime.now(timezone.utc)

@@ -169,6 +169,11 @@ Do not use `retired` as a shortcut for incomplete execution.
 
 - `Epic`
 
+When the source is `Workspace Proposals`, create this shell only after the
+broker has accepted a prepared handoff with resolved source custody. Keep the
+source Proposal as the proposal-of-record and write the resulting Delivery
+reference back through the broker-owned handoff path.
+
 ### Framed Backlog Initiative
 
 - `Epic`

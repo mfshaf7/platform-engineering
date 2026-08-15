@@ -140,6 +140,41 @@ def validate_proposal_workflow_state(errors: list[str]) -> None:
     if validator.is_valid({**valid_initial_state, "unexpected": True}):
         errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: unknown state fields must fail validation")
 
+    resolved_new_repo_state = {
+        **valid_initial_state,
+        "route": {
+            "target": "delivery",
+            "rationale": "The accepted proposal requires a new owner repository.",
+            "source_custody": {
+                "classification": "new-repo-required",
+                "repository_mode": "new",
+                "repository_gate_state": "resolved",
+                "owner": "workspace-product",
+                "source_ref": "https://github.com/example/workspace-product",
+                "rationale": "Repository custody was resolved before handoff.",
+            },
+        },
+    }
+    if not validator.is_valid(resolved_new_repo_state):
+        errors.append(
+            f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: resolved new-repo custody must validate"
+        )
+    unresolved_identity = {
+        **resolved_new_repo_state,
+        "route": {
+            **resolved_new_repo_state["route"],
+            "source_custody": {
+                **resolved_new_repo_state["route"]["source_custody"],
+                "owner": None,
+                "source_ref": None,
+            },
+        },
+    }
+    if validator.is_valid(unresolved_identity):
+        errors.append(
+            f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: resolved new-repo custody must identify owner and source"
+        )
+
     runner_path = SCRIPT_DIR / "openproject_configure_idea_backlog_runner.rb"
     runner_text = read_text(runner_path)
     field_spec_match = re.search(

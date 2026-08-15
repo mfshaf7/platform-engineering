@@ -91,6 +91,12 @@ Use them only for:
 - identity and admin repair
 - clean-start and runtime hygiene checks
 
+`openproject-configure-idea-backlog` also provisions the bounded,
+non-searchable `Proposal Workflow State` field and stages
+`proposal-workflow-state.schema.json` for the runner. Provisioning the field
+does not authorize platform-admin commands to write Proposal workflow state;
+OOS remains the admitted mutation adapter.
+
 The canonical command inventory lives in
 [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
 instead of only in this prose runbook.

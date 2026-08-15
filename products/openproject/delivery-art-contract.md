@@ -1045,12 +1045,22 @@ The intake point into the delivery project is:
 
 - `accepted` in `Workspace Proposals`
 
+The Proposal record may also carry a versioned `Proposal Workflow State`
+document. That document is the machine-state source for route, source custody,
+and prepared-handoff evidence; it is not copied into the Delivery ART as a
+second workflow-state store.
+
 Rules:
 
 - an accepted proposal does not become delivery work in place
 - consumption into the ART is an explicit promotion step
 - the source proposal remains the proposal-of-record
 - the ART record becomes the execution-of-record
+- a new-repository gate marked `resolved` must identify both the repository
+  owner and source reference
+- Delivery consumption uses the prepared handoff packet and then records the
+  target receipt and backlinks; a prepared handoff is not itself proof that a
+  Delivery record exists
 
 ## Consumption Mapping
 

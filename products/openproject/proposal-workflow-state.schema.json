@@ -99,6 +99,22 @@
     "new_repo_custody": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "repository_gate_state": { "const": "resolved" }
+            },
+            "required": ["repository_gate_state"]
+          },
+          "then": {
+            "properties": {
+              "owner": { "$ref": "#/$defs/identifier" },
+              "source_ref": { "$ref": "#/$defs/identifier" }
+            }
+          }
+        }
+      ],
       "required": [
         "classification",
         "repository_mode",

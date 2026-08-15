@@ -26,6 +26,11 @@ Platform remains responsible for OpenProject runtime, compatible views, and
 projection repair. OOS remains responsible for ART workflow meaning and
 semantic validation.
 
+The scoped Delivery quality read starts after a prepared Proposal handoff has
+been consumed. Proposal workflow-state schema or concurrency failures remain on
+the Proposal command surface and must not be reclassified as Delivery quality
+drift.
+
 ## Normal Sequence
 
 For active work, use:

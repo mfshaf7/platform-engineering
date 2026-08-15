@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspace-governance.local/platform/openproject/proposal-workflow-state.schema.json",
+  "title": "Workspace Proposals Workflow State V1",
+  "description": "Versioned machine state persisted in the Proposal Workflow State custom field. Proposal content, lifecycle status, source metadata, and immutable history remain in their existing OpenProject fields and journals.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "route",
+    "handoff",
+    "last_accepted_command",
+    "receipt_refs",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "route": {
+      "oneOf": [
+        { "$ref": "#/$defs/route" },
+        { "type": "null" }
+      ]
+    },
+    "handoff": { "$ref": "#/$defs/handoff" },
+    "last_accepted_command": {
+      "oneOf": [
+        { "$ref": "#/$defs/accepted_command" },
+        { "type": "null" }
+      ]
+    },
+    "receipt_refs": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/identifier" }
+    },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "nullable_identifier": {
+      "oneOf": [
+        { "$ref": "#/$defs/identifier" },
+        { "type": "null" }
+      ]
+    },
+    "accepted_command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command_id", "command_type", "accepted_at"],
+      "properties": {
+        "command_id": { "$ref": "#/$defs/identifier" },
+        "command_type": { "enum": ["triage", "disposition", "handoff"] },
+        "accepted_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "rationale", "source_custody"],
+      "properties": {
+        "target": { "enum": ["delivery", "prototype"] },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "source_custody": { "$ref": "#/$defs/source_custody" }
+      }
+    },
+    "source_custody": {
+      "oneOf": [
+        { "$ref": "#/$defs/existing_repo_custody" },
+        { "$ref": "#/$defs/new_repo_custody" },
+        { "$ref": "#/$defs/no_repo_custody" }
+      ]
+    },
+    "existing_repo_custody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "repository_mode",
+        "repository_gate_state",
+        "owner",
+        "source_ref",
+        "rationale"
+      ],
+      "properties": {
+        "classification": { "const": "existing-repo" },
+        "repository_mode": { "const": "existing" },
+        "repository_gate_state": { "const": "resolved" },
+        "owner": { "$ref": "#/$defs/identifier" },
+        "source_ref": { "$ref": "#/$defs/identifier" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "new_repo_custody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "repository_mode",
+        "repository_gate_state",
+        "owner",
+        "source_ref",
+        "rationale"
+      ],
+      "properties": {
+        "classification": { "const": "new-repo-required" },
+        "repository_mode": { "const": "new" },
+        "repository_gate_state": { "enum": ["pending", "resolved"] },
+        "owner": { "$ref": "#/$defs/nullable_identifier" },
+        "source_ref": { "$ref": "#/$defs/nullable_identifier" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "no_repo_custody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "repository_mode",
+        "repository_gate_state",
+        "owner",
+        "source_ref",
+        "rationale"
+      ],
+      "properties": {
+        "classification": { "enum": ["platform-internal", "non-source-work"] },
+        "repository_mode": { "const": "not-required" },
+        "repository_gate_state": { "const": "not-required" },
+        "owner": { "$ref": "#/$defs/identifier" },
+        "source_ref": { "type": "null" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "handoff": {
+      "oneOf": [
+        { "$ref": "#/$defs/unapplied_handoff" },
+        { "$ref": "#/$defs/applied_handoff" }
+      ]
+    },
+    "unapplied_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "packet_ref", "target_receipt_ref", "target_record_ref"],
+      "properties": {
+        "state": { "enum": ["not-requested", "blocked", "ready", "waiting-on-target"] },
+        "packet_ref": { "$ref": "#/$defs/nullable_identifier" },
+        "target_receipt_ref": { "type": "null" },
+        "target_record_ref": { "type": "null" }
+      }
+    },
+    "applied_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "packet_ref", "target_receipt_ref", "target_record_ref"],
+      "properties": {
+        "state": { "const": "applied" },
+        "packet_ref": { "$ref": "#/$defs/identifier" },
+        "target_receipt_ref": { "$ref": "#/$defs/identifier" },
+        "target_record_ref": { "$ref": "#/$defs/identifier" }
+      }
+    }
+  }
+}

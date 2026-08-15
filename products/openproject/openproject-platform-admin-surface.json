@@ -55,6 +55,20 @@
       "required_markers": [
         "openproject-platform-admin-surface.json"
       ]
+    },
+    {
+      "path": "idea-backlog-contract.md",
+      "required_markers": [
+        "proposal-workflow-state.schema.json",
+        "Proposal Workflow State"
+      ]
+    },
+    {
+      "path": "runbooks/configure-idea-backlog.md",
+      "required_markers": [
+        "proposal-workflow-state.schema.json",
+        "Proposal Workflow State"
+      ]
     }
   ],
   "shell_surfaces": [
@@ -132,7 +146,9 @@
       "internal_runner_files": [
         "openproject_configure_idea_backlog_runner.rb"
       ],
-      "support_files": [],
+      "support_files": [
+        "../proposal-workflow-state.schema.json"
+      ],
       "pass_env": []
     },
     {

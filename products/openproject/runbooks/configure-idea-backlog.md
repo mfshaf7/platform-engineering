@@ -50,6 +50,11 @@ make openproject-configure-idea-backlog
 - project-scoped custom fields exist for the backlog workflow
   - including the `Delivery Ref` backlink field used once accepted proposals
     are consumed into the separate ART project
+  - including the non-searchable, non-filterable `Proposal Workflow State` text
+    field governed by
+    [`proposal-workflow-state.schema.json`](../proposal-workflow-state.schema.json)
+- existing Proposal records remain unmodified; the provisioning operation does
+  not fabricate workflow-state documents
 
 ## Verification
 
@@ -73,3 +78,6 @@ k3s kubectl -n openproject exec deploy/openproject-web -- \
 - This runbook does not create the future automation user or API token yet.
 - OpenProject remains the canonical backlog store; this workflow does not create
   Git artifacts directly.
+- `operator-orchestration-service` must validate a workflow-state document
+  against the product schema before writing it and must use the work package
+  `lockVersion` as the optimistic-concurrency precondition.

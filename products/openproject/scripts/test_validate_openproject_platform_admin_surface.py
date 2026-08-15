@@ -106,6 +106,42 @@ class ValidateOpenProjectPlatformAdminSurfaceTest(unittest.TestCase):
                 any("Rails runners missing from platform-admin contract" in error for error in errors)
             )
 
+    def test_proposal_workflow_state_contract_is_bound_to_provisioning(self) -> None:
+        errors: list[str] = []
+        MODULE.validate_proposal_workflow_state(errors)
+        self.assertEqual(errors, [])
+
+    def test_unversioned_proposal_workflow_state_schema_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            schema_path = pathlib.Path(tmp_dir) / "proposal-workflow-state.schema.json"
+            schema_path.write_text(
+                json.dumps(
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "schema_version",
+                            "route",
+                            "handoff",
+                            "last_accepted_command",
+                            "receipt_refs",
+                            "updated_at",
+                        ],
+                        "properties": {"schema_version": {"const": 2}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            original_schema_path = MODULE.PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH
+            try:
+                MODULE.PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH = schema_path
+                errors: list[str] = []
+                MODULE.validate_proposal_workflow_state(errors)
+            finally:
+                MODULE.PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH = original_schema_path
+
+            self.assertTrue(any("schema_version must be fixed at 1" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

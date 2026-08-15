@@ -112,6 +112,8 @@ The canonical backlog record must express at least:
 - internal evaluation notes
 - optional AI-assist decision metadata when a future AI discussion path is used
 - optional archival metadata when a future visibility-only archive flag is used
+- versioned machine workflow state for route, source custody, handoff, accepted
+  command identity, and receipt references
 
 ## Proposal-To-Delivery Handoff
 
@@ -209,12 +211,37 @@ Phase 1 should provision these custom fields in OpenProject:
   - none, local, governed, exception
 - `Revisit On`
   - date for parked or deferred items
+- `Proposal Workflow State`
+  - bounded JSON document governed by
+    [`proposal-workflow-state.schema.json`](proposal-workflow-state.schema.json)
+  - stores route and source custody, handoff state, the last accepted command
+    identity, receipt references, and update time
+  - does not duplicate the Proposal title, body, triage summary, decision notes,
+    lifecycle status, source metadata, or journal history
 
 Field ids may vary by instance, but the semantic names above are the contract.
 
+### Workflow-State Storage Boundary
+
+The `Proposal Workflow State` field is the machine-state extension for the
+canonical work package. Its JSON `schema_version` governs storage evolution.
+The work package `lockVersion` remains the canonical record version used for
+optimistic concurrency and stale-write rejection.
+
+Only `operator-orchestration-service` is an admitted mutation adapter for this
+field. The field is project-scoped, non-searchable, non-filterable, and bounded
+to 32,768 characters. The supported write path must validate the JSON document
+against `proposal-workflow-state.schema.json` before updating OpenProject.
+OpenProject journals remain the immutable event and history surface; the field
+must not accumulate an event log.
+
+An empty field on a record that predates this contract means no Proposal
+workflow-state document has been recorded yet. Provisioning must not fabricate
+route, custody, command, handoff, or receipt evidence for existing records.
+
 ## Current Live Mapping
 
-As of `2026-04-18`, the current local platform OpenProject runtime reports:
+As of `2026-08-16`, the current local platform OpenProject runtime reports:
 
 - type ids:
   - `Idea`: `41`
@@ -234,6 +261,7 @@ As of `2026-04-18`, the current local platform OpenProject runtime reports:
 - custom field ids:
   - `Source Surface`: `1`
   - `Source Reference`: `2`
+  - `Delivery Ref`: `25`
   - `Suspected Owner`: `3`
   - `Affected Scope`: `4`
   - `Trust Boundary Areas`: `5`
@@ -242,6 +270,7 @@ As of `2026-04-18`, the current local platform OpenProject runtime reports:
   - `Triage Confidence`: `8`
   - `AI Assist Lane`: `9`
   - `Revisit On`: `10`
+  - `Proposal Workflow State`: `52`
 
 These ids are instance-local runtime facts, not the semantic contract. If the
 OpenProject backlog model is reprovisioned in a new instance, operators should

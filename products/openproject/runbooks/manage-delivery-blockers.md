@@ -111,6 +111,11 @@ Forbidden:
 - continuing unrelated adjacent mutation on the same initiative while the
   blocker remains unrecorded
 
+A Proposal repository gate is not a Delivery blocker record. It must be
+resolved on the Proposal before consumption. If repository custody becomes a
+real execution impediment only after the Delivery record exists, use this
+Delivery blocker workflow and preserve the Proposal handoff history unchanged.
+
 ### 5. Clear The Blocker
 
 Clear the blocker only through the bounded blocker route with a resume status.

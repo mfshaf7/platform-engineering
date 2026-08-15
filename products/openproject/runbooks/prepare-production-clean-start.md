@@ -134,6 +134,8 @@ Do not relabel rehearsal data as production history.
    - `make openproject-apply`
 2. Provision the canonical proposal plane:
    - `make openproject-configure-idea-backlog`
+   - confirm `Proposal Workflow State` exists, is non-searchable and
+     non-filterable, and remains empty on pre-existing Proposal records
 3. Provision the canonical delivery plane:
    - `make openproject-configure-delivery-art`
 4. Provision the canonical delivery-plane identities:

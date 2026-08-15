@@ -51,6 +51,11 @@ If workflow health is clean:
 
 - continue with the normal broker-led ART path
 
+Proposal workflow-state validation belongs to the Proposal broker API, not to
+this Delivery health projection. A missing or invalid prepared handoff must be
+rejected before Delivery consumption rather than reported as ART projection
+drift.
+
 If workflow health reports drift:
 
 1. run the scoped ART quality gate for the affected initiative:

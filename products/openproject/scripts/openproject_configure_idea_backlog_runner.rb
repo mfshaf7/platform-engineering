@@ -12,6 +12,12 @@ PROJECT_DESCRIPTION = <<~TEXT.strip
   Canonical backlog for captured ideas and proposals that originate from operator workflows.
 TEXT
 PROJECT_MODULES = %w[work_package_tracking].freeze
+PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH = File.join(__dir__, "proposal-workflow-state.schema.json")
+PROPOSAL_WORKFLOW_STATE_SCHEMA = JSON.parse(File.read(PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH)).freeze
+
+unless PROPOSAL_WORKFLOW_STATE_SCHEMA.dig("properties", "schema_version", "const") == 1
+  raise "Proposal workflow-state schema must declare schema_version 1"
+end
 
 TYPE_SPECS = [
   { name: "Idea", description: "Default type for newly captured items." },
@@ -121,6 +127,14 @@ CUSTOM_FIELD_SPECS = [
     searchable: false,
     is_filter: true,
     multi_value: false
+  },
+  {
+    name: "Proposal Workflow State",
+    field_format: "text",
+    searchable: false,
+    is_filter: false,
+    multi_value: false,
+    max_length: 32_768
   }
 ].freeze
 
@@ -265,6 +279,11 @@ result = {
         field_format: field.field_format
       }
     end
+  },
+  proposal_workflow_state: {
+    field_name: "Proposal Workflow State",
+    schema_id: PROPOSAL_WORKFLOW_STATE_SCHEMA.fetch("$id"),
+    schema_version: PROPOSAL_WORKFLOW_STATE_SCHEMA.dig("properties", "schema_version", "const")
   },
   statuses: statuses.map { |status| { id: status.id, name: status.name, is_closed: status.is_closed } },
   types: types.map { |type| { id: type.id, name: type.name, workflow_count: Workflow.where(type_id: type.id).count } }

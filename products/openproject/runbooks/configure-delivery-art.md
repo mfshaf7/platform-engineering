@@ -102,6 +102,9 @@ make openproject-configure-delivery-art PI_NAMES="PI-2026-02,PI-2026-03"
 - managed board `ART Execution Kanban` exists
 - managed board `PI Objectives` exists when PI versions are present
 - managed board `ART Risk Register` exists
+- the Proposal-owned `Proposal Workflow State` field is not duplicated in the
+  Delivery ART; consumed records retain `Origin Idea Ref` and Delivery-only
+  execution fields
 
 ## Verification
 

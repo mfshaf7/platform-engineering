@@ -15,6 +15,10 @@ runtime and platform-admin layer is:
 
 - [../openproject-platform-admin-surface.json](../openproject-platform-admin-surface.json)
 
+Workspace Proposals workflow-state storage is defined by:
+
+- [../proposal-workflow-state.schema.json](../proposal-workflow-state.schema.json)
+
 Validate the contract, script inventory, and required doc markers together
 with:
 

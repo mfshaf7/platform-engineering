@@ -105,6 +105,11 @@ The managed query set also exists for:
 The managed execution board includes a dedicated `parked` lane so deferred open
 work stays visible in the OpenProject UI alongside the active execution flow.
 
+`Proposal Workflow State` is deliberately non-filterable and is not projected
+into these Delivery views. Delivery views begin with consumed ART records and
+their durable `Origin Idea Ref`; Proposal route and handoff history remain on
+the source Proposal and in its journals.
+
 The OpenProject roadmap page is only truthful when this version projection
 matches the canonical `Target PI` field and still carries the explicit backlog
 bucket for ART work that is not yet committed to a PI. This workflow is the

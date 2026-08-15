@@ -68,6 +68,9 @@ OPENPROJECT_ROTATE_API_TOKEN=true \
   - `Work package creator`
   - `Work package editor`
   - `Work package structure editor`
+- the Proposal project membership permits OOS to validate and update the
+  `Proposal Workflow State` custom field through its bounded command API; the
+  identity remains non-admin and does not grant a platform-admin bypass
 - Vault path `kv/components/operator-orchestration-service/prod/openproject`
   contains key `apiToken`
 

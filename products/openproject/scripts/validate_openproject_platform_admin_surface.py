@@ -6,10 +6,14 @@ import json
 import re
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PRODUCT_DIR = SCRIPT_DIR.parent
 CONTRACT_PATH = PRODUCT_DIR / "openproject-platform-admin-surface.json"
+PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH = PRODUCT_DIR / "proposal-workflow-state.schema.json"
 MAKEFILE_PATH = PRODUCT_DIR.parents[1] / "Makefile"
 
 
@@ -78,6 +82,125 @@ def validate_doc_markers(errors: list[str], repo_root: Path, contract: dict[str,
             errors.append(
                 f"{path}: missing required platform-admin contract markers: {', '.join(missing)}"
             )
+
+
+def validate_proposal_workflow_state(errors: list[str]) -> None:
+    if not PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH.exists():
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: Proposal workflow-state schema is missing")
+        return
+
+    try:
+        schema = json.loads(read_text(PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH))
+    except json.JSONDecodeError as exc:
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: invalid JSON: {exc}")
+        return
+
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: invalid JSON Schema: {exc.message}")
+        return
+
+    expected_required = {
+        "schema_version",
+        "route",
+        "handoff",
+        "last_accepted_command",
+        "receipt_refs",
+        "updated_at",
+    }
+    if set(schema.get("required", [])) != expected_required:
+        errors.append(
+            f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: required fields must be "
+            f"{', '.join(sorted(expected_required))}"
+        )
+    if schema.get("properties", {}).get("schema_version", {}).get("const") != 1:
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: schema_version must be fixed at 1")
+    if schema.get("additionalProperties") is not False:
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: unknown top-level fields must fail closed")
+
+    validator = Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)
+    valid_initial_state = {
+        "schema_version": 1,
+        "route": None,
+        "handoff": {
+            "state": "not-requested",
+            "packet_ref": None,
+            "target_receipt_ref": None,
+            "target_record_ref": None,
+        },
+        "last_accepted_command": None,
+        "receipt_refs": [],
+        "updated_at": "2026-08-16T00:00:00Z",
+    }
+    if not validator.is_valid(valid_initial_state):
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: canonical initial state must validate")
+    if validator.is_valid({**valid_initial_state, "schema_version": 2}):
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: unversioned state must fail validation")
+    if validator.is_valid({**valid_initial_state, "unexpected": True}):
+        errors.append(f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: unknown state fields must fail validation")
+
+    resolved_new_repo_state = {
+        **valid_initial_state,
+        "route": {
+            "target": "delivery",
+            "rationale": "The accepted proposal requires a new owner repository.",
+            "source_custody": {
+                "classification": "new-repo-required",
+                "repository_mode": "new",
+                "repository_gate_state": "resolved",
+                "owner": "workspace-product",
+                "source_ref": "https://github.com/example/workspace-product",
+                "rationale": "Repository custody was resolved before handoff.",
+            },
+        },
+    }
+    if not validator.is_valid(resolved_new_repo_state):
+        errors.append(
+            f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: resolved new-repo custody must validate"
+        )
+    unresolved_identity = {
+        **resolved_new_repo_state,
+        "route": {
+            **resolved_new_repo_state["route"],
+            "source_custody": {
+                **resolved_new_repo_state["route"]["source_custody"],
+                "owner": None,
+                "source_ref": None,
+            },
+        },
+    }
+    if validator.is_valid(unresolved_identity):
+        errors.append(
+            f"{PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH}: resolved new-repo custody must identify owner and source"
+        )
+
+    runner_path = SCRIPT_DIR / "openproject_configure_idea_backlog_runner.rb"
+    runner_text = read_text(runner_path)
+    field_spec_match = re.search(
+        r'\{\s*name: "Proposal Workflow State",(?P<body>.*?)\n\s*\}',
+        runner_text,
+        re.DOTALL,
+    )
+    if field_spec_match is None:
+        errors.append(f'{runner_path}: missing "Proposal Workflow State" custom-field spec')
+        return
+
+    field_spec = field_spec_match.group("body")
+    required_runner_markers = [
+        'field_format: "text"',
+        "searchable: false",
+        "is_filter: false",
+        "max_length: 32_768",
+    ]
+    missing = [marker for marker in required_runner_markers if marker not in field_spec]
+    if missing:
+        errors.append(
+            f"{runner_path}: missing Proposal workflow-state provisioning markers: "
+            f"{', '.join(missing)}"
+        )
+    if "proposal-workflow-state.schema.json" not in runner_text:
+        errors.append(f"{runner_path}: provisioning does not load the Proposal workflow-state schema")
 
 
 def validate_shell_surfaces(
@@ -263,6 +386,7 @@ def validate_contract(repo_root: Path) -> list[str]:
     make_targets = parse_make_targets(read_text(repo_root / "Makefile"))
     errors: list[str] = []
     validate_doc_markers(errors, repo_root, contract)
+    validate_proposal_workflow_state(errors)
     validate_shell_surfaces(errors, repo_root, contract, make_targets)
     validate_python_tools(errors, contract)
     validate_rails_runners(errors, contract)

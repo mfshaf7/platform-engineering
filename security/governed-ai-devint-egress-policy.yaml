@@ -1,7 +1,7 @@
 schema_version: 1
 devint_egress_policy:
   id: governed-ai-devint-egress-v1
-  status: devint-runtime-defined
+  status: active
   owner_repo: platform-engineering
   applies_to:
     lane: dev-integration
@@ -17,12 +17,14 @@ devint_egress_policy:
     consumer_namespace_pattern: devint-governed-ai-gateway-<operator>-consumer
     provider_sentinel_namespace_pattern: devint-governed-ai-gateway-<operator>-provider-sentinel
     provider_sentinel_service: direct-provider-sentinel
+    local_provider_endpoint: http://host.docker.internal:11434
   consumer_policy:
     default_egress: deny
     allow_to_governed_gateway: true
     allow_dns: true
     direct_provider_egress_allowed: false
   denied_provider_destinations:
+    - host.docker.internal:11434 from governed consumer namespaces
     - api.openai.com
     - api.anthropic.com
     - generativelanguage.googleapis.com
@@ -34,8 +36,11 @@ devint_egress_policy:
     - "network_policy: deny direct provider egress from governed consumers"
     - "network_policy: allow consumer egress only to governed-ai-gateway and DNS"
     - "provider_sentinel: consumer probe must not reach direct-provider-sentinel"
+    - "host_route: only declared platform runtime sources may reach host Ollama"
   evidence_required_before_activation:
     - rendered NetworkPolicy or equivalent CNI policy is applied in devint
     - consumer pod cannot reach denied provider destinations or the devint provider sentinel directly
     - consumer pod can reach governed-ai-gateway service
+    - gateway pod can reach the pinned local Ollama model
+    - unrelated LAN sources cannot reach the Ollama forward
     - gateway emits caller identity and audit metadata for the request

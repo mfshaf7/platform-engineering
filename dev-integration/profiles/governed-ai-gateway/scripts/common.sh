@@ -22,13 +22,12 @@ readonly SMOKE_SUMMARY="${STATE_ROOT}/smoke-summary.json"
 readonly PROFILE_PROMOTION_NOTES="${STATE_ROOT}/profile-promotion-notes.md"
 readonly RENDERED_DIR="${STATE_ROOT}/rendered"
 readonly LOGS_DIR="${STATE_ROOT}/logs"
-readonly LOCAL_SECRETS_ENV="${STATE_ROOT}/local-secrets.env"
 readonly ACCESS_LOCAL_PORT="${DEVINT_GAI_GATEWAY_LOCAL_PORT:-18290}"
+readonly RUNTIME_SOURCE_DIR="${PROFILE_ROOT}/runtime"
 
 readonly GATEWAY_DEPLOYMENT="governed-ai-gateway"
 readonly GATEWAY_SERVICE="governed-ai-gateway"
 readonly GATEWAY_PVC="governed-ai-gateway-audit"
-readonly GATEWAY_SECRET="governed-ai-gateway-provider"
 readonly GATEWAY_CONFIGMAP="governed-ai-gateway-app"
 readonly CONSUMER_DEPLOYMENT="governed-ai-consumer-probe"
 readonly PROVIDER_DEPLOYMENT="direct-provider-sentinel"
@@ -47,29 +46,6 @@ need_cmd() {
 
 ensure_state_dirs() {
   mkdir -p "${STATE_ROOT}" "${RENDERED_DIR}" "${LOGS_DIR}"
-}
-
-generate_random_hex() {
-  python3 - <<'PY'
-import secrets
-print(secrets.token_hex(24))
-PY
-}
-
-ensure_local_secrets() {
-  ensure_state_dirs
-  if [[ -f "${LOCAL_SECRETS_ENV}" ]]; then
-    return
-  fi
-
-  cat >"${LOCAL_SECRETS_ENV}" <<EOF
-GOVERNED_AI_PROVIDER_TOKEN=$(generate_random_hex)
-EOF
-}
-
-load_local_secrets() {
-  # shellcheck disable=SC1090
-  source "${LOCAL_SECRETS_ENV}"
 }
 
 profile_lifecycle() {
@@ -97,7 +73,9 @@ PY
 readonly PROFILE_LIFECYCLE="$(profile_lifecycle)"
 
 load_model_binding() {
-  python3 - "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" <<'PY'
+  python3 - \
+    "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" \
+    "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" <<'PY'
 import pathlib
 import sys
 
@@ -105,10 +83,28 @@ import yaml
 
 payload = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
 profile = (payload.get("model_profiles") or {}).get("intake-classifier-v1") or {}
-for field in ("status", "provider", "provider_route", "upstream_model"):
-    value = profile.get(field)
+binding_id = (profile.get("active_binding_by_environment") or {}).get("dev-integration")
+binding = (profile.get("bindings") or {}).get(binding_id) or {}
+access_payload = yaml.safe_load(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")) or {}
+routes = {
+    route.get("route_id"): route
+    for route in ((access_payload.get("access_plane") or {}).get("provider_routes") or [])
+    if isinstance(route, dict)
+}
+route = routes.get(binding.get("provider_route")) or {}
+values = (
+    profile.get("status"),
+    binding_id,
+    binding.get("provider"),
+    binding.get("provider_route"),
+    binding.get("upstream_model"),
+    binding.get("model_digest"),
+    binding.get("runtime_version"),
+    route.get("endpoint_origin"),
+)
+for value in values:
     if not isinstance(value, str) or not value:
-        raise SystemExit(f"intake-classifier-v1 missing {field}")
+        raise SystemExit("intake-classifier-v1 dev-integration binding is incomplete")
     print(value)
 PY
 }
@@ -131,14 +127,18 @@ PY
 }
 
 mapfile -t MODEL_BINDING < <(load_model_binding)
-if [[ "${#MODEL_BINDING[@]}" -ne 4 ]]; then
+if [[ "${#MODEL_BINDING[@]}" -ne 8 ]]; then
   echo "Unable to resolve intake-classifier-v1 model binding" >&2
   exit 1
 fi
 readonly MODEL_PROFILE_STATUS="${MODEL_BINDING[0]}"
-readonly UPSTREAM_PROVIDER="${MODEL_BINDING[1]}"
-readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[2]}"
-readonly UPSTREAM_MODEL="${MODEL_BINDING[3]}"
+readonly MODEL_BINDING_ID="${MODEL_BINDING[1]}"
+readonly UPSTREAM_PROVIDER="${MODEL_BINDING[2]}"
+readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[3]}"
+readonly UPSTREAM_MODEL="${MODEL_BINDING[4]}"
+readonly UPSTREAM_MODEL_DIGEST="${MODEL_BINDING[5]}"
+readonly PROVIDER_RUNTIME_VERSION="${MODEL_BINDING[6]}"
+readonly PROVIDER_BASE_URL="${MODEL_BINDING[7]}"
 readonly ACCESS_PLANE_ACTIVATION_ALLOWED="$(load_access_plane_activation)"
 
 is_active_profile() {
@@ -163,6 +163,8 @@ access plane activation allowed: ${ACCESS_PLANE_ACTIVATION_ALLOWED}
 upstream provider: ${UPSTREAM_PROVIDER}
 provider route: ${UPSTREAM_PROVIDER_ROUTE}
 upstream model: ${UPSTREAM_MODEL}
+upstream model digest: ${UPSTREAM_MODEL_DIGEST}
+provider runtime version: ${PROVIDER_RUNTIME_VERSION}
 EOF
 }
 
@@ -206,6 +208,8 @@ import os
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from ollama_adapter import OllamaAdapter, OllamaAdapterError
+
 AUDIT_ROOT = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai-gateway"))
 AUDIT_LEDGER = AUDIT_ROOT / "audit-ledger.jsonl"
 PROFILE_ID = os.environ.get("GOVERNED_AI_PROFILE_ID", "intake-classifier-v1")
@@ -217,16 +221,26 @@ ACCESS_PLANE_ACTIVATION_ALLOWED = (
 UPSTREAM_PROVIDER = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER", "unbound")
 UPSTREAM_PROVIDER_ROUTE = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE", "unbound")
 UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "unbound")
+UPSTREAM_MODEL_DIGEST = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL_DIGEST", "unbound")
+PROVIDER_RUNTIME_VERSION = os.environ.get("GOVERNED_AI_PROVIDER_RUNTIME_VERSION", "unbound")
+PROVIDER_BASE_URL = os.environ.get("GOVERNED_AI_PROVIDER_BASE_URL", "http://host.docker.internal:11434")
 INVOCATION_PATH = os.environ.get("GOVERNED_AI_INVOCATION_PATH", "governed-ai-gateway")
 OUTPUT_SCHEMA_REF = os.environ.get(
     "GOVERNED_AI_OUTPUT_SCHEMA_REF",
-    "workspace-governance/contracts/schemas/intake-ai-suggestion.schema.json",
+    "platform-engineering/security/schemas/intake-classification-result.schema.json",
 )
-PROVIDER_SECRET_REF = os.environ.get(
-    "GOVERNED_AI_PROVIDER_SECRET_REF",
-    "secret/governed-ai-gateway-provider/token",
+MAX_REQUEST_BYTES = int(os.environ.get("GOVERNED_AI_MAX_REQUEST_BYTES", "16384"))
+
+PROVIDER = OllamaAdapter(
+    base_url=PROVIDER_BASE_URL,
+    model=UPSTREAM_MODEL,
+    expected_digest=UPSTREAM_MODEL_DIGEST,
+    expected_runtime_version=PROVIDER_RUNTIME_VERSION,
+    timeout_seconds=float(os.environ.get("GOVERNED_AI_PROVIDER_TIMEOUT_SECONDS", "30")),
+    retry_count=int(os.environ.get("GOVERNED_AI_PROVIDER_RETRY_COUNT", "1")),
+    max_concurrency=int(os.environ.get("GOVERNED_AI_PROVIDER_MAX_CONCURRENCY", "2")),
+    max_output_tokens=int(os.environ.get("GOVERNED_AI_PROVIDER_MAX_OUTPUT_TOKENS", "64")),
 )
-PROVIDER_TOKEN = os.environ.get("GOVERNED_AI_PROVIDER_TOKEN", "")
 
 REQUIRED_CALLER_FIELDS = [
     "caller_id",
@@ -266,17 +280,6 @@ def latest_audit_event() -> dict:
     }
 
 
-def classify_intake_note(note: str) -> tuple[str, str]:
-    lowered = note.lower()
-    if "secret" in lowered or "credential" in lowered or "privileged" in lowered:
-        return "proposed", "medium"
-    if "out-of-scope" in lowered or "archive" in lowered:
-        return "out-of-scope", "medium"
-    if "shared" in lowered or "platform" in lowered or "governance" in lowered:
-        return "admitted", "medium"
-    return "proposed", "low"
-
-
 class Handler(BaseHTTPRequestHandler):
     server_version = "GovernedAIGatewayDevInt/1.0"
 
@@ -295,8 +298,13 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0") or "0")
         if length <= 0:
             return {}
+        if length > MAX_REQUEST_BYTES:
+            raise ValueError("request-too-large")
         raw = self.rfile.read(length)
-        return json.loads(raw.decode("utf-8"))
+        payload = json.loads(raw.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("request-must-be-object")
+        return payload
 
     def do_GET(self) -> None:
         if self.path == "/healthz":
@@ -313,7 +321,9 @@ class Handler(BaseHTTPRequestHandler):
                     "upstream_provider": UPSTREAM_PROVIDER,
                     "provider_route": UPSTREAM_PROVIDER_ROUTE,
                     "upstream_model": UPSTREAM_MODEL,
-                    "provider_custody": bool(PROVIDER_TOKEN),
+                    "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
+                    "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
+                    "provider_credential_required": False,
                     "raw_provider_token_projected": False,
                 },
             )
@@ -322,11 +332,12 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(
                 200,
                 {
-                    "provider_secret_available": bool(PROVIDER_TOKEN),
+                    "provider_credential_required": False,
+                    "provider_secret_available": False,
                     "upstream_provider": UPSTREAM_PROVIDER,
                     "provider_route": UPSTREAM_PROVIDER_ROUTE,
                     "upstream_model": UPSTREAM_MODEL,
-                    "provider_secret_ref": PROVIDER_SECRET_REF,
+                    "provider_secret_ref": None,
                     "consumer_provider_credentials_allowed": False,
                     "provider_secret_projected_to_consumers": False,
                     "token_value_projected": False,
@@ -343,11 +354,15 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "not_found"})
             return
 
-        request = self.read_json()
+        try:
+            request = self.read_json()
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            self.send_json(400, {"error": "invalid-request", "reason": str(exc)})
+            return
         caller_identity = request.get("caller_identity") or {}
         missing = [field for field in REQUIRED_CALLER_FIELDS if not caller_identity.get(field)]
         requested_profile = request.get("profile_id") or caller_identity.get("requested_profile_id")
-        output_schema_ref = request.get("output_schema_ref")
+        output_schema_ref = request.get("provider_output_schema_ref")
         operator_identity = request.get("operator_identity") or {}
         operator_acceptance_state = request.get("operator_acceptance_state", "not-recorded")
 
@@ -367,13 +382,28 @@ class Handler(BaseHTTPRequestHandler):
         if not operator_identity.get("operator_id"):
             denial_reasons.append("operator-identity-missing")
 
-        policy_decision = "deny" if denial_reasons else "allow"
-        note = str((request.get("input") or {}).get("operator_supplied_intake_notes", ""))
-        suggested_decision, confidence = classify_intake_note(note)
-        correlation_id = caller_identity.get("decision_or_correlation_id") or request.get("correlation_id")
+        intake_packet = request.get("input") or {}
+        if not isinstance(intake_packet, dict):
+            denial_reasons.append("input-must-be-object")
+            intake_packet = {}
+        allowed_input_fields = {"operator_supplied_intake_notes", "model_safe_packet"}
+        if set(intake_packet).difference(allowed_input_fields):
+            denial_reasons.append("input-field-not-allowed")
+        note = intake_packet.get("operator_supplied_intake_notes")
+        if not isinstance(note, str) or not note.strip():
+            denial_reasons.append("intake-notes-missing")
+        model_safe_packet = intake_packet.get("model_safe_packet")
+        if model_safe_packet is not None:
+            required_packet_fields = {"packet_ref", "redaction_receipt_ref", "content"}
+            if not isinstance(model_safe_packet, dict) or not all(
+                isinstance(model_safe_packet.get(field), str) and model_safe_packet.get(field)
+                for field in required_packet_fields
+            ):
+                denial_reasons.append("model-safe-packet-invalid")
 
-        event = append_audit(
-            {
+        policy_decision = "deny" if denial_reasons else "allow"
+        correlation_id = caller_identity.get("decision_or_correlation_id") or request.get("correlation_id")
+        event_base = {
                 "correlation_id": correlation_id,
                 "caller_identity": caller_identity,
                 "operator_identity": operator_identity,
@@ -384,19 +414,31 @@ class Handler(BaseHTTPRequestHandler):
                 "upstream_provider": UPSTREAM_PROVIDER,
                 "provider_route": UPSTREAM_PROVIDER_ROUTE,
                 "upstream_model": UPSTREAM_MODEL,
+                "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
+                "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
+                "prompt_version": PROVIDER.prompt_version,
                 "purpose": "workspace-intake-assist",
                 "output_schema_ref": OUTPUT_SCHEMA_REF,
                 "policy_decision": policy_decision,
                 "policy_reasons": denial_reasons,
-                "outcome": "denied" if denial_reasons else "suggestion-produced",
                 "operator_acceptance_state": operator_acceptance_state,
                 "override_reason": request.get("override_reason"),
-                "provider_secret_ref": PROVIDER_SECRET_REF,
+                "model_safe_packet_ref": (model_safe_packet or {}).get("packet_ref"),
+                "redaction_receipt_ref": (model_safe_packet or {}).get("redaction_receipt_ref"),
+                "provider_secret_ref": None,
                 "provider_secret_projected": False,
-            }
-        )
+        }
 
         if denial_reasons:
+            event = append_audit(
+                {
+                    **event_base,
+                    "outcome": "denied",
+                    "provider_schema_valid": False,
+                    "provider_latency_ms": 0,
+                    "provider_usage": {},
+                }
+            )
             self.send_json(
                 403,
                 {
@@ -407,17 +449,53 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
 
+        try:
+            provider_result = PROVIDER.classify(intake_packet)
+        except OllamaAdapterError as exc:
+            event = append_audit(
+                {
+                    **event_base,
+                    "outcome": exc.code,
+                    "provider_schema_valid": False,
+                    "provider_latency_ms": 0,
+                    "provider_usage": {},
+                }
+            )
+            status = 504 if exc.code == "provider-timeout" else 503
+            self.send_json(
+                status,
+                {
+                    "policy_decision": "deny",
+                    "reasons": [exc.code],
+                    "audit_ref": f"local-ledger:{event['event_digest']}",
+                },
+            )
+            return
+
+        event = append_audit(
+            {
+                **event_base,
+                "upstream_model_digest": provider_result.model_digest,
+                "provider_runtime_version": provider_result.runtime_version,
+                "outcome": "suggestion-produced",
+                "provider_schema_valid": True,
+                "provider_latency_ms": provider_result.latency_ms,
+                "provider_usage": provider_result.usage,
+            }
+        )
+
         self.send_json(
             200,
             {
                 "profile_id": PROFILE_ID,
                 "policy_status": PROFILE_STATUS,
+                "policy_decision": "allow",
                 "decision_id": correlation_id,
                 "generated_at": event["event_time"],
-                "confidence": confidence,
+                "confidence": provider_result.output["confidence"],
                 "caller_id": caller_identity.get("caller_id"),
                 "invocation_path": INVOCATION_PATH,
-                "suggested_decision": suggested_decision,
+                "suggested_decision": provider_result.output["suggested_decision"],
                 "audit_ref": f"local-ledger:{event['event_digest']}",
             },
         )
@@ -459,10 +537,16 @@ PY
 
 render_runtime_manifest() {
   ensure_state_dirs
-  ensure_local_secrets
-  load_local_secrets
   render_gateway_app
   render_provider_sentinel_app
+  cp "${RUNTIME_SOURCE_DIR}/ollama_adapter.py" "${RENDERED_DIR}/ollama_adapter.py"
+
+  local provider_host_ip
+  provider_host_ip="$(getent ahostsv4 host.docker.internal | awk 'NR == 1 {print $1}')"
+  if [[ -z "${provider_host_ip}" ]]; then
+    echo "Unable to resolve host.docker.internal for governed AI provider route" >&2
+    exit 1
+  fi
 
   cat >"${RENDERED_DIR}/governed-ai-gateway-runtime.yaml" <<EOF
 apiVersion: v1
@@ -502,18 +586,6 @@ spec:
   resources:
     requests:
       storage: ${DEVINT_GAI_AUDIT_VOLUME_SIZE:-1Gi}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ${GATEWAY_SECRET}
-  namespace: ${NAMESPACE}
-  labels:
-    dev-integration-profile: ${PROFILE_ID}
-type: Opaque
-stringData:
-  GOVERNED_AI_PROVIDER_TOKEN: "${GOVERNED_AI_PROVIDER_TOKEN}"
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -524,6 +596,8 @@ metadata:
 data:
   gateway_app.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/gateway_app.py")
+  ollama_adapter.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/ollama_adapter.py")
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -571,15 +645,26 @@ spec:
               value: "${UPSTREAM_PROVIDER_ROUTE}"
             - name: GOVERNED_AI_UPSTREAM_MODEL
               value: "${UPSTREAM_MODEL}"
+            - name: GOVERNED_AI_UPSTREAM_MODEL_DIGEST
+              value: "${UPSTREAM_MODEL_DIGEST}"
+            - name: GOVERNED_AI_PROVIDER_RUNTIME_VERSION
+              value: "${PROVIDER_RUNTIME_VERSION}"
+            - name: GOVERNED_AI_PROVIDER_BASE_URL
+              value: "${PROVIDER_BASE_URL}"
             - name: GOVERNED_AI_INVOCATION_PATH
               value: governed-ai-gateway
             - name: GOVERNED_AI_OUTPUT_SCHEMA_REF
-              value: workspace-governance/contracts/schemas/intake-ai-suggestion.schema.json
-            - name: GOVERNED_AI_PROVIDER_SECRET_REF
-              value: secret/governed-ai-gateway-provider/token
-          envFrom:
-            - secretRef:
-                name: ${GATEWAY_SECRET}
+              value: platform-engineering/security/schemas/intake-classification-result.schema.json
+            - name: GOVERNED_AI_MAX_REQUEST_BYTES
+              value: "16384"
+            - name: GOVERNED_AI_PROVIDER_TIMEOUT_SECONDS
+              value: "30"
+            - name: GOVERNED_AI_PROVIDER_RETRY_COUNT
+              value: "1"
+            - name: GOVERNED_AI_PROVIDER_MAX_CONCURRENCY
+              value: "2"
+            - name: GOVERNED_AI_PROVIDER_MAX_OUTPUT_TOKENS
+              value: "64"
           ports:
             - containerPort: 8080
               name: http
@@ -608,6 +693,34 @@ spec:
         - name: audit
           persistentVolumeClaim:
             claimName: ${GATEWAY_PVC}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: governed-ai-gateway-provider-egress
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      governed-ai-gateway: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: ${provider_host_ip}/32
+      ports:
+        - protocol: TCP
+          port: 11434
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
 ---
 apiVersion: v1
 kind: Service
@@ -741,7 +854,7 @@ run_consumer_probe() {
   local gateway_url="http://${GATEWAY_SERVICE}.${NAMESPACE}.svc.cluster.local:8080"
   local provider_url="http://${PROVIDER_SERVICE}.${PROVIDER_NAMESPACE}.svc.cluster.local:8080"
   kubectl_cmd -n "${CONSUMER_NAMESPACE}" exec -i "deployment/${CONSUMER_DEPLOYMENT}" -- \
-    python - "${gateway_url}" "${provider_url}" <<'PY'
+    python - "${gateway_url}" "${provider_url}" "${PROVIDER_BASE_URL}" <<'PY'
 from __future__ import annotations
 
 import json
@@ -751,6 +864,7 @@ import urllib.request
 
 gateway_url = sys.argv[1]
 provider_url = sys.argv[2]
+ollama_url = sys.argv[3]
 
 payload = {
     "profile_id": "intake-classifier-v1",
@@ -765,7 +879,7 @@ payload = {
         "operator_id": "devint-operator",
     },
     "operator_acceptance_state": "not-recorded",
-    "output_schema_ref": "workspace-governance/contracts/schemas/intake-ai-suggestion.schema.json",
+    "provider_output_schema_ref": "platform-engineering/security/schemas/intake-classification-result.schema.json",
     "input": {
         "operator_supplied_intake_notes": "Shared platform governance component smoke.",
     },
@@ -779,7 +893,7 @@ request = urllib.request.Request(
 )
 
 try:
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urllib.request.urlopen(request, timeout=60) as response:
         gateway_body = json.loads(response.read().decode("utf-8"))
         gateway_status = response.status
 except urllib.error.HTTPError as exc:
@@ -794,15 +908,27 @@ try:
 except Exception as exc:  # noqa: BLE001 - surfaced as smoke evidence, not hidden.
     provider_error = type(exc).__name__
 
+ollama_direct_reachable = False
+ollama_error = None
+try:
+    with urllib.request.urlopen(f"{ollama_url}/api/tags", timeout=5) as response:
+        ollama_direct_reachable = response.status == 200
+except Exception as exc:  # noqa: BLE001 - surfaced as smoke evidence, not hidden.
+    ollama_error = type(exc).__name__
+
 print(
     json.dumps(
         {
             "gateway_http_status": gateway_status,
             "gateway_policy_decision": gateway_body.get("policy_decision"),
+            "gateway_suggested_decision": gateway_body.get("suggested_decision"),
+            "gateway_confidence": gateway_body.get("confidence"),
             "gateway_reachable": gateway_status in {200, 403},
             "gateway_reasons": gateway_body.get("reasons", []),
             "direct_provider_reachable": provider_direct_reachable,
             "direct_provider_error": provider_error,
+            "direct_ollama_reachable": ollama_direct_reachable,
+            "direct_ollama_error": ollama_error,
         },
         indent=2,
         sort_keys=True,

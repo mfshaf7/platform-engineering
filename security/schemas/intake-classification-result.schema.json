@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/intake-classification-result.schema.json",
+  "type": "object",
+  "required": [
+    "suggested_decision",
+    "confidence"
+  ],
+  "properties": {
+    "suggested_decision": {
+      "type": "string",
+      "enum": ["out-of-scope", "proposed", "admitted"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
+  },
+  "additionalProperties": false
+}

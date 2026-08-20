@@ -191,10 +191,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
-            self.assertIn("access plane activation allowed: false", result.stdout)
-            self.assertIn("upstream provider: openai", result.stdout)
-            self.assertIn("provider route: openai-responses-api", result.stdout)
-            self.assertIn("upstream model: gpt-5.6-terra", result.stdout)
+            self.assertIn("access plane activation allowed: true", result.stdout)
+            self.assertIn("upstream provider: ollama", result.stdout)
+            self.assertIn("provider route: ollama-local-host", result.stdout)
+            self.assertIn("upstream model: qwen3:8b", result.stdout)
             self.assertFalse(state_root.exists())
 
     def test_governed_ai_runtime_requires_both_activation_gates(self) -> None:

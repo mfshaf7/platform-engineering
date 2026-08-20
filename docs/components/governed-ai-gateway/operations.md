@@ -14,9 +14,11 @@ Smoke is read-only. It proves:
 - gateway API readiness
 - caller identity reaches the access plane
 - audit ledger event emission
-- provider secret remains gateway-custodied
+- active binding, Ollama version, and model digest match the registry
+- provider output passes the strict classification schema
 - consumer can reach the gateway service
 - consumer cannot reach the direct-provider sentinel service
+- consumer cannot reach host Ollama directly
 
 ## Common Failure Signals
 
@@ -24,7 +26,9 @@ Smoke is read-only. It proves:
 - gateway Deployment is not ready
 - consumer probe cannot reach the gateway
 - latest audit event is missing caller identity
-- provider custody endpoint reports missing provider Secret
+- Ollama version or model digest differs from the approved binding
+- provider response contains malformed JSON, extra fields, thinking, or tools
+- provider request times out or the concurrency bound is exhausted
 - direct-provider sentinel is reachable from the consumer probe
 
 ## First Response
@@ -34,7 +38,7 @@ Smoke is read-only. It proves:
    launching runtime.
 3. If runtime is active but smoke fails, inspect the generated manifest under
    `.dev-integration/governed-ai-gateway/<operator>/rendered/`.
-4. If direct-provider sentinel is reachable, treat the egress policy as broken
+4. If the sentinel or Ollama is directly reachable, treat the egress policy as broken
    and do not activate any governed consumer.
 
 ## Recovery Sequence

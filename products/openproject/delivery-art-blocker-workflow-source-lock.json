@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "projection_id": "platform-openproject-delivery-art-blocker-workflow",
+  "source": {
+    "owner_repo": "operator-orchestration-service",
+    "git_commit": "c5e39e524c926a05f7e74338dc0a9215928fcd8e",
+    "path": "src/delivery-blocker-workflow.json",
+    "sha256": "f2a60608ab4e7d638932af84f54560552fa722f61f1118a2a3482f8d2e1c24a2"
+  },
+  "projection": {
+    "owner_repo": "platform-engineering",
+    "path": "products/openproject/delivery-art-blocker-workflow.json",
+    "sha256": "f2a60608ab4e7d638932af84f54560552fa722f61f1118a2a3482f8d2e1c24a2"
+  },
+  "required_action_vocabulary": {
+    "allowed_actions": [
+      "set",
+      "clear"
+    ],
+    "default_action": "set",
+    "recommendation_action_aliases": {
+      "record": "set"
+    }
+  }
+}

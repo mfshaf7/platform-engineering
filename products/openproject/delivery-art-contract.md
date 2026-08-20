@@ -330,14 +330,14 @@ That contract is the phase-and-gate source for:
 - broker-side planning metadata in `operator-orchestration-service`
 - workspace-level cross-repo drift validation in `workspace-governance`
 
-Canonical machine-readable blocker workflow contract:
+Platform projection of the canonical OOS blocker workflow contract:
 
 - `products/openproject/delivery-art-blocker-workflow.json`
+- `products/openproject/delivery-art-blocker-workflow-source-lock.json`
 
-That contract is the trigger-and-gate source for:
+OOS remains the source authority. The Platform projection supports:
 
 - `runbooks/manage-delivery-blockers.md`
-- broker-side blocker workflow metadata in `operator-orchestration-service`
 - workspace-level cross-repo drift validation in `workspace-governance`
 
 Use one governed planning path for newly accepted work:

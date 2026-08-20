@@ -9,13 +9,22 @@ Use this runbook when the exact next committed step cannot proceed and the
 blocked state must be represented in ART explicitly instead of living only in
 chat, a board label, or a self-improvement candidate.
 
-Canonical machine-readable blocker workflow contract:
+Platform projection of the canonical OOS blocker workflow contract:
 
 - [delivery-art-blocker-workflow.json](../delivery-art-blocker-workflow.json)
+- [delivery-art-blocker-workflow-source-lock.json](../delivery-art-blocker-workflow-source-lock.json)
 
-Use this runbook as the primary operator checklist. Use the JSON contract when
-validation, broker mirrors, or cross-repo drift checks need the exact gate
-inventory.
+Use this runbook as the primary operator checklist. OOS owns the canonical JSON
+contract; use the Platform projection and source lock when platform validation
+or cross-repo drift checks need the exact gate and action inventory.
+
+Validate exact source parity from the workspace root checkouts with:
+
+```bash
+python3 products/openproject/scripts/validate_delivery_art_blocker_workflow_projection.py \
+  --repo-root . \
+  --oos-repo-root ../operator-orchestration-service
+```
 
 ## Exact Checklist Matrix
 

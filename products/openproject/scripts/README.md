@@ -26,6 +26,15 @@ with:
 python3 products/openproject/scripts/validate_openproject_platform_admin_surface.py --repo-root .
 ```
 
+Validate the Platform blocker-workflow projection against its locked OOS source
+revision with:
+
+```bash
+python3 products/openproject/scripts/validate_delivery_art_blocker_workflow_projection.py \
+  --repo-root . \
+  --oos-repo-root ../operator-orchestration-service
+```
+
 ## Script Shape
 
 The supported OpenProject script surface has two execution shapes:

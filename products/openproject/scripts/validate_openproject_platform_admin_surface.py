@@ -32,6 +32,7 @@ ALLOWED_SHELL_SURFACE_CLASSES = {
 }
 ALLOWED_PYTHON_SURFACE_CLASSES = {
     "broker-projection-adapter-internal",
+    "contract-projection-validator",
     "platform-admin-adapter",
     "platform-admin-internal",
     "platform-admin-validator",

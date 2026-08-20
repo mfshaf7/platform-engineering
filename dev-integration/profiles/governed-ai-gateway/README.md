@@ -68,6 +68,9 @@ The stage handoff is not ready until it proves:
 - `audit ledger emission`
 - `gateway-only consumer egress proof`
 - `direct-provider sentinel denial`
+- `direct Ollama denial from governed consumer`
+- `pinned Ollama version and model digest`
+- `strict provider output and bounded failure handling`
 - `current security delta review`
 
 These checks must stay aligned with `stage_handoff.required_checks` in

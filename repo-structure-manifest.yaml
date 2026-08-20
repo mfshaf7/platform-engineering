@@ -9,6 +9,7 @@ shared_paths:
       - platform_drill.py
       - dev_integration.py
       - test_dev_integration.py
+      - test_ai_model_profiles.py
       - migrate_k8s_secret_to_vault.py
       - validate_ai_model_profiles.py
       - validate_environment_readiness.py

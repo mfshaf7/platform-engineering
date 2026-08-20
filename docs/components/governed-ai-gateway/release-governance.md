@@ -7,6 +7,10 @@ workspace registry marks profile `governed-ai-gateway` as `active`.
 
 There is no governed `stage` or `prod` release yet.
 
+The selected `intake-classifier-v1` binding is `gpt-5.6-terra` through the
+OpenAI Responses API. That selection does not change the release posture or
+permit live consumption.
+
 ## Dev-Integration Gate
 
 Before using the gateway as activation evidence, prove:
@@ -18,6 +22,9 @@ Before using the gateway as activation evidence, prove:
 - audit ledger emission
 - gateway-only consumer egress proof
 - direct-provider sentinel denial
+- provider route and upstream model match the approved profile registry
+- both the model profile and the independent access-plane activation gate admit
+  invocation
 - current security delta review
 
 ## Stage Gate

@@ -48,7 +48,13 @@ print(
 PY
 )"
 
-python3 - "${probe_json}" "${gateway_json}" "${SMOKE_SUMMARY}" <<'PY'
+python3 - \
+  "${probe_json}" \
+  "${gateway_json}" \
+  "${SMOKE_SUMMARY}" \
+  "${UPSTREAM_PROVIDER}" \
+  "${UPSTREAM_PROVIDER_ROUTE}" \
+  "${UPSTREAM_MODEL}" <<'PY'
 import json
 import pathlib
 import sys
@@ -56,6 +62,9 @@ import sys
 probe = json.loads(sys.argv[1])
 gateway = json.loads(sys.argv[2])
 summary_path = pathlib.Path(sys.argv[3])
+expected_provider = sys.argv[4]
+expected_route = sys.argv[5]
+expected_model = sys.argv[6]
 
 latest = gateway["latest_audit"]["latest"] or {}
 provider = gateway["provider_custody"]
@@ -67,6 +76,10 @@ summary = {
     "gateway_reachable_from_consumer": probe.get("gateway_reachable") is True,
     "gateway_policy_decision": probe.get("gateway_policy_decision"),
     "profile_status": ready.get("profile_status"),
+    "access_plane_activation_allowed": ready.get("access_plane_activation_allowed"),
+    "upstream_provider": ready.get("upstream_provider"),
+    "provider_route": ready.get("provider_route"),
+    "upstream_model": ready.get("upstream_model"),
     "audit_event_count": gateway["latest_audit"]["event_count"],
     "caller_identity_captured": bool((latest.get("caller_identity") or {}).get("caller_id")),
     "provider_secret_available": provider.get("provider_secret_available") is True,
@@ -88,6 +101,14 @@ if not summary["caller_identity_captured"]:
     failures.append("caller identity was not captured in audit")
 if not summary["provider_secret_available"]:
     failures.append("gateway provider secret is unavailable")
+if summary["upstream_provider"] != expected_provider:
+    failures.append("gateway upstream provider does not match the model registry")
+if summary["provider_route"] != expected_route:
+    failures.append("gateway provider route does not match the model registry")
+if summary["upstream_model"] != expected_model:
+    failures.append("gateway upstream model does not match the model registry")
+if summary["access_plane_activation_allowed"] is not False:
+    failures.append("gateway access plane unexpectedly allows profile activation")
 if summary["provider_secret_projected_to_consumers"]:
     failures.append("provider secret is projected to consumers")
 if summary["provider_token_projected"]:

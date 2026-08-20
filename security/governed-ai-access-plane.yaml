@@ -16,6 +16,16 @@ access_plane:
     path: security/governed-ai-runtime-assist-contract.yaml
   allowed_profiles:
     - intake-classifier-v1
+  provider_routes:
+    - route_id: openai-responses-api
+      provider: openai
+      api_family: responses
+      endpoint_path: /v1/responses
+      status: selected-not-active
+      allowed_profiles:
+        - intake-classifier-v1
+      allowed_models:
+        - gpt-5.6-terra
   allowed_callers:
     - caller_id: workspace-governance/intake-assist
       purpose: workspace-intake-assist
@@ -40,7 +50,8 @@ access_plane:
       - governed-ai-gateway runtime namespace
       - devint-governed-ai-gateway profile namespace
     provider_secret_refs:
-      - provider: internal-ai-gateway
+      - provider: openai
+        route_id: openai-responses-api
         vault_path: components/governed-ai-gateway/shared/provider
         property: apiToken
     devint_secret_ref:
@@ -62,6 +73,9 @@ access_plane:
       - operator_identity
       - approved_profile_id
       - invocation_path
+      - upstream_provider
+      - provider_route
+      - upstream_model
       - purpose
       - output_schema_ref
       - policy_decision
@@ -82,8 +96,8 @@ access_plane:
   activation_state:
     profile_activation_allowed: false
     reason: >
-      The dev-integration runtime source is defined for gateway, provider
-      custody, and local audit proof. Live profile activation remains blocked
-      until the runtime smoke evidence, provider-egress proof, current security
+      The OpenAI Responses API and gpt-5.6-terra binding is selected, while the
+      dev-integration runtime still uses the provider sentinel. Live profile
+      activation remains blocked until provider-route proof, current security
       delta review, workspace consumer activation, and rollback evidence are
       complete.

@@ -248,6 +248,21 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertIn("PersistentVolumeClaim", kinds)
             self.assertGreaterEqual(kinds.count("ConfigMap"), 2)
             self.assertIn("NetworkPolicy", kinds)
+            gateway = next(
+                document
+                for document in documents
+                if isinstance(document, dict)
+                and document.get("kind") == "Deployment"
+                and (document.get("metadata") or {}).get("name") == "governed-ai-gateway"
+            )
+            env = {
+                item["name"]: item["value"]
+                for item in gateway["spec"]["template"]["spec"]["containers"][0]["env"]
+            }
+            self.assertRegex(
+                env["GOVERNED_AI_PROVIDER_BASE_URL"],
+                r"^http://\d{1,3}(?:\.\d{1,3}){3}:11434$",
+            )
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:

@@ -81,6 +81,9 @@ summary = {
     "gateway_policy_decision": probe.get("gateway_policy_decision"),
     "gateway_suggested_decision": probe.get("gateway_suggested_decision"),
     "gateway_confidence": probe.get("gateway_confidence"),
+    "unauthorized_http_status": probe.get("unauthorized_http_status"),
+    "unauthorized_policy_decision": probe.get("unauthorized_policy_decision"),
+    "unauthorized_reasons": probe.get("unauthorized_reasons", []),
     "profile_status": ready.get("profile_status"),
     "access_plane_activation_allowed": ready.get("access_plane_activation_allowed"),
     "upstream_provider": ready.get("upstream_provider"),
@@ -119,6 +122,12 @@ if summary["gateway_suggested_decision"] not in {"out-of-scope", "proposed", "ad
     failures.append("gateway did not return a valid suggested decision")
 if summary["gateway_confidence"] not in {"low", "medium", "high"}:
     failures.append("gateway did not return a valid confidence")
+if summary["unauthorized_http_status"] != 403 or summary["unauthorized_policy_decision"] != "deny":
+    failures.append("gateway did not deny the unauthorized/schema-mismatched invocation")
+if "output-schema-mismatch" not in summary["unauthorized_reasons"]:
+    failures.append("gateway denial did not identify the output schema mismatch")
+if "caller-not-allowed" not in summary["unauthorized_reasons"]:
+    failures.append("gateway denial did not identify the unauthorized caller")
 if summary["provider_credential_required"]:
     failures.append("local Ollama route unexpectedly requires a provider credential")
 if summary["provider_secret_available"]:

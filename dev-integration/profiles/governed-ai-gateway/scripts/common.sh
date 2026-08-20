@@ -249,6 +249,7 @@ REQUIRED_CALLER_FIELDS = [
     "decision_or_correlation_id",
     "requested_profile_id",
 ]
+ALLOWED_CALLERS = {"workspace-governance/intake-assist"}
 
 
 def utc_now() -> str:
@@ -369,6 +370,8 @@ class Handler(BaseHTTPRequestHandler):
         denial_reasons: list[str] = []
         if missing:
             denial_reasons.append("missing-caller-identity:" + ",".join(missing))
+        if caller_identity.get("caller_id") not in ALLOWED_CALLERS:
+            denial_reasons.append("caller-not-allowed")
         if requested_profile != PROFILE_ID:
             denial_reasons.append("profile-not-allowed")
         if PROFILE_STATUS != "active":
@@ -893,6 +896,26 @@ request = urllib.request.Request(
     method="POST",
 )
 
+denied_payload = dict(payload)
+denied_payload["provider_output_schema_ref"] = "invalid/schema.json"
+denied_payload["caller_identity"] = {
+    **payload["caller_identity"],
+    "caller_id": "unapproved/consumer",
+}
+denied_request = urllib.request.Request(
+    f"{gateway_url}/v1/governed-ai/invoke",
+    data=json.dumps(denied_payload).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    with urllib.request.urlopen(denied_request, timeout=10) as response:
+        denied_status = response.status
+        denied_body = json.loads(response.read().decode("utf-8"))
+except urllib.error.HTTPError as exc:
+    denied_status = exc.code
+    denied_body = json.loads(exc.read().decode("utf-8"))
+
 try:
     with urllib.request.urlopen(request, timeout=60) as response:
         gateway_body = json.loads(response.read().decode("utf-8"))
@@ -926,6 +949,9 @@ print(
             "gateway_confidence": gateway_body.get("confidence"),
             "gateway_reachable": gateway_status in {200, 403},
             "gateway_reasons": gateway_body.get("reasons", []),
+            "unauthorized_http_status": denied_status,
+            "unauthorized_policy_decision": denied_body.get("policy_decision"),
+            "unauthorized_reasons": denied_body.get("reasons", []),
             "direct_provider_reachable": provider_direct_reachable,
             "direct_provider_error": provider_error,
             "direct_ollama_reachable": ollama_direct_reachable,

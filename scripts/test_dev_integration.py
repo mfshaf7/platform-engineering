@@ -239,6 +239,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "DEVINT_OPERATOR": "render-test",
                     "DEVINT_PROFILE_LIFECYCLE": "active",
                     "DEVINT_STATE_ROOT": str(state_root),
+                    "DEVINT_GAI_PROVIDER_HOST_IP": "192.0.2.10",
                 },
             )
             manifest = state_root / "rendered/governed-ai-gateway-runtime.yaml"

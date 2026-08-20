@@ -558,7 +558,10 @@ render_runtime_manifest() {
   cp "${RUNTIME_SOURCE_DIR}/ollama_adapter.py" "${RENDERED_DIR}/ollama_adapter.py"
 
   local provider_host_ip
-  provider_host_ip="$(getent hosts host.docker.internal | awk 'NR == 1 {print $1}')"
+  provider_host_ip="${DEVINT_GAI_PROVIDER_HOST_IP:-}"
+  if [[ -z "${provider_host_ip}" ]]; then
+    provider_host_ip="$(getent hosts host.docker.internal | awk 'NR == 1 {print $1}')"
+  fi
   if [[ -z "${provider_host_ip}" ]]; then
     echo "Unable to resolve host.docker.internal for governed AI provider route" >&2
     exit 1

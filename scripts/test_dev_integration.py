@@ -12,6 +12,8 @@ import time
 import unittest
 from unittest.mock import patch
 
+import yaml
+
 
 MODULE_PATH = Path(__file__).with_name("dev_integration.py")
 SPEC = importlib.util.spec_from_file_location("dev_integration", MODULE_PATH)
@@ -215,6 +217,37 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             'denial_reasons.append("access-plane-not-active")',
             common_source,
         )
+
+    def test_governed_ai_runtime_manifest_is_valid_multi_document_yaml(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-render-") as temp_dir:
+            state_root = Path(temp_dir) / "state"
+            common_path = (
+                REPO_ROOT
+                / "dev-integration/profiles/governed-ai-gateway/scripts/common.sh"
+            )
+            subprocess.run(
+                [
+                    "/bin/bash",
+                    "-c",
+                    f'source "{common_path}"; render_runtime_manifest',
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "DEVINT_OPERATOR": "render-test",
+                    "DEVINT_PROFILE_LIFECYCLE": "active",
+                    "DEVINT_STATE_ROOT": str(state_root),
+                },
+            )
+            manifest = state_root / "rendered/governed-ai-gateway-runtime.yaml"
+            documents = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+            kinds = [document.get("kind") for document in documents if isinstance(document, dict)]
+
+            self.assertIn("PersistentVolumeClaim", kinds)
+            self.assertGreaterEqual(kinds.count("ConfigMap"), 2)
+            self.assertIn("NetworkPolicy", kinds)
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:

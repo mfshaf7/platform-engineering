@@ -586,6 +586,7 @@ spec:
   resources:
     requests:
       storage: ${DEVINT_GAI_AUDIT_VOLUME_SIZE:-1Gi}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:

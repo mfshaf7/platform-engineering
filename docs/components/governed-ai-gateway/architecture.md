@@ -16,7 +16,7 @@ Current allowed posture:
 
 - local-k3s `dev-integration` runtime through profile `governed-ai-gateway`
 - gateway API Deployment and Service in the profile namespace
-- gateway-only Kubernetes Secret for provider credential custody
+- bounded Ollama adapter with pinned model digest and runtime version
 - PVC-backed local audit ledger
 - consumer probe namespace with default-deny egress
 - provider sentinel namespace used to prove direct-provider bypass denial
@@ -27,13 +27,13 @@ Current denied posture:
 - no direct provider credentials in consumers
 - no direct provider passthrough
 - no autonomous workspace truth mutation
-- no live `intake-classifier-v1` consumption until security and workspace
-  activation gates are complete
+- no workspace consumer use until its independent activation gate is complete
 
-The selected upstream binding is `gpt-5.6-terra` through the OpenAI Responses
-API. This is contract truth only at the current maturity: the provider sentinel
-remains the live dev-integration proof target, and no external provider request
-is issued yet.
+The active dev-integration binding is host Ollama `0.32.14` with
+`qwen3:8b` pinned by full digest. The adapter disables thinking, supplies no
+tools, enforces a strict classification schema, and bounds input size,
+concurrency, timeout, retry, context, and output tokens. The OpenAI binding is
+preserved as an inactive future route.
 
 ## Model
 
@@ -41,20 +41,20 @@ is issued yet.
 flowchart LR
     Consumer[Governed consumer]
     Gateway[governed-ai-gateway]
-    ProviderSecret[Gateway provider Secret]
+    Binding[Environment-selected provider binding]
     Audit[Audit ledger]
     Provider[Provider or provider adapter]
 
     Consumer -->|profile + caller identity + schema| Gateway
-    Gateway --> ProviderSecret
+    Gateway --> Binding
     Gateway --> Audit
     Gateway -. controlled provider path .-> Provider
     Consumer -. denied direct egress .-> Provider
 ```
 
-The dev-integration runtime uses a provider sentinel instead of a real external
-provider to prove the network and custody boundary without introducing a live
-provider dependency before activation.
+The provider sentinel remains a negative bypass target. Positive proof uses the
+real local Ollama route; the consumer namespace cannot reach either the
+sentinel or Ollama directly.
 
 ## Activation Gates
 

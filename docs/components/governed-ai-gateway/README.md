@@ -30,22 +30,23 @@ The gateway is not:
 - dev-integration namespace: `devint-governed-ai-gateway-<operator>`
 - Argo application: none
 - stage/prod deployment: none
-- provider credentials: gateway namespace Secret only
+- active provider: host Ollama `0.32.14` with pinned `qwen3:8b` digest
+- provider credentials: none for the local route; future paid credentials remain gateway-custodied
 - audit ledger: local PVC-backed dev-integration ledger only
 - direct consumer provider egress: denied by the dev-integration network-policy
   proof
 
-The current runtime proves gateway readiness, caller identity capture, provider
-custody, audit emission, and gateway-only consumer egress in dev-integration.
-It does not activate `intake-classifier-v1` for live workspace consumption.
+The runtime proves a real bounded Ollama invocation, caller identity capture,
+model and runtime integrity, strict provider output, audit emission, and
+gateway-only consumer egress in dev-integration. Workspace consumption remains
+separately gated by the dependent consumer activation work.
 
 ## Selected Intake Binding
 
-`intake-classifier-v1` is bound to `gpt-5.6-terra` through the OpenAI
-Responses API route owned by `governed-ai-gateway`. The model profile remains
-`suspended`; selection is not activation, and the dev-integration runtime still
-uses the provider sentinel until the focused security review and provider-route
-proof are complete.
+`intake-classifier-v1` is a provider-neutral logical profile. Dev-integration
+selects `qwen3:8b` through the local Ollama route. The OpenAI Responses API and
+`gpt-5.6-terra` binding remains recorded as an inactive future paid route under
+separate activation work.
 
 ## Owner Boundaries
 

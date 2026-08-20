@@ -10,6 +10,7 @@ runtime:
   components:
     - governed-ai-gateway-api
     - governed-ai-gateway-audit-ledger
+    - governed-ai-ollama-adapter
     - governed-ai-consumer-probe
     - governed-ai-provider-sentinel
 testing:
@@ -47,4 +48,7 @@ stage_handoff:
     - audit ledger emission
     - gateway-only consumer egress proof
     - direct-provider sentinel denial
+    - direct Ollama denial from governed consumer
+    - pinned Ollama version and model digest
+    - strict provider output and bounded failure handling
     - current security delta review

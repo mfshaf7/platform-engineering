@@ -1,7 +1,7 @@
 schema_version: 1
 contract:
   contract_id: bounded-runtime-assist-v1
-  status: blocked
+  status: active
   owner_repo: platform-engineering
   security_owner: security-architecture
   delivery_refs:
@@ -61,6 +61,12 @@ contract:
       - upstream_provider
       - provider_route
       - upstream_model
+      - upstream_model_digest
+      - provider_runtime_version
+      - prompt_version
+      - provider_schema_valid
+      - provider_latency_ms
+      - provider_usage
       - purpose
       - output_schema_ref
       - policy_decision

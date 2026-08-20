@@ -19,10 +19,14 @@ Stage handoff requires:
 - audit ledger emission
 - gateway-only consumer egress proof
 - direct-provider sentinel denial
+- direct Ollama denial from governed consumers
+- pinned Ollama version and model digest
+- strict provider output and bounded failure handling
 - current security delta review
 
-The model profile must remain suspended until the profile, access plane,
-security review, and workspace consumer activation gates are all complete.
+The platform model profile and local binding may remain active in
+dev-integration. Workspace consumer activation and any stage or production
+route remain separately gated.
 EOF
 
 cat "${PROFILE_PROMOTION_NOTES}"

@@ -1,7 +1,7 @@
 schema_version: 1
 access_plane:
   id: governed-ai-gateway
-  status: devint-runtime-defined
+  status: active
   owner_repo: platform-engineering
   security_owner: security-architecture
   purpose: >
@@ -17,11 +17,24 @@ access_plane:
   allowed_profiles:
     - intake-classifier-v1
   provider_routes:
+    - route_id: ollama-local-host
+      provider: ollama
+      api_family: ollama-chat
+      endpoint_origin: http://host.docker.internal:11434
+      endpoint_path: /api/chat
+      status: active
+      credential_required: false
+      allowed_profiles:
+        - intake-classifier-v1
+      allowed_models:
+        - qwen3:8b
     - route_id: openai-responses-api
       provider: openai
       api_family: responses
+      endpoint_origin: https://api.openai.com
       endpoint_path: /v1/responses
       status: selected-not-active
+      credential_required: true
       allowed_profiles:
         - intake-classifier-v1
       allowed_models:
@@ -30,7 +43,10 @@ access_plane:
     - caller_id: workspace-governance/intake-assist
       purpose: workspace-intake-assist
       required_profile: intake-classifier-v1
-      required_output_schema_ref:
+      required_provider_output_schema_ref:
+        repo: platform-engineering
+        path: security/schemas/intake-classification-result.schema.json
+      accepted_record_schema_ref:
         repo: workspace-governance
         path: contracts/schemas/intake-ai-suggestion.schema.json
   caller_identity:
@@ -76,6 +92,12 @@ access_plane:
       - upstream_provider
       - provider_route
       - upstream_model
+      - upstream_model_digest
+      - provider_runtime_version
+      - prompt_version
+      - provider_schema_valid
+      - provider_latency_ms
+      - provider_usage
       - purpose
       - output_schema_ref
       - policy_decision
@@ -94,10 +116,11 @@ access_plane:
     repo: platform-engineering
     path: security/governed-ai-devint-egress-policy.yaml
   activation_state:
-    profile_activation_allowed: false
+    profile_activation_allowed: true
+    active_environment: dev-integration
+    active_binding: local-ollama-qwen3-8b
     reason: >
-      The OpenAI Responses API and gpt-5.6-terra binding is selected, while the
-      dev-integration runtime still uses the provider sentinel. Live profile
-      activation remains blocked until provider-route proof, current security
-      delta review, workspace consumer activation, and rollback evidence are
-      complete.
+      The reviewed local Ollama binding is active for platform-owned
+      dev-integration proof. Workspace consumer use remains separately gated
+      until its dependent activation work completes. The OpenAI route is not
+      active.

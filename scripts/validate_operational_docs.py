@@ -163,7 +163,8 @@ def validate_windows_portproxy_reconciliation(errors: list[str], repo_root: Path
     template = read_text(template_path)
     required_snippets = (
         "function Remove-PortProxyEntriesByListenPort",
-        "[int]::TryParse($parts[1], [ref]$parsedListenPort)",
+        "[regex]::Matches($output, $rowPattern)",
+        "$parsedListenPort = [int]$match.Groups['port'].Value",
         "Remove-PortProxyEntriesByListenPort -ListenPort $port",
         "Remove-PortProxyEntriesByListenPort -ListenPort $rule.ListenPort",
         "Remove-PortProxyEntriesByListenPort -ListenPort $TransitVaultProxyPort",

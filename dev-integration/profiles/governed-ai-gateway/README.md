@@ -12,21 +12,21 @@ does not approve live model-profile consumption by itself.
 When active, the profile runs:
 
 - `governed-ai-gateway` API in a local-k3s namespace
-- provider credential custody in a gateway-only Kubernetes Secret
+- provider-neutral binding resolution from the platform registry
+- a bounded local Ollama adapter with pinned version and model digest
 - PVC-backed audit ledger storage
 - a consumer probe namespace with default-deny egress
 - a provider sentinel namespace that represents direct-provider bypass
 - NetworkPolicy that allows the consumer probe to reach only DNS and the
   gateway service for AI invocation
 
-The gateway profile status and upstream model status remain policy inputs. The
-current `intake-classifier-v1` profile is still suspended until the security and
-workspace activation gates are completed.
+The gateway profile and access-plane activation states remain independent
+policy inputs. The local platform route is active; workspace consumer use is
+still gated by its dependent activation work.
 
-The profile reads its selected provider, route, and model directly from
-`security/governed-ai-model-profiles.yaml`. The current binding is OpenAI
-Responses API plus `gpt-5.6-terra`; it is exposed in status and smoke evidence
-without activating the profile or calling the provider.
+The profile resolves the environment-selected binding from
+`security/governed-ai-model-profiles.yaml`. Dev-integration calls host Ollama
+with `qwen3:8b`; the future paid OpenAI binding remains inactive.
 
 ## Operator Actions
 
@@ -43,9 +43,10 @@ make devint-reset PROFILE=governed-ai-gateway
 make devint-promote-check PROFILE=governed-ai-gateway
 ```
 
-`devint-smoke` is read-only. It proves gateway readiness, caller identity
-capture, audit emission, provider-secret custody, gateway reachability from the
-consumer probe, and denial of the direct-provider sentinel path.
+`devint-smoke` is read-only with respect to canonical workspace truth. It runs
+a bounded model suggestion and proves caller identity, strict output, audit
+emission, exact model/runtime identity, gateway reachability, and denial of
+direct sentinel and Ollama paths from the consumer.
 
 ## Denied Paths
 
@@ -53,8 +54,8 @@ consumer probe, and denial of the direct-provider sentinel path.
 - Do not call external providers directly from governed consumers.
 - Do not treat dev-integration evidence as governed `stage` or `prod`
   approval.
-- Do not activate `intake-classifier-v1` until the profile, gateway, audit,
-  egress, security, and workspace consumer gates are all proven.
+- Do not enable the workspace consumer until gateway, audit, egress, security,
+  and consumer gates are all proven.
 
 ## Stage Handoff Checks
 

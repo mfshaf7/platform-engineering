@@ -19,6 +19,7 @@ CONTRACT_PATHS = (
     Path("security/governed-ai-access-plane.yaml"),
     Path("security/governed-ai-runtime-assist-contract.yaml"),
     Path("security/governed-ai-devint-egress-policy.yaml"),
+    Path("security/schemas/intake-classification-result.schema.json"),
 )
 LOCAL_REFERENCE_PATHS = (
     Path("docs/standards/governed-ai-access-model.md"),
@@ -42,7 +43,7 @@ class GovernedAiModelProfileTests(unittest.TestCase):
         profile_path.write_text("schema_version: 1\n", encoding="utf-8")
         return repo_root
 
-    def test_selected_model_binding_is_valid(self) -> None:
+    def test_provider_neutral_model_binding_is_valid(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
             repo_root = self.prepare_repo(Path(temp_dir))
             self.assertEqual(validate(repo_root), [])
@@ -56,7 +57,39 @@ class GovernedAiModelProfileTests(unittest.TestCase):
             access_plane_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
             self.assertIn(
-                "security/governed-ai-access-plane.yaml: provider route openai-responses-api must allow model 'gpt-5.6-terra'",
+                "security/governed-ai-access-plane.yaml: provider route ollama-local-host must allow model 'qwen3:8b'",
+                validate(repo_root),
+            )
+
+    def test_active_environment_must_reference_known_binding(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
+            repo_root = self.prepare_repo(Path(temp_dir))
+            profile_path = repo_root / "security/governed-ai-model-profiles.yaml"
+            payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            payload["model_profiles"]["intake-classifier-v1"]["active_binding_by_environment"][
+                "dev-integration"
+            ] = "missing"
+            profile_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+            self.assertIn(
+                "security/governed-ai-model-profiles.yaml: intake-classifier-v1 environment "
+                "'dev-integration' references unknown binding 'missing'",
+                validate(repo_root),
+            )
+
+    def test_active_ollama_binding_requires_digest(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
+            repo_root = self.prepare_repo(Path(temp_dir))
+            profile_path = repo_root / "security/governed-ai-model-profiles.yaml"
+            payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            del payload["model_profiles"]["intake-classifier-v1"]["bindings"][
+                "local-ollama-qwen3-8b"
+            ]["model_digest"]
+            profile_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+            self.assertIn(
+                "security/governed-ai-model-profiles.yaml: intake-classifier-v1 Ollama binding "
+                "local-ollama-qwen3-8b missing non-empty model_digest",
                 validate(repo_root),
             )
 

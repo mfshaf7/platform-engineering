@@ -12,6 +12,8 @@ import time
 import unittest
 from unittest.mock import patch
 
+import yaml
+
 
 MODULE_PATH = Path(__file__).with_name("dev_integration.py")
 SPEC = importlib.util.spec_from_file_location("dev_integration", MODULE_PATH)
@@ -191,10 +193,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
-            self.assertIn("access plane activation allowed: false", result.stdout)
-            self.assertIn("upstream provider: openai", result.stdout)
-            self.assertIn("provider route: openai-responses-api", result.stdout)
-            self.assertIn("upstream model: gpt-5.6-terra", result.stdout)
+            self.assertIn("access plane activation allowed: true", result.stdout)
+            self.assertIn("upstream provider: ollama", result.stdout)
+            self.assertIn("provider route: ollama-local-host", result.stdout)
+            self.assertIn("upstream model: qwen3:8b", result.stdout)
             self.assertFalse(state_root.exists())
 
     def test_governed_ai_runtime_requires_both_activation_gates(self) -> None:
@@ -215,6 +217,53 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             'denial_reasons.append("access-plane-not-active")',
             common_source,
         )
+
+    def test_governed_ai_runtime_manifest_is_valid_multi_document_yaml(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-render-") as temp_dir:
+            state_root = Path(temp_dir) / "state"
+            common_path = (
+                REPO_ROOT
+                / "dev-integration/profiles/governed-ai-gateway/scripts/common.sh"
+            )
+            subprocess.run(
+                [
+                    "/bin/bash",
+                    "-c",
+                    f'source "{common_path}"; render_runtime_manifest',
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "DEVINT_OPERATOR": "render-test",
+                    "DEVINT_PROFILE_LIFECYCLE": "active",
+                    "DEVINT_STATE_ROOT": str(state_root),
+                    "DEVINT_GAI_PROVIDER_HOST_IP": "192.0.2.10",
+                },
+            )
+            manifest = state_root / "rendered/governed-ai-gateway-runtime.yaml"
+            documents = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+            kinds = [document.get("kind") for document in documents if isinstance(document, dict)]
+
+            self.assertIn("PersistentVolumeClaim", kinds)
+            self.assertGreaterEqual(kinds.count("ConfigMap"), 2)
+            self.assertIn("NetworkPolicy", kinds)
+            gateway = next(
+                document
+                for document in documents
+                if isinstance(document, dict)
+                and document.get("kind") == "Deployment"
+                and (document.get("metadata") or {}).get("name") == "governed-ai-gateway"
+            )
+            env = {
+                item["name"]: item["value"]
+                for item in gateway["spec"]["template"]["spec"]["containers"][0]["env"]
+            }
+            self.assertRegex(
+                env["GOVERNED_AI_PROVIDER_BASE_URL"],
+                r"^http://\d{1,3}(?:\.\d{1,3}){3}:11434$",
+            )
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:

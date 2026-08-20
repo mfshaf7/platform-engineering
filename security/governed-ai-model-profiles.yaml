@@ -7,17 +7,40 @@ registry:
     path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
 model_profiles:
   intake-classifier-v1:
-    status: suspended
+    status: active
     purpose: workspace-intake-assist
     invocation_path: governed-ai-gateway
-    provider: openai
-    provider_route: openai-responses-api
-    upstream_model: gpt-5.6-terra
-    selection:
-      selected_at: "2026-08-20"
-      selected_by: operator:workspace-owner
-      basis: balanced-intelligence-and-cost-with-structured-output-support
-      documentation_ref: https://developers.openai.com/api/docs/models/gpt-5.6-terra
+    active_binding_by_environment:
+      dev-integration: local-ollama-qwen3-8b
+    bindings:
+      local-ollama-qwen3-8b:
+        status: active
+        environments:
+          - dev-integration
+        provider: ollama
+        provider_route: ollama-local-host
+        upstream_model: qwen3:8b
+        model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+        runtime_version: 0.32.14
+        selection:
+          selected_at: "2026-08-20"
+          selected_by: operator:workspace-owner
+          basis: stable-low-latency-local-classification
+          documentation_ref: https://ollama.com/library/qwen3:8b
+      openai-terra:
+        status: selected-not-active
+        environments:
+          - dev-integration
+          - stage
+          - prod
+        provider: openai
+        provider_route: openai-responses-api
+        upstream_model: gpt-5.6-terra
+        selection:
+          selected_at: "2026-08-20"
+          selected_by: operator:workspace-owner
+          basis: future-paid-provider-route
+          documentation_ref: https://developers.openai.com/api/docs/models/gpt-5.6-terra
     allowed_callers:
       - workspace-governance/intake-assist
     allowed_data_scope:
@@ -26,16 +49,19 @@ model_profiles:
       - README excerpts
       - AGENTS excerpts
       - operator-supplied intake notes
-    output_schema_ref:
+    provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/intake-classification-result.schema.json
+    accepted_record_schema_ref:
       repo: workspace-governance
       path: contracts/schemas/intake-ai-suggestion.schema.json
     human_approval_required: true
     direct_provider_access_allowed: false
     security_review_ref:
       repo: security-architecture
-      path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
-    pending_activation_review_ref: openproject://work_packages/854
+      path: docs/reviews/platform/2026-08-20-intake-classifier-v1-local-ollama-binding.md
+    future_paid_activation_ref: openproject://work_packages/864
     notes: >
-      The upstream binding is selected but not active. Keep this profile
-      suspended until the focused security review, provider-route proof, and
-      workspace consumer activation gates are complete.
+      The logical profile is provider-neutral. Dev-integration selects the
+      reviewed local Ollama binding. The paid OpenAI route remains recorded but
+      inactive until its independent activation work is complete.

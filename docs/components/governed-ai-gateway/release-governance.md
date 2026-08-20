@@ -7,9 +7,9 @@ workspace registry marks profile `governed-ai-gateway` as `active`.
 
 There is no governed `stage` or `prod` release yet.
 
-The selected `intake-classifier-v1` binding is `gpt-5.6-terra` through the
-OpenAI Responses API. That selection does not change the release posture or
-permit live consumption.
+Dev-integration selects the reviewed local Ollama `qwen3:8b` binding. The
+OpenAI `gpt-5.6-terra` binding remains inactive and does not affect this
+release posture.
 
 ## Dev-Integration Gate
 
@@ -22,6 +22,9 @@ Before using the gateway as activation evidence, prove:
 - audit ledger emission
 - gateway-only consumer egress proof
 - direct-provider sentinel denial
+- direct Ollama denial from the consumer namespace
+- pinned Ollama version and model digest
+- strict provider schema plus bounded timeout, retry, concurrency, and output
 - provider route and upstream model match the approved profile registry
 - both the model profile and the independent access-plane activation gate admit
   invocation
@@ -37,7 +40,7 @@ stage candidate.
 
 If any activation evidence fails:
 
-- keep `intake-classifier-v1` suspended
+- set `intake-classifier-v1` to `suspended` or close access-plane activation
 - scale down the dev-integration gateway if the failure is runtime-specific
 - preserve audit ledger evidence
 - record the blocker or security finding before adjacent activation continues

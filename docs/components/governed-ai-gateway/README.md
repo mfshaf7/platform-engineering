@@ -39,6 +39,14 @@ The current runtime proves gateway readiness, caller identity capture, provider
 custody, audit emission, and gateway-only consumer egress in dev-integration.
 It does not activate `intake-classifier-v1` for live workspace consumption.
 
+## Selected Intake Binding
+
+`intake-classifier-v1` is bound to `gpt-5.6-terra` through the OpenAI
+Responses API route owned by `governed-ai-gateway`. The model profile remains
+`suspended`; selection is not activation, and the dev-integration runtime still
+uses the provider sentinel until the focused security review and provider-route
+proof are complete.
+
 ## Owner Boundaries
 
 - `platform-engineering` owns the gateway runtime profile, platform-side

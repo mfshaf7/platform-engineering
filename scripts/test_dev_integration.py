@@ -191,6 +191,9 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
+            self.assertIn("upstream provider: openai", result.stdout)
+            self.assertIn("provider route: openai-responses-api", result.stdout)
+            self.assertIn("upstream model: gpt-5.6-terra", result.stdout)
             self.assertFalse(state_root.exists())
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:

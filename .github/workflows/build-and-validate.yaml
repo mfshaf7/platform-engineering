@@ -44,7 +44,9 @@ jobs:
         run: python scripts/validate_governance_docs.py
 
       - name: Validate governed AI model profiles
-        run: python scripts/validate_ai_model_profiles.py
+        run: |
+          python scripts/validate_ai_model_profiles.py
+          python scripts/test_ai_model_profiles.py
 
       - name: Validate operational docs
         run: python scripts/validate_operational_docs.py

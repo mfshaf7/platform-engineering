@@ -96,6 +96,33 @@ PY
 
 readonly PROFILE_LIFECYCLE="$(profile_lifecycle)"
 
+load_model_binding() {
+  python3 - "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" <<'PY'
+import pathlib
+import sys
+
+import yaml
+
+payload = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+profile = (payload.get("model_profiles") or {}).get("intake-classifier-v1") or {}
+for field in ("status", "provider", "provider_route", "upstream_model"):
+    value = profile.get(field)
+    if not isinstance(value, str) or not value:
+        raise SystemExit(f"intake-classifier-v1 missing {field}")
+    print(value)
+PY
+}
+
+mapfile -t MODEL_BINDING < <(load_model_binding)
+if [[ "${#MODEL_BINDING[@]}" -ne 4 ]]; then
+  echo "Unable to resolve intake-classifier-v1 model binding" >&2
+  exit 1
+fi
+readonly MODEL_PROFILE_STATUS="${MODEL_BINDING[0]}"
+readonly UPSTREAM_PROVIDER="${MODEL_BINDING[1]}"
+readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[2]}"
+readonly UPSTREAM_MODEL="${MODEL_BINDING[3]}"
+
 is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
 }
@@ -113,7 +140,10 @@ runtime: $(is_active_profile && printf 'active-local-k3s' || printf 'build-admit
 launchable: $(is_active_profile && printf 'true' || printf 'false')
 gateway service: ${GATEWAY_SERVICE}
 gateway local port: ${ACCESS_LOCAL_PORT}
-profile status input: ${GOVERNED_AI_PROFILE_STATUS:-suspended}
+model profile status: ${MODEL_PROFILE_STATUS}
+upstream provider: ${UPSTREAM_PROVIDER}
+provider route: ${UPSTREAM_PROVIDER_ROUTE}
+upstream model: ${UPSTREAM_MODEL}
 EOF
 }
 
@@ -161,7 +191,9 @@ AUDIT_ROOT = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai
 AUDIT_LEDGER = AUDIT_ROOT / "audit-ledger.jsonl"
 PROFILE_ID = os.environ.get("GOVERNED_AI_PROFILE_ID", "intake-classifier-v1")
 PROFILE_STATUS = os.environ.get("GOVERNED_AI_PROFILE_STATUS", "suspended")
-UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "pending-selection")
+UPSTREAM_PROVIDER = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER", "unbound")
+UPSTREAM_PROVIDER_ROUTE = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE", "unbound")
+UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "unbound")
 INVOCATION_PATH = os.environ.get("GOVERNED_AI_INVOCATION_PATH", "governed-ai-gateway")
 OUTPUT_SCHEMA_REF = os.environ.get(
     "GOVERNED_AI_OUTPUT_SCHEMA_REF",
@@ -254,6 +286,9 @@ class Handler(BaseHTTPRequestHandler):
                     "ready": True,
                     "profile_id": PROFILE_ID,
                     "profile_status": PROFILE_STATUS,
+                    "upstream_provider": UPSTREAM_PROVIDER,
+                    "provider_route": UPSTREAM_PROVIDER_ROUTE,
+                    "upstream_model": UPSTREAM_MODEL,
                     "provider_custody": bool(PROVIDER_TOKEN),
                     "raw_provider_token_projected": False,
                 },
@@ -264,6 +299,9 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "provider_secret_available": bool(PROVIDER_TOKEN),
+                    "upstream_provider": UPSTREAM_PROVIDER,
+                    "provider_route": UPSTREAM_PROVIDER_ROUTE,
+                    "upstream_model": UPSTREAM_MODEL,
                     "provider_secret_ref": PROVIDER_SECRET_REF,
                     "consumer_provider_credentials_allowed": False,
                     "provider_secret_projected_to_consumers": False,
@@ -316,6 +354,9 @@ class Handler(BaseHTTPRequestHandler):
                 "approved_profile_id": PROFILE_ID,
                 "requested_profile_id": requested_profile,
                 "invocation_path": INVOCATION_PATH,
+                "upstream_provider": UPSTREAM_PROVIDER,
+                "provider_route": UPSTREAM_PROVIDER_ROUTE,
+                "upstream_model": UPSTREAM_MODEL,
                 "purpose": "workspace-intake-assist",
                 "output_schema_ref": OUTPUT_SCHEMA_REF,
                 "policy_decision": policy_decision,
@@ -494,9 +535,13 @@ spec:
             - name: GOVERNED_AI_PROFILE_ID
               value: intake-classifier-v1
             - name: GOVERNED_AI_PROFILE_STATUS
-              value: "${GOVERNED_AI_PROFILE_STATUS:-suspended}"
+              value: "${MODEL_PROFILE_STATUS}"
+            - name: GOVERNED_AI_UPSTREAM_PROVIDER
+              value: "${UPSTREAM_PROVIDER}"
+            - name: GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE
+              value: "${UPSTREAM_PROVIDER_ROUTE}"
             - name: GOVERNED_AI_UPSTREAM_MODEL
-              value: "${GOVERNED_AI_UPSTREAM_MODEL:-pending-selection}"
+              value: "${UPSTREAM_MODEL}"
             - name: GOVERNED_AI_INVOCATION_PATH
               value: governed-ai-gateway
             - name: GOVERNED_AI_OUTPUT_SCHEMA_REF

@@ -10,8 +10,14 @@ model_profiles:
     status: suspended
     purpose: workspace-intake-assist
     invocation_path: governed-ai-gateway
-    provider: internal-ai-gateway
-    upstream_model: pending-selection
+    provider: openai
+    provider_route: openai-responses-api
+    upstream_model: gpt-5.6-terra
+    selection:
+      selected_at: "2026-08-20"
+      selected_by: operator:workspace-owner
+      basis: balanced-intelligence-and-cost-with-structured-output-support
+      documentation_ref: https://developers.openai.com/api/docs/models/gpt-5.6-terra
     allowed_callers:
       - workspace-governance/intake-assist
     allowed_data_scope:
@@ -29,6 +35,6 @@ model_profiles:
       repo: security-architecture
       path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
     notes: >
-      Reserved intake-classifier profile. Keep suspended until the internal AI
-      gateway, caller identity, audit emission, and provider-egress block are
-      live.
+      The upstream binding is selected but not active. Keep this profile
+      suspended until the focused security review, provider-route proof, and
+      workspace consumer activation gates are complete.

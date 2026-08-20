@@ -30,6 +30,11 @@ Current denied posture:
 - no live `intake-classifier-v1` consumption until security and workspace
   activation gates are complete
 
+The selected upstream binding is `gpt-5.6-terra` through the OpenAI Responses
+API. This is contract truth only at the current maturity: the provider sentinel
+remains the live dev-integration proof target, and no external provider request
+is issued yet.
+
 ## Model
 
 ```mermaid
@@ -57,6 +62,7 @@ The gateway runtime alone is not enough to call model use governed. Live
 activation still requires:
 
 - active model profile with selected upstream model
+- allowed provider route matching the selected model and profile
 - caller identity boundary
 - operator identity when human approval is required
 - audit retention evidence

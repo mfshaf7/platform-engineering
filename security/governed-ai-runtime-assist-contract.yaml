@@ -28,6 +28,8 @@ contract:
     require_allowed_data_scope_match: true
     require_output_schema_ref: true
     require_security_review_ref: true
+    require_provider_route_match: true
+    require_upstream_model_allowlist_match: true
     prohibit_pending_upstream_model_for_live_activation: true
   invocation_boundary:
     required_path: governed-ai-gateway
@@ -56,6 +58,9 @@ contract:
       - operator_identity
       - approved_profile_id
       - invocation_path
+      - upstream_provider
+      - provider_route
+      - upstream_model
       - purpose
       - output_schema_ref
       - policy_decision
@@ -64,7 +69,7 @@ contract:
       - override_reason
   activation_gates:
     - id: profile-active
-      required_evidence: governed profile status is active and references a selected upstream model
+      required_evidence: governed profile status is active and references an allowed provider route and selected upstream model
     - id: access-plane-live
       required_evidence: governed AI gateway or equivalent approved access plane is deployed through an active profile and matches security/governed-ai-access-plane.yaml
     - id: identity-boundary-live

@@ -30,6 +30,7 @@ The default shared drill profile and evidence template live under:
 - `../environments/shared/runtime-drills/active-stack-runtime-drill-evidence-template.yaml`
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
+- `test_ai_model_profiles.py`
 - `validate_environment_readiness.py`
 - `validate_governance_docs.py`
 - `validate_operational_docs.py`

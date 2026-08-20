@@ -23,6 +23,11 @@ The gateway profile status and upstream model status remain policy inputs. The
 current `intake-classifier-v1` profile is still suspended until the security and
 workspace activation gates are completed.
 
+The profile reads its selected provider, route, and model directly from
+`security/governed-ai-model-profiles.yaml`. The current binding is OpenAI
+Responses API plus `gpt-5.6-terra`; it is exposed in status and smoke evidence
+without activating the profile or calling the provider.
+
 ## Operator Actions
 
 Use the shared platform runner after the workspace registry marks this profile

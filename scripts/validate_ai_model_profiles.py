@@ -16,6 +16,7 @@ DEVINT_EGRESS_POLICY_PATH = Path("security/governed-ai-devint-egress-policy.yaml
 RUNTIME_CONTRACT_STATUSES = {"blocked", "planned", "active", "retired"}
 ACCESS_PLANE_STATUSES = {"source-defined", "devint-runtime-defined", "active", "retired"}
 DEVINT_EGRESS_POLICY_STATUSES = {"source-defined", "devint-runtime-defined", "active", "retired"}
+PROVIDER_ROUTE_STATUSES = {"selected-not-active", "active", "retired"}
 REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "event_time",
     "correlation_id",
@@ -23,6 +24,9 @@ REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "operator_identity",
     "approved_profile_id",
     "invocation_path",
+    "upstream_provider",
+    "provider_route",
+    "upstream_model",
     "purpose",
     "output_schema_ref",
     "policy_decision",
@@ -134,6 +138,8 @@ def validate_runtime_assist_contract(
             "require_allowed_data_scope_match",
             "require_output_schema_ref",
             "require_security_review_ref",
+            "require_provider_route_match",
+            "require_upstream_model_allowlist_match",
             "prohibit_pending_upstream_model_for_live_activation",
         ):
             if selection.get(bool_field) is not True:
@@ -386,6 +392,76 @@ def validate_access_plane_contract(
             elif profile_id not in profiles:
                 errors.append(f"{ACCESS_PLANE_PATH}: unknown allowed profile {profile_id}")
 
+    provider_routes = require_non_empty_list(
+        access_plane.get("provider_routes"),
+        label=f"{ACCESS_PLANE_PATH}: access_plane.provider_routes",
+        errors=errors,
+    )
+    provider_routes_by_id: dict[str, dict] = {}
+    if provider_routes:
+        for idx, route in enumerate(provider_routes, start=1):
+            if not isinstance(route, dict):
+                errors.append(f"{ACCESS_PLANE_PATH}: provider_routes entry #{idx} must be a mapping")
+                continue
+            route_id = route.get("route_id")
+            if not isinstance(route_id, str) or not route_id:
+                errors.append(f"{ACCESS_PLANE_PATH}: provider_routes entry #{idx} missing route_id")
+                continue
+            if route_id in provider_routes_by_id:
+                errors.append(f"{ACCESS_PLANE_PATH}: duplicate provider route {route_id}")
+                continue
+            provider_routes_by_id[route_id] = route
+            for field_name in ("provider", "api_family", "endpoint_path", "status"):
+                if not isinstance(route.get(field_name), str) or not route.get(field_name):
+                    errors.append(
+                        f"{ACCESS_PLANE_PATH}: provider route {route_id} missing non-empty {field_name}"
+                    )
+            if route.get("status") not in PROVIDER_ROUTE_STATUSES:
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: provider route {route_id} status must be one of {sorted(PROVIDER_ROUTE_STATUSES)}"
+                )
+            if not str(route.get("endpoint_path") or "").startswith("/"):
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: provider route {route_id} endpoint_path must be absolute"
+                )
+            for field_name in ("allowed_profiles", "allowed_models"):
+                entries = require_non_empty_list(
+                    route.get(field_name),
+                    label=f"{ACCESS_PLANE_PATH}: provider route {route_id}.{field_name}",
+                    errors=errors,
+                )
+                if entries and any(not isinstance(entry, str) or not entry for entry in entries):
+                    errors.append(
+                        f"{ACCESS_PLANE_PATH}: provider route {route_id}.{field_name} entries must be non-empty strings"
+                    )
+
+    for profile_id, profile in profiles.items():
+        if not isinstance(profile, dict):
+            continue
+        route_id = profile.get("provider_route")
+        route = provider_routes_by_id.get(route_id)
+        if route is None:
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: profile {profile_id} references unknown provider route {route_id!r}"
+            )
+            continue
+        if route.get("provider") != profile.get("provider"):
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: provider route {route_id} provider must match profile {profile_id}"
+            )
+        if profile_id not in (route.get("allowed_profiles") or []):
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: provider route {route_id} must allow profile {profile_id}"
+            )
+        if profile.get("upstream_model") not in (route.get("allowed_models") or []):
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: provider route {route_id} must allow model {profile.get('upstream_model')!r}"
+            )
+        if profile.get("status") == "active" and route.get("status") != "active":
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: active profile {profile_id} requires active provider route {route_id}"
+            )
+
     allowed_callers = require_non_empty_list(
         access_plane.get("allowed_callers"),
         label=f"{ACCESS_PLANE_PATH}: access_plane.allowed_callers",
@@ -452,6 +528,16 @@ def validate_access_plane_contract(
                     continue
                 if not isinstance(ref.get("vault_path"), str) or not ref.get("vault_path"):
                     errors.append(f"{ACCESS_PLANE_PATH}: provider_secret_refs entry #{idx} missing vault_path")
+                route_id = ref.get("route_id")
+                route = provider_routes_by_id.get(route_id)
+                if route is None:
+                    errors.append(
+                        f"{ACCESS_PLANE_PATH}: provider_secret_refs entry #{idx} references unknown route {route_id!r}"
+                    )
+                elif ref.get("provider") != route.get("provider"):
+                    errors.append(
+                        f"{ACCESS_PLANE_PATH}: provider_secret_refs entry #{idx} provider must match route {route_id}"
+                    )
 
     audit = require_non_empty_mapping(
         access_plane.get("audit_contract"),
@@ -547,10 +633,27 @@ def validate(repo_root: Path) -> list[str]:
             errors.append(
                 f"{PROFILE_PATH}: {profile_id} status must be one of {sorted(ALLOWED_STATUSES)}"
             )
-        for field_name in ("purpose", "invocation_path", "provider", "upstream_model", "notes"):
+        for field_name in (
+            "purpose",
+            "invocation_path",
+            "provider",
+            "provider_route",
+            "upstream_model",
+            "notes",
+        ):
             value = profile.get(field_name)
             if not isinstance(value, str) or not value.strip():
                 errors.append(f"{PROFILE_PATH}: {profile_id} missing non-empty {field_name}")
+        selection = profile.get("selection")
+        if not isinstance(selection, dict):
+            errors.append(f"{PROFILE_PATH}: {profile_id} selection must be a mapping")
+        else:
+            for field_name in ("selected_at", "selected_by", "basis", "documentation_ref"):
+                value = selection.get(field_name)
+                if not isinstance(value, (str,)) or not value.strip():
+                    errors.append(
+                        f"{PROFILE_PATH}: {profile_id} selection missing non-empty {field_name}"
+                    )
         allowed_callers = profile.get("allowed_callers")
         if not isinstance(allowed_callers, list) or not allowed_callers or any(
             not isinstance(item, str) or "/" not in item for item in allowed_callers

@@ -101,6 +101,13 @@ values = (
     binding.get("model_digest"),
     binding.get("runtime_version"),
     route.get("endpoint_origin"),
+    ",".join(profile.get("allowed_callers") or []),
+    "/".join(
+        [
+            str((profile.get("provider_output_schema_ref") or {}).get("repo") or ""),
+            str((profile.get("provider_output_schema_ref") or {}).get("path") or ""),
+        ]
+    ),
 )
 for value in values:
     if not isinstance(value, str) or not value:
@@ -127,7 +134,7 @@ PY
 }
 
 mapfile -t MODEL_BINDING < <(load_model_binding)
-if [[ "${#MODEL_BINDING[@]}" -ne 8 ]]; then
+if [[ "${#MODEL_BINDING[@]}" -ne 10 ]]; then
   echo "Unable to resolve intake-classifier-v1 model binding" >&2
   exit 1
 fi
@@ -139,6 +146,8 @@ readonly UPSTREAM_MODEL="${MODEL_BINDING[4]}"
 readonly UPSTREAM_MODEL_DIGEST="${MODEL_BINDING[5]}"
 readonly PROVIDER_RUNTIME_VERSION="${MODEL_BINDING[6]}"
 readonly PROVIDER_BASE_URL="${MODEL_BINDING[7]}"
+readonly ALLOWED_CALLERS_CSV="${MODEL_BINDING[8]}"
+readonly PROVIDER_OUTPUT_SCHEMA_REF="${MODEL_BINDING[9]}"
 readonly ACCESS_PLANE_ACTIVATION_ALLOWED="$(load_access_plane_activation)"
 
 is_active_profile() {
@@ -229,6 +238,13 @@ OUTPUT_SCHEMA_REF = os.environ.get(
     "GOVERNED_AI_OUTPUT_SCHEMA_REF",
     "platform-engineering/security/schemas/intake-classification-result.schema.json",
 )
+ALLOWED_CALLERS = {
+    caller
+    for caller in os.environ.get(
+        "GOVERNED_AI_ALLOWED_CALLERS", "workspace-governance/intake-assist"
+    ).split(",")
+    if caller
+}
 MAX_REQUEST_BYTES = int(os.environ.get("GOVERNED_AI_MAX_REQUEST_BYTES", "16384"))
 
 PROVIDER = OllamaAdapter(
@@ -249,9 +265,6 @@ REQUIRED_CALLER_FIELDS = [
     "decision_or_correlation_id",
     "requested_profile_id",
 ]
-ALLOWED_CALLERS = {"workspace-governance/intake-assist"}
-
-
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -658,7 +671,9 @@ spec:
             - name: GOVERNED_AI_INVOCATION_PATH
               value: governed-ai-gateway
             - name: GOVERNED_AI_OUTPUT_SCHEMA_REF
-              value: platform-engineering/security/schemas/intake-classification-result.schema.json
+              value: "${PROVIDER_OUTPUT_SCHEMA_REF}"
+            - name: GOVERNED_AI_ALLOWED_CALLERS
+              value: "${ALLOWED_CALLERS_CSV}"
             - name: GOVERNED_AI_MAX_REQUEST_BYTES
               value: "16384"
             - name: GOVERNED_AI_PROVIDER_TIMEOUT_SECONDS

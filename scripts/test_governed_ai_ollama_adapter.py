@@ -150,6 +150,15 @@ class OllamaAdapterTests(unittest.TestCase):
         with self.assertRaises(ProviderTimeout):
             adapter(opener).classify({"operator_supplied_intake_notes": "test"})
 
+    def test_concurrency_exhaustion_fails_closed(self) -> None:
+        instance = adapter(max_concurrency=1)
+        self.assertTrue(instance._slots.acquire(blocking=False))
+        try:
+            with self.assertRaisesRegex(RuntimeError, "concurrency limit"):
+                instance.classify({"operator_supplied_intake_notes": "test"})
+        finally:
+            instance._slots.release()
+
 
 if __name__ == "__main__":
     unittest.main()

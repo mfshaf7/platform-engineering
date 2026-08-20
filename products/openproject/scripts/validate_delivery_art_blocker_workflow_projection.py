@@ -23,9 +23,7 @@ def sha256_bytes(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def validate_projection(
-    repo_root: Path, oos_repo_root: Path | None = None
-) -> list[str]:
+def validate_projection(repo_root: Path, oos_repo_root: Path) -> list[str]:
     projection_path = repo_root / PROJECTION_RELATIVE_PATH
     source_lock_path = repo_root / SOURCE_LOCK_RELATIVE_PATH
     errors: list[str] = []
@@ -75,8 +73,6 @@ def validate_projection(
     if source.get("sha256") != projection_digest:
         errors.append(f"{projection_path}: content does not match the locked OOS source digest")
 
-    if oos_repo_root is None:
-        return errors
     source_commit = str(source.get("git_commit", ""))
     source_path = str(source.get("path", ""))
     if not re.fullmatch(r"[0-9a-f]{40}", source_commit):
@@ -111,13 +107,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--oos-repo-root",
+        required=True,
         type=Path,
-        help="optional OOS checkout for exact source-commit parity proof",
+        help="OOS checkout used for mandatory exact source-commit parity proof",
     )
     args = parser.parse_args()
     errors = validate_projection(
         args.repo_root.resolve(),
-        args.oos_repo_root.resolve() if args.oos_repo_root else None,
+        args.oos_repo_root.resolve(),
     )
     if errors:
         raise SystemExit("\n".join(errors))

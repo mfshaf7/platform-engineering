@@ -27,7 +27,7 @@ python3 products/openproject/scripts/validate_openproject_platform_admin_surface
 ```
 
 Validate the Platform blocker-workflow projection against its locked OOS source
-revision with:
+revision with the required sibling checkout:
 
 ```bash
 python3 products/openproject/scripts/validate_delivery_art_blocker_workflow_projection.py \

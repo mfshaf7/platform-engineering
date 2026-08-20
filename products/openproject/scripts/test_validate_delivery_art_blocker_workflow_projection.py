@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import pathlib
 import shutil
 import tempfile
@@ -20,6 +21,12 @@ SPEC.loader.exec_module(MODULE)
 class ValidateDeliveryArtBlockerWorkflowProjectionTest(unittest.TestCase):
     def setUp(self) -> None:
         self.source_root = pathlib.Path(__file__).resolve().parents[3]
+        self.oos_repo_root = pathlib.Path(
+            os.environ.get(
+                "OOS_REPO_ROOT",
+                self.source_root.parent / "operator-orchestration-service",
+            )
+        ).resolve()
 
     def copy_projection(self, repo_root: pathlib.Path) -> pathlib.Path:
         product_dir = repo_root / "products" / "openproject"
@@ -32,7 +39,9 @@ class ValidateDeliveryArtBlockerWorkflowProjectionTest(unittest.TestCase):
         return product_dir
 
     def test_live_projection_passes(self) -> None:
-        self.assertEqual(MODULE.validate_projection(self.source_root), [])
+        self.assertEqual(
+            MODULE.validate_projection(self.source_root, self.oos_repo_root), []
+        )
 
     def test_stale_action_vocabulary_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -43,7 +52,7 @@ class ValidateDeliveryArtBlockerWorkflowProjectionTest(unittest.TestCase):
             projection.pop("allowed_actions")
             projection_path.write_text(json.dumps(projection, indent=2) + "\n", encoding="utf-8")
 
-            errors = MODULE.validate_projection(repo_root)
+            errors = MODULE.validate_projection(repo_root, self.oos_repo_root)
             self.assertTrue(any("allowed_actions" in error for error in errors))
 
     def test_stale_source_digest_fails(self) -> None:
@@ -55,7 +64,7 @@ class ValidateDeliveryArtBlockerWorkflowProjectionTest(unittest.TestCase):
             source_lock["source"]["sha256"] = "0" * 64
             lock_path.write_text(json.dumps(source_lock, indent=2) + "\n", encoding="utf-8")
 
-            errors = MODULE.validate_projection(repo_root)
+            errors = MODULE.validate_projection(repo_root, self.oos_repo_root)
             self.assertTrue(any("locked OOS source digest" in error for error in errors))
 
 

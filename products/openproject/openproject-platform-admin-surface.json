@@ -339,6 +339,12 @@
       "purpose": "Delivery identity convergence helper used by the shell wrapper."
     },
     {
+      "script": "validate_delivery_art_blocker_workflow_projection.py",
+      "surface_class": "contract-projection-validator",
+      "invoked_by": [],
+      "purpose": "Validate the Platform blocker-workflow projection and its locked OOS source authority."
+    },
+    {
       "script": "validate_openproject_platform_admin_surface.py",
       "surface_class": "platform-admin-validator",
       "invoked_by": [],
@@ -411,6 +417,7 @@
   "test_files": [
     "test_openproject_check_delivery_art_quality.py",
     "test_openproject_platform_admin_adapter.py",
+    "test_validate_delivery_art_blocker_workflow_projection.py",
     "test_validate_openproject_platform_admin_surface.py"
   ],
   "ignored_files": [

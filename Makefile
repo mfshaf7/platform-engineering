@@ -322,6 +322,8 @@ openclaw-stage-state:
 render-windows-bootstrap:
 	$(ANSIBLE_ENV) ansible-playbook ansible/playbooks/render-windows-bootstrap.yml $(ANSIBLE_EXTRA_VARS_ARG)
 
+OOS_REPO_ROOT ?= ../operator-orchestration-service
+
 .PHONY: validate
 validate:
 	python3 scripts/validate_repo_structure.py
@@ -331,6 +333,8 @@ validate:
 	python3 scripts/test_ai_model_profiles.py
 	python3 scripts/test_governed_ai_ollama_adapter.py
 	python3 scripts/validate_operational_docs.py
+	python3 products/openproject/scripts/validate_delivery_art_blocker_workflow_projection.py --repo-root . --oos-repo-root "$(OOS_REPO_ROOT)"
+	python3 products/openproject/scripts/test_validate_delivery_art_blocker_workflow_projection.py
 	python3 scripts/validate_environment_readiness.py status stage
 	python3 scripts/validate_environment_readiness.py status prod
 	python3 scripts/validate_single_host_scaling.py

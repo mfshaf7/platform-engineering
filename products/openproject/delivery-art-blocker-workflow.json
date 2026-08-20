@@ -2,6 +2,14 @@
   "schema_version": 1,
   "workflow_id": "delivery-art-blocker-workflow",
   "blocked_status": "blocked",
+  "allowed_actions": [
+    "set",
+    "clear"
+  ],
+  "default_action": "set",
+  "recommendation_action_aliases": {
+    "record": "set"
+  },
   "resume_allowed_statuses": [
     "new",
     "ready",

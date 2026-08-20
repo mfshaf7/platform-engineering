@@ -37,6 +37,15 @@ jobs:
       - name: Install Python validation dependencies
         run: python -m pip install pyyaml -r dev-integration/profiles/temporal/controlled_proof/requirements.txt
 
+      - name: Check out locked OOS validation source
+        run: |
+          source_commit="$(python -c 'import json; print(json.load(open("products/openproject/delivery-art-blocker-workflow-source-lock.json"))["source"]["git_commit"])')"
+          [[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]]
+          git init /tmp/operator-orchestration-service
+          git -C /tmp/operator-orchestration-service remote add origin https://github.com/mfshaf7/operator-orchestration-service.git
+          git -C /tmp/operator-orchestration-service fetch --depth=1 origin "${source_commit}"
+          git -C /tmp/operator-orchestration-service checkout --detach FETCH_HEAD
+
       - name: Validate platform repo structure
         run: python scripts/validate_repo_structure.py
 
@@ -83,7 +92,7 @@ jobs:
         run: terraform -chdir=terraform/environments/prod init -backend=false && terraform -chdir=terraform/environments/prod validate
 
       - name: Validate Makefile entrypoint
-        run: make validate
+        run: OOS_REPO_ROOT=/tmp/operator-orchestration-service make validate
 
   publish-metadata:
     if: github.ref == 'refs/heads/main'

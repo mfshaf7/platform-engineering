@@ -76,6 +76,7 @@ summary = {
     "gateway_reachable_from_consumer": probe.get("gateway_reachable") is True,
     "gateway_policy_decision": probe.get("gateway_policy_decision"),
     "profile_status": ready.get("profile_status"),
+    "access_plane_activation_allowed": ready.get("access_plane_activation_allowed"),
     "upstream_provider": ready.get("upstream_provider"),
     "provider_route": ready.get("provider_route"),
     "upstream_model": ready.get("upstream_model"),
@@ -106,6 +107,8 @@ if summary["provider_route"] != expected_route:
     failures.append("gateway provider route does not match the model registry")
 if summary["upstream_model"] != expected_model:
     failures.append("gateway upstream model does not match the model registry")
+if summary["access_plane_activation_allowed"] is not False:
+    failures.append("gateway access plane unexpectedly allows profile activation")
 if summary["provider_secret_projected_to_consumers"]:
     failures.append("provider secret is projected to consumers")
 if summary["provider_token_projected"]:

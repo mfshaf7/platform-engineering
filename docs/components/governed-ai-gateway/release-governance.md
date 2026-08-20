@@ -23,6 +23,8 @@ Before using the gateway as activation evidence, prove:
 - gateway-only consumer egress proof
 - direct-provider sentinel denial
 - provider route and upstream model match the approved profile registry
+- both the model profile and the independent access-plane activation gate admit
+  invocation
 - current security delta review
 
 ## Stage Gate

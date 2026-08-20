@@ -113,6 +113,23 @@ for field in ("status", "provider", "provider_route", "upstream_model"):
 PY
 }
 
+load_access_plane_activation() {
+  python3 - "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" <<'PY'
+import pathlib
+import sys
+
+import yaml
+
+payload = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
+allowed = ((payload.get("access_plane") or {}).get("activation_state") or {}).get(
+    "profile_activation_allowed"
+)
+if not isinstance(allowed, bool):
+    raise SystemExit("governed AI access plane missing boolean profile_activation_allowed")
+print("true" if allowed else "false")
+PY
+}
+
 mapfile -t MODEL_BINDING < <(load_model_binding)
 if [[ "${#MODEL_BINDING[@]}" -ne 4 ]]; then
   echo "Unable to resolve intake-classifier-v1 model binding" >&2
@@ -122,6 +139,7 @@ readonly MODEL_PROFILE_STATUS="${MODEL_BINDING[0]}"
 readonly UPSTREAM_PROVIDER="${MODEL_BINDING[1]}"
 readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[2]}"
 readonly UPSTREAM_MODEL="${MODEL_BINDING[3]}"
+readonly ACCESS_PLANE_ACTIVATION_ALLOWED="$(load_access_plane_activation)"
 
 is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
@@ -141,6 +159,7 @@ launchable: $(is_active_profile && printf 'true' || printf 'false')
 gateway service: ${GATEWAY_SERVICE}
 gateway local port: ${ACCESS_LOCAL_PORT}
 model profile status: ${MODEL_PROFILE_STATUS}
+access plane activation allowed: ${ACCESS_PLANE_ACTIVATION_ALLOWED}
 upstream provider: ${UPSTREAM_PROVIDER}
 provider route: ${UPSTREAM_PROVIDER_ROUTE}
 upstream model: ${UPSTREAM_MODEL}
@@ -191,6 +210,10 @@ AUDIT_ROOT = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai
 AUDIT_LEDGER = AUDIT_ROOT / "audit-ledger.jsonl"
 PROFILE_ID = os.environ.get("GOVERNED_AI_PROFILE_ID", "intake-classifier-v1")
 PROFILE_STATUS = os.environ.get("GOVERNED_AI_PROFILE_STATUS", "suspended")
+ACCESS_PLANE_ACTIVATION_ALLOWED = (
+    os.environ.get("GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED", "false").lower()
+    == "true"
+)
 UPSTREAM_PROVIDER = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER", "unbound")
 UPSTREAM_PROVIDER_ROUTE = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE", "unbound")
 UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "unbound")
@@ -286,6 +309,7 @@ class Handler(BaseHTTPRequestHandler):
                     "ready": True,
                     "profile_id": PROFILE_ID,
                     "profile_status": PROFILE_STATUS,
+                    "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
                     "upstream_provider": UPSTREAM_PROVIDER,
                     "provider_route": UPSTREAM_PROVIDER_ROUTE,
                     "upstream_model": UPSTREAM_MODEL,
@@ -334,6 +358,8 @@ class Handler(BaseHTTPRequestHandler):
             denial_reasons.append("profile-not-allowed")
         if PROFILE_STATUS != "active":
             denial_reasons.append("profile-not-active")
+        if not ACCESS_PLANE_ACTIVATION_ALLOWED:
+            denial_reasons.append("access-plane-not-active")
         if UPSTREAM_MODEL == "pending-selection":
             denial_reasons.append("upstream-model-pending-selection")
         if output_schema_ref != OUTPUT_SCHEMA_REF:
@@ -352,6 +378,7 @@ class Handler(BaseHTTPRequestHandler):
                 "caller_identity": caller_identity,
                 "operator_identity": operator_identity,
                 "approved_profile_id": PROFILE_ID,
+                "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
                 "requested_profile_id": requested_profile,
                 "invocation_path": INVOCATION_PATH,
                 "upstream_provider": UPSTREAM_PROVIDER,
@@ -536,6 +563,8 @@ spec:
               value: intake-classifier-v1
             - name: GOVERNED_AI_PROFILE_STATUS
               value: "${MODEL_PROFILE_STATUS}"
+            - name: GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED
+              value: "${ACCESS_PLANE_ACTIVATION_ALLOWED}"
             - name: GOVERNED_AI_UPSTREAM_PROVIDER
               value: "${UPSTREAM_PROVIDER}"
             - name: GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE

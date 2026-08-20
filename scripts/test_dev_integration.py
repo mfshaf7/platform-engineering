@@ -191,10 +191,30 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
+            self.assertIn("access plane activation allowed: false", result.stdout)
             self.assertIn("upstream provider: openai", result.stdout)
             self.assertIn("provider route: openai-responses-api", result.stdout)
             self.assertIn("upstream model: gpt-5.6-terra", result.stdout)
             self.assertFalse(state_root.exists())
+
+    def test_governed_ai_runtime_requires_both_activation_gates(self) -> None:
+        common_source = (
+            REPO_ROOT
+            / "dev-integration/profiles/governed-ai-gateway/scripts/common.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED",
+            common_source,
+        )
+        self.assertIn(
+            "if not ACCESS_PLANE_ACTIVATION_ALLOWED:",
+            common_source,
+        )
+        self.assertIn(
+            'denial_reasons.append("access-plane-not-active")',
+            common_source,
+        )
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-owner-file-") as temp_dir:

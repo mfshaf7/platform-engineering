@@ -34,6 +34,7 @@ model_profiles:
     security_review_ref:
       repo: security-architecture
       path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
+    pending_activation_review_ref: openproject://work_packages/854
     notes: >
       The upstream binding is selected but not active. Keep this profile
       suspended until the focused security review, provider-route proof, and

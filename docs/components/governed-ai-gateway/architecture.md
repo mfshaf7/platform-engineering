@@ -62,6 +62,8 @@ The gateway runtime alone is not enough to call model use governed. Live
 activation still requires:
 
 - active model profile with selected upstream model
+- independent access-plane activation approval; profile status alone cannot
+  admit a request
 - allowed provider route matching the selected model and profile
 - caller identity boundary
 - operator identity when human approval is required

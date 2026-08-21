@@ -114,6 +114,20 @@ class GovernedAiModelProfileTests(unittest.TestCase):
                 validate(repo_root),
             )
 
+    def test_activation_profile_must_own_the_selected_environment_binding(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
+            repo_root = self.prepare_repo(Path(temp_dir))
+            access_plane_path = repo_root / "security/governed-ai-access-plane.yaml"
+            payload = yaml.safe_load(access_plane_path.read_text(encoding="utf-8"))
+            payload["access_plane"]["activation_state"]["active_profile"] = "missing-profile"
+            access_plane_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+            self.assertIn(
+                "security/governed-ai-access-plane.yaml: activation_state.active_profile "
+                "references unknown profile 'missing-profile'",
+                validate(repo_root),
+            )
+
 
 class ModelProfileResolverTests(unittest.TestCase):
     def prepare_contracts(self, root: Path) -> tuple[Path, Path]:
@@ -190,6 +204,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                 }
             )
             access_plane["activation_state"]["active_binding"] = "synthetic-ollama"
+            access_plane["activation_state"]["active_profile"] = "synthetic-profile-v1"
             profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
             access_path.write_text(yaml.safe_dump(access, sort_keys=False), encoding="utf-8")
 
@@ -204,6 +219,51 @@ class ModelProfileResolverTests(unittest.TestCase):
             self.assertEqual(result["profile_id"], "synthetic-profile-v1")
             self.assertEqual(result["binding_id"], "synthetic-ollama")
             self.assertEqual(result["allowed_callers"], ["synthetic/workflow"])
+
+    def test_profile_scoped_binding_id_cannot_bypass_activation_identity(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
+
+            synthetic = copy.deepcopy(registry["model_profiles"]["intake-classifier-v1"])
+            synthetic["purpose"] = "synthetic-governed-assist"
+            synthetic["allowed_callers"] = ["synthetic/workflow"]
+            registry["model_profiles"]["synthetic-profile-v1"] = synthetic
+
+            access_plane = access["access_plane"]
+            access_plane["allowed_profiles"].append("synthetic-profile-v1")
+            access_plane["provider_routes"][0]["allowed_profiles"].append(
+                "synthetic-profile-v1"
+            )
+            access_plane["allowed_callers"].append(
+                {
+                    "caller_id": "synthetic/workflow",
+                    "purpose": "synthetic-governed-assist",
+                    "required_profile": "synthetic-profile-v1",
+                    "required_provider_output_schema_ref": copy.deepcopy(
+                        synthetic["provider_output_schema_ref"]
+                    ),
+                    "accepted_record_schema_ref": copy.deepcopy(
+                        synthetic["accepted_record_schema_ref"]
+                    ),
+                }
+            )
+            profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+            access_path.write_text(yaml.safe_dump(access, sort_keys=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError,
+                "does not match the selected profile and environment binding",
+            ):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="synthetic-profile-v1",
+                    environment="dev-integration",
+                    require_active=True,
+                )
 
     def test_unknown_profile_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:

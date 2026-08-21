@@ -616,6 +616,32 @@ def validate_access_plane_contract(
             errors.append(f"{ACCESS_PLANE_PATH}: activation_state.profile_activation_allowed must be boolean")
         if activation_allowed and access_plane.get("status") != "active":
             errors.append(f"{ACCESS_PLANE_PATH}: activation requires active access-plane status")
+        active_profile = activation.get("active_profile")
+        active_environment = activation.get("active_environment")
+        active_binding = activation.get("active_binding")
+        for field_name, value in (
+            ("active_profile", active_profile),
+            ("active_environment", active_environment),
+            ("active_binding", active_binding),
+        ):
+            if not isinstance(value, str) or not value:
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: activation_state.{field_name} must be a non-empty string"
+                )
+        selected_profile = profiles.get(active_profile)
+        if isinstance(active_profile, str) and active_profile and not isinstance(selected_profile, dict):
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: activation_state.active_profile references unknown profile {active_profile!r}"
+            )
+        elif isinstance(selected_profile, dict) and isinstance(active_environment, str):
+            selected_binding = (selected_profile.get("active_binding_by_environment") or {}).get(
+                active_environment
+            )
+            if selected_binding != active_binding:
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: activation state {active_profile}/{active_environment} "
+                    f"must select binding {active_binding!r}"
+                )
 
     if egress_policy is not None:
         required_path = egress_policy.get("required_invocation_path") or {}

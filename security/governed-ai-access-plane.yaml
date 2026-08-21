@@ -117,6 +117,7 @@ access_plane:
     path: security/governed-ai-devint-egress-policy.yaml
   activation_state:
     profile_activation_allowed: true
+    active_profile: intake-classifier-v1
     active_environment: dev-integration
     active_binding: local-ollama-qwen3-8b
     reason: >

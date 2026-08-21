@@ -248,6 +248,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             'denial_reasons.append("model-selection-not-activation-eligible")',
             common_source,
         )
+        probe_source = common_source.split("run_consumer_probe()", 1)[1]
+        self.assertIn('"${MODEL_PROFILE_ID}" "${MODEL_SMOKE_CALLER_ID}"', probe_source)
+        self.assertIn('"${PROVIDER_OUTPUT_SCHEMA_REF}"', probe_source)
+        self.assertNotIn('"profile_id": "intake-classifier-v1"', probe_source)
 
     def test_governed_ai_runtime_manifest_is_valid_multi_document_yaml(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-render-") as temp_dir:

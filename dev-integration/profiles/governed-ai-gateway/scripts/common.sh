@@ -151,6 +151,7 @@ readonly MODEL_FALLBACK_MODE="${MODEL_BINDING[19]}"
 readonly MODEL_ACTIVATION_ELIGIBLE="${MODEL_BINDING[20]}"
 readonly ALLOWED_CALLERS_CSV="${MODEL_BINDING[21]}"
 readonly ACCESS_PLANE_ACTIVATION_ALLOWED="${MODEL_BINDING[22]}"
+readonly MODEL_SMOKE_CALLER_ID="${ALLOWED_CALLERS_CSV%%,*}"
 
 is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
@@ -976,7 +977,9 @@ run_consumer_probe() {
   local gateway_url="http://${GATEWAY_SERVICE}.${NAMESPACE}.svc.cluster.local:8080"
   local provider_url="http://${PROVIDER_SERVICE}.${PROVIDER_NAMESPACE}.svc.cluster.local:8080"
   kubectl_cmd -n "${CONSUMER_NAMESPACE}" exec -i "deployment/${CONSUMER_DEPLOYMENT}" -- \
-    python - "${gateway_url}" "${provider_url}" "${PROVIDER_BASE_URL}" <<'PY'
+    python - "${gateway_url}" "${provider_url}" "${PROVIDER_BASE_URL}" \
+      "${MODEL_PROFILE_ID}" "${MODEL_SMOKE_CALLER_ID}" \
+      "${PROVIDER_OUTPUT_SCHEMA_REF}" <<'PY'
 from __future__ import annotations
 
 import json
@@ -987,21 +990,25 @@ import urllib.request
 gateway_url = sys.argv[1]
 provider_url = sys.argv[2]
 ollama_url = sys.argv[3]
+profile_id = sys.argv[4]
+caller_id = sys.argv[5]
+output_schema_ref = sys.argv[6]
+caller_repo = caller_id.split("/", 1)[0]
 
 payload = {
-    "profile_id": "intake-classifier-v1",
+    "profile_id": profile_id,
     "caller_identity": {
-        "caller_id": "workspace-governance/intake-assist",
-        "caller_repo": "workspace-governance",
-        "caller_workflow": "governed-intake-assist",
+        "caller_id": caller_id,
+        "caller_repo": caller_repo,
+        "caller_workflow": "governed-ai-devint-smoke",
         "decision_or_correlation_id": "devint-smoke-governed-ai-gateway",
-        "requested_profile_id": "intake-classifier-v1",
+        "requested_profile_id": profile_id,
     },
     "operator_identity": {
         "operator_id": "devint-operator",
     },
     "operator_acceptance_state": "not-recorded",
-    "provider_output_schema_ref": "platform-engineering/security/schemas/intake-classification-result.schema.json",
+    "provider_output_schema_ref": output_schema_ref,
     "input": {
         "operator_supplied_intake_notes": "Shared platform governance component smoke.",
     },

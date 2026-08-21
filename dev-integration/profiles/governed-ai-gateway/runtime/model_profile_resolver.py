@@ -281,6 +281,10 @@ def resolve_model_profile(
         raise ModelProfileResolutionError(
             "access_plane.activation_state.profile_activation_allowed must be boolean"
         )
+    active_profile = _non_empty_string(
+        activation_state.get("active_profile"),
+        "access_plane.activation_state.active_profile",
+    )
     active_environment = _non_empty_string(
         activation_state.get("active_environment"),
         "access_plane.activation_state.active_environment",
@@ -290,10 +294,13 @@ def resolve_model_profile(
         "access_plane.activation_state.active_binding",
     )
     if activation_allowed and (
-        active_environment != environment or active_binding != binding_id
+        active_profile != profile_id
+        or active_environment != environment
+        or active_binding != binding_id
     ):
         raise ModelProfileResolutionError(
-            "access-plane activation does not match the selected environment binding"
+            "access-plane activation does not match the selected profile and "
+            "environment binding"
         )
 
     activation_denial_reasons = []
@@ -341,6 +348,7 @@ def resolve_model_profile(
         "direct_provider_access_allowed": False,
         "fallback_mode": "fail-closed-no-implicit-fallback",
         "profile_activation_allowed": activation_allowed,
+        "activation_profile_id": active_profile,
         "activation_eligible": not activation_denial_reasons,
         "activation_denial_reasons": activation_denial_reasons,
     }

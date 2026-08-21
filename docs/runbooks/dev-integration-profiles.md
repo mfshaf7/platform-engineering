@@ -125,6 +125,22 @@ Current active profiles:
 If a suitable `active` profile already exists, use it directly. If not, follow
 the request path in section 3.
 
+For `governed-ai-gateway`, the operator may select a reviewed logical model
+profile and environment before running the shared profile commands:
+
+```bash
+export DEVINT_GAI_MODEL_PROFILE_ID=<reviewed-profile-id>
+export DEVINT_GAI_MODEL_ENVIRONMENT=<reviewed-environment>
+make devint-status PROFILE=governed-ai-gateway
+make devint-up PROFILE=governed-ai-gateway
+make devint-smoke PROFILE=governed-ai-gateway
+```
+
+The resolver requires one exact profile, environment, and binding identity in
+the model registry and access-plane activation state. Unknown, inactive, or
+mismatched selections fail closed; the runtime and smoke probe do not fall back
+to the intake profile or another provider binding.
+
 Current build-admitted profile:
 
 - `temporal`

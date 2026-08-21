@@ -147,7 +147,9 @@ The platform access-plane source of truth is
 
 The access-plane contract is source truth, not proof of live operation by
 itself. A profile remains unavailable for governed live use while
-`activation_state.profile_activation_allowed` is false.
+`activation_state.profile_activation_allowed` is false. An allowed activation
+is bound to the complete logical profile, environment, and binding identity;
+matching a profile-scoped binding name alone is insufficient.
 
 The first active runtime posture is local `dev-integration`. The local-k3s
 gateway resolves an environment-selected provider binding, retains the local

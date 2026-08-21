@@ -52,6 +52,12 @@ python3 - \
   "${probe_json}" \
   "${gateway_json}" \
   "${SMOKE_SUMMARY}" \
+  "${MODEL_PROFILE_ID}" \
+  "${MODEL_ENVIRONMENT}" \
+  "${MODEL_BINDING_ID}" \
+  "${MODEL_SELECTION_DIGEST}" \
+  "${MODEL_SELECTION_REF}" \
+  "${MODEL_FALLBACK_MODE}" \
   "${UPSTREAM_PROVIDER}" \
   "${UPSTREAM_PROVIDER_ROUTE}" \
   "${UPSTREAM_MODEL}" \
@@ -64,15 +70,24 @@ import sys
 probe = json.loads(sys.argv[1])
 gateway = json.loads(sys.argv[2])
 summary_path = pathlib.Path(sys.argv[3])
-expected_provider = sys.argv[4]
-expected_route = sys.argv[5]
-expected_model = sys.argv[6]
-expected_digest = sys.argv[7]
-expected_runtime_version = sys.argv[8]
+expected_profile = sys.argv[4]
+expected_environment = sys.argv[5]
+expected_binding = sys.argv[6]
+expected_selection_digest = sys.argv[7]
+expected_selection_ref = sys.argv[8]
+expected_fallback_mode = sys.argv[9]
+expected_provider = sys.argv[10]
+expected_route = sys.argv[11]
+expected_model = sys.argv[12]
+expected_digest = sys.argv[13]
+expected_runtime_version = sys.argv[14]
 
 latest = gateway["latest_audit"]["latest"] or {}
 provider = gateway["provider_custody"]
 ready = gateway["ready"]
+ready_binding = ready.get("selected_binding") or {}
+audit_binding = latest.get("selected_binding") or {}
+denied_binding = probe.get("unauthorized_audit_selected_binding") or {}
 
 summary = {
     "profile": "governed-ai-gateway",
@@ -91,6 +106,10 @@ summary = {
     "upstream_model": ready.get("upstream_model"),
     "upstream_model_digest": ready.get("upstream_model_digest"),
     "provider_runtime_version": ready.get("provider_runtime_version"),
+    "binding_selection_ref": probe.get("gateway_binding_selection_ref"),
+    "selected_binding": ready_binding,
+    "audit_selected_binding": audit_binding,
+    "unauthorized_audit_selected_binding": denied_binding,
     "audit_event_count": gateway["latest_audit"]["event_count"],
     "caller_identity_captured": bool((latest.get("caller_identity") or {}).get("caller_id")),
     "provider_credential_required": provider.get("provider_credential_required") is True,
@@ -142,6 +161,24 @@ if summary["upstream_model_digest"] != expected_digest:
     failures.append("gateway model digest does not match the reviewed binding")
 if summary["provider_runtime_version"] != expected_runtime_version:
     failures.append("gateway provider runtime version does not match the reviewed binding")
+if ready_binding.get("profile_id") != expected_profile:
+    failures.append("gateway selected-binding profile does not match the resolved profile")
+if ready_binding.get("environment") != expected_environment:
+    failures.append("gateway selected-binding environment does not match the resolved environment")
+if ready_binding.get("binding_id") != expected_binding:
+    failures.append("gateway selected-binding id does not match the resolved binding")
+if ready_binding.get("selection_digest") != expected_selection_digest:
+    failures.append("gateway selected-binding digest does not match resolver evidence")
+if ready_binding.get("selection_ref") != expected_selection_ref:
+    failures.append("gateway selected-binding ref does not match resolver evidence")
+if ready_binding.get("fallback_mode") != expected_fallback_mode:
+    failures.append("gateway fallback posture does not match resolver evidence")
+if summary["binding_selection_ref"] != expected_selection_ref:
+    failures.append("gateway invocation response does not bind the selected runtime")
+if audit_binding != ready_binding:
+    failures.append("allowed invocation audit does not bind readiness selection evidence")
+if denied_binding != ready_binding:
+    failures.append("denied invocation audit does not bind readiness selection evidence")
 if summary["access_plane_activation_allowed"] is not True:
     failures.append("gateway access plane does not allow the reviewed dev-integration binding")
 if summary["provider_secret_projected_to_consumers"]:

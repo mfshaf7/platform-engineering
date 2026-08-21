@@ -24,9 +24,27 @@ The gateway profile and access-plane activation states remain independent
 policy inputs. The local platform route is active; workspace consumer use is
 still gated by its dependent activation work.
 
-The profile resolves the environment-selected binding from
-`security/governed-ai-model-profiles.yaml`. Dev-integration calls host Ollama
-with `qwen3:8b`; the future paid OpenAI binding remains inactive.
+The profile resolves one logical profile and environment-selected binding from
+`security/governed-ai-model-profiles.yaml` and verifies it against
+`security/governed-ai-access-plane.yaml`. The runtime instance defaults to
+`intake-classifier-v1` in `dev-integration`; operators may select another
+reviewed profile and environment through `DEVINT_GAI_MODEL_PROFILE_ID` and
+`DEVINT_GAI_MODEL_ENVIRONMENT` without changing resolver source.
+
+Resolution emits deterministic, non-secret selected-binding evidence. The
+evidence binds the profile, environment, binding, provider route, model
+identity, source-contract digests, and the explicit
+`fail-closed-no-implicit-fallback` posture. Readiness and every allowed or
+denied invocation audit record carry the same selection digest and reference.
+The resolver never searches for an alternate binding when the configured one
+is inactive or invalid.
+
+Runtime rendering preserves that evidence at
+`.dev-integration/governed-ai-gateway/<operator>/model-binding-selection.json`.
+The file is a local dev-integration receipt, not stage or production evidence.
+
+The current dev-integration instance calls host Ollama with `qwen3:8b`; the
+future paid OpenAI binding remains inactive and unproven.
 
 ## Operator Actions
 
@@ -45,7 +63,8 @@ make devint-promote-check PROFILE=governed-ai-gateway
 
 `devint-smoke` is read-only with respect to canonical workspace truth. It runs
 a bounded model suggestion and proves caller identity, strict output, audit
-emission, exact model/runtime identity, gateway reachability, and denial of
+emission, deterministic selected-binding evidence for allowed and denied
+outcomes, exact model/runtime identity, gateway reachability, and denial of
 direct sentinel and Ollama paths from the consumer.
 
 ## Denied Paths

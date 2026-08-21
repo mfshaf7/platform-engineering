@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import shutil
 import sys
 import tempfile
@@ -9,8 +10,14 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+RUNTIME_ROOT = (
+    Path(__file__).resolve().parents[1]
+    / "dev-integration/profiles/governed-ai-gateway/runtime"
+)
+sys.path.insert(0, str(RUNTIME_ROOT))
 
 from validate_ai_model_profiles import validate
+from model_profile_resolver import ModelProfileResolutionError, resolve_model_profile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -106,6 +113,298 @@ class GovernedAiModelProfileTests(unittest.TestCase):
                 "security/governed-ai-access-plane.yaml: provider_secret_refs entry #1 references unknown route 'unknown-route'",
                 validate(repo_root),
             )
+
+    def test_activation_profile_must_own_the_selected_environment_binding(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
+            repo_root = self.prepare_repo(Path(temp_dir))
+            access_plane_path = repo_root / "security/governed-ai-access-plane.yaml"
+            payload = yaml.safe_load(access_plane_path.read_text(encoding="utf-8"))
+            payload["access_plane"]["activation_state"]["active_profile"] = "missing-profile"
+            access_plane_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+            self.assertIn(
+                "security/governed-ai-access-plane.yaml: activation_state.active_profile "
+                "references unknown profile 'missing-profile'",
+                validate(repo_root),
+            )
+
+
+class ModelProfileResolverTests(unittest.TestCase):
+    def prepare_contracts(self, root: Path) -> tuple[Path, Path]:
+        profile_path = root / "governed-ai-model-profiles.yaml"
+        access_path = root / "governed-ai-access-plane.yaml"
+        shutil.copy2(REPO_ROOT / "security/governed-ai-model-profiles.yaml", profile_path)
+        shutil.copy2(REPO_ROOT / "security/governed-ai-access-plane.yaml", access_path)
+        return profile_path, access_path
+
+    def resolve(self, root: Path, **overrides):
+        profile_path, access_path = self.prepare_contracts(root)
+        values = {
+            "profile_id": "intake-classifier-v1",
+            "environment": "dev-integration",
+        }
+        values.update(overrides)
+        return resolve_model_profile(profile_path, access_path, **values)
+
+    def test_selected_binding_evidence_is_deterministic_and_complete(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            first = self.resolve(root, require_active=True)
+            second = resolve_model_profile(
+                root / "governed-ai-model-profiles.yaml",
+                root / "governed-ai-access-plane.yaml",
+                profile_id="intake-classifier-v1",
+                environment="dev-integration",
+                require_active=True,
+            )
+
+            self.assertEqual(first, second)
+            self.assertEqual(first["binding_id"], "local-ollama-qwen3-8b")
+            self.assertEqual(first["provider"], "ollama")
+            self.assertEqual(first["fallback_mode"], "fail-closed-no-implicit-fallback")
+            self.assertTrue(first["activation_eligible"])
+            self.assertRegex(first["selection_digest"], r"^sha256:[0-9a-f]{64}$")
+            self.assertEqual(
+                first["selection_ref"],
+                "model-binding-selection:" + first["selection_digest"].removeprefix("sha256:"),
+            )
+
+    def test_second_valid_profile_resolves_without_resolver_code_changes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
+
+            synthetic = copy.deepcopy(registry["model_profiles"]["intake-classifier-v1"])
+            synthetic["purpose"] = "synthetic-governed-assist"
+            synthetic["allowed_callers"] = ["synthetic/workflow"]
+            synthetic["active_binding_by_environment"]["dev-integration"] = "synthetic-ollama"
+            synthetic["bindings"]["synthetic-ollama"] = synthetic["bindings"].pop(
+                "local-ollama-qwen3-8b"
+            )
+            registry["model_profiles"]["synthetic-profile-v1"] = synthetic
+
+            access_plane = access["access_plane"]
+            access_plane["allowed_profiles"].append("synthetic-profile-v1")
+            access_plane["provider_routes"][0]["allowed_profiles"].append(
+                "synthetic-profile-v1"
+            )
+            access_plane["allowed_callers"].append(
+                {
+                    "caller_id": "synthetic/workflow",
+                    "purpose": "synthetic-governed-assist",
+                    "required_profile": "synthetic-profile-v1",
+                    "required_provider_output_schema_ref": copy.deepcopy(
+                        synthetic["provider_output_schema_ref"]
+                    ),
+                    "accepted_record_schema_ref": copy.deepcopy(
+                        synthetic["accepted_record_schema_ref"]
+                    ),
+                }
+            )
+            access_plane["activation_state"]["active_binding"] = "synthetic-ollama"
+            access_plane["activation_state"]["active_profile"] = "synthetic-profile-v1"
+            profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+            access_path.write_text(yaml.safe_dump(access, sort_keys=False), encoding="utf-8")
+
+            result = resolve_model_profile(
+                profile_path,
+                access_path,
+                profile_id="synthetic-profile-v1",
+                environment="dev-integration",
+                require_active=True,
+            )
+
+            self.assertEqual(result["profile_id"], "synthetic-profile-v1")
+            self.assertEqual(result["binding_id"], "synthetic-ollama")
+            self.assertEqual(result["allowed_callers"], ["synthetic/workflow"])
+
+    def test_profile_scoped_binding_id_cannot_bypass_activation_identity(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
+
+            synthetic = copy.deepcopy(registry["model_profiles"]["intake-classifier-v1"])
+            synthetic["purpose"] = "synthetic-governed-assist"
+            synthetic["allowed_callers"] = ["synthetic/workflow"]
+            registry["model_profiles"]["synthetic-profile-v1"] = synthetic
+
+            access_plane = access["access_plane"]
+            access_plane["allowed_profiles"].append("synthetic-profile-v1")
+            access_plane["provider_routes"][0]["allowed_profiles"].append(
+                "synthetic-profile-v1"
+            )
+            access_plane["allowed_callers"].append(
+                {
+                    "caller_id": "synthetic/workflow",
+                    "purpose": "synthetic-governed-assist",
+                    "required_profile": "synthetic-profile-v1",
+                    "required_provider_output_schema_ref": copy.deepcopy(
+                        synthetic["provider_output_schema_ref"]
+                    ),
+                    "accepted_record_schema_ref": copy.deepcopy(
+                        synthetic["accepted_record_schema_ref"]
+                    ),
+                }
+            )
+            profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+            access_path.write_text(yaml.safe_dump(access, sort_keys=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError,
+                "does not match the selected profile and environment binding",
+            ):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="synthetic-profile-v1",
+                    environment="dev-integration",
+                    require_active=True,
+                )
+
+    def test_unknown_profile_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError, "unknown governed model profile"
+            ):
+                self.resolve(Path(temp_dir), profile_id="missing-profile")
+
+    def test_inactive_profile_is_not_activation_eligible(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            registry["model_profiles"]["intake-classifier-v1"]["status"] = "suspended"
+            profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+
+            inspection = resolve_model_profile(
+                profile_path,
+                access_path,
+                profile_id="intake-classifier-v1",
+                environment="dev-integration",
+            )
+            self.assertFalse(inspection["activation_eligible"])
+            self.assertIn("profile-not-active", inspection["activation_denial_reasons"])
+            with self.assertRaisesRegex(ModelProfileResolutionError, "profile-not-active"):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                    require_active=True,
+                )
+
+    def test_missing_environment_binding_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError,
+                "active_binding_by_environment.stage must be a non-empty string",
+            ):
+                self.resolve(Path(temp_dir), environment="stage")
+
+    def test_selected_inactive_binding_does_not_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            profile = registry["model_profiles"]["intake-classifier-v1"]
+            selected = profile["bindings"]["local-ollama-qwen3-8b"]
+            selected["status"] = "selected-not-active"
+            profile["bindings"]["unused-active-binding"] = copy.deepcopy(selected)
+            profile["bindings"]["unused-active-binding"]["status"] = "active"
+            profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(ModelProfileResolutionError, "binding-not-active"):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                    require_active=True,
+                )
+
+    def test_provider_route_mismatch_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
+            access["access_plane"]["provider_routes"][0]["provider"] = "different-provider"
+            access_path.write_text(yaml.safe_dump(access, sort_keys=False), encoding="utf-8")
+
+            with self.assertRaisesRegex(ModelProfileResolutionError, "does not match route provider"):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                )
+
+    def test_direct_provider_access_must_remain_prohibited(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            registry["model_profiles"]["intake-classifier-v1"][
+                "direct_provider_access_allowed"
+            ] = True
+            profile_path.write_text(
+                yaml.safe_dump(registry, sort_keys=False), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError, "must prohibit direct provider access"
+            ):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                )
+
+    def test_human_approval_must_remain_required(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            registry = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+            registry["model_profiles"]["intake-classifier-v1"][
+                "human_approval_required"
+            ] = False
+            profile_path.write_text(
+                yaml.safe_dump(registry, sort_keys=False), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError, "must require human approval"
+            ):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                )
+
+    def test_caller_purpose_must_match_profile(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            root = Path(temp_dir)
+            profile_path, access_path = self.prepare_contracts(root)
+            access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
+            access["access_plane"]["allowed_callers"][0]["purpose"] = "different-purpose"
+            access_path.write_text(
+                yaml.safe_dump(access, sort_keys=False), encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(
+                ModelProfileResolutionError, "purpose does not match profile"
+            ):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="intake-classifier-v1",
+                    environment="dev-integration",
+                )
 
 
 if __name__ == "__main__":

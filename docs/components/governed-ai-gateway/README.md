@@ -37,9 +37,10 @@ The gateway is not:
   proof
 
 The runtime proves a real bounded Ollama invocation, caller identity capture,
-model and runtime integrity, strict provider output, audit emission, and
-gateway-only consumer egress in dev-integration. Workspace consumption remains
-separately gated by the dependent consumer activation work.
+model and runtime integrity, deterministic selected-binding evidence, strict
+provider output, audit emission, and gateway-only consumer egress in
+dev-integration. Workspace consumption remains separately gated by the
+dependent consumer activation work.
 
 ## Selected Intake Binding
 
@@ -47,6 +48,13 @@ separately gated by the dependent consumer activation work.
 selects `qwen3:8b` through the local Ollama route. The OpenAI Responses API and
 `gpt-5.6-terra` binding remains recorded as an inactive future paid route under
 separate activation work.
+
+The dev-integration launcher resolves one configured logical profile and
+environment binding from the governed registry, verifies the matching access
+plane route, and emits a content-addressed non-secret selection reference.
+Gateway readiness and every allowed or denied invocation audit event bind that
+same reference. An invalid or inactive selected binding fails closed; the
+launcher and gateway never search for an alternate binding automatically.
 
 ## Owner Boundaries
 

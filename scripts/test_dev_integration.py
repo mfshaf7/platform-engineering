@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import signal
@@ -194,6 +195,18 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             self.assertIn("launchable: false", result.stdout)
             self.assertIn("access plane activation allowed: true", result.stdout)
+            self.assertIn("model profile: intake-classifier-v1", result.stdout)
+            self.assertIn("model environment: dev-integration", result.stdout)
+            self.assertIn("model binding: local-ollama-qwen3-8b", result.stdout)
+            self.assertIn("model binding status: active", result.stdout)
+            self.assertIn(
+                "model fallback mode: fail-closed-no-implicit-fallback", result.stdout
+            )
+            self.assertIn("model activation eligible: true", result.stdout)
+            self.assertRegex(
+                result.stdout,
+                r"model selection ref: model-binding-selection:[0-9a-f]{64}",
+            )
             self.assertIn("upstream provider: ollama", result.stdout)
             self.assertIn("provider route: ollama-local-host", result.stdout)
             self.assertIn("upstream model: qwen3:8b", result.stdout)
@@ -215,6 +228,24 @@ class DevIntegrationRunnerTests(unittest.TestCase):
         )
         self.assertIn(
             'denial_reasons.append("access-plane-not-active")',
+            common_source,
+        )
+        self.assertIn(
+            'denial_reasons.append("binding-not-active")',
+            common_source,
+        )
+        self.assertIn(
+            'denial_reasons.append("provider-route-not-active")',
+            common_source,
+        )
+        self.assertIn("def selected_binding_evidence()", common_source)
+        self.assertIn(
+            'if [[ "${UPSTREAM_PROVIDER}" != "ollama" ]]',
+            common_source,
+        )
+        self.assertIn("require_active_model_binding", common_source)
+        self.assertIn(
+            'denial_reasons.append("model-selection-not-activation-eligible")',
             common_source,
         )
 
@@ -249,6 +280,19 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertIn("PersistentVolumeClaim", kinds)
             self.assertGreaterEqual(kinds.count("ConfigMap"), 2)
             self.assertIn("NetworkPolicy", kinds)
+            gateway_config = next(
+                document
+                for document in documents
+                if isinstance(document, dict)
+                and document.get("kind") == "ConfigMap"
+                and (document.get("metadata") or {}).get("name")
+                == "governed-ai-gateway-app"
+            )
+            compile(
+                gateway_config["data"]["gateway_app.py"],
+                "rendered-gateway-app.py",
+                "exec",
+            )
             gateway = next(
                 document
                 for document in documents
@@ -263,6 +307,49 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertRegex(
                 env["GOVERNED_AI_PROVIDER_BASE_URL"],
                 r"^http://\d{1,3}(?:\.\d{1,3}){3}:11434$",
+            )
+            self.assertEqual(env["GOVERNED_AI_PROFILE_ID"], "intake-classifier-v1")
+            self.assertEqual(env["GOVERNED_AI_MODEL_ENVIRONMENT"], "dev-integration")
+            self.assertEqual(env["GOVERNED_AI_BINDING_ID"], "local-ollama-qwen3-8b")
+            self.assertEqual(env["GOVERNED_AI_BINDING_STATUS"], "active")
+            self.assertEqual(env["GOVERNED_AI_PROVIDER_ROUTE_STATUS"], "active")
+            self.assertEqual(
+                env["GOVERNED_AI_FALLBACK_MODE"],
+                "fail-closed-no-implicit-fallback",
+            )
+            self.assertEqual(env["GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE"], "true")
+            self.assertRegex(
+                env["GOVERNED_AI_BINDING_SELECTION_DIGEST"], r"^sha256:[0-9a-f]{64}$"
+            )
+            self.assertRegex(
+                env["GOVERNED_AI_BINDING_SELECTION_REF"],
+                r"^model-binding-selection:[0-9a-f]{64}$",
+            )
+            selection_receipt = json.loads(
+                (state_root / "model-binding-selection.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                selection_receipt["selection_digest"],
+                env["GOVERNED_AI_BINDING_SELECTION_DIGEST"],
+            )
+            self.assertEqual(
+                selection_receipt["selection_ref"],
+                env["GOVERNED_AI_BINDING_SELECTION_REF"],
+            )
+            consumer = next(
+                document
+                for document in documents
+                if isinstance(document, dict)
+                and document.get("kind") == "Deployment"
+                and (document.get("metadata") or {}).get("name")
+                == "governed-ai-consumer-probe"
+            )
+            self.assertEqual(
+                [
+                    container["name"]
+                    for container in consumer["spec"]["template"]["spec"]["containers"]
+                ],
+                ["probe"],
             )
 
     def test_owner_files_must_remain_inside_selected_checkout(self) -> None:

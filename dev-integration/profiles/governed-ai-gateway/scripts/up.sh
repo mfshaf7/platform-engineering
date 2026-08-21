@@ -4,6 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 require_active_profile
+require_active_model_binding
 need_cmd k3s
 need_cmd python3
 

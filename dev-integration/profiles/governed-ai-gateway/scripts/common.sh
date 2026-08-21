@@ -19,11 +19,14 @@ read -r -a KUBECTL_CMD <<<"${DEVINT_KUBECTL:-k3s kubectl}"
 
 readonly STATUS_FILE="${STATE_ROOT}/profile-status.txt"
 readonly SMOKE_SUMMARY="${STATE_ROOT}/smoke-summary.json"
+readonly MODEL_SELECTION_RECEIPT="${STATE_ROOT}/model-binding-selection.json"
 readonly PROFILE_PROMOTION_NOTES="${STATE_ROOT}/profile-promotion-notes.md"
 readonly RENDERED_DIR="${STATE_ROOT}/rendered"
 readonly LOGS_DIR="${STATE_ROOT}/logs"
 readonly ACCESS_LOCAL_PORT="${DEVINT_GAI_GATEWAY_LOCAL_PORT:-18290}"
 readonly RUNTIME_SOURCE_DIR="${PROFILE_ROOT}/runtime"
+readonly MODEL_PROFILE_ID_REQUESTED="${DEVINT_GAI_MODEL_PROFILE_ID:-intake-classifier-v1}"
+readonly MODEL_ENVIRONMENT_REQUESTED="${DEVINT_GAI_MODEL_ENVIRONMENT:-dev-integration}"
 
 readonly GATEWAY_DEPLOYMENT="governed-ai-gateway"
 readonly GATEWAY_SERVICE="governed-ai-gateway"
@@ -73,82 +76,81 @@ PY
 readonly PROFILE_LIFECYCLE="$(profile_lifecycle)"
 
 load_model_binding() {
-  python3 - \
-    "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" \
-    "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" <<'PY'
-import pathlib
+  python3 "${RUNTIME_SOURCE_DIR}/model_profile_resolver.py" \
+    --profile-registry "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" \
+    --access-plane "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" \
+    --profile-id "${MODEL_PROFILE_ID_REQUESTED}" \
+    --environment "${MODEL_ENVIRONMENT_REQUESTED}"
+}
+
+MODEL_SELECTION_JSON="$(load_model_binding)"
+readonly MODEL_SELECTION_JSON
+mapfile -t MODEL_BINDING < <(
+  python3 -c '
+import json
 import sys
 
-import yaml
-
-payload = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
-profile = (payload.get("model_profiles") or {}).get("intake-classifier-v1") or {}
-binding_id = (profile.get("active_binding_by_environment") or {}).get("dev-integration")
-binding = (profile.get("bindings") or {}).get(binding_id) or {}
-access_payload = yaml.safe_load(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")) or {}
-routes = {
-    route.get("route_id"): route
-    for route in ((access_payload.get("access_plane") or {}).get("provider_routes") or [])
-    if isinstance(route, dict)
-}
-route = routes.get(binding.get("provider_route")) or {}
-values = (
-    profile.get("status"),
-    binding_id,
-    binding.get("provider"),
-    binding.get("provider_route"),
-    binding.get("upstream_model"),
-    binding.get("model_digest"),
-    binding.get("runtime_version"),
-    route.get("endpoint_origin"),
-    ",".join(profile.get("allowed_callers") or []),
-    "/".join(
-        [
-            str((profile.get("provider_output_schema_ref") or {}).get("repo") or ""),
-            str((profile.get("provider_output_schema_ref") or {}).get("path") or ""),
-        ]
-    ),
+selection = json.load(sys.stdin)
+fields = (
+    "profile_status",
+    "profile_id",
+    "environment",
+    "binding_id",
+    "binding_status",
+    "provider",
+    "provider_route",
+    "provider_route_status",
+    "upstream_model",
+    "model_digest",
+    "runtime_version",
+    "endpoint_origin",
+    "provider_output_schema_ref",
+    "selection_digest",
+    "selection_ref",
+    "profile_registry_digest",
+    "access_plane_digest",
+    "invocation_path",
+    "purpose",
+    "fallback_mode",
+    "activation_eligible",
 )
-for value in values:
-    if not isinstance(value, str) or not value:
-        raise SystemExit("intake-classifier-v1 dev-integration binding is incomplete")
-    print(value)
-PY
-}
-
-load_access_plane_activation() {
-  python3 - "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" <<'PY'
-import pathlib
-import sys
-
-import yaml
-
-payload = yaml.safe_load(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
-allowed = ((payload.get("access_plane") or {}).get("activation_state") or {}).get(
-    "profile_activation_allowed"
+for field in fields:
+    value = selection[field]
+    if isinstance(value, bool):
+        print("true" if value else "false")
+    else:
+        print(value)
+print(",".join(selection["allowed_callers"]))
+print("true" if selection["profile_activation_allowed"] else "false")
+' <<<"${MODEL_SELECTION_JSON}"
 )
-if not isinstance(allowed, bool):
-    raise SystemExit("governed AI access plane missing boolean profile_activation_allowed")
-print("true" if allowed else "false")
-PY
-}
-
-mapfile -t MODEL_BINDING < <(load_model_binding)
-if [[ "${#MODEL_BINDING[@]}" -ne 10 ]]; then
-  echo "Unable to resolve intake-classifier-v1 model binding" >&2
+if [[ "${#MODEL_BINDING[@]}" -ne 23 ]]; then
+  echo "Unable to resolve governed AI model binding" >&2
   exit 1
 fi
 readonly MODEL_PROFILE_STATUS="${MODEL_BINDING[0]}"
-readonly MODEL_BINDING_ID="${MODEL_BINDING[1]}"
-readonly UPSTREAM_PROVIDER="${MODEL_BINDING[2]}"
-readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[3]}"
-readonly UPSTREAM_MODEL="${MODEL_BINDING[4]}"
-readonly UPSTREAM_MODEL_DIGEST="${MODEL_BINDING[5]}"
-readonly PROVIDER_RUNTIME_VERSION="${MODEL_BINDING[6]}"
-readonly PROVIDER_BASE_URL="${MODEL_BINDING[7]}"
-readonly ALLOWED_CALLERS_CSV="${MODEL_BINDING[8]}"
-readonly PROVIDER_OUTPUT_SCHEMA_REF="${MODEL_BINDING[9]}"
-readonly ACCESS_PLANE_ACTIVATION_ALLOWED="$(load_access_plane_activation)"
+readonly MODEL_PROFILE_ID="${MODEL_BINDING[1]}"
+readonly MODEL_ENVIRONMENT="${MODEL_BINDING[2]}"
+readonly MODEL_BINDING_ID="${MODEL_BINDING[3]}"
+readonly MODEL_BINDING_STATUS="${MODEL_BINDING[4]}"
+readonly UPSTREAM_PROVIDER="${MODEL_BINDING[5]}"
+readonly UPSTREAM_PROVIDER_ROUTE="${MODEL_BINDING[6]}"
+readonly MODEL_PROVIDER_ROUTE_STATUS="${MODEL_BINDING[7]}"
+readonly UPSTREAM_MODEL="${MODEL_BINDING[8]}"
+readonly UPSTREAM_MODEL_DIGEST="${MODEL_BINDING[9]}"
+readonly PROVIDER_RUNTIME_VERSION="${MODEL_BINDING[10]}"
+readonly PROVIDER_BASE_URL="${MODEL_BINDING[11]}"
+readonly PROVIDER_OUTPUT_SCHEMA_REF="${MODEL_BINDING[12]}"
+readonly MODEL_SELECTION_DIGEST="${MODEL_BINDING[13]}"
+readonly MODEL_SELECTION_REF="${MODEL_BINDING[14]}"
+readonly MODEL_PROFILE_REGISTRY_DIGEST="${MODEL_BINDING[15]}"
+readonly MODEL_ACCESS_PLANE_DIGEST="${MODEL_BINDING[16]}"
+readonly INVOCATION_PATH="${MODEL_BINDING[17]}"
+readonly MODEL_PROFILE_PURPOSE="${MODEL_BINDING[18]}"
+readonly MODEL_FALLBACK_MODE="${MODEL_BINDING[19]}"
+readonly MODEL_ACTIVATION_ELIGIBLE="${MODEL_BINDING[20]}"
+readonly ALLOWED_CALLERS_CSV="${MODEL_BINDING[21]}"
+readonly ACCESS_PLANE_ACTIVATION_ALLOWED="${MODEL_BINDING[22]}"
 
 is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
@@ -167,10 +169,19 @@ runtime: $(is_active_profile && printf 'active-local-k3s' || printf 'build-admit
 launchable: $(is_active_profile && printf 'true' || printf 'false')
 gateway service: ${GATEWAY_SERVICE}
 gateway local port: ${ACCESS_LOCAL_PORT}
+model profile: ${MODEL_PROFILE_ID}
 model profile status: ${MODEL_PROFILE_STATUS}
+model environment: ${MODEL_ENVIRONMENT}
+model binding: ${MODEL_BINDING_ID}
+model binding status: ${MODEL_BINDING_STATUS}
+model selection ref: ${MODEL_SELECTION_REF}
+model selection digest: ${MODEL_SELECTION_DIGEST}
+model fallback mode: ${MODEL_FALLBACK_MODE}
+model activation eligible: ${MODEL_ACTIVATION_ELIGIBLE}
 access plane activation allowed: ${ACCESS_PLANE_ACTIVATION_ALLOWED}
 upstream provider: ${UPSTREAM_PROVIDER}
 provider route: ${UPSTREAM_PROVIDER_ROUTE}
+provider route status: ${MODEL_PROVIDER_ROUTE_STATUS}
 upstream model: ${UPSTREAM_MODEL}
 upstream model digest: ${UPSTREAM_MODEL_DIGEST}
 provider runtime version: ${PROVIDER_RUNTIME_VERSION}
@@ -180,6 +191,11 @@ EOF
 write_status_file() {
   ensure_state_dirs
   render_status >"${STATUS_FILE}"
+}
+
+write_model_selection_receipt() {
+  ensure_state_dirs
+  printf '%s\n' "${MODEL_SELECTION_JSON}" >"${MODEL_SELECTION_RECEIPT}"
 }
 
 print_status() {
@@ -197,6 +213,13 @@ fail_not_active() {
 require_active_profile() {
   if ! is_active_profile; then
     fail_not_active
+  fi
+}
+
+require_active_model_binding() {
+  if [[ "${MODEL_ACTIVATION_ELIGIBLE}" != "true" ]]; then
+    echo "refused: selected model binding ${MODEL_SELECTION_REF} is not activation eligible." >&2
+    exit 2
   fi
 }
 
@@ -223,12 +246,30 @@ AUDIT_ROOT = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai
 AUDIT_LEDGER = AUDIT_ROOT / "audit-ledger.jsonl"
 PROFILE_ID = os.environ.get("GOVERNED_AI_PROFILE_ID", "intake-classifier-v1")
 PROFILE_STATUS = os.environ.get("GOVERNED_AI_PROFILE_STATUS", "suspended")
+PROFILE_PURPOSE = os.environ.get("GOVERNED_AI_PROFILE_PURPOSE", "unbound")
+MODEL_ENVIRONMENT = os.environ.get("GOVERNED_AI_MODEL_ENVIRONMENT", "unbound")
+BINDING_ID = os.environ.get("GOVERNED_AI_BINDING_ID", "unbound")
+BINDING_STATUS = os.environ.get("GOVERNED_AI_BINDING_STATUS", "unbound")
+BINDING_SELECTION_DIGEST = os.environ.get(
+    "GOVERNED_AI_BINDING_SELECTION_DIGEST", "unbound"
+)
+BINDING_SELECTION_REF = os.environ.get("GOVERNED_AI_BINDING_SELECTION_REF", "unbound")
+PROFILE_REGISTRY_DIGEST = os.environ.get("GOVERNED_AI_PROFILE_REGISTRY_DIGEST", "unbound")
+ACCESS_PLANE_DIGEST = os.environ.get("GOVERNED_AI_ACCESS_PLANE_DIGEST", "unbound")
+FALLBACK_MODE = os.environ.get(
+    "GOVERNED_AI_FALLBACK_MODE", "fail-closed-no-implicit-fallback"
+)
+MODEL_ACTIVATION_ELIGIBLE = (
+    os.environ.get("GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE", "false").lower()
+    == "true"
+)
 ACCESS_PLANE_ACTIVATION_ALLOWED = (
     os.environ.get("GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED", "false").lower()
     == "true"
 )
 UPSTREAM_PROVIDER = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER", "unbound")
 UPSTREAM_PROVIDER_ROUTE = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE", "unbound")
+PROVIDER_ROUTE_STATUS = os.environ.get("GOVERNED_AI_PROVIDER_ROUTE_STATUS", "unbound")
 UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "unbound")
 UPSTREAM_MODEL_DIGEST = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL_DIGEST", "unbound")
 PROVIDER_RUNTIME_VERSION = os.environ.get("GOVERNED_AI_PROVIDER_RUNTIME_VERSION", "unbound")
@@ -294,6 +335,28 @@ def latest_audit_event() -> dict:
     }
 
 
+def selected_binding_evidence() -> dict:
+    return {
+        "profile_id": PROFILE_ID,
+        "profile_status": PROFILE_STATUS,
+        "environment": MODEL_ENVIRONMENT,
+        "binding_id": BINDING_ID,
+        "binding_status": BINDING_STATUS,
+        "provider": UPSTREAM_PROVIDER,
+        "provider_route": UPSTREAM_PROVIDER_ROUTE,
+        "provider_route_status": PROVIDER_ROUTE_STATUS,
+        "upstream_model": UPSTREAM_MODEL,
+        "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
+        "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
+        "profile_registry_digest": PROFILE_REGISTRY_DIGEST,
+        "access_plane_digest": ACCESS_PLANE_DIGEST,
+        "selection_digest": BINDING_SELECTION_DIGEST,
+        "selection_ref": BINDING_SELECTION_REF,
+        "fallback_mode": FALLBACK_MODE,
+        "activation_eligible": MODEL_ACTIVATION_ELIGIBLE,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "GovernedAIGatewayDevInt/1.0"
 
@@ -325,10 +388,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(200, {"status": "ok", "component": "governed-ai-gateway"})
             return
         if self.path == "/readyz":
+            ready = MODEL_ACTIVATION_ELIGIBLE and ACCESS_PLANE_ACTIVATION_ALLOWED
             self.send_json(
-                200,
+                200 if ready else 503,
                 {
-                    "ready": True,
+                    "ready": ready,
                     "profile_id": PROFILE_ID,
                     "profile_status": PROFILE_STATUS,
                     "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
@@ -337,6 +401,7 @@ class Handler(BaseHTTPRequestHandler):
                     "upstream_model": UPSTREAM_MODEL,
                     "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
                     "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
+                    "selected_binding": selected_binding_evidence(),
                     "provider_credential_required": False,
                     "raw_provider_token_projected": False,
                 },
@@ -389,8 +454,14 @@ class Handler(BaseHTTPRequestHandler):
             denial_reasons.append("profile-not-allowed")
         if PROFILE_STATUS != "active":
             denial_reasons.append("profile-not-active")
+        if BINDING_STATUS != "active":
+            denial_reasons.append("binding-not-active")
+        if PROVIDER_ROUTE_STATUS != "active":
+            denial_reasons.append("provider-route-not-active")
         if not ACCESS_PLANE_ACTIVATION_ALLOWED:
             denial_reasons.append("access-plane-not-active")
+        if not MODEL_ACTIVATION_ELIGIBLE:
+            denial_reasons.append("model-selection-not-activation-eligible")
         if UPSTREAM_MODEL == "pending-selection":
             denial_reasons.append("upstream-model-pending-selection")
         if output_schema_ref != OUTPUT_SCHEMA_REF:
@@ -424,6 +495,7 @@ class Handler(BaseHTTPRequestHandler):
                 "caller_identity": caller_identity,
                 "operator_identity": operator_identity,
                 "approved_profile_id": PROFILE_ID,
+                "selected_binding": selected_binding_evidence(),
                 "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
                 "requested_profile_id": requested_profile,
                 "invocation_path": INVOCATION_PATH,
@@ -433,7 +505,7 @@ class Handler(BaseHTTPRequestHandler):
                 "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
                 "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
                 "prompt_version": PROVIDER.prompt_version,
-                "purpose": "workspace-intake-assist",
+                "purpose": PROFILE_PURPOSE,
                 "output_schema_ref": OUTPUT_SCHEMA_REF,
                 "policy_decision": policy_decision,
                 "policy_reasons": denial_reasons,
@@ -511,6 +583,7 @@ class Handler(BaseHTTPRequestHandler):
                 "confidence": provider_result.output["confidence"],
                 "caller_id": caller_identity.get("caller_id"),
                 "invocation_path": INVOCATION_PATH,
+                "binding_selection_ref": BINDING_SELECTION_REF,
                 "suggested_decision": provider_result.output["suggested_decision"],
                 "audit_ref": f"local-ledger:{event['event_digest']}",
             },
@@ -553,6 +626,11 @@ PY
 
 render_runtime_manifest() {
   ensure_state_dirs
+  write_model_selection_receipt
+  if [[ "${UPSTREAM_PROVIDER}" != "ollama" ]]; then
+    echo "No governed-ai-gateway runtime adapter is implemented for provider ${UPSTREAM_PROVIDER}" >&2
+    exit 1
+  fi
   render_gateway_app
   render_provider_sentinel_app
   cp "${RUNTIME_SOURCE_DIR}/ollama_adapter.py" "${RENDERED_DIR}/ollama_adapter.py"
@@ -654,15 +732,37 @@ spec:
             - name: GOVERNED_AI_AUDIT_ROOT
               value: /var/lib/governed-ai-gateway
             - name: GOVERNED_AI_PROFILE_ID
-              value: intake-classifier-v1
+              value: "${MODEL_PROFILE_ID}"
             - name: GOVERNED_AI_PROFILE_STATUS
               value: "${MODEL_PROFILE_STATUS}"
+            - name: GOVERNED_AI_PROFILE_PURPOSE
+              value: "${MODEL_PROFILE_PURPOSE}"
+            - name: GOVERNED_AI_MODEL_ENVIRONMENT
+              value: "${MODEL_ENVIRONMENT}"
+            - name: GOVERNED_AI_BINDING_ID
+              value: "${MODEL_BINDING_ID}"
+            - name: GOVERNED_AI_BINDING_STATUS
+              value: "${MODEL_BINDING_STATUS}"
+            - name: GOVERNED_AI_BINDING_SELECTION_DIGEST
+              value: "${MODEL_SELECTION_DIGEST}"
+            - name: GOVERNED_AI_BINDING_SELECTION_REF
+              value: "${MODEL_SELECTION_REF}"
+            - name: GOVERNED_AI_PROFILE_REGISTRY_DIGEST
+              value: "${MODEL_PROFILE_REGISTRY_DIGEST}"
+            - name: GOVERNED_AI_ACCESS_PLANE_DIGEST
+              value: "${MODEL_ACCESS_PLANE_DIGEST}"
+            - name: GOVERNED_AI_FALLBACK_MODE
+              value: "${MODEL_FALLBACK_MODE}"
+            - name: GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE
+              value: "${MODEL_ACTIVATION_ELIGIBLE}"
             - name: GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED
               value: "${ACCESS_PLANE_ACTIVATION_ALLOWED}"
             - name: GOVERNED_AI_UPSTREAM_PROVIDER
               value: "${UPSTREAM_PROVIDER}"
             - name: GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE
               value: "${UPSTREAM_PROVIDER_ROUTE}"
+            - name: GOVERNED_AI_PROVIDER_ROUTE_STATUS
+              value: "${MODEL_PROVIDER_ROUTE_STATUS}"
             - name: GOVERNED_AI_UPSTREAM_MODEL
               value: "${UPSTREAM_MODEL}"
             - name: GOVERNED_AI_UPSTREAM_MODEL_DIGEST
@@ -672,7 +772,7 @@ spec:
             - name: GOVERNED_AI_PROVIDER_BASE_URL
               value: "http://${provider_host_ip}:11434"
             - name: GOVERNED_AI_INVOCATION_PATH
-              value: governed-ai-gateway
+              value: "${INVOCATION_PATH}"
             - name: GOVERNED_AI_OUTPUT_SCHEMA_REF
               value: "${PROVIDER_OUTPUT_SCHEMA_REF}"
             - name: GOVERNED_AI_ALLOWED_CALLERS
@@ -934,6 +1034,9 @@ except urllib.error.HTTPError as exc:
     denied_status = exc.code
     denied_body = json.loads(exc.read().decode("utf-8"))
 
+with urllib.request.urlopen(f"{gateway_url}/v1/audit/events/latest", timeout=10) as response:
+    denied_audit = json.loads(response.read().decode("utf-8"))
+
 try:
     with urllib.request.urlopen(request, timeout=60) as response:
         gateway_body = json.loads(response.read().decode("utf-8"))
@@ -970,6 +1073,10 @@ print(
             "unauthorized_http_status": denied_status,
             "unauthorized_policy_decision": denied_body.get("policy_decision"),
             "unauthorized_reasons": denied_body.get("reasons", []),
+            "unauthorized_audit_selected_binding": (
+                (denied_audit.get("latest") or {}).get("selected_binding")
+            ),
+            "gateway_binding_selection_ref": gateway_body.get("binding_selection_ref"),
             "direct_provider_reachable": provider_direct_reachable,
             "direct_provider_error": provider_error,
             "direct_ollama_reachable": ollama_direct_reachable,

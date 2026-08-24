@@ -19,6 +19,15 @@ from uuid import uuid4
 
 import yaml
 
+from dev_integration_host_services import (
+    HostServiceError,
+    inspect_host_services,
+    reconcile_host_services,
+    render_host_service_status,
+    resolve_host_services,
+    stop_host_services,
+)
+
 
 ACTIONS = {
     "access": "access",
@@ -581,7 +590,7 @@ def dispatch_command(
     *,
     cwd: Path,
     env: dict[str, str],
-    publish_result: Callable[[int], None] | None = None,
+    publish_result: Callable[[int], int | None] | None = None,
 ) -> int:
     if command_path.suffix == ".sh":
         command = ["bash", str(command_path)]
@@ -621,7 +630,9 @@ def dispatch_command(
         if received_signal is not None:
             returncode = 128 + received_signal
         if publish_result is not None:
-            publish_result(returncode)
+            published_returncode = publish_result(returncode)
+            if isinstance(published_returncode, int):
+                returncode = published_returncode
         if received_signal is not None:
             returncode = 128 + received_signal
         return returncode
@@ -669,6 +680,14 @@ def main() -> int:
         profile_id=args.profile,
         repo_overrides=repo_overrides,
     )
+    try:
+        host_service_specs = resolve_host_services(
+            profile,
+            owner_repo_root,
+            source_revisions=repo_states,
+        )
+    except HostServiceError as exc:
+        raise SystemExit(f"{exc.code}: {exc}") from exc
     if ACTIONS[args.action] == "smoke":
         state_model = (profile.get("runtime") or {}).get("state_model")
         mutation_mode = smoke_testing(profile).get("mutation_mode")
@@ -719,12 +738,17 @@ def main() -> int:
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )
+    manifest["host_services"] = []
     action_files = prepare_action_session_files(
         action=ACTIONS[args.action],
         manifest=manifest,
         current_manifest=current_manifest_path,
         sessions_root=paths["sessions_root"],
     )
+    archive_path: Path | None = None
+    result_path: Path | None = None
+    if action_files is not None:
+        archive_path, result_path, _ = action_files
 
     promotion_report_path = paths["state_root"] / "promotion-report.yaml"
     if ACTIONS[args.action] == "promote_check":
@@ -748,6 +772,16 @@ def main() -> int:
         DEVINT_STATE_ROOT=str(paths["state_root"]),
         DEVINT_WORKSPACE_ROOT=str(workspace_root),
     )
+    env["DEVINT_HOST_SERVICES_JSON"] = json.dumps(
+        [
+            {
+                "id": spec.service_id,
+                "command_digest": spec.command_digest,
+                "readiness_mode": spec.readiness.mode,
+            }
+            for spec in host_service_specs
+        ]
+    )
 
     command_key = ACTIONS[args.action]
     try:
@@ -763,15 +797,93 @@ def main() -> int:
         command_relpath,
         description=f"Profile {args.profile!r} action {command_key!r}",
     )
-    publish_result = None
-    if action_files is not None:
-        archive_path, result_path, manifest_snapshot = action_files
-        publish_result = lambda action_returncode: write_execution_result(
-            manifest_snapshot=manifest_snapshot,
-            manifest_path=archive_path,
-            result_path=result_path,
-            returncode=action_returncode,
-        )
+    lifecycle_error: HostServiceError | None = None
+    host_service_projection: list[dict] = []
+    if command_key in {"down", "reset"}:
+        try:
+            host_service_projection = stop_host_services(
+                host_service_specs,
+                state_root=paths["state_root"],
+            )
+        except HostServiceError as exc:
+            lifecycle_error = exc
+            print(f"{exc.code}: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+
+    def publish_result(action_returncode: int) -> int:
+        nonlocal host_service_projection, lifecycle_error
+        final_returncode = action_returncode
+        if command_key == "up":
+            try:
+                if action_returncode != 0:
+                    host_service_projection = inspect_host_services(
+                        host_service_specs,
+                        state_root=paths["state_root"],
+                        cwd=owner_repo_root,
+                        env=env,
+                    )
+                else:
+                    host_service_projection = reconcile_host_services(
+                        host_service_specs,
+                        state_root=paths["state_root"],
+                        cwd=owner_repo_root,
+                        env=env,
+                    )
+            except HostServiceError as exc:
+                lifecycle_error = exc
+                print(f"{exc.code}: {exc}", file=sys.stderr)
+                try:
+                    host_service_projection = inspect_host_services(
+                        host_service_specs,
+                        state_root=paths["state_root"],
+                        cwd=owner_repo_root,
+                        env=env,
+                    )
+                except HostServiceError as inspect_error:
+                    print(f"{inspect_error.code}: {inspect_error}", file=sys.stderr)
+        elif command_key == "status":
+            try:
+                host_service_projection = inspect_host_services(
+                    host_service_specs,
+                    state_root=paths["state_root"],
+                    cwd=owner_repo_root,
+                    env=env,
+                )
+            except HostServiceError as exc:
+                lifecycle_error = exc
+                print(f"{exc.code}: {exc}", file=sys.stderr)
+        elif command_key not in {"down", "reset"}:
+            try:
+                host_service_projection = inspect_host_services(
+                    host_service_specs,
+                    state_root=paths["state_root"],
+                    cwd=owner_repo_root,
+                    env=env,
+                )
+            except HostServiceError as exc:
+                lifecycle_error = exc
+                print(f"{exc.code}: {exc}", file=sys.stderr)
+        if host_service_projection:
+            render_host_service_status(host_service_projection)
+        if lifecycle_error is not None or (
+            command_key == "status"
+            and any(not projection["healthy"] for projection in host_service_projection)
+        ):
+            final_returncode = final_returncode or 1
+        manifest["host_services"] = host_service_projection
+        if action_files is not None:
+            assert archive_path is not None and result_path is not None
+            manifest_snapshot = yaml.safe_dump(manifest, sort_keys=False).encode()
+            current_manifest_path.write_bytes(manifest_snapshot)
+            current_manifest_path.chmod(0o600)
+            write_execution_result(
+                manifest_snapshot=manifest_snapshot,
+                manifest_path=archive_path,
+                result_path=result_path,
+                returncode=final_returncode,
+            )
+        return final_returncode
+
     returncode = dispatch_command(
         command_path,
         cwd=owner_repo_root,
@@ -786,6 +898,7 @@ def main() -> int:
         f"profile={args.profile} action={args.action} namespace={namespace} session={session_id}"
     )
     if action_files is not None:
+        assert archive_path is not None and result_path is not None
         print(f"session manifest: {current_manifest_path}")
         print(f"archived action manifest: {archive_path}")
         print(f"action result: {result_path}")

@@ -328,6 +328,7 @@ OOS_REPO_ROOT ?= ../operator-orchestration-service
 validate:
 	python3 scripts/validate_repo_structure.py
 	python3 scripts/test_dev_integration.py
+	python3 scripts/test_dev_integration_host_services.py
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py
 	python3 scripts/test_ai_model_profiles.py

@@ -107,6 +107,44 @@ If a workflow still needs mutating smoke, admit and use a separate disposable
 companion profile instead of writing test artifacts into the persistent
 working lane.
 
+## Declared Persistent Host Services
+
+A profile may require a host-side process that must remain alive after its
+foreground `up` action returns. Such a process must be declared in
+`profile.yaml`; profile scripts must not background it with `nohup`, raw
+`setsid`, or a parallel PID lifecycle.
+
+Each `host_services` entry declares:
+
+- a stable lowercase `id`
+- one owner-relative foreground `command`
+- an explicit readiness mode:
+  - `process` for process-liveness readiness
+  - `command` with an owner-relative probe for functional readiness
+- optional positive readiness timeout, interval, and probe-timeout values
+
+The shared runner owns the resulting lifecycle:
+
+- successful `up` reconciles one process per declaration and waits for
+  readiness
+- repeated `up` reuses the same healthy process only when its command and all
+  declared source repo revisions still match
+- concurrent lifecycle calls serialize per service so only one process can own
+  a declaration
+- `status` reports real PID identity, readiness, and log location and fails
+  when a declared service is unhealthy
+- `down` and `reset` stop the recorded process group before the owner action
+  completes its runtime cleanup
+- successful `up`, `down`, and `reset` also retire verified recorded services
+  whose declaration was removed or renamed
+- stale or mismatched PID, boot, or process-start identity fails closed and is
+  never killed as if it were the declared service
+
+Every action manifest records service id, PID, boot identity, process start
+identity, source-bound command digest, log path, and readiness. This remains
+provisional local evidence. It does not turn a host process into a governed
+runtime or weaken direct action-process cleanup for undeclared descendants.
+
 When a new profile requests `persistent` state, the admission record must make
 these operator commitments explicit:
 
@@ -159,6 +197,12 @@ Every `dev-integration` run must record:
   - working-tree SHA-256 when dirty
   - upstream tracking state
   - whether a path override or worktree was used
+- declared persistent host services, when present, with:
+  - service id
+  - PID and process start identity
+  - source-bound command digest
+  - log path
+  - readiness mode, result, detail, and check time
 
 For a clean repo, the head SHA is the source identity and
 `working_tree_sha256` is null. For a dirty repo, the head SHA plus

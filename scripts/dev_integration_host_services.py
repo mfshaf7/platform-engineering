@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import json
 import os
@@ -166,7 +168,11 @@ def _spawn_detached(
     return int(raw_pid)
 
 
-def resolve_host_services(profile: dict, owner_repo_root: Path) -> list[HostServiceSpec]:
+def resolve_host_services(
+    profile: dict,
+    owner_repo_root: Path,
+    source_revisions: dict[str, dict] | None = None,
+) -> list[HostServiceSpec]:
     declarations = profile.get("host_services") or []
     if not isinstance(declarations, list):
         raise HostServiceError("host-service-contract-invalid", "host_services must be a list")
@@ -235,6 +241,13 @@ def resolve_host_services(profile: dict, owner_repo_root: Path) -> list[HostServ
                 "interval_seconds": readiness.interval_seconds,
                 "probe_timeout_seconds": readiness.probe_timeout_seconds,
             },
+            "source_revisions": {
+                repo: {
+                    "head_sha": revision.get("head_sha"),
+                    "working_tree_sha256": revision.get("working_tree_sha256"),
+                }
+                for repo, revision in sorted((source_revisions or {}).items())
+            },
         }
         command_digest = f"sha256:{hashlib.sha256(json.dumps(digest_payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()}"
         specs.append(
@@ -251,6 +264,51 @@ def resolve_host_services(profile: dict, owner_repo_root: Path) -> list[HostServ
 def _service_paths(state_root: Path, service_id: str) -> tuple[Path, Path]:
     service_root = state_root / "host-services" / service_id
     return service_root / "service.yaml", service_root / "service.log"
+
+
+@contextmanager
+def _exclusive_lock(lock_path: Path):
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    os.chmod(lock_path, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+def _profile_lock_path(state_root: Path) -> Path:
+    return state_root / "host-services" / "lifecycle.lock"
+
+
+def _service_lock_path(state_root: Path, service_id: str) -> Path:
+    state_path, _ = _service_paths(state_root, service_id)
+    return state_path.with_name("service.lock")
+
+
+def _recorded_service_ids(state_root: Path) -> list[str]:
+    services_root = state_root / "host-services"
+    if not services_root.is_dir():
+        return []
+    return sorted(
+        entry.name
+        for entry in services_root.iterdir()
+        if entry.is_dir()
+        and SERVICE_ID_PATTERN.fullmatch(entry.name)
+        and (entry / "service.yaml").is_file()
+    )
+
+
+def _recorded_service_requires_reconciliation(state_root: Path, service_id: str) -> bool:
+    state_path, _ = _service_paths(state_root, service_id)
+    state = _load_state(state_path)
+    return not (
+        state.get("status") == "stopped"
+        and state.get("pid") is None
+        and state.get("process_start_ticks") is None
+    )
 
 
 def _write_private_yaml(path: Path, payload: dict) -> None:
@@ -284,10 +342,34 @@ def _process_start_ticks(pid: int) -> str | None:
     return fields[19]
 
 
+def _boot_id() -> str:
+    try:
+        boot_id = Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
+    except (FileNotFoundError, PermissionError, OSError) as exc:
+        raise HostServiceError(
+            "host-service-identity-unavailable",
+            "Linux boot identity is unavailable",
+        ) from exc
+    if not boot_id:
+        raise HostServiceError(
+            "host-service-identity-unavailable",
+            "Linux boot identity is empty",
+        )
+    return boot_id
+
+
 def _identity_status(state: dict) -> str:
     pid = state.get("pid")
     expected_ticks = state.get("process_start_ticks")
-    if not isinstance(pid, int) or pid <= 0 or not isinstance(expected_ticks, str):
+    expected_boot_id = state.get("boot_id")
+    if (
+        not isinstance(pid, int)
+        or pid <= 0
+        or not isinstance(expected_ticks, str)
+        or not isinstance(expected_boot_id, str)
+    ):
+        return "not-running"
+    if expected_boot_id != _boot_id():
         return "not-running"
     actual_ticks = _process_start_ticks(pid)
     if actual_ticks is None:
@@ -372,6 +454,7 @@ def _projection(spec: HostServiceSpec, state: dict, *, healthy: bool, status: st
         "healthy": healthy,
         "pid": state.get("pid"),
         "process_start_ticks": state.get("process_start_ticks"),
+        "boot_id": state.get("boot_id"),
         "command_digest": state.get("command_digest") or spec.command_digest,
         "log_path": state.get("log_path"),
         "readiness": {
@@ -412,39 +495,113 @@ def inspect_host_service(
     return _projection(spec, state, healthy=healthy, status="running" if healthy else "unhealthy", detail=detail)
 
 
-def stop_host_service(spec: HostServiceSpec, *, state_root: Path) -> dict:
-    state_path, log_path = _service_paths(state_root, spec.service_id)
+def _recorded_projection(
+    service_id: str,
+    state: dict,
+    *,
+    healthy: bool,
+    status: str,
+    detail: str,
+) -> dict:
+    readiness = state.get("readiness") if isinstance(state.get("readiness"), dict) else {}
+    return {
+        "id": service_id,
+        "status": status,
+        "healthy": healthy,
+        "pid": state.get("pid"),
+        "process_start_ticks": state.get("process_start_ticks"),
+        "boot_id": state.get("boot_id"),
+        "command_digest": state.get("command_digest"),
+        "log_path": state.get("log_path"),
+        "readiness": {
+            "mode": readiness.get("mode") or state.get("readiness_mode") or "process",
+            "status": "ready" if healthy else "not-ready",
+            "detail": detail,
+            "checked_at": now_utc(),
+        },
+    }
+
+
+def inspect_recorded_host_service(service_id: str, *, state_root: Path) -> dict:
+    state_path, log_path = _service_paths(state_root, service_id)
     state = _load_state(state_path)
     state.setdefault("state_file", str(state_path))
     state.setdefault("log_path", str(log_path))
     identity = _identity_status(state)
     if identity == "identity-mismatch":
-        raise HostServiceError("host-service-identity-mismatch", f"refusing to stop {spec.service_id}: recorded PID belongs to a different process")
+        return _recorded_projection(
+            service_id,
+            state,
+            healthy=False,
+            status="identity-mismatch",
+            detail="recorded PID belongs to a different process",
+        )
+    return _recorded_projection(
+        service_id,
+        state,
+        healthy=False,
+        status="undeclared" if identity == "running" else "stale-undeclared",
+        detail="service is no longer declared by the selected profile",
+    )
+
+
+def _stop_host_service_unlocked(
+    service_id: str,
+    *,
+    state_root: Path,
+    spec: HostServiceSpec | None = None,
+) -> dict:
+    state_path, log_path = _service_paths(state_root, service_id)
+    state = _load_state(state_path)
+    state.setdefault("state_file", str(state_path))
+    state.setdefault("log_path", str(log_path))
+    identity = _identity_status(state)
+    if identity == "identity-mismatch":
+        raise HostServiceError("host-service-identity-mismatch", f"refusing to stop {service_id}: recorded PID belongs to a different process")
     pid = state.get("pid")
     has_recorded_identity = isinstance(pid, int) and pid > 0 and isinstance(
         state.get("process_start_ticks"), str
-    )
+    ) and state.get("boot_id") == _boot_id()
     if identity == "running" or (has_recorded_identity and _group_alive(pid)):
         _terminate_group(state["pid"])
         if _group_alive(state["pid"]):
-            raise HostServiceError("host-service-stop-failed", f"host service {spec.service_id} did not stop")
+            raise HostServiceError("host-service-stop-failed", f"host service {service_id} did not stop")
     stopped = {
         **state,
         "schema_version": 1,
-        "service_id": spec.service_id,
+        "service_id": service_id,
         "status": "stopped",
         "pid": None,
         "process_start_ticks": None,
-        "command_digest": state.get("command_digest") or spec.command_digest,
+        "boot_id": state.get("boot_id") or _boot_id(),
+        "command_digest": state.get("command_digest") or (spec.command_digest if spec else None),
         "state_file": str(state_path),
         "log_path": str(log_path),
         "updated_at": now_utc(),
     }
     _write_private_yaml(state_path, stopped)
-    return _projection(spec, stopped, healthy=False, status="stopped", detail="service-stopped")
+    if spec is not None:
+        return _projection(spec, stopped, healthy=False, status="stopped", detail="service-stopped")
+    return _recorded_projection(
+        service_id,
+        stopped,
+        healthy=False,
+        status="stopped",
+        detail="service-stopped",
+    )
 
 
-def start_host_service(
+def stop_host_service(spec: HostServiceSpec, *, state_root: Path) -> dict:
+    with _exclusive_lock(_profile_lock_path(state_root)):
+        with _exclusive_lock(_service_lock_path(state_root, spec.service_id)):
+            return _stop_host_service_unlocked(
+                spec.service_id,
+                state_root=state_root,
+                spec=spec,
+            )
+
+
+def _start_host_service_unlocked(
     spec: HostServiceSpec,
     *,
     state_root: Path,
@@ -460,7 +617,11 @@ def start_host_service(
     state_path, log_path = _service_paths(state_root, spec.service_id)
     old_state = _load_state(state_path)
     if _identity_status(old_state) == "running":
-        stop_host_service(spec, state_root=state_root)
+        _stop_host_service_unlocked(
+            spec.service_id,
+            state_root=state_root,
+            spec=spec,
+        )
     service_env = {
         **env,
         "DEVINT_HOST_SERVICE_ID": spec.service_id,
@@ -481,6 +642,7 @@ def start_host_service(
         ) from exc
     process_start_ticks = _process_start_ticks(service_pid)
     if process_start_ticks is None:
+        _terminate_group(service_pid)
         raise HostServiceError("host-service-start-failed", f"host service {spec.service_id} exited before identity could be recorded")
     state = {
         "schema_version": 1,
@@ -488,8 +650,10 @@ def start_host_service(
         "status": "starting",
         "pid": service_pid,
         "process_start_ticks": process_start_ticks,
+        "boot_id": _boot_id(),
         "command_digest": spec.command_digest,
         "command_path": str(spec.command_path),
+        "readiness_mode": spec.readiness.mode,
         "state_file": str(state_path),
         "log_path": str(log_path),
         "started_at": now_utc(),
@@ -520,7 +684,11 @@ def start_host_service(
             return _projection(spec, running, healthy=True, status="running", detail=last_detail)
         sleep(spec.readiness.interval_seconds)
     try:
-        stop_host_service(spec, state_root=state_root)
+        _stop_host_service_unlocked(
+            spec.service_id,
+            state_root=state_root,
+            spec=spec,
+        )
     finally:
         failed = {
             **state,
@@ -539,6 +707,25 @@ def start_host_service(
     raise HostServiceError("host-service-readiness-failed", f"host service {spec.service_id} did not become ready: {last_detail}")
 
 
+def start_host_service(
+    spec: HostServiceSpec,
+    *,
+    state_root: Path,
+    cwd: Path,
+    env: dict[str, str],
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict:
+    with _exclusive_lock(_profile_lock_path(state_root)):
+        with _exclusive_lock(_service_lock_path(state_root, spec.service_id)):
+            return _start_host_service_unlocked(
+                spec,
+                state_root=state_root,
+                cwd=cwd,
+                env=env,
+                sleep=sleep,
+            )
+
+
 def reconcile_host_services(
     specs: list[HostServiceSpec],
     *,
@@ -546,10 +733,30 @@ def reconcile_host_services(
     cwd: Path,
     env: dict[str, str],
 ) -> list[dict]:
-    return [
-        start_host_service(spec, state_root=state_root, cwd=cwd, env=env)
-        for spec in specs
-    ]
+    with _exclusive_lock(_profile_lock_path(state_root)):
+        projections: list[dict] = []
+        declared_ids = {spec.service_id for spec in specs}
+        for service_id in _recorded_service_ids(state_root):
+            if service_id in declared_ids or not _recorded_service_requires_reconciliation(
+                state_root,
+                service_id,
+            ):
+                continue
+            with _exclusive_lock(_service_lock_path(state_root, service_id)):
+                projections.append(
+                    _stop_host_service_unlocked(service_id, state_root=state_root)
+                )
+        for spec in specs:
+            with _exclusive_lock(_service_lock_path(state_root, spec.service_id)):
+                projections.append(
+                    _start_host_service_unlocked(
+                        spec,
+                        state_root=state_root,
+                        cwd=cwd,
+                        env=env,
+                    )
+                )
+        return projections
 
 
 def inspect_host_services(
@@ -559,23 +766,49 @@ def inspect_host_services(
     cwd: Path,
     env: dict[str, str],
 ) -> list[dict]:
-    return [
-        inspect_host_service(spec, state_root=state_root, cwd=cwd, env=env)
-        for spec in specs
-    ]
+    with _exclusive_lock(_profile_lock_path(state_root)):
+        projections = [
+            inspect_host_service(spec, state_root=state_root, cwd=cwd, env=env)
+            for spec in specs
+        ]
+        declared_ids = {spec.service_id for spec in specs}
+        projections.extend(
+            inspect_recorded_host_service(service_id, state_root=state_root)
+            for service_id in _recorded_service_ids(state_root)
+            if service_id not in declared_ids
+            and _recorded_service_requires_reconciliation(state_root, service_id)
+        )
+        return projections
 
 
 def stop_host_services(specs: list[HostServiceSpec], *, state_root: Path) -> list[dict]:
-    projections: list[dict] = []
-    errors: list[str] = []
-    for spec in reversed(specs):
-        try:
-            projections.append(stop_host_service(spec, state_root=state_root))
-        except HostServiceError as exc:
-            errors.append(f"{spec.service_id}: {exc}")
-    if errors:
-        raise HostServiceError("host-service-stop-failed", "; ".join(errors))
-    return list(reversed(projections))
+    with _exclusive_lock(_profile_lock_path(state_root)):
+        projections: list[dict] = []
+        errors: list[str] = []
+        specs_by_id = {spec.service_id: spec for spec in specs}
+        service_ids = list(specs_by_id)
+        service_ids.extend(
+            service_id
+            for service_id in _recorded_service_ids(state_root)
+            if service_id not in specs_by_id
+            and _recorded_service_requires_reconciliation(state_root, service_id)
+        )
+        for service_id in reversed(service_ids):
+            spec = specs_by_id.get(service_id)
+            try:
+                with _exclusive_lock(_service_lock_path(state_root, service_id)):
+                    projections.append(
+                        _stop_host_service_unlocked(
+                            service_id,
+                            state_root=state_root,
+                            spec=spec,
+                        )
+                    )
+            except HostServiceError as exc:
+                errors.append(f"{service_id}: {exc}")
+        if errors:
+            raise HostServiceError("host-service-stop-failed", "; ".join(errors))
+        return list(reversed(projections))
 
 
 def render_host_service_status(projections: list[dict]) -> None:

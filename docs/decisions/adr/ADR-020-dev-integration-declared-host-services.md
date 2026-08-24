@@ -25,13 +25,16 @@ Extend the existing platform-owned dev-integration runner with an explicit
 The shared runner:
 
 - validates owner-relative service and readiness commands
-- derives a source-bound command digest
+- derives a command digest bound to every declared source repo revision
 - launches the foreground service through runner-owned detachment
-- records PID and Linux process-start identity before treating it as owned
+- records PID, Linux boot identity, and process-start identity before treating
+  it as owned
+- serializes lifecycle changes per profile and service
 - waits for explicit process or command readiness
 - reconciles idempotently on `up`
 - reports truthful state on `status`
 - stops the verified process group on `down` and `reset`
+- stops verified recorded services whose declaration was removed or renamed
 - refuses to kill or replace an identity-mismatched PID
 
 Profile owners provide service behavior and readiness semantics but do not own
@@ -43,6 +46,8 @@ continue to be terminated by the existing action process-group boundary.
 - Persistent host-side support becomes visible, testable, and reusable across
   profiles without introducing another control plane.
 - Session manifests can report exact local service identity and readiness.
+- Every action manifest preserves the observed service projection instead of
+  implying that a running service disappeared during a non-lifecycle action.
 - The runner remains Linux/WSL-specific for this capability because it binds
   `/proc` process-start identity and POSIX process groups.
 - Profile migrations must remove prior `nohup`, PID, and stop implementations

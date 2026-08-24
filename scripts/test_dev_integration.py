@@ -580,7 +580,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             owner_root = workspace_root / "owner-repo"
             profile_path = owner_root / "profile.yaml"
             owner_root.mkdir(parents=True)
-            for action in ("up", "status", "down"):
+            for action in ("up", "status", "access", "down"):
                 script = owner_root / f"{action}.sh"
                 script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
                 script.chmod(0o700)
@@ -601,6 +601,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 "commands": {
                     "up": "up.sh",
                     "status": "status.sh",
+                    "access": "access.sh",
                     "down": "down.sh",
                 },
                 "host_services": [
@@ -668,6 +669,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 self.assertTrue(service_projection["healthy"])
                 self.assertTrue(Path(f"/proc/{pid}/stat").exists())
                 self.assertEqual(run_action("status"), 0)
+                self.assertEqual(run_action("access"), 0)
+                access_manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+                self.assertEqual(access_manifest["host_services"][0]["pid"], pid)
+                self.assertTrue(access_manifest["host_services"][0]["healthy"])
                 self.assertEqual(run_action("down"), 0)
                 deadline = time.monotonic() + 2
                 while Path(f"/proc/{pid}/stat").exists() and time.monotonic() < deadline:

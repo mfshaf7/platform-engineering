@@ -40,11 +40,14 @@
 - Add a product-neutral host-service declaration and supervision module.
 - Keep service command, readiness semantics, and source ownership in the
   profile owner repo.
-- Record PID, process-start identity, command digest, log path, and readiness in
-  the local session manifest.
+- Record PID, Linux boot identity, process-start identity, all-source command
+  digest, log path, and readiness in every local action manifest.
+- Serialize concurrent lifecycle calls and retire verified service records
+  removed from the selected profile.
 - Preserve fail-closed process-group cleanup for undeclared action descendants.
-- Add positive lifecycle, readiness failure, identity mismatch, contract, and
-  integrated `up` / `status` / `down` tests.
+- Add positive lifecycle, readiness failure, identity mismatch, source-change,
+  concurrent launch, removed declaration, forced teardown, contract, and
+  integrated action-manifest tests.
 
 ## Artifact And Deployment Evidence
 

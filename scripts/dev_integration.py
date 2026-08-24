@@ -681,7 +681,11 @@ def main() -> int:
         repo_overrides=repo_overrides,
     )
     try:
-        host_service_specs = resolve_host_services(profile, owner_repo_root)
+        host_service_specs = resolve_host_services(
+            profile,
+            owner_repo_root,
+            source_revisions=repo_states,
+        )
     except HostServiceError as exc:
         raise SystemExit(f"{exc.code}: {exc}") from exc
     if ACTIONS[args.action] == "smoke":
@@ -795,7 +799,7 @@ def main() -> int:
     )
     lifecycle_error: HostServiceError | None = None
     host_service_projection: list[dict] = []
-    if command_key in {"down", "reset"} and host_service_specs:
+    if command_key in {"down", "reset"}:
         try:
             host_service_projection = stop_host_services(
                 host_service_specs,
@@ -809,7 +813,7 @@ def main() -> int:
     def publish_result(action_returncode: int) -> int:
         nonlocal host_service_projection, lifecycle_error
         final_returncode = action_returncode
-        if command_key == "up" and host_service_specs:
+        if command_key == "up":
             try:
                 if action_returncode != 0:
                     host_service_projection = inspect_host_services(
@@ -837,7 +841,18 @@ def main() -> int:
                     )
                 except HostServiceError as inspect_error:
                     print(f"{inspect_error.code}: {inspect_error}", file=sys.stderr)
-        elif command_key == "status" and host_service_specs:
+        elif command_key == "status":
+            try:
+                host_service_projection = inspect_host_services(
+                    host_service_specs,
+                    state_root=paths["state_root"],
+                    cwd=owner_repo_root,
+                    env=env,
+                )
+            except HostServiceError as exc:
+                lifecycle_error = exc
+                print(f"{exc.code}: {exc}", file=sys.stderr)
+        elif command_key not in {"down", "reset"}:
             try:
                 host_service_projection = inspect_host_services(
                     host_service_specs,
@@ -869,12 +884,11 @@ def main() -> int:
             )
         return final_returncode
 
-    should_publish = action_files is not None or bool(host_service_specs)
     returncode = dispatch_command(
         command_path,
         cwd=owner_repo_root,
         env=env,
-        publish_result=publish_result if should_publish else None,
+        publish_result=publish_result,
     )
     if returncode:
         raise SystemExit(returncode)

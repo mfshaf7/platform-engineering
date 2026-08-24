@@ -127,19 +127,23 @@ The shared runner owns the resulting lifecycle:
 
 - successful `up` reconciles one process per declaration and waits for
   readiness
-- repeated `up` reuses the same healthy process when its source-bound command
-  digest still matches
+- repeated `up` reuses the same healthy process only when its command and all
+  declared source repo revisions still match
+- concurrent lifecycle calls serialize per service so only one process can own
+  a declaration
 - `status` reports real PID identity, readiness, and log location and fails
   when a declared service is unhealthy
 - `down` and `reset` stop the recorded process group before the owner action
   completes its runtime cleanup
-- stale or mismatched PID identity fails closed and is never killed as if it
-  were the declared service
+- successful `up`, `down`, and `reset` also retire verified recorded services
+  whose declaration was removed or renamed
+- stale or mismatched PID, boot, or process-start identity fails closed and is
+  never killed as if it were the declared service
 
-The local session manifest records service id, PID, process start identity,
-source-bound command digest, log path, and readiness. This remains provisional
-local evidence. It does not turn a host process into a governed runtime or
-weaken direct action-process cleanup for undeclared descendants.
+Every action manifest records service id, PID, boot identity, process start
+identity, source-bound command digest, log path, and readiness. This remains
+provisional local evidence. It does not turn a host process into a governed
+runtime or weaken direct action-process cleanup for undeclared descendants.
 
 When a new profile requests `persistent` state, the admission record must make
 these operator commitments explicit:

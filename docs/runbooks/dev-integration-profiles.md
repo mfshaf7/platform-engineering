@@ -277,9 +277,11 @@ host_services:
 Both commands are owner-relative files resolved inside the selected owner
 checkout. The service command must remain in the foreground; the shared runner
 performs the detach and owns PID state, command-digest comparison, logs,
-readiness, status, and teardown. Use `process` readiness only when process
-liveness is the complete readiness claim. Do not add profile-owned `nohup`,
-`setsid`, PID files, or duplicate stop logic.
+readiness, status, serialization, and teardown. The digest includes every
+declared source repo revision, so changing imported or invoked source causes a
+restart even when the entrypoint file itself is unchanged. Use `process`
+readiness only when process liveness is the complete readiness claim. Do not
+add profile-owned `nohup`, `setsid`, PID files, or duplicate stop logic.
 
 Each dispatched action leaves a local manifest/result pair under
 `.dev-integration/sessions/`. The result is self-contained: it records the
@@ -294,9 +296,13 @@ standalone completion or rollout authority.
 
 Declared host-service state lives under the operator-scoped profile state root
 at `host-services/<service-id>/`. `service.yaml` and `service.log` are runner
-owned. If status reports `identity-mismatch`, inspect the recorded state and
-host process before retrying; the runner intentionally refuses to kill or
-replace an unverified PID.
+owned. Process ownership binds PID, Linux boot ID, and process-start ticks. If
+status reports `identity-mismatch`, inspect the recorded state and host process
+before retrying; the runner intentionally refuses to kill or replace an
+unverified PID. A successful lifecycle action retires verified recorded
+services removed from the selected profile; `status` reports such a service as
+undeclared until that reconciliation occurs and omits its retired tombstone
+afterward.
 
 State-model rule:
 

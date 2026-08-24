@@ -574,6 +574,112 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertEqual(returncode, 128 + signal.SIGTERM)
             self.assertEqual(signal.getsignal(signal.SIGTERM), previous_handler)
 
+    def test_main_reconciles_declared_host_service_across_up_status_and_down(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-host-service-") as temp_dir:
+            workspace_root = Path(temp_dir) / "workspace"
+            owner_root = workspace_root / "owner-repo"
+            profile_path = owner_root / "profile.yaml"
+            owner_root.mkdir(parents=True)
+            for action in ("up", "status", "down"):
+                script = owner_root / f"{action}.sh"
+                script.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+                script.chmod(0o700)
+            service = owner_root / "service.sh"
+            service.write_text(
+                '#!/usr/bin/env bash\ntrap "exit 0" TERM INT\nwhile true; do sleep 0.1; done\n',
+                encoding="utf-8",
+            )
+            service.chmod(0o700)
+            profile = {
+                "summary": "host service integration test",
+                "runtime": {
+                    "namespace_pattern": "devint-{profile}-{operator}",
+                    "state_model": "persistent",
+                },
+                "source_repos": [{"repo": "owner-repo"}],
+                "stage_handoff": {"required_checks": []},
+                "commands": {
+                    "up": "up.sh",
+                    "status": "status.sh",
+                    "down": "down.sh",
+                },
+                "host_services": [
+                    {
+                        "id": "test-service",
+                        "command": "service.sh",
+                        "readiness": {"mode": "process"},
+                    }
+                ],
+            }
+            profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+            entry = {
+                "lifecycle": "active",
+                "owner_repo": "owner-repo",
+                "runtime_owner": "platform-engineering",
+                "security_owner": "security-architecture",
+            }
+            repo_states = {
+                "owner-repo": {
+                    "branch": "test",
+                    "dirty": False,
+                    "head_sha": "a" * 40,
+                    "path": str(owner_root),
+                    "upstream": None,
+                }
+            }
+            resolved = (
+                entry,
+                profile,
+                owner_root,
+                profile_path,
+                {"owner-repo": owner_root},
+                repo_states,
+            )
+
+            def run_action(action: str) -> int:
+                with (
+                    patch.object(DEV_INTEGRATION, "resolve_profile", return_value=resolved),
+                    patch.object(
+                        DEV_INTEGRATION.sys,
+                        "argv",
+                        [
+                            "dev_integration.py",
+                            action,
+                            "--profile",
+                            "test-profile",
+                            "--operator",
+                            "test-operator",
+                            "--workspace-root",
+                            str(workspace_root),
+                        ],
+                    ),
+                ):
+                    return DEV_INTEGRATION.main()
+
+            self.assertEqual(run_action("up"), 0)
+            manifest_path = (
+                workspace_root
+                / ".dev-integration/test-profile/test-operator/current-session.yaml"
+            )
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+            service_projection = manifest["host_services"][0]
+            pid = service_projection["pid"]
+            try:
+                self.assertTrue(service_projection["healthy"])
+                self.assertTrue(Path(f"/proc/{pid}/stat").exists())
+                self.assertEqual(run_action("status"), 0)
+                self.assertEqual(run_action("down"), 0)
+                deadline = time.monotonic() + 2
+                while Path(f"/proc/{pid}/stat").exists() and time.monotonic() < deadline:
+                    time.sleep(0.05)
+                self.assertFalse(Path(f"/proc/{pid}/stat").exists())
+                with self.assertRaises(SystemExit) as stopped_status:
+                    run_action("status")
+                self.assertEqual(stopped_status.exception.code, 1)
+            finally:
+                if Path(f"/proc/{pid}/stat").exists():
+                    os.killpg(pid, signal.SIGKILL)
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"

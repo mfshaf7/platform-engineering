@@ -228,8 +228,12 @@ Meaning:
 - `devint-up`
   - creates, refreshes, or resumes the local profile runtime declared by the
     active profile
+  - starts or reconciles every declared persistent host service only after the
+    foreground owner action succeeds
 - `devint-status`
   - shows the current session and runtime state
+  - reports each declared host service's real PID, readiness, and log path;
+    unhealthy declared services make the command fail
 - `devint-access`
   - reports or opens the profile's primary inspection surface
   - disposable profiles may hold a foreground port-forward until you stop it
@@ -255,6 +259,28 @@ Meaning:
 - `devint-down`
   - stops the profile runtime using the profile's declared state model
 
+Profiles that need a process to survive after `up` returns use this bounded
+shape:
+
+```yaml
+host_services:
+  - id: example-reconciler
+    command: dev-integration/profiles/example/scripts/reconcile-loop.sh
+    readiness:
+      mode: command
+      command: dev-integration/profiles/example/scripts/reconcile-ready.sh
+      timeout_seconds: 10
+      interval_seconds: 0.25
+      probe_timeout_seconds: 5
+```
+
+Both commands are owner-relative files resolved inside the selected owner
+checkout. The service command must remain in the foreground; the shared runner
+performs the detach and owns PID state, command-digest comparison, logs,
+readiness, status, and teardown. Use `process` readiness only when process
+liveness is the complete readiness claim. Do not add profile-owned `nohup`,
+`setsid`, PID files, or duplicate stop logic.
+
 Each dispatched action leaves a local manifest/result pair under
 `.dev-integration/sessions/`. The result is self-contained: it records the
 return code, source-manifest digest, and complete source manifest captured
@@ -265,6 +291,12 @@ Owner actions still run with their declared host and cluster access; this is
 not a security sandbox, and these local files are not protected evidence. Use
 the record digests only as provisional local handoff inputs, never as
 standalone completion or rollout authority.
+
+Declared host-service state lives under the operator-scoped profile state root
+at `host-services/<service-id>/`. `service.yaml` and `service.log` are runner
+owned. If status reports `identity-mismatch`, inspect the recorded state and
+host process before retrying; the runner intentionally refuses to kill or
+replace an unverified PID.
 
 State-model rule:
 

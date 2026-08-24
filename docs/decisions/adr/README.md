@@ -23,6 +23,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-017-temporal-durable-workflow-runtime.md](ADR-017-temporal-durable-workflow-runtime.md)
 - [ADR-018-permit-gated-component-commissioning-proof.md](ADR-018-permit-gated-component-commissioning-proof.md) - source-reviewed, permit-bound commissioning while normal component launch remains denied
 - [ADR-019-wgcf-dev-integration-evidence-storage.md](ADR-019-wgcf-dev-integration-evidence-storage.md) - bounded local WGCF evidence custody with isolated credentials, versioning, and verified recovery
+- [ADR-020-dev-integration-declared-host-services.md](ADR-020-dev-integration-declared-host-services.md) - runner-owned lifecycle for explicitly declared persistent host processes
 
 ## Rules
 

@@ -189,3 +189,85 @@ model_profiles:
       dev-integration under the Security decision in #994 and Platform
       activation in #995. Console integration remains independently gated by
       #996. Paid-provider, stage, and prod activation remain prohibited.
+  delivery-refinement-advisor-v1:
+    status: selected-not-active
+    purpose: delivery-refinement-assist
+    invocation_path: governed-ai-gateway
+    selected_binding_by_environment:
+      dev-integration: local-ollama-qwen3-8b
+    bindings:
+      local-ollama-qwen3-8b:
+        status: selected-not-active
+        environments:
+          - dev-integration
+        provider: ollama
+        provider_route: ollama-local-host
+        upstream_model: qwen3:8b
+        model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+        runtime_version: 0.32.15
+        selection:
+          selected_at: "2026-08-26"
+          selected_by: operator:workspace-owner
+          basis: contract-compatible-refinement-devint-candidate
+          documentation_ref: https://ollama.com/library/qwen3:8b
+    allowed_callers:
+      - operator-orchestration-service/refinement-assist
+    allowed_data_scope:
+      - CGG receipt-bound model-safe Refinement content
+      - CGG packet, redaction receipt, and projection receipt references
+      - operator-supplied Refinement prompt
+      - OOS-owned versioned Refinement task instruction
+      - selected Delivery field and build-tree node identifiers
+    runtime_limits:
+      max_request_bytes: 300000
+      max_output_tokens: 2048
+      timeout_seconds: 60
+      retry_count: 1
+      max_concurrency: 2
+    task_contracts:
+      default_task_kind: metadata_advice
+      allowed:
+        metadata_advice:
+          contract_ref: oos.delivery-refinement.v1
+          contract_version: "1.0"
+          contract_source_ref:
+            repo: operator-orchestration-service
+            path: contracts/refinement/manifest.json
+          instruction_owner_repo: operator-orchestration-service
+          instruction_source: caller
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/delivery-refinement-advice.schema.json
+          input_contract:
+            allowed_fields:
+              - task_instruction
+              - operator_prompt
+              - model_safe_packet
+            required_fields:
+              - task_instruction
+              - operator_prompt
+              - model_safe_packet
+            model_safe_packet_required_fields:
+              - packet_ref
+              - redaction_receipt_ref
+              - projection_receipt_ref
+              - content
+    provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/delivery-refinement-advice.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/refinement/assist-result.schema.json
+    human_approval_required: true
+    direct_provider_access_allowed: false
+    security_review_ref:
+      repo: security-architecture
+      path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
+    activation_review_ref: openproject://work_packages/1012
+    notes: >
+      The Refinement profile and local Ollama binding are registered for exact
+      contract resolution but remain selected-not-active. Security review
+      #1012 and Platform activation #1013 must approve the caller, context,
+      output, audit, and runtime composition before invocation is allowed.
+      Console integration remains independently gated by #1014. Paid-provider,
+      stage, and prod activation remain prohibited.

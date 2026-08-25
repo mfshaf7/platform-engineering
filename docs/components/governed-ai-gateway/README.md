@@ -54,6 +54,12 @@ the OOS-owned Work Design assist contract. Security review #994 and Platform
 activation #995 approve that bounded profile; they do not approve Console
 integration, a paid provider, stage, prod, tools, or direct model mutation.
 
+`delivery-refinement-advisor-v1` is registered as `selected-not-active` for
+the typed OOS Refinement assist contract. It can be resolved and tested without
+provider invocation, but activation is denied until Security review #1012 and
+Platform activation #1013 complete. The Console continues to call OOS only;
+neither OOS business handlers nor CGG receive provider credentials.
+
 The dev-integration launcher resolves every configured logical profile for one
 environment, verifies each matching access-plane route, and emits
 content-addressed non-secret selection references. Requests must name an exact
@@ -68,8 +74,9 @@ or inactive selected binding never falls back to another binding.
   contracts, provider custody, and release gates.
 - `workspace-governance` owns the intake-assist consumer contract and workspace
   truth updates after operator acceptance.
-- `operator-orchestration-service` owns Work Design task instructions,
-  workflow semantics, suggestion presentation, and operator-approved apply.
+- `operator-orchestration-service` owns Work Design and Refinement task
+  instructions, workflow semantics, suggestion presentation, and
+  operator-approved apply.
 - `security-architecture` owns security review, findings, and activation
   acceptance.
 

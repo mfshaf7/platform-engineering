@@ -90,6 +90,14 @@ class GatewayPolicyTests(unittest.TestCase):
         self.assertIn("profile-activation-not-allowed", work_design.reasons)
         self.assertTrue(intake.allowed)
 
+    def test_refinement_profile_is_resolvable_but_invocation_stays_denied(self) -> None:
+        decision = GatewayPolicy(selections()).evaluate(self.refinement_request())
+
+        self.assertFalse(decision.allowed)
+        self.assertIn("profile-not-active", decision.reasons)
+        self.assertIn("binding-not-active", decision.reasons)
+        self.assertIn("profile-activation-not-allowed", decision.reasons)
+
     def test_unknown_caller_task_schema_and_profile_fail_closed(self) -> None:
         request = self.work_design_request()
         request["caller_identity"]["caller_id"] = "unknown/caller"
@@ -149,6 +157,38 @@ class GatewayPolicyTests(unittest.TestCase):
                         "/v1/context/work-design/projections/work-design-1"
                     ),
                     "content": "A bounded model-safe package projection.",
+                },
+            },
+        }
+
+    @staticmethod
+    def refinement_request() -> dict:
+        profile_id = "delivery-refinement-advisor-v1"
+        return {
+            "profile_id": profile_id,
+            "caller_identity": caller(
+                profile_id, "operator-orchestration-service/refinement-assist"
+            ),
+            "operator_identity": {"operator_id": "operator:test"},
+            "task": {
+                "kind": "metadata_advice",
+                "contract_ref": "oos.delivery-refinement.v1",
+                "version": "1.0",
+            },
+            "provider_output_schema_ref": (
+                "platform-engineering/security/schemas/"
+                "delivery-refinement-advice.schema.json"
+            ),
+            "input": {
+                "task_instruction": "Suggest a value without applying it.",
+                "operator_prompt": "Make the readiness field verifiable.",
+                "model_safe_packet": {
+                    "packet_ref": "/v1/context/packets/refinement-1",
+                    "redaction_receipt_ref": "/v1/context/receipts/refinement-1",
+                    "projection_receipt_ref": (
+                        "/v1/context/refinement/projections/refinement-1"
+                    ),
+                    "content": "A bounded model-safe Refinement projection.",
                 },
             },
         }

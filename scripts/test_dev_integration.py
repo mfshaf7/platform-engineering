@@ -306,10 +306,19 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             self.assertEqual(
                 set(selections["profiles"]),
-                {"intake-classifier-v1", "delivery-work-design-advisor-v1"},
+                {
+                    "intake-classifier-v1",
+                    "delivery-work-design-advisor-v1",
+                    "delivery-refinement-advisor-v1",
+                },
             )
             self.assertTrue(
                 selections["profiles"]["delivery-work-design-advisor-v1"][
+                    "activation_eligible"
+                ]
+            )
+            self.assertFalse(
+                selections["profiles"]["delivery-refinement-advisor-v1"][
                     "activation_eligible"
                 ]
             )

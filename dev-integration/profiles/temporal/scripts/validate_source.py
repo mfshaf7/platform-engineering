@@ -245,6 +245,83 @@ def main() -> int:
         "initial workflow task queues are incomplete",
         errors,
     )
+    workflow_profiles = boundary.get("workflow_profiles", [])
+    profile_ids = [entry.get("profile_id") for entry in workflow_profiles]
+    require(bool(workflow_profiles), "workflow_profiles must not be empty", errors)
+    require(
+        len(profile_ids) == len(set(profile_ids)),
+        "workflow profile ids must be unique",
+        errors,
+    )
+    refinement_profile = next(
+        (
+            entry
+            for entry in workflow_profiles
+            if entry.get("profile_id") == "delivery-refinement-apply-v1"
+        ),
+        {},
+    )
+    require(
+        refinement_profile.get("status") == "selected-not-active",
+        "delivery-refinement-apply-v1 must remain selected-not-active",
+        errors,
+    )
+    require(
+        refinement_profile.get("definition")
+        == {
+            "id": "delivery.refinement.apply",
+            "version": 1,
+            "owner_repo": "operator-orchestration-service",
+            "contract_ref": "contracts/refinement/manifest.json",
+        },
+        "delivery-refinement-apply-v1 definition binding is invalid",
+        errors,
+    )
+    runtime_binding = refinement_profile.get("runtime_binding", {})
+    require(
+        runtime_binding
+        == {
+            "profile_id": "temporal",
+            "workflow_task_queue_id": "delivery-refinement-apply",
+            "activity_task_queue_id": "delivery-refinement-activity",
+            "worker_identity": "oos_workflow_worker",
+        },
+        "delivery-refinement-apply-v1 runtime binding is invalid",
+        errors,
+    )
+    queue_ids = {entry.get("id") for entry in task_queues}
+    require(
+        {
+            runtime_binding.get("workflow_task_queue_id"),
+            runtime_binding.get("activity_task_queue_id"),
+        }
+        <= queue_ids,
+        "delivery-refinement-apply-v1 references an unknown task queue",
+        errors,
+    )
+    require(
+        runtime_binding.get("worker_identity") in identities,
+        "delivery-refinement-apply-v1 references an unknown worker identity",
+        errors,
+    )
+    authority = refinement_profile.get("authority", {})
+    require(
+        authority.get("console_direct_access_allowed") is False
+        and authority.get("consumer_temporal_credentials_allowed") is False
+        and authority.get("platform_business_logic_allowed") is False,
+        "delivery-refinement-apply-v1 authority boundary is invalid",
+        errors,
+    )
+    activation = refinement_profile.get("activation", {})
+    require(
+        activation.get("worker_start_allowed") is False
+        and activation.get("security_acceptance_ref")
+        == "openproject://work_packages/1012"
+        and activation.get("platform_activation_ref")
+        == "openproject://work_packages/1013",
+        "delivery-refinement-apply-v1 activation boundary is invalid",
+        errors,
+    )
     validation_queue = next(
         (
             entry

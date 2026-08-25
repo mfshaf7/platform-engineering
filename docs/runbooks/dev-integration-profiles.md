@@ -140,8 +140,12 @@ must select one exact profile, caller, task contract, output schema, and binding
 unknown, inactive, or mismatched selections fail closed without falling back to
 another profile or provider binding. The shared smoke command intentionally
 exercises the active intake compatibility profile. Selected-but-inactive
-profiles such as Work Design remain covered by source tests until their
-independent activation gate is approved.
+profiles such as Refinement remain covered by source tests until their
+independent activation gate is approved. The selected-not-active
+`delivery-refinement-advisor-v1` profile and
+`delivery-refinement-apply-v1` Temporal workflow profile are therefore
+resolvable for compatibility validation, but cannot invoke a provider, start a
+worker, expose runtime credentials, or be called directly by the Console.
 
 Current build-admitted profile:
 
@@ -162,6 +166,10 @@ Current build-admitted profile:
     is approved; use the
     [Temporal controlled commissioning procedure](../components/temporal/operations.md#controlled-commissioning-proof)
     as the primary Platform operator surface
+  - selected business definition: `delivery.refinement.apply` version `1` is
+    registered against OOS-owned contracts and existing Temporal queue/worker
+    identities, but remains non-launchable pending Security review #1012 and
+    Platform activation #1013
 
 ### Temporal Generation Retirement
 

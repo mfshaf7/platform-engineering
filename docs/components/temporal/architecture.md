@@ -35,6 +35,10 @@ OOS owns:
 - aggregate run projection
 - final orchestration receipts
 
+The first registered business definition is `delivery.refinement.apply`
+version `1`. Its Platform profile records only the runtime binding and inactive
+launch gates; the OOS contract remains the semantic authority.
+
 Temporal owns:
 
 - durable scheduling

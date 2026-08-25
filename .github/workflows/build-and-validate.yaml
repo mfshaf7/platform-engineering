@@ -60,6 +60,7 @@ jobs:
           python scripts/test_governed_ai_gateway_runtime.py
           python scripts/test_governed_ai_ollama_adapter.py
           python scripts/test_dev_integration.py
+          python scripts/test_dev_integration_compositions.py
           python scripts/test_dev_integration_host_services.py
 
       - name: Validate operational docs

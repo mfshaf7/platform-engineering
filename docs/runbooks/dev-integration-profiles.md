@@ -225,6 +225,30 @@ make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>
 make devint-down PROFILE=<profile>
 ```
 
+When a workspace-registered runtime composition is required, use the same
+shared lifecycle surface with `COMPOSITION` instead of `PROFILE`:
+
+```bash
+make devint-up COMPOSITION=work-design-advice
+make devint-status COMPOSITION=work-design-advice
+make devint-down COMPOSITION=work-design-advice
+```
+
+`PROFILE` and `COMPOSITION` are mutually exclusive. Runtime compositions are
+limited to `up`, `status`, and `down`; run profile-specific access, smoke,
+backup, restore, reset, and promote-check actions against the relevant profile
+after the composition is healthy.
+
+The shared runner validates every participant and required lifecycle, starts
+providers before consumers, derives cluster-local service endpoints, and
+projects only contract-declared environment variables. Runtime-generated
+credentials live under the operator-private composition state root, never in
+Git or command arguments. Repeated `up` reuses the active composition binding;
+successful `down` stops consumers before providers and removes that binding.
+Failed start, status, teardown, ownership, lifecycle, credential, or projection
+checks fail closed. Composition state reports identifiers and outcomes only;
+it never records credential values.
+
 Meaning:
 
 - `devint-up`
@@ -295,6 +319,12 @@ Owner actions still run with their declared host and cluster access; this is
 not a security sandbox, and these local files are not protected evidence. Use
 the record digests only as provisional local handoff inputs, never as
 standalone completion or rollout authority.
+
+Composed child actions leave the same per-profile manifest/result evidence and
+also record their `runtime_composition_id`. The composition coordinator keeps
+one private redacted state file under
+`.dev-integration/compositions/<composition>/<operator>/`; this is local
+runtime ownership state, not governed completion evidence.
 
 Declared host-service state lives under the operator-scoped profile state root
 at `host-services/<service-id>/`. `service.yaml` and `service.log` are runner

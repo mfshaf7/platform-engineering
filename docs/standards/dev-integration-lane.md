@@ -62,6 +62,37 @@ branch, worktree, or dirty state each repo contributed.
 Branch-only is not enough because source state does not tell you which
 services, seed jobs, smoke checks, and cleanup behavior the environment needs.
 
+When one operator workflow requires multiple active profiles, a fourth
+workspace-registered runtime-composition contract binds those profiles without
+merging their ownership. Platform executes that contract through the same
+single-profile runner; profile definitions remain in their owner repos.
+
+## Runtime Compositions
+
+A runtime composition is justified only when an operator workflow cannot run
+through one profile and its dependencies must be assembled consistently. It
+must declare:
+
+- one root profile and every required participant lifecycle
+- an acyclic provider-to-consumer dependency graph
+- explicit endpoint projections with no duplicate consumer environment target
+- runtime-generated credential bindings with exact profile/environment targets
+- one Platform runtime owner for ordering, local credential custody, status,
+  and teardown
+
+The shared runner starts providers before consumers and stops them in reverse.
+It derives cross-namespace cluster-local endpoints from provider service and
+namespace truth. Credential values are generated into an operator-owned `0600`
+file, passed only through the declared child-process environment, omitted from
+manifests and output, and removed after successful composition teardown.
+
+Composition state is local and redacted. It records participant order,
+projection identifiers, completed and failed profiles, lifecycle, and the last
+action. Missing or unsafe credentials, inactive or missing profiles, cycles,
+ownership mismatch, failed readiness, and incomplete teardown fail closed.
+This state does not replace each profile's action manifest and does not become
+governed stage or production evidence.
+
 ## Lane Classes
 
 - `prototype-devint`: prototype preview for internal tools, client app
@@ -244,6 +275,10 @@ Shared operator entrypoints:
 - `devint-down`
 - `devint-reset`
 - `devint-promote-check`
+
+Workspace-registered runtime compositions use only `devint-up`,
+`devint-status`, and `devint-down` with `COMPOSITION=<id>`. Other actions retain
+profile-local semantics and use `PROFILE=<id>`.
 
 The shared runner dispatches those actions into the owner repo's concrete
 profile.

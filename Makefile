@@ -27,13 +27,13 @@ help:
 	@printf "  openproject-provision-operator-orchestration-delivery-access Grant the broker service identity access to both proposal and delivery projects\n"
 	@printf "  openproject-uninstall Remove the OpenProject Argo apps after GitOps removal\n"
 	@printf "\nOpenProject delivery execution is broker-owned in operator-orchestration-service docs/operations/delivery-workflow-operator-surface.md\n"
-	@printf "  devint-up Launch or converge a local dev-integration profile\n"
-	@printf "  devint-status Show the current local dev-integration profile state\n"
+	@printf "  devint-up Launch or converge a local dev-integration profile or runtime composition\n"
+	@printf "  devint-status Show the current local dev-integration profile or runtime composition state\n"
 	@printf "  devint-access Hold open the primary inspection surface for a local dev-integration profile\n"
 	@printf "  devint-smoke Run the smoke checks for a local dev-integration profile\n"
 	@printf "  devint-backup Capture an operator-local backup for a persistent profile that implements it\n"
 	@printf "  devint-restore Restore an operator-local backup for a persistent profile that implements it\n"
-	@printf "  devint-down Stop a local dev-integration profile while keeping local state\n"
+	@printf "  devint-down Stop a local dev-integration profile or runtime composition while keeping product state\n"
 	@printf "  devint-reset Tear down a local dev-integration profile and remove local state\n"
 	@printf "  devint-promote-check Render the local handoff report required before governed stage rehearsal\n"
 	@printf "  platform-drill Run the shared runtime-drill contract helper\n"
@@ -178,13 +178,15 @@ openproject-uninstall:
 
 .PHONY: devint-up
 devint-up:
-	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-up PROFILE=idea-workflow"; exit 1; }
-	python3 scripts/dev_integration.py up --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
+	@test -z "$(PROFILE)" -o -z "$(COMPOSITION)" || { echo "PROFILE and COMPOSITION are mutually exclusive"; exit 1; }
+	python3 scripts/dev_integration.py up $(if $(COMPOSITION),--composition $(COMPOSITION),--profile $(PROFILE)) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: devint-status
 devint-status:
-	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-status PROFILE=idea-workflow"; exit 1; }
-	python3 scripts/dev_integration.py status --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
+	@test -z "$(PROFILE)" -o -z "$(COMPOSITION)" || { echo "PROFILE and COMPOSITION are mutually exclusive"; exit 1; }
+	python3 scripts/dev_integration.py status $(if $(COMPOSITION),--composition $(COMPOSITION),--profile $(PROFILE)) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: devint-access
 devint-access:
@@ -209,8 +211,9 @@ devint-restore:
 
 .PHONY: devint-down
 devint-down:
-	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-down PROFILE=idea-workflow"; exit 1; }
-	python3 scripts/dev_integration.py down --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
+	@test -z "$(PROFILE)" -o -z "$(COMPOSITION)" || { echo "PROFILE and COMPOSITION are mutually exclusive"; exit 1; }
+	python3 scripts/dev_integration.py down $(if $(COMPOSITION),--composition $(COMPOSITION),--profile $(PROFILE)) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: devint-reset
 devint-reset:
@@ -328,6 +331,7 @@ OOS_REPO_ROOT ?= ../operator-orchestration-service
 validate:
 	python3 scripts/validate_repo_structure.py
 	python3 scripts/test_dev_integration.py
+	python3 scripts/test_dev_integration_compositions.py
 	python3 scripts/test_dev_integration_host_services.py
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py

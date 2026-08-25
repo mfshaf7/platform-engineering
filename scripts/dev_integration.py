@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -26,6 +26,13 @@ from dev_integration_host_services import (
     render_host_service_status,
     resolve_host_services,
     stop_host_services,
+)
+from dev_integration_compositions import (
+    bounded_child_environment,
+    CompositionError,
+    composition_state_root,
+    execute_composition,
+    resolve_runtime_composition,
 )
 
 
@@ -440,7 +447,7 @@ def build_manifest(
         f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-"
         f"{uuid4().hex[:8]}"
     )
-    return {
+    manifest = {
         "schema_version": 1,
         "lane": "dev-integration",
         "profile_id": profile_id,
@@ -462,6 +469,13 @@ def build_manifest(
         "stage_handoff": profile["stage_handoff"],
         "source_repos": repo_states,
     }
+    composition_id = os.environ.get("DEVINT_COMPOSITION_ID")
+    if composition_id:
+        manifest["runtime_composition_id"] = composition_id
+        manifest["runtime_composition_root_profile_id"] = os.environ.get(
+            "DEVINT_COMPOSITION_ROOT_PROFILE_ID"
+        )
+    return manifest
 
 
 def prepare_session_files(
@@ -643,10 +657,105 @@ def dispatch_command(
             signal.signal(signum, previous_handler)
 
 
+def run_runtime_composition(
+    *,
+    action: str,
+    composition_id: str,
+    operator: str,
+    repo_overrides: dict[str, Path],
+    workspace_root: Path,
+) -> int:
+    _, registry = load_registry(workspace_root, repo_overrides)
+    try:
+        composition, profile_order = resolve_runtime_composition(
+            registry,
+            composition_id,
+        )
+    except CompositionError as exc:
+        raise SystemExit(f"{exc.code}: {exc}") from exc
+
+    runner_root = Path(__file__).resolve().parents[1]
+    if git_state(runner_root, workspace_root=workspace_root)["dirty"]:
+        raise SystemExit(
+            "Selected Platform runner checkout must be clean so composition "
+            "execution provenance is bound to its recorded Git head"
+        )
+
+    namespaces: dict[str, str] = {}
+    for profile_id in profile_order:
+        entry = registry["profiles"][profile_id]
+        owner_root = repo_overrides.get(
+            entry["owner_repo"],
+            workspace_root / entry["owner_repo"],
+        ).resolve()
+        profile_path = resolve_owner_file(
+            owner_root,
+            entry["profile_path"],
+            description=f"Composition profile {profile_id!r}",
+        )
+        profile = load_yaml(profile_path)
+        namespaces[profile_id] = compute_namespace(profile, profile_id, operator)
+
+    forwarded_repo_paths: list[str] = []
+    for repo_name, repo_path in sorted(repo_overrides.items()):
+        forwarded_repo_paths.extend(["--repo-path", f"{repo_name}={repo_path}"])
+
+    def dispatch(
+        child_action: str,
+        profile_id: str,
+        projection_environment: Mapping[str, str],
+    ) -> int:
+        command = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            child_action,
+            "--profile",
+            profile_id,
+            "--workspace-root",
+            str(workspace_root),
+            "--operator",
+            operator,
+            *forwarded_repo_paths,
+        ]
+        child_environment = bounded_child_environment(
+            composition,
+            base_environment=os.environ,
+            profile_environment={
+                **projection_environment,
+                "DEVINT_COMPOSITION_ID": composition_id,
+                "DEVINT_COMPOSITION_ROOT_PROFILE_ID": composition["root_profile_id"],
+            },
+        )
+        return subprocess.run(command, env=child_environment, check=False).returncode
+
+    try:
+        return execute_composition(
+            action=action,
+            composition_id=composition_id,
+            composition=composition,
+            profile_order=profile_order,
+            namespaces=namespaces,
+            operator=operator,
+            state_root=composition_state_root(
+                workspace_root,
+                composition_id,
+                operator,
+            ),
+            dispatch=dispatch,
+        )
+    except CompositionError as exc:
+        raise SystemExit(f"{exc.code}: {exc}") from exc
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a shared dev-integration profile action.")
     parser.add_argument("action", choices=sorted(ACTIONS))
-    parser.add_argument("--profile", required=True, help="registered dev-integration profile id")
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--profile", help="registered dev-integration profile id")
+    target.add_argument(
+        "--composition",
+        help="registered dev-integration runtime composition id",
+    )
     parser.add_argument(
         "--workspace-root",
         default=Path(__file__).resolve().parents[2],
@@ -673,6 +782,15 @@ def main() -> int:
         repo_overrides,
         workspace_root=workspace_root,
     )
+
+    if args.composition:
+        return run_runtime_composition(
+            action=ACTIONS[args.action],
+            composition_id=args.composition,
+            operator=operator,
+            repo_overrides=repo_overrides,
+            workspace_root=workspace_root,
+        )
 
     entry, profile, owner_repo_root, profile_path, repo_paths, repo_states = resolve_profile(
         action=ACTIONS[args.action],

@@ -143,20 +143,29 @@ class GatewayRuntime:
 
     def readiness(self) -> dict[str, Any]:
         compatibility = self.profiles[self.compatibility_profile_id]
+        ready_profile_ids = sorted(
+            profile_id
+            for profile_id, profile in self.profiles.items()
+            if profile["activation_eligible"] is True
+        )
         profile_states = {
             profile_id: {
                 "status": profile["profile_status"],
                 "activation_allowed": profile["profile_activation_allowed"],
                 "activation_eligible": profile["activation_eligible"],
+                "ready": profile_id in ready_profile_ids,
                 "task_kinds": sorted(profile["task_contracts"]),
             }
             for profile_id, profile in sorted(self.profiles.items())
         }
-        ready = compatibility["activation_eligible"] is True
         return {
-            "ready": ready,
+            "ready": bool(ready_profile_ids),
+            "ready_profile_ids": ready_profile_ids,
             "profile_id": compatibility["profile_id"],
             "profile_status": compatibility["profile_status"],
+            "compatibility_profile_ready": (
+                compatibility["profile_id"] in ready_profile_ids
+            ),
             "access_plane_activation_allowed": compatibility[
                 "profile_activation_allowed"
             ],

@@ -605,14 +605,14 @@ ollama_url = sys.argv[3]
 profile_id = sys.argv[4]
 caller_id = sys.argv[5]
 output_schema_ref = sys.argv[6]
-caller_repo = caller_id.split("/", 1)[0]
+caller_repo, caller_workflow = caller_id.split("/", 1)
 
 payload = {
     "profile_id": profile_id,
     "caller_identity": {
         "caller_id": caller_id,
         "caller_repo": caller_repo,
-        "caller_workflow": "governed-ai-devint-smoke",
+        "caller_workflow": caller_workflow,
         "decision_or_correlation_id": "devint-smoke-governed-ai-gateway",
         "requested_profile_id": profile_id,
     },

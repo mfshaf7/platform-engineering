@@ -246,6 +246,10 @@ class DevIntegrationRunnerTests(unittest.TestCase):
         self.assertIn('"${MODEL_PROFILE_ID}" "${MODEL_SMOKE_CALLER_ID}"', probe_source)
         self.assertIn('"${PROVIDER_OUTPUT_SCHEMA_REF}"', probe_source)
         self.assertNotIn('"profile_id": "intake-classifier-v1"', probe_source)
+        self.assertIn(
+            'caller_repo, caller_workflow = caller_id.split("/", 1)', probe_source
+        )
+        self.assertIn('"caller_workflow": caller_workflow', probe_source)
 
     def test_governed_ai_runtime_manifest_is_valid_multi_document_yaml(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-render-") as temp_dir:

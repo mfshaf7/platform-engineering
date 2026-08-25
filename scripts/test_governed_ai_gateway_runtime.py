@@ -154,6 +154,57 @@ class GatewayRuntimeTests(unittest.TestCase):
             "Review the tree without applying changes.",
         )
 
+    def test_readiness_stays_available_when_compatibility_profile_is_suspended(self) -> None:
+        resolved = copy.deepcopy(selections())
+        intake = resolved["profiles"]["intake-classifier-v1"]
+        intake["profile_status"] = "suspended"
+        intake["binding_status"] = "suspended"
+        intake["profile_activation_allowed"] = False
+        intake["activation_eligible"] = False
+        work_design = resolved["profiles"]["delivery-work-design-advisor-v1"]
+        work_design["profile_status"] = "active"
+        work_design["binding_status"] = "active"
+        work_design["profile_activation_allowed"] = True
+        work_design["activation_eligible"] = True
+        runtime = GatewayRuntime(
+            selections=resolved,
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={},
+        )
+
+        readiness = runtime.readiness()
+
+        self.assertTrue(readiness["ready"])
+        self.assertFalse(readiness["compatibility_profile_ready"])
+        self.assertEqual(
+            readiness["ready_profile_ids"],
+            ["delivery-work-design-advisor-v1"],
+        )
+        self.assertFalse(readiness["profiles"]["intake-classifier-v1"]["ready"])
+        self.assertTrue(
+            readiness["profiles"]["delivery-work-design-advisor-v1"]["ready"]
+        )
+
+    def test_readiness_fails_when_no_profile_is_activation_eligible(self) -> None:
+        resolved = copy.deepcopy(selections())
+        for profile in resolved["profiles"].values():
+            profile["profile_status"] = "suspended"
+            profile["binding_status"] = "suspended"
+            profile["profile_activation_allowed"] = False
+            profile["activation_eligible"] = False
+        runtime = GatewayRuntime(
+            selections=resolved,
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={},
+        )
+
+        readiness = runtime.readiness()
+
+        self.assertFalse(readiness["ready"])
+        self.assertEqual(readiness["ready_profile_ids"], [])
+
     @staticmethod
     def intake_request() -> dict:
         profile_id = "intake-classifier-v1"

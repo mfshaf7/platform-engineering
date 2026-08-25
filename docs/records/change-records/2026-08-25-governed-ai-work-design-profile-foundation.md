@@ -19,6 +19,8 @@
 - Related repos: `operator-orchestration-service`, `context-governance-gateway`,
   `security-architecture`
 - Related architecture: Workspace Delivery ART #884 architecture packet v9
+- Related ADR:
+  `docs/decisions/adr/ADR-021-multi-profile-governed-ai-gateway.md`
 
 ## Root Cause
 

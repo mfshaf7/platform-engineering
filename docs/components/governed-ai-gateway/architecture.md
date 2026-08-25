@@ -43,9 +43,11 @@ task contract for its authenticated caller; it cannot discover profiles or
 substitute tasks at request time. The resolver records each selected profile,
 environment, binding, provider route, model identity, task schema, source
 contract digests, and explicit `fail-closed-no-implicit-fallback` posture as a
-deterministic evidence object. Readiness exposes the independent lifecycle
-state of each profile, and invocation audits carry the selected profile and
-task evidence.
+deterministic evidence object. Pod readiness means that at least one profile is
+independently eligible to serve; suspending one profile does not remove another
+eligible profile from service. Readiness also exposes each profile state and the
+legacy intake compatibility state separately. Invocation audits carry the
+selected profile and task evidence.
 
 ## Model
 
@@ -93,6 +95,7 @@ activation still requires:
 
 ## Read With
 
+- [../../decisions/adr/ADR-021-multi-profile-governed-ai-gateway.md](../../decisions/adr/ADR-021-multi-profile-governed-ai-gateway.md)
 - [../../standards/governed-ai-access-model.md](../../standards/governed-ai-access-model.md)
 - [../../../security/governed-ai-access-plane.yaml](../../../security/governed-ai-access-plane.yaml)
 - [../../../security/governed-ai-runtime-assist-contract.yaml](../../../security/governed-ai-runtime-assist-contract.yaml)

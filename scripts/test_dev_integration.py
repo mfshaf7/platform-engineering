@@ -308,7 +308,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 set(selections["profiles"]),
                 {"intake-classifier-v1", "delivery-work-design-advisor-v1"},
             )
-            self.assertFalse(
+            self.assertTrue(
                 selections["profiles"]["delivery-work-design-advisor-v1"][
                     "activation_eligible"
                 ]

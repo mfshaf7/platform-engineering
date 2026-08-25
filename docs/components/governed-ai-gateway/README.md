@@ -30,7 +30,7 @@ The gateway is not:
 - dev-integration namespace: `devint-governed-ai-gateway-<operator>`
 - Argo application: none
 - stage/prod deployment: none
-- active provider: host Ollama `0.32.14` with pinned `qwen3:8b` digest
+- active provider: host Ollama `0.32.15` with pinned `qwen3:8b` digest
 - provider credentials: none for the local route; future paid credentials remain gateway-custodied
 - audit ledger: local PVC-backed dev-integration ledger only
 - direct consumer provider egress: denied by the dev-integration network-policy
@@ -39,8 +39,8 @@ The gateway is not:
 The runtime proves a real bounded Ollama invocation, caller identity capture,
 model and runtime integrity, deterministic selected-binding evidence, strict
 provider output, audit emission, and gateway-only consumer egress in
-dev-integration. Workspace consumption remains separately gated by the
-dependent consumer activation work.
+dev-integration. Console Work Design consumption remains separately gated by
+ART #996.
 
 ## Selected Model Profiles
 
@@ -49,10 +49,10 @@ selects `qwen3:8b` through the local Ollama route. The OpenAI Responses API and
 `gpt-5.6-terra` binding remains recorded as an inactive future paid route under
 separate activation work.
 
-`delivery-work-design-advisor-v1` is registered for the OOS-owned Work Design
-assist contract. Its local binding is selected but not active. It cannot invoke
-the provider until the profile, binding, caller, and independent activation
-gates are approved in later work.
+`delivery-work-design-advisor-v1` is active only in local `dev-integration` for
+the OOS-owned Work Design assist contract. Security review #994 and Platform
+activation #995 approve that bounded profile; they do not approve Console
+integration, a paid provider, stage, prod, tools, or direct model mutation.
 
 The dev-integration launcher resolves every configured logical profile for one
 environment, verifies each matching access-plane route, and emits
@@ -78,3 +78,4 @@ or inactive selected binding never falls back to another binding.
 - [governed AI access model](../../standards/governed-ai-access-model.md)
 - [AI security standard](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)
 - [bounded runtime assist activation review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md)
+- [Work Design activation boundary review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-25-governed-work-design-ai-activation-boundary.md)

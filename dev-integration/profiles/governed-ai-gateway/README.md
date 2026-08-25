@@ -46,9 +46,10 @@ files are local dev-integration receipts, not stage or production evidence.
 The current dev-integration instance calls host Ollama with `qwen3:8b`; the
 future paid OpenAI binding remains inactive and unproven.
 
-The Work Design profile is selected but not active. Its requests must carry an
-OOS-owned typed task contract and are denied before provider access until the
-separate security and activation work is complete.
+The Work Design profile is active only in local `dev-integration`. Its requests
+must carry the exact OOS-owned typed task contract, model-safe CGG packet
+references, caller identity, operator identity, and strict output schema.
+Console consumption remains separately gated by ART #996.
 
 ## Operator Actions
 
@@ -66,10 +67,10 @@ make devint-promote-check PROFILE=governed-ai-gateway
 ```
 
 `devint-smoke` is read-only with respect to canonical workspace truth. It runs
-a bounded model suggestion and proves caller identity, strict output, audit
-emission, deterministic selected-binding evidence for allowed and denied
-outcomes, exact model/runtime identity, gateway reachability, and denial of
-direct sentinel and Ollama paths from the consumer.
+bounded intake and Work Design suggestions and proves exact caller/task/schema
+binding, strict output, audit emission, deterministic selected-binding evidence
+for allowed and denied outcomes, exact model/runtime identity, gateway
+reachability, and denial of direct sentinel and Ollama paths from the consumer.
 
 ## Denied Paths
 

@@ -136,10 +136,10 @@ access_plane:
         binding: local-ollama-qwen3-8b
         reason: reviewed-local-intake-binding-active
       delivery-work-design-advisor-v1:
-        activation_allowed: false
+        activation_allowed: true
         environment: dev-integration
         binding: local-ollama-qwen3-8b
-        reason: blocked-pending-exact-security-review-and-platform-activation
+        reason: reviewed-work-design-devint-activation-994-995
     compatibility_projection:
       consumer: workspace-governance/intake-assist
     profile_activation_allowed: true
@@ -151,5 +151,5 @@ access_plane:
       dev-integration proof. Workspace consumer use remains separately gated
       until its dependent activation work completes. These flat fields are the
       compatibility projection for intake-classifier-v1; profile_activations is
-      the canonical per-profile lifecycle map. The Work Design profile and the
-      OpenAI route are not active.
+      the canonical per-profile lifecycle map. The Work Design profile is
+      independently active in dev-integration; the OpenAI route is not active.

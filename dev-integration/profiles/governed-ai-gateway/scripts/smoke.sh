@@ -62,7 +62,8 @@ python3 - \
   "${UPSTREAM_PROVIDER_ROUTE}" \
   "${UPSTREAM_MODEL}" \
   "${UPSTREAM_MODEL_DIGEST}" \
-  "${PROVIDER_RUNTIME_VERSION}" <<'PY'
+  "${PROVIDER_RUNTIME_VERSION}" \
+  "${WORK_DESIGN_SELECTION_JSON}" <<'PY'
 import json
 import pathlib
 import sys
@@ -81,13 +82,42 @@ expected_route = sys.argv[11]
 expected_model = sys.argv[12]
 expected_digest = sys.argv[13]
 expected_runtime_version = sys.argv[14]
+expected_work_design = json.loads(sys.argv[15])
 
-latest = gateway["latest_audit"]["latest"] or {}
+latest = probe.get("intake_audit") or {}
+work_design_audit = probe.get("work_design_audit") or {}
+work_design_denied_audit = probe.get("work_design_denied_audit") or {}
 provider = gateway["provider_custody"]
 ready = gateway["ready"]
 ready_binding = ready.get("selected_binding") or {}
 audit_binding = latest.get("selected_binding") or {}
 denied_binding = probe.get("unauthorized_audit_selected_binding") or {}
+work_design_binding = work_design_audit.get("selected_binding") or {}
+work_design_denied_binding = work_design_denied_audit.get("selected_binding") or {}
+work_design_output = probe.get("work_design_output") or {}
+work_design_task = probe.get("work_design_task") or {}
+expected_work_design_binding = {
+    field: expected_work_design[field]
+    for field in (
+        "profile_id",
+        "profile_status",
+        "environment",
+        "binding_id",
+        "binding_status",
+        "provider",
+        "provider_route",
+        "provider_route_status",
+        "upstream_model",
+        "profile_registry_digest",
+        "access_plane_digest",
+        "selection_digest",
+        "selection_ref",
+        "fallback_mode",
+        "activation_eligible",
+    )
+}
+expected_work_design_binding["upstream_model_digest"] = expected_work_design["model_digest"]
+expected_work_design_binding["provider_runtime_version"] = expected_work_design["runtime_version"]
 
 summary = {
     "profile": "governed-ai-gateway",
@@ -123,6 +153,21 @@ summary = {
     "provider_schema_valid": latest.get("provider_schema_valid") is True,
     "provider_latency_ms": latest.get("provider_latency_ms"),
     "provider_usage": latest.get("provider_usage"),
+    "ready_profile_ids": ready.get("ready_profile_ids", []),
+    "work_design_http_status": probe.get("work_design_http_status"),
+    "work_design_policy_decision": probe.get("work_design_policy_decision"),
+    "work_design_task": work_design_task,
+    "work_design_output": work_design_output,
+    "work_design_binding_selection_ref": probe.get("work_design_binding_selection_ref"),
+    "work_design_selected_binding": work_design_binding,
+    "work_design_audit_caller": (work_design_audit.get("caller_identity") or {}).get("caller_id"),
+    "work_design_audit_task_kind": work_design_audit.get("task_kind"),
+    "work_design_audit_packet_ref": work_design_audit.get("model_safe_packet_ref"),
+    "work_design_provider_schema_valid": work_design_audit.get("provider_schema_valid") is True,
+    "work_design_denied_http_status": probe.get("work_design_denied_http_status"),
+    "work_design_denied_policy_decision": probe.get("work_design_denied_policy_decision"),
+    "work_design_denied_reasons": probe.get("work_design_denied_reasons", []),
+    "work_design_denied_selected_binding": work_design_denied_binding,
     "smoke_mode": "read-only",
 }
 
@@ -131,8 +176,8 @@ if not summary["runtime_ready"]:
     failures.append("gateway runtime is not ready")
 if not summary["gateway_reachable_from_consumer"]:
     failures.append("consumer cannot reach governed gateway")
-if summary["audit_event_count"] < 1:
-    failures.append("gateway did not emit an audit event")
+if summary["audit_event_count"] < 4:
+    failures.append("gateway did not retain the complete intake and Work Design probe trail")
 if not summary["caller_identity_captured"]:
     failures.append("caller identity was not captured in audit")
 if summary["gateway_policy_decision"] != "allow":
@@ -191,6 +236,51 @@ if summary["direct_ollama_reachable_from_consumer"]:
     failures.append("consumer reached Ollama directly")
 if not summary["provider_schema_valid"]:
     failures.append("gateway did not record valid provider schema evidence")
+if set(summary["ready_profile_ids"]) != {
+    "intake-classifier-v1",
+    "delivery-work-design-advisor-v1",
+}:
+    failures.append("gateway readiness does not expose both independently active profiles")
+if summary["work_design_http_status"] != 200:
+    failures.append("Work Design invocation did not complete successfully")
+if summary["work_design_policy_decision"] != "allow":
+    failures.append("gateway did not allow the reviewed Work Design caller")
+if summary["work_design_task"] != {
+    "kind": "context_advice",
+    "contract_ref": "oos.delivery-work-design.v1",
+    "version": "1.0",
+}:
+    failures.append("Work Design response did not preserve the exact typed task identity")
+if set(work_design_output) != {
+    "confidence",
+    "required_operator_action",
+    "text",
+    "affected_node_id",
+    "patch_proposal",
+}:
+    failures.append("Work Design response did not match the strict output shape")
+if summary["work_design_binding_selection_ref"] != expected_work_design["selection_ref"]:
+    failures.append("Work Design response did not bind the reviewed runtime selection")
+if summary["work_design_selected_binding"] != expected_work_design_binding:
+    failures.append("Work Design audit did not bind the reviewed runtime selection")
+if summary["work_design_audit_caller"] != "operator-orchestration-service/work-design-assist":
+    failures.append("Work Design audit did not retain the exact caller identity")
+if summary["work_design_audit_task_kind"] != "context_advice":
+    failures.append("Work Design audit did not retain the exact task kind")
+if summary["work_design_audit_packet_ref"] != "cgg://packets/devint-work-design-smoke":
+    failures.append("Work Design audit did not retain the model-safe packet reference")
+if not summary["work_design_provider_schema_valid"]:
+    failures.append("Work Design provider output did not pass strict schema validation")
+if (
+    summary["work_design_denied_http_status"] != 403
+    or summary["work_design_denied_policy_decision"] != "deny"
+):
+    failures.append("gateway did not deny the mismatched Work Design request")
+for reason in ("caller-not-allowed", "profile-identity-mismatch", "task-kind-not-allowed"):
+    if reason not in summary["work_design_denied_reasons"]:
+        failures.append(f"Work Design denial did not identify {reason}")
+if summary["work_design_denied_selected_binding"] != expected_work_design_binding:
+    failures.append("denied Work Design audit did not bind the reviewed runtime selection")
 
 summary["result"] = "passed" if not failures else "failed"
 summary["failures"] = failures

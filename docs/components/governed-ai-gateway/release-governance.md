@@ -11,6 +11,10 @@ Dev-integration selects the reviewed local Ollama `qwen3:8b` binding. The
 OpenAI `gpt-5.6-terra` binding remains inactive and does not affect this
 release posture.
 
+The intake and Work Design logical profiles are independently active in this
+lane. ART #996 is still required before the Governance Operations Console may
+consume Work Design advice.
+
 ## Dev-Integration Gate
 
 Before using the gateway as activation evidence, prove:
@@ -29,6 +33,9 @@ Before using the gateway as activation evidence, prove:
 - both the model profile and the independent access-plane activation gate admit
   invocation
 - current security delta review
+- exact Work Design caller, task, schema, model-safe packet, and audit binding
+- independent Work Design suspension without intake regression
+- audit-ledger retention across an ordinary gateway restart
 
 ## Stage Gate
 
@@ -40,7 +47,7 @@ stage candidate.
 
 If any activation evidence fails:
 
-- set `intake-classifier-v1` to `suspended` or close access-plane activation
+- suspend only the affected logical profile or close only its access-plane activation
 - scale down the dev-integration gateway if the failure is runtime-specific
 - preserve audit ledger evidence
 - record the blocker or security finding before adjacent activation continues

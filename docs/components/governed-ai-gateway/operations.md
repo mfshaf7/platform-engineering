@@ -15,9 +15,10 @@ Smoke is read-only. It proves:
 - caller identity reaches the access plane
 - audit ledger event emission
 - active binding, Ollama version, and model digest match the registry
-- provider output passes the strict classification schema
+- intake and Work Design provider outputs pass their strict schemas
 - the complete profile registry resolves with independent lifecycle state
-- inactive Work Design requests are denied before provider access
+- mismatched Work Design caller, profile, and task requests are denied before provider access
+- suspending Work Design leaves intake independently available
 - consumer can reach the gateway service
 - consumer cannot reach the direct-provider sentinel service
 - consumer cannot reach host Ollama directly
@@ -70,6 +71,11 @@ make devint-up PROFILE=governed-ai-gateway
 - rendered runtime manifest path
 - audit event digest from `/v1/audit/events/latest`
 - profile lifecycle state from workspace registry
+
+The smoke summary carries separate intake and Work Design invocation, denial,
+selected-binding, caller, task, packet-reference, and schema evidence. The PVC
+ledger must retain prior events across an ordinary gateway restart; reset is not
+valid persistence evidence because it intentionally destroys local state.
 
 ## Related Procedures
 

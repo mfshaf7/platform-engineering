@@ -43,7 +43,7 @@ class FakeResponse:
 
 def valid_opener(request, **_kwargs):
     if request.full_url.endswith("/api/version"):
-        return FakeResponse({"version": "0.32.14"})
+        return FakeResponse({"version": "0.32.15"})
     if request.full_url.endswith("/api/tags"):
         return FakeResponse({"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
     request_body = json.loads(request.data)
@@ -69,7 +69,7 @@ def adapter(opener=valid_opener, **overrides) -> OllamaAdapter:
         "base_url": "http://ollama.test",
         "model": "qwen3:8b",
         "expected_digest": DIGEST,
-        "expected_runtime_version": "0.32.14",
+        "expected_runtime_version": "0.32.15",
         "retry_count": 0,
         "opener": opener,
     }
@@ -84,7 +84,7 @@ class OllamaAdapterTests(unittest.TestCase):
         self.assertEqual(result.output["suggested_decision"], "proposed")
         self.assertEqual(result.output["confidence"], "medium")
         self.assertEqual(result.model_digest, DIGEST)
-        self.assertEqual(result.runtime_version, "0.32.14")
+        self.assertEqual(result.runtime_version, "0.32.15")
         self.assertEqual(result.usage, {"prompt_tokens": 30, "completion_tokens": 12})
         self.assertEqual(result.prompt_version, "intake-classifier-v1.0")
 
@@ -97,7 +97,7 @@ class OllamaAdapterTests(unittest.TestCase):
 
         def opener(request, **_kwargs):
             if request.full_url.endswith("/api/version"):
-                return FakeResponse({"version": "0.32.14"})
+                return FakeResponse({"version": "0.32.15"})
             if request.full_url.endswith("/api/tags"):
                 return FakeResponse({"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
             body = json.loads(request.data)
@@ -135,7 +135,7 @@ class OllamaAdapterTests(unittest.TestCase):
     def test_model_digest_drift_fails_closed(self) -> None:
         def opener(request, **_kwargs):
             if request.full_url.endswith("/api/version"):
-                return FakeResponse({"version": "0.32.14"})
+                return FakeResponse({"version": "0.32.15"})
             return FakeResponse({"models": [{"name": "qwen3:8b", "digest": "wrong"}]})
 
         with self.assertRaises(ProviderIntegrityError):
@@ -144,7 +144,7 @@ class OllamaAdapterTests(unittest.TestCase):
     def test_extra_output_field_fails_closed(self) -> None:
         def opener(request, **_kwargs):
             if request.full_url.endswith("/api/version"):
-                return FakeResponse({"version": "0.32.14"})
+                return FakeResponse({"version": "0.32.15"})
             if request.full_url.endswith("/api/tags"):
                 return FakeResponse({"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
             return FakeResponse(
@@ -167,7 +167,7 @@ class OllamaAdapterTests(unittest.TestCase):
     def test_thinking_output_fails_closed(self) -> None:
         def opener(request, **_kwargs):
             if request.full_url.endswith("/api/version"):
-                return FakeResponse({"version": "0.32.14"})
+                return FakeResponse({"version": "0.32.15"})
             if request.full_url.endswith("/api/tags"):
                 return FakeResponse({"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
             return FakeResponse(

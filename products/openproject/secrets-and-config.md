@@ -38,6 +38,19 @@ This secret is owned by the `operator-orchestration-service` component and
 should only be delivered to that component's runtime once it is admitted and
 deployed.
 
+## Dev-Integration Catalog Control Secret
+
+The Delivery Refinement runtime composition generates one operator-private
+shared secret for the bounded Catalog adapter. The composition projects it as:
+
+- `OPENPROJECT_CATALOG_CONTROL_SHARED_SECRET` in the dev-integration
+  OpenProject runtime
+- the matching OOS Catalog client token in the OOS runtime
+
+The value is not stored in Git, OpenProject settings, or redacted composition
+state. The platform-integrated production OpenProject secret contract is not
+changed by this dev-integration binding.
+
 ## Chart-Generated Secrets
 
 The OpenProject chart may still generate in-cluster secrets for bundled

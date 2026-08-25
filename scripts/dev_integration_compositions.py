@@ -16,12 +16,96 @@ import yaml
 
 SUPPORTED_ACTIONS = {"up", "status", "down"}
 ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
+SERVICE_NAME_PATTERN = re.compile(
+    r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$"
+)
 
 
 class CompositionError(RuntimeError):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
+
+
+def _validate_projection_target(
+    *,
+    composition_id: str,
+    profile_id: Any,
+    variable: Any,
+    participants: Mapping[str, Any],
+    projected_targets: set[tuple[str, str]],
+    label: str,
+) -> None:
+    if (
+        not isinstance(profile_id, str)
+        or profile_id not in participants
+        or not isinstance(variable, str)
+        or not ENVIRONMENT_VARIABLE_PATTERN.fullmatch(variable)
+    ):
+        raise CompositionError(
+            "composition-projection-invalid",
+            f"{label} has invalid or repeated projection {profile_id!r}:{variable!r} "
+            f"in composition {composition_id!r}",
+        )
+    target = (profile_id, variable)
+    if target in projected_targets:
+        raise CompositionError(
+            "composition-projection-invalid",
+            f"{label} has invalid or repeated projection {profile_id!r}:{variable!r} "
+            f"in composition {composition_id!r}",
+        )
+    projected_targets.add(target)
+
+
+def _validate_service_projection(
+    projection: Mapping[str, Any],
+    *,
+    composition_id: str,
+    label: str,
+) -> None:
+    address_format = projection.get("address_format", "url")
+    service_name = projection.get("service_name")
+    service_port = projection.get("service_port")
+    if address_format not in {"url", "host-port"}:
+        raise CompositionError(
+            "composition-endpoint-format-invalid",
+            f"{label} in composition {composition_id!r} uses unsupported address format "
+            f"{address_format!r}",
+        )
+    if (
+        not isinstance(service_name, str)
+        or not SERVICE_NAME_PATTERN.fullmatch(service_name)
+        or not isinstance(service_port, int)
+        or isinstance(service_port, bool)
+        or not 1 <= service_port <= 65535
+    ):
+        raise CompositionError(
+            "composition-service-endpoint-invalid",
+            f"{label} in composition {composition_id!r} has an invalid service endpoint",
+        )
+    scheme = projection.get("scheme")
+    if address_format == "url" and scheme not in {"http", "https"}:
+        raise CompositionError(
+            "composition-endpoint-format-invalid",
+            f"{label} in composition {composition_id!r} requires an HTTP or HTTPS scheme",
+        )
+    if address_format == "host-port" and scheme is not None:
+        raise CompositionError(
+            "composition-endpoint-format-invalid",
+            f"{label} in composition {composition_id!r} must not declare a scheme for "
+            "host-port projection",
+        )
+
+
+def _render_service_projection(
+    projection: Mapping[str, Any],
+    *,
+    namespace: str,
+) -> str:
+    host = f"{projection['service_name']}.{namespace}.svc.cluster.local"
+    if projection.get("address_format", "url") == "host-port":
+        return f"{host}:{projection['service_port']}"
+    return f"{projection['scheme']}://{host}:{projection['service_port']}"
 
 
 def _now_utc() -> str:
@@ -160,18 +244,55 @@ def resolve_runtime_composition(
         graph[consumer].add(provider)
         for projection in dependency.get("endpoint_projections") or []:
             variable = projection.get("environment_variable")
-            target = (consumer, variable)
-            if (
-                not isinstance(variable, str)
-                or not ENVIRONMENT_VARIABLE_PATTERN.fullmatch(variable)
-                or target in projected_targets
-            ):
-                raise CompositionError(
-                    "composition-projection-invalid",
-                    f"composition {composition_id!r} has invalid or repeated projection "
-                    f"{consumer!r}:{variable!r}",
-                )
-            projected_targets.add(target)
+            _validate_projection_target(
+                composition_id=composition_id,
+                profile_id=consumer,
+                variable=variable,
+                participants=participants,
+                projected_targets=projected_targets,
+                label="dependency endpoint",
+            )
+            _validate_service_projection(
+                projection,
+                composition_id=composition_id,
+                label=f"dependency endpoint {consumer!r}:{variable!r}",
+            )
+
+    for binding_id, binding in (composition.get("caller_bindings") or {}).items():
+        consumer = binding.get("consumer_profile_id")
+        provider = binding.get("provider_profile_id")
+        caller_id = binding.get("caller_id")
+        if (
+            binding.get("owner_repo") != owner_repo
+            or not isinstance(consumer, str)
+            or not isinstance(provider, str)
+            or consumer not in participants
+            or provider not in participants
+            or consumer == provider
+            or not isinstance(caller_id, str)
+            or not caller_id.strip()
+        ):
+            raise CompositionError(
+                "composition-caller-binding-invalid",
+                f"caller binding {binding_id!r} has an invalid owner, profile, or caller",
+            )
+        if provider not in graph[consumer]:
+            raise CompositionError(
+                "composition-caller-binding-invalid",
+                f"caller binding {binding_id!r} does not match a declared dependency edge",
+            )
+        for profile_id, variable_key in (
+            (consumer, "consumer_environment_variable"),
+            (provider, "provider_environment_variable"),
+        ):
+            _validate_projection_target(
+                composition_id=composition_id,
+                profile_id=profile_id,
+                variable=binding.get(variable_key),
+                participants=participants,
+                projected_targets=projected_targets,
+                label=f"caller binding {binding_id!r}",
+            )
 
     for binding_id, binding in (composition.get("credential_bindings") or {}).items():
         if (
@@ -186,19 +307,55 @@ def resolve_runtime_composition(
         for projection in binding.get("projections") or []:
             profile_id = projection.get("profile_id")
             variable = projection.get("environment_variable")
-            target = (profile_id, variable)
-            if (
-                profile_id not in participants
-                or not isinstance(variable, str)
-                or not ENVIRONMENT_VARIABLE_PATTERN.fullmatch(variable)
-                or target in projected_targets
-            ):
+            _validate_projection_target(
+                composition_id=composition_id,
+                profile_id=profile_id,
+                variable=variable,
+                participants=participants,
+                projected_targets=projected_targets,
+                label=f"credential binding {binding_id!r}",
+            )
+
+    for binding_id, binding in (composition.get("profile_bindings") or {}).items():
+        profile_id = binding.get("profile_id")
+        variable = binding.get("environment_variable")
+        if binding.get("owner_repo") != owner_repo:
+            raise CompositionError(
+                "composition-profile-binding-invalid",
+                f"profile binding {binding_id!r} is not owned by {owner_repo!r}",
+            )
+        _validate_projection_target(
+            composition_id=composition_id,
+            profile_id=profile_id,
+            variable=variable,
+            participants=participants,
+            projected_targets=projected_targets,
+            label=f"profile binding {binding_id!r}",
+        )
+        source = binding.get("source")
+        if not isinstance(source, dict):
+            raise CompositionError(
+                "composition-profile-binding-invalid",
+                f"profile binding {binding_id!r} has no supported source",
+            )
+        if source.get("kind") == "literal":
+            value = source.get("value")
+            if not isinstance(value, str) or not value:
                 raise CompositionError(
-                    "composition-projection-invalid",
-                    f"credential binding {binding_id!r} has invalid or repeated projection "
-                    f"{profile_id!r}:{variable!r}",
+                    "composition-profile-binding-invalid",
+                    f"profile binding {binding_id!r} has an invalid literal value",
                 )
-            projected_targets.add(target)
+        elif source.get("kind") == "profile-service":
+            _validate_service_projection(
+                source,
+                composition_id=composition_id,
+                label=f"profile binding {binding_id!r}",
+            )
+        else:
+            raise CompositionError(
+                "composition-profile-binding-invalid",
+                f"profile binding {binding_id!r} uses an unsupported source kind",
+            )
 
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -244,9 +401,16 @@ def build_profile_environments(
         namespace = namespaces[provider]
         for projection in dependency.get("endpoint_projections") or []:
             environments[consumer][projection["environment_variable"]] = (
-                f"{projection['scheme']}://{projection['service_name']}."
-                f"{namespace}.svc.cluster.local:{projection['service_port']}"
+                _render_service_projection(projection, namespace=namespace)
             )
+    for binding in (composition.get("caller_bindings") or {}).values():
+        caller_id = binding["caller_id"]
+        environments[binding["consumer_profile_id"]][
+            binding["consumer_environment_variable"]
+        ] = caller_id
+        environments[binding["provider_profile_id"]][
+            binding["provider_environment_variable"]
+        ] = caller_id
     for binding_id, binding in (composition.get("credential_bindings") or {}).items():
         value = credential_values.get(binding_id)
         if value is None:
@@ -255,6 +419,15 @@ def build_profile_environments(
             environments[projection["profile_id"]][
                 projection["environment_variable"]
             ] = value
+    for binding in (composition.get("profile_bindings") or {}).values():
+        source = binding["source"]
+        value = source["value"] if source["kind"] == "literal" else (
+            _render_service_projection(
+                source,
+                namespace=namespaces[binding["profile_id"]],
+            )
+        )
+        environments[binding["profile_id"]][binding["environment_variable"]] = value
     return environments
 
 
@@ -270,9 +443,21 @@ def bounded_child_environment(
         for projection in dependency.get("endpoint_projections") or []
     }
     declared_variables.update(
+        binding[variable_key]
+        for binding in (composition.get("caller_bindings") or {}).values()
+        for variable_key in (
+            "consumer_environment_variable",
+            "provider_environment_variable",
+        )
+    )
+    declared_variables.update(
         projection["environment_variable"]
         for binding in (composition.get("credential_bindings") or {}).values()
         for projection in binding.get("projections") or []
+    )
+    declared_variables.update(
+        binding["environment_variable"]
+        for binding in (composition.get("profile_bindings") or {}).values()
     )
     bounded = {
         key: value
@@ -470,6 +655,12 @@ def execute_composition(
         "profile_order": profile_order,
         "credential_binding_ids": sorted(
             (composition.get("credential_bindings") or {}).keys()
+        ),
+        "caller_binding_ids": sorted(
+            (composition.get("caller_bindings") or {}).keys()
+        ),
+        "profile_binding_ids": sorted(
+            (composition.get("profile_bindings") or {}).keys()
         ),
         "endpoint_projections": endpoint_projections,
         "last_action": action,

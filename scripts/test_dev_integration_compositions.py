@@ -62,6 +62,16 @@ def registry() -> dict:
                         ],
                     },
                 ],
+                "caller_bindings": {
+                    "context-caller": {
+                        "owner_repo": "platform-engineering",
+                        "caller_id": "root-service",
+                        "consumer_profile_id": "root",
+                        "provider_profile_id": "context",
+                        "consumer_environment_variable": "CONTEXT_CALLER_ID",
+                        "provider_environment_variable": "CONTEXT_ALLOWED_CALLERS",
+                    }
+                },
                 "credential_bindings": {
                     "caller": {
                         "owner_repo": "platform-engineering",
@@ -78,6 +88,26 @@ def registry() -> dict:
                             },
                         ],
                     }
+                },
+                "profile_bindings": {
+                    "feature-enabled": {
+                        "owner_repo": "platform-engineering",
+                        "profile_id": "root",
+                        "environment_variable": "FEATURE_ENABLED",
+                        "source": {"kind": "literal", "value": "true"},
+                    },
+                    "root-service": {
+                        "owner_repo": "platform-engineering",
+                        "profile_id": "root",
+                        "environment_variable": "ROOT_SERVICE_URL",
+                        "source": {
+                            "kind": "profile-service",
+                            "address_format": "url",
+                            "scheme": "http",
+                            "service_name": "root-api",
+                            "service_port": 8082,
+                        },
+                    },
                 },
             }
         },
@@ -133,10 +163,19 @@ class RuntimeCompositionTests(unittest.TestCase):
             {
                 "CONTEXT_URL": "http://context-api.context-ns.svc.cluster.local:8080",
                 "GATEWAY_URL": "http://gateway-api.gateway-ns.svc.cluster.local:8081",
+                "CONTEXT_CALLER_ID": "root-service",
                 "CALLER_SECRET": "private-value",
+                "FEATURE_ENABLED": "true",
+                "ROOT_SERVICE_URL": "http://root-api.root-ns.svc.cluster.local:8082",
             },
         )
-        self.assertEqual(environments["context"], {"SHARED_SECRET": "private-value"})
+        self.assertEqual(
+            environments["context"],
+            {
+                "CONTEXT_ALLOWED_CALLERS": "root-service",
+                "SHARED_SECRET": "private-value",
+            },
+        )
         self.assertEqual(environments["gateway"], {})
 
         gateway_environment = COMPOSITIONS.bounded_child_environment(
@@ -145,10 +184,75 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "PATH": "/usr/bin",
                 "CALLER_SECRET": "ambient-secret",
                 "CONTEXT_URL": "http://ambient.invalid",
+                "CONTEXT_ALLOWED_CALLERS": "ambient-caller",
+                "FEATURE_ENABLED": "false",
             },
             profile_environment=environments["gateway"],
         )
         self.assertEqual(gateway_environment, {"PATH": "/usr/bin"})
+
+    def test_host_port_projection_omits_scheme(self) -> None:
+        payload = registry()
+        projection = payload["runtime_compositions"]["example"]["dependencies"][1][
+            "endpoint_projections"
+        ][0]
+        projection.pop("scheme")
+        projection["address_format"] = "host-port"
+        composition, _ = COMPOSITIONS.resolve_runtime_composition(payload, "example")
+        environments = COMPOSITIONS.build_profile_environments(
+            composition,
+            namespaces={
+                "root": "root-ns",
+                "context": "context-ns",
+                "gateway": "gateway-ns",
+            },
+            credential_values={"caller": "private-value"},
+        )
+        self.assertEqual(
+            environments["root"]["GATEWAY_URL"],
+            "gateway-api.gateway-ns.svc.cluster.local:8081",
+        )
+
+    def test_binding_and_endpoint_contracts_fail_closed(self) -> None:
+        payload = registry()
+        payload["runtime_compositions"]["example"]["caller_bindings"][
+            "context-caller"
+        ].update(
+            {
+                "consumer_profile_id": "context",
+                "provider_profile_id": "gateway",
+            }
+        )
+        with self.assertRaisesRegex(
+            COMPOSITIONS.CompositionError,
+            "does not match a declared dependency edge",
+        ):
+            COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+        payload = registry()
+        payload["runtime_compositions"]["example"]["caller_bindings"][
+            "context-caller"
+        ]["consumer_profile_id"] = ["root"]
+        with self.assertRaisesRegex(
+            COMPOSITIONS.CompositionError,
+            "invalid owner, profile, or caller",
+        ):
+            COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+        payload = registry()
+        payload["runtime_compositions"]["example"]["profile_bindings"][
+            "feature-enabled"
+        ]["environment_variable"] = "CONTEXT_URL"
+        with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "repeated projection"):
+            COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+        payload = registry()
+        projection = payload["runtime_compositions"]["example"]["dependencies"][0][
+            "endpoint_projections"
+        ][0]
+        projection["address_format"] = "host-port"
+        with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "must not declare a scheme"):
+            COMPOSITIONS.resolve_runtime_composition(payload, "example")
 
     def test_runtime_credential_is_private_and_reused(self) -> None:
         composition, _ = self.composition()

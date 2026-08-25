@@ -54,6 +54,10 @@
 ## Artifact And Deployment Evidence
 
 - Build workflow run: recorded by the ART #1000 Review Packet.
+- Review Packet recovery: the first source PR merged before merge-ready packet
+  custody. This same Landing Unit uses a follow-up documentation PR to restore
+  the required open-PR, merge-ready, merge, and finalization order without
+  changing runtime behavior or claiming direct-land evidence.
 - Published image tag: Not applicable.
 - Published digest: Not applicable.
 - Recorded prod revision: Not applicable.

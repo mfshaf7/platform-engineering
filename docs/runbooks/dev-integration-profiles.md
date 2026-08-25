@@ -249,7 +249,11 @@ after the composition is healthy.
 
 The shared runner validates every participant and required lifecycle, starts
 providers before consumers, derives cluster-local service endpoints, and
-projects only contract-declared environment variables. Runtime-generated
+projects only contract-declared environment variables. Endpoint projections
+support URL and host-port formats. Caller bindings must name a declared
+dependency edge, while literal and profile-service bindings must name an exact
+target profile and variable; duplicate or ambient targets fail closed.
+Runtime-generated
 credentials live under the operator-private composition state root, never in
 Git or command arguments. Repeated `up` reuses the active composition binding;
 successful `down` stops consumers before providers and removes that binding.

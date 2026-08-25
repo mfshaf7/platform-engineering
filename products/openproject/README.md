@@ -93,6 +93,17 @@ machine-readable boundary contract:
 
 - [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
 
+The bounded Delivery Catalog control adapter used by the accepted-idea
+dev-integration composition is defined separately from that operator admin
+surface:
+
+- [catalog-control/README.md](catalog-control/README.md)
+- [catalog-control/catalog-control-contract.json](catalog-control/catalog-control-contract.json)
+
+It projects native OpenProject Catalog truth and accepts only item-scoped
+mutations. It is not a general administration route and is not active in the
+platform-integrated production runtime.
+
 The canonical planning path is now explicit as well:
 
 - start with
@@ -238,6 +249,7 @@ the initiative layer and SAFe-aligned at the execution layer. That includes:
 - [runbooks/manage-delivery-initiative-lineage.md](runbooks/manage-delivery-initiative-lineage.md)
 - [runbooks/manage-delivery-blockers.md](runbooks/manage-delivery-blockers.md)
 - [openproject-platform-admin-surface.json](openproject-platform-admin-surface.json)
+- [catalog-control/README.md](catalog-control/README.md)
 - [runbooks/openproject-platform-admin-surface.md](runbooks/openproject-platform-admin-surface.md)
 - [runbooks/start-delivery-initiative.md](runbooks/start-delivery-initiative.md)
 - [runbooks/plan-delivery-art.md](runbooks/plan-delivery-art.md)

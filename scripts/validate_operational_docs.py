@@ -493,6 +493,27 @@ def validate_openproject_platform_admin_surface(errors: list[str], repo_root: Pa
         )
 
 
+def validate_openproject_catalog_control(errors: list[str], repo_root: Path) -> None:
+    validator = (
+        repo_root
+        / "products"
+        / "openproject"
+        / "catalog-control"
+        / "validate_catalog_control.py"
+    )
+    if not validator.exists():
+        errors.append(f"{validator}: missing OpenProject Catalog control validator")
+        return
+    completed = subprocess.run(
+        ["python3", str(validator)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        errors.append(f"{validator}: OpenProject Catalog control contract invalid\n{detail}")
+
+
 def validate_runtime_drill_profiles(errors: list[str], repo_root: Path) -> None:
     profiles_root = repo_root / "environments" / "shared" / "runtime-drills"
     required_profile = profiles_root / "temporal-component-commissioning-proof.yaml"
@@ -674,6 +695,7 @@ def main() -> int:
     validate_doc_truth_markers(errors, repo_root)
     validate_workflow_docs(errors, repo_root)
     validate_openproject_platform_admin_surface(errors, repo_root)
+    validate_openproject_catalog_control(errors, repo_root)
     validate_runtime_drill_profiles(errors, repo_root)
     validate_wsl_host_bootstrap_contract(errors, repo_root)
     validate_windows_portproxy_reconciliation(errors, repo_root)

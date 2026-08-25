@@ -18,8 +18,8 @@ These support shared platform operations:
   - validates and executes workspace-registered runtime compositions through
     the existing single-profile runner
   - owns dependency ordering, reverse teardown, private runtime-generated
-    credential custody, bounded environment projection, replay, and redacted
-    composition state
+    credential custody, URL or host-port endpoint projection, declared caller
+    and profile bindings, replay, and redacted composition state
 - `dev_integration_host_services.py`
   - validates product-neutral persistent host-service declarations
   - supervises source-bound process identity, readiness, logs, status, and

@@ -74,6 +74,13 @@ pattern with NodePort `32183` and a managed Windows localhost mapping on
 `127.0.0.1:18183`; it does not share the platform-integrated instance's data,
 credential, or release posture.
 
+When its workspace runtime composition activates Delivery Refinement, that
+dev-integration instance may load the bounded extension under
+`catalog-control/`. The extension remains inside the existing OpenProject Rails
+process and exposes only the authenticated Delivery Catalog projection and
+item-mutation routes. This does not activate the extension in the
+platform-integrated production runtime.
+
 ## Deferred In V1
 
 - ingress, TLS, and domain-based access

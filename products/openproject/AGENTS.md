@@ -23,6 +23,8 @@ declared, operated, and verified on this platform.
 - `runbooks/manage-delivery-initiative-lineage.md`
 - `runbooks/manage-delivery-blockers.md`
 - `openproject-platform-admin-surface.json`
+- `catalog-control/README.md`
+- `catalog-control/catalog-control-contract.json`
 - `runbooks/openproject-platform-admin-surface.md`
 - `runbooks/sync-delivery-art-views.md`
 - `https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-workflow-operator-surface.md`
@@ -60,6 +62,9 @@ unless it is genuinely shared platform behavior.
 - OpenProject now has governed release-state records for the platform-owned
   deployment contract, but that still does not make it a separate
   product-governed rollout train.
+- The Delivery Catalog control extension is a bounded dev-integration adapter,
+  not part of the general platform-admin surface and not active in the
+  platform-integrated production runtime.
 - Operator access expectations, admin-password synchronization, and product
   lifecycle commands are OpenProject-specific and belong under this directory.
 - Shared PostgreSQL behavior must still be evaluated as a platform dependency,

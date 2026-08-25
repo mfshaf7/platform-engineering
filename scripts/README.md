@@ -14,6 +14,12 @@ These support shared platform operations:
     action such as `up`, `smoke`, or `promote-check` into a repo-owned profile
   - only launches profiles whose lifecycle is currently `active` in the
     workspace contract registry
+- `dev_integration_compositions.py`
+  - validates and executes workspace-registered runtime compositions through
+    the existing single-profile runner
+  - owns dependency ordering, reverse teardown, private runtime-generated
+    credential custody, bounded environment projection, replay, and redacted
+    composition state
 - `dev_integration_host_services.py`
   - validates product-neutral persistent host-service declarations
   - supervises source-bound process identity, readiness, logs, status, and

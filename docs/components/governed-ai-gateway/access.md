@@ -43,8 +43,9 @@ canonical truth can change.
 `intake-classifier-v1` retains its default `intake_classification` task for
 request compatibility. `delivery-work-design-advisor-v1` requires either
 `context_advice` or `tree_advice` under `oos.delivery-work-design.v1`. That
-profile is registered but inactive, so requests are denied before provider
-access until its later activation gates pass.
+profile is active only in local `dev-integration`; mismatched caller, profile,
+task, contract version, input packet, or output schema is denied before provider
+access.
 
 The current profile status is intentionally policy-controlled. If the requested
 model profile is not active, invocation returns a deny decision and still emits

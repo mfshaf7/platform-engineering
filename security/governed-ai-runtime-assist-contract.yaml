@@ -18,8 +18,8 @@ contract:
   consumers:
     allowed_callers:
       - workspace-governance/intake-assist
-    registered_not_active_callers:
       - operator-orchestration-service/work-design-assist
+    registered_not_active_callers: []
     denied_patterns:
       - direct-provider-client
       - repo-local-provider-secret
@@ -118,6 +118,8 @@ contract:
   security_review_refs:
     - repo: security-architecture
       path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md
+    - repo: security-architecture
+      path: docs/reviews/components/2026-08-25-governed-work-design-ai-activation-boundary.md
   related_artifacts:
     - repo: platform-engineering
       path: security/governed-ai-access-plane.yaml

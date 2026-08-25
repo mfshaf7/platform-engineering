@@ -53,28 +53,42 @@ class GatewayPolicyTests(unittest.TestCase):
         self.assertTrue(decision.compatibility_mode)
         self.assertEqual(decision.task["task_kind"], "intake_classification")
 
-    def test_work_design_profile_is_registered_but_inactive(self) -> None:
+    def test_work_design_profile_allows_the_reviewed_typed_request(self) -> None:
         request = self.work_design_request()
 
         decision = GatewayPolicy(selections()).evaluate(request)
 
-        self.assertFalse(decision.allowed)
-        self.assertIn("profile-not-active", decision.reasons)
-        self.assertIn("profile-activation-not-allowed", decision.reasons)
-        self.assertEqual(decision.task["task_kind"], "tree_advice")
-
-    def test_typed_work_design_request_is_valid_after_independent_activation(self) -> None:
-        resolved = selections()
-        profile = resolved["profiles"]["delivery-work-design-advisor-v1"]
-        profile["profile_status"] = "active"
-        profile["binding_status"] = "active"
-        profile["profile_activation_allowed"] = True
-        profile["activation_eligible"] = True
-
-        decision = GatewayPolicy(resolved).evaluate(self.work_design_request())
-
         self.assertTrue(decision.allowed)
         self.assertFalse(decision.compatibility_mode)
+        self.assertEqual(decision.task["task_kind"], "tree_advice")
+
+    def test_work_design_suspension_does_not_disable_intake(self) -> None:
+        resolved = selections()
+        profile = resolved["profiles"]["delivery-work-design-advisor-v1"]
+        profile["profile_status"] = "suspended"
+        profile["profile_activation_allowed"] = False
+        profile["activation_eligible"] = False
+
+        work_design = GatewayPolicy(resolved).evaluate(self.work_design_request())
+        intake = GatewayPolicy(resolved).evaluate(
+            {
+                "profile_id": "intake-classifier-v1",
+                "caller_identity": caller(
+                    "intake-classifier-v1", "workspace-governance/intake-assist"
+                ),
+                "operator_identity": {"operator_id": "operator:test"},
+                "provider_output_schema_ref": (
+                    "platform-engineering/security/schemas/"
+                    "intake-classification-result.schema.json"
+                ),
+                "input": {"operator_supplied_intake_notes": "Review this entrant."},
+            }
+        )
+
+        self.assertFalse(work_design.allowed)
+        self.assertIn("profile-not-active", work_design.reasons)
+        self.assertIn("profile-activation-not-allowed", work_design.reasons)
+        self.assertTrue(intake.allowed)
 
     def test_unknown_caller_task_schema_and_profile_fail_closed(self) -> None:
         request = self.work_design_request()

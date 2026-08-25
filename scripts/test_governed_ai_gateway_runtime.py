@@ -46,7 +46,7 @@ class FakeAdapter:
             model_digest=(
                 "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41"
             ),
-            runtime_version="0.32.14",
+            runtime_version="0.32.15",
             latency_ms=4,
             usage={"prompt_tokens": 20, "completion_tokens": 8},
             prompt_version=kwargs["prompt_version"],
@@ -59,10 +59,15 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.addCleanup(self.temp_dir.cleanup)
         self.audit_root = Path(self.temp_dir.name)
 
-    def test_inactive_work_design_is_denied_before_provider_access(self) -> None:
+    def test_suspended_work_design_is_denied_before_provider_access(self) -> None:
+        resolved = copy.deepcopy(selections())
+        profile = resolved["profiles"]["delivery-work-design-advisor-v1"]
+        profile["profile_status"] = "suspended"
+        profile["profile_activation_allowed"] = False
+        profile["activation_eligible"] = False
         adapter = FakeAdapter({"text": "must not be returned"})
         runtime = GatewayRuntime(
-            selections=selections(),
+            selections=resolved,
             audit_root=self.audit_root,
             compatibility_profile_id="intake-classifier-v1",
             adapters={"delivery-work-design-advisor-v1": adapter},

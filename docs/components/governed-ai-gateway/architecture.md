@@ -31,7 +31,7 @@ Current denied posture:
 - no autonomous workspace truth mutation
 - no workspace consumer use until its independent activation gate is complete
 
-The active dev-integration binding is host Ollama `0.32.14` with
+The active dev-integration binding is host Ollama `0.32.15` with
 `qwen3:8b` pinned by full digest. The adapter disables thinking, supplies no
 tools, enforces a strict classification schema, and bounds input size,
 concurrency, timeout, retry, context, and output tokens. The OpenAI binding is
@@ -73,9 +73,11 @@ real local Ollama route; the consumer namespace cannot reach either the
 sentinel or Ollama directly.
 
 `intake-classifier-v1` remains the active compatibility profile.
-`delivery-work-design-advisor-v1` is selected but not active. The platform
-gateway validates its typed request and strict output boundary, while OOS owns
-the instruction text and all workflow or apply semantics.
+`delivery-work-design-advisor-v1` is independently active in local
+`dev-integration`. The platform gateway validates its typed request and strict
+output boundary, while OOS owns instruction text and all workflow or apply
+semantics. Either profile can be suspended without changing the other
+profile's lifecycle state.
 
 ## Activation Gates
 

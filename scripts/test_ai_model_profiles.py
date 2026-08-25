@@ -319,7 +319,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                     require_active=True,
                 )
 
-    def test_registered_work_design_profile_resolves_without_activation(self) -> None:
+    def test_work_design_profile_resolves_as_active_devint_binding(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
             profile_path, access_path = self.prepare_contracts(Path(temp_dir))
 
@@ -330,9 +330,9 @@ class ModelProfileResolverTests(unittest.TestCase):
                 environment="dev-integration",
             )
 
-            self.assertEqual(result["profile_status"], "selected-not-active")
-            self.assertFalse(result["profile_activation_allowed"])
-            self.assertFalse(result["activation_eligible"])
+            self.assertEqual(result["profile_status"], "active")
+            self.assertTrue(result["profile_activation_allowed"])
+            self.assertTrue(result["activation_eligible"])
             self.assertIsNone(result["default_task_kind"])
             self.assertEqual(
                 set(result["task_contracts"]), {"context_advice", "tree_advice"}
@@ -355,7 +355,7 @@ class ModelProfileResolverTests(unittest.TestCase):
             self.assertTrue(
                 result["profiles"]["intake-classifier-v1"]["activation_eligible"]
             )
-            self.assertFalse(
+            self.assertTrue(
                 result["profiles"]["delivery-work-design-advisor-v1"][
                     "activation_eligible"
                 ]

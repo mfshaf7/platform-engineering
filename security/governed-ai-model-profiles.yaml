@@ -21,7 +21,7 @@ model_profiles:
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.14
+        runtime_version: 0.32.15
         selection:
           selected_at: "2026-08-20"
           selected_by: operator:workspace-owner
@@ -93,25 +93,25 @@ model_profiles:
       reviewed local Ollama binding. The paid OpenAI route remains recorded but
       inactive until its independent activation work is complete.
   delivery-work-design-advisor-v1:
-    status: selected-not-active
+    status: active
     purpose: delivery-work-design-assist
     invocation_path: governed-ai-gateway
     selected_binding_by_environment:
       dev-integration: local-ollama-qwen3-8b
     bindings:
       local-ollama-qwen3-8b:
-        status: selected-not-active
+        status: active
         environments:
           - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.14
+        runtime_version: 0.32.15
         selection:
           selected_at: "2026-08-25"
           selected_by: operator:workspace-owner
-          basis: reuse-reviewed-local-provider-for-inactive-work-design-foundation
+          basis: reviewed-local-work-design-devint-activation
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
       - operator-orchestration-service/work-design-assist
@@ -182,10 +182,10 @@ model_profiles:
     direct_provider_access_allowed: false
     security_review_ref:
       repo: security-architecture
-      path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md
+      path: docs/reviews/components/2026-08-25-governed-work-design-ai-activation-boundary.md
     activation_review_ref: openproject://work_packages/994
     notes: >
-      The Work Design profile and local binding are selected but not active.
-      Runtime activation remains prohibited until the exact implementation
-      heads pass the fresh Security review in #994 and Platform activation in
-      #995.
+      The Work Design profile and local Ollama binding are active only in
+      dev-integration under the Security decision in #994 and Platform
+      activation in #995. Console integration remains independently gated by
+      #996. Paid-provider, stage, and prod activation remain prohibited.

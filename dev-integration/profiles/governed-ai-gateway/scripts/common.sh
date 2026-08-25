@@ -168,6 +168,45 @@ readonly MODEL_ACTIVATION_ELIGIBLE="${MODEL_BINDING[20]}"
 readonly ALLOWED_CALLERS_CSV="${MODEL_BINDING[21]}"
 readonly ACCESS_PLANE_ACTIVATION_ALLOWED="${MODEL_BINDING[22]}"
 readonly MODEL_SMOKE_CALLER_ID="${ALLOWED_CALLERS_CSV%%,*}"
+readonly WORK_DESIGN_MODEL_PROFILE_ID="delivery-work-design-advisor-v1"
+WORK_DESIGN_SELECTION_JSON="$({
+  python3 -c '
+import json
+import sys
+
+registry = json.load(sys.stdin)
+profile_id = sys.argv[1]
+try:
+    profile = registry["profiles"][profile_id]
+except KeyError as exc:
+    raise SystemExit(f"Work Design profile {profile_id!r} is not resolved") from exc
+print(json.dumps(profile, sort_keys=True))
+' "${WORK_DESIGN_MODEL_PROFILE_ID}" <<<"${MODEL_SELECTIONS_JSON}"
+})"
+readonly WORK_DESIGN_SELECTION_JSON
+mapfile -t WORK_DESIGN_PROBE_CONTRACT < <(
+  python3 -c '
+import json
+import sys
+
+selection = json.load(sys.stdin)
+task = selection["task_contracts"]["context_advice"]
+print(selection["allowed_callers"][0])
+print(task["task_kind"])
+print(task["contract_ref"])
+print(task["contract_version"])
+print(task["provider_output_schema_ref"])
+' <<<"${WORK_DESIGN_SELECTION_JSON}"
+)
+if [[ "${#WORK_DESIGN_PROBE_CONTRACT[@]}" -ne 5 ]]; then
+  echo "Unable to resolve Work Design probe contract" >&2
+  exit 1
+fi
+readonly WORK_DESIGN_SMOKE_CALLER_ID="${WORK_DESIGN_PROBE_CONTRACT[0]}"
+readonly WORK_DESIGN_TASK_KIND="${WORK_DESIGN_PROBE_CONTRACT[1]}"
+readonly WORK_DESIGN_TASK_CONTRACT_REF="${WORK_DESIGN_PROBE_CONTRACT[2]}"
+readonly WORK_DESIGN_TASK_CONTRACT_VERSION="${WORK_DESIGN_PROBE_CONTRACT[3]}"
+readonly WORK_DESIGN_OUTPUT_SCHEMA_REF="${WORK_DESIGN_PROBE_CONTRACT[4]}"
 
 is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
@@ -591,7 +630,11 @@ run_consumer_probe() {
   kubectl_cmd -n "${CONSUMER_NAMESPACE}" exec -i "deployment/${CONSUMER_DEPLOYMENT}" -- \
     python - "${gateway_url}" "${provider_url}" "${PROVIDER_BASE_URL}" \
       "${MODEL_PROFILE_ID}" "${MODEL_SMOKE_CALLER_ID}" \
-      "${PROVIDER_OUTPUT_SCHEMA_REF}" <<'PY'
+      "${PROVIDER_OUTPUT_SCHEMA_REF}" \
+      "${WORK_DESIGN_MODEL_PROFILE_ID}" "${WORK_DESIGN_SMOKE_CALLER_ID}" \
+      "${WORK_DESIGN_TASK_KIND}" "${WORK_DESIGN_TASK_CONTRACT_REF}" \
+      "${WORK_DESIGN_TASK_CONTRACT_VERSION}" \
+      "${WORK_DESIGN_OUTPUT_SCHEMA_REF}" <<'PY'
 from __future__ import annotations
 
 import json
@@ -606,6 +649,32 @@ profile_id = sys.argv[4]
 caller_id = sys.argv[5]
 output_schema_ref = sys.argv[6]
 caller_repo, caller_workflow = caller_id.split("/", 1)
+work_design_profile_id = sys.argv[7]
+work_design_caller_id = sys.argv[8]
+work_design_task_kind = sys.argv[9]
+work_design_contract_ref = sys.argv[10]
+work_design_contract_version = sys.argv[11]
+work_design_schema_ref = sys.argv[12]
+work_design_caller_repo, work_design_caller_workflow = work_design_caller_id.split("/", 1)
+
+
+def invoke(payload):
+    request = urllib.request.Request(
+        f"{gateway_url}/v1/governed-ai/invoke",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return exc.code, json.loads(exc.read().decode("utf-8"))
+
+
+def latest_audit():
+    with urllib.request.urlopen(f"{gateway_url}/v1/audit/events/latest", timeout=10) as response:
+        return json.loads(response.read().decode("utf-8")).get("latest") or {}
 
 payload = {
     "profile_id": profile_id,
@@ -626,43 +695,59 @@ payload = {
     },
 }
 
-request = urllib.request.Request(
-    f"{gateway_url}/v1/governed-ai/invoke",
-    data=json.dumps(payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-
 denied_payload = dict(payload)
 denied_payload["provider_output_schema_ref"] = "invalid/schema.json"
 denied_payload["caller_identity"] = {
     **payload["caller_identity"],
     "caller_id": "unapproved/consumer",
 }
-denied_request = urllib.request.Request(
-    f"{gateway_url}/v1/governed-ai/invoke",
-    data=json.dumps(denied_payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-try:
-    with urllib.request.urlopen(denied_request, timeout=10) as response:
-        denied_status = response.status
-        denied_body = json.loads(response.read().decode("utf-8"))
-except urllib.error.HTTPError as exc:
-    denied_status = exc.code
-    denied_body = json.loads(exc.read().decode("utf-8"))
+denied_status, denied_body = invoke(denied_payload)
+denied_audit = latest_audit()
+gateway_status, gateway_body = invoke(payload)
+intake_audit = latest_audit()
 
-with urllib.request.urlopen(f"{gateway_url}/v1/audit/events/latest", timeout=10) as response:
-    denied_audit = json.loads(response.read().decode("utf-8"))
-
-try:
-    with urllib.request.urlopen(request, timeout=60) as response:
-        gateway_body = json.loads(response.read().decode("utf-8"))
-        gateway_status = response.status
-except urllib.error.HTTPError as exc:
-    gateway_status = exc.code
-    gateway_body = json.loads(exc.read().decode("utf-8"))
+work_design_payload = {
+    "profile_id": work_design_profile_id,
+    "caller_identity": {
+        "caller_id": work_design_caller_id,
+        "caller_repo": work_design_caller_repo,
+        "caller_workflow": work_design_caller_workflow,
+        "decision_or_correlation_id": "devint-smoke-work-design",
+        "requested_profile_id": work_design_profile_id,
+    },
+    "operator_identity": {"operator_id": "devint-operator"},
+    "operator_acceptance_state": "not-recorded",
+    "task": {
+        "kind": work_design_task_kind,
+        "contract_ref": work_design_contract_ref,
+        "version": work_design_contract_version,
+    },
+    "provider_output_schema_ref": work_design_schema_ref,
+    "input": {
+        "task_instruction": (
+            "Review the supplied Work Design context. Return advice only and do not "
+            "claim to mutate canonical state."
+        ),
+        "operator_prompt": "Identify one useful next review action for this package.",
+        "model_safe_packet": {
+            "packet_ref": "cgg://packets/devint-work-design-smoke",
+            "redaction_receipt_ref": "cgg://receipts/devint-work-design-redaction",
+            "projection_receipt_ref": "cgg://receipts/devint-work-design-projection",
+            "content": (
+                "Synthetic Work Design package. The package has a bounded context "
+                "brief and requires operator review before any apply action."
+            ),
+        },
+    },
+}
+work_design_denied_payload = json.loads(json.dumps(work_design_payload))
+work_design_denied_payload["caller_identity"]["caller_id"] = "unapproved/consumer"
+work_design_denied_payload["caller_identity"]["requested_profile_id"] = profile_id
+work_design_denied_payload["task"]["kind"] = "unapproved_task"
+work_design_denied_status, work_design_denied_body = invoke(work_design_denied_payload)
+work_design_denied_audit = latest_audit()
+work_design_status, work_design_body = invoke(work_design_payload)
+work_design_audit = latest_audit()
 
 provider_direct_reachable = False
 provider_error = None
@@ -693,9 +778,20 @@ print(
             "unauthorized_policy_decision": denied_body.get("policy_decision"),
             "unauthorized_reasons": denied_body.get("reasons", []),
             "unauthorized_audit_selected_binding": (
-                (denied_audit.get("latest") or {}).get("selected_binding")
+                denied_audit.get("selected_binding")
             ),
+            "intake_audit": intake_audit,
             "gateway_binding_selection_ref": gateway_body.get("binding_selection_ref"),
+            "work_design_http_status": work_design_status,
+            "work_design_policy_decision": work_design_body.get("policy_decision"),
+            "work_design_task": work_design_body.get("task"),
+            "work_design_output": work_design_body.get("output"),
+            "work_design_binding_selection_ref": work_design_body.get("binding_selection_ref"),
+            "work_design_audit": work_design_audit,
+            "work_design_denied_http_status": work_design_denied_status,
+            "work_design_denied_policy_decision": work_design_denied_body.get("policy_decision"),
+            "work_design_denied_reasons": work_design_denied_body.get("reasons", []),
+            "work_design_denied_audit": work_design_denied_audit,
             "direct_provider_reachable": provider_direct_reachable,
             "direct_provider_error": provider_error,
             "direct_ollama_reachable": ollama_direct_reachable,

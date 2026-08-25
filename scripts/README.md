@@ -35,6 +35,8 @@ The default shared drill profile and evidence template live under:
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `test_ai_model_profiles.py`
+- `test_governed_ai_gateway_policy.py`
+- `test_governed_ai_gateway_runtime.py`
 - `validate_environment_readiness.py`
 - `validate_governance_docs.py`
 - `validate_operational_docs.py`
@@ -52,6 +54,11 @@ profile registry, runtime-assist activation contract, access-plane source
 contract, and devint egress policy under `../security/`, including cross-repo
 references to `security-architecture` review artifacts and
 `workspace-governance` output-schema contracts.
+
+`test_governed_ai_gateway_policy.py` and
+`test_governed_ai_gateway_runtime.py` prove exact caller, profile, task, schema,
+and activation enforcement before provider access while preserving the intake
+classifier compatibility response.
 
 `validate_environment_readiness.py` evaluates the aggregate governed readiness
 surface for `stage` or `prod` from the exact release-governance records under:

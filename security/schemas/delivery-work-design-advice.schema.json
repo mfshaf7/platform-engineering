@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/delivery-work-design-advice.schema.json",
+  "title": "Delivery Work Design provider advice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confidence",
+    "required_operator_action",
+    "text",
+    "affected_node_id",
+    "patch_proposal"
+  ],
+  "properties": {
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "required_operator_action": {
+      "type": "string",
+      "enum": ["review", "no_change"]
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12000
+    },
+    "affected_node_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "patch_proposal": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["patch_type", "summary"],
+      "properties": {
+        "patch_type": {
+          "type": "string",
+          "enum": ["context_summary", "scaffold_text", "tree_shape"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    }
+  }
+}

@@ -17,7 +17,11 @@ RUNTIME_ROOT = (
 sys.path.insert(0, str(RUNTIME_ROOT))
 
 from validate_ai_model_profiles import validate
-from model_profile_resolver import ModelProfileResolutionError, resolve_model_profile
+from model_profile_resolver import (
+    ModelProfileResolutionError,
+    resolve_model_profile,
+    resolve_model_profile_registry,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +31,7 @@ CONTRACT_PATHS = (
     Path("security/governed-ai-runtime-assist-contract.yaml"),
     Path("security/governed-ai-devint-egress-policy.yaml"),
     Path("security/schemas/intake-classification-result.schema.json"),
+    Path("security/schemas/delivery-work-design-advice.schema.json"),
 )
 LOCAL_REFERENCE_PATHS = (
     Path("docs/standards/governed-ai-access-model.md"),
@@ -68,12 +73,12 @@ class GovernedAiModelProfileTests(unittest.TestCase):
                 validate(repo_root),
             )
 
-    def test_active_environment_must_reference_known_binding(self) -> None:
+    def test_selected_environment_must_reference_known_binding(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
             repo_root = self.prepare_repo(Path(temp_dir))
             profile_path = repo_root / "security/governed-ai-model-profiles.yaml"
             payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
-            payload["model_profiles"]["intake-classifier-v1"]["active_binding_by_environment"][
+            payload["model_profiles"]["intake-classifier-v1"]["selected_binding_by_environment"][
                 "dev-integration"
             ] = "missing"
             profile_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
@@ -135,6 +140,13 @@ class ModelProfileResolverTests(unittest.TestCase):
         access_path = root / "governed-ai-access-plane.yaml"
         shutil.copy2(REPO_ROOT / "security/governed-ai-model-profiles.yaml", profile_path)
         shutil.copy2(REPO_ROOT / "security/governed-ai-access-plane.yaml", access_path)
+        for schema_name in (
+            "intake-classification-result.schema.json",
+            "delivery-work-design-advice.schema.json",
+        ):
+            schema_path = root / "security/schemas" / schema_name
+            schema_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(REPO_ROOT / "security/schemas" / schema_name, schema_path)
         return profile_path, access_path
 
     def resolve(self, root: Path, **overrides):
@@ -179,7 +191,7 @@ class ModelProfileResolverTests(unittest.TestCase):
             synthetic = copy.deepcopy(registry["model_profiles"]["intake-classifier-v1"])
             synthetic["purpose"] = "synthetic-governed-assist"
             synthetic["allowed_callers"] = ["synthetic/workflow"]
-            synthetic["active_binding_by_environment"]["dev-integration"] = "synthetic-ollama"
+            synthetic["selected_binding_by_environment"]["dev-integration"] = "synthetic-ollama"
             synthetic["bindings"]["synthetic-ollama"] = synthetic["bindings"].pop(
                 "local-ollama-qwen3-8b"
             )
@@ -201,8 +213,17 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "accepted_record_schema_ref": copy.deepcopy(
                         synthetic["accepted_record_schema_ref"]
                     ),
+                    "allowed_task_kinds": ["intake_classification"],
                 }
             )
+            access_plane["activation_state"]["profile_activations"][
+                "synthetic-profile-v1"
+            ] = {
+                "activation_allowed": True,
+                "environment": "dev-integration",
+                "binding": "synthetic-ollama",
+                "reason": "synthetic-test",
+            }
             access_plane["activation_state"]["active_binding"] = "synthetic-ollama"
             access_plane["activation_state"]["active_profile"] = "synthetic-profile-v1"
             profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
@@ -248,6 +269,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "accepted_record_schema_ref": copy.deepcopy(
                         synthetic["accepted_record_schema_ref"]
                     ),
+                    "allowed_task_kinds": ["intake_classification"],
                 }
             )
             profile_path.write_text(yaml.safe_dump(registry, sort_keys=False), encoding="utf-8")
@@ -255,7 +277,7 @@ class ModelProfileResolverTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ModelProfileResolutionError,
-                "does not match the selected profile and environment binding",
+                "profile_activations.synthetic-profile-v1 must be a mapping",
             ):
                 resolve_model_profile(
                     profile_path,
@@ -297,11 +319,56 @@ class ModelProfileResolverTests(unittest.TestCase):
                     require_active=True,
                 )
 
+    def test_registered_work_design_profile_resolves_without_activation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            profile_path, access_path = self.prepare_contracts(Path(temp_dir))
+
+            result = resolve_model_profile(
+                profile_path,
+                access_path,
+                profile_id="delivery-work-design-advisor-v1",
+                environment="dev-integration",
+            )
+
+            self.assertEqual(result["profile_status"], "selected-not-active")
+            self.assertFalse(result["profile_activation_allowed"])
+            self.assertFalse(result["activation_eligible"])
+            self.assertIsNone(result["default_task_kind"])
+            self.assertEqual(
+                set(result["task_contracts"]), {"context_advice", "tree_advice"}
+            )
+
+    def test_registry_resolution_preserves_independent_profile_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            profile_path, access_path = self.prepare_contracts(Path(temp_dir))
+
+            result = resolve_model_profile_registry(
+                profile_path,
+                access_path,
+                environment="dev-integration",
+            )
+
+            self.assertEqual(
+                set(result["profiles"]),
+                {"intake-classifier-v1", "delivery-work-design-advisor-v1"},
+            )
+            self.assertTrue(
+                result["profiles"]["intake-classifier-v1"]["activation_eligible"]
+            )
+            self.assertFalse(
+                result["profiles"]["delivery-work-design-advisor-v1"][
+                    "activation_eligible"
+                ]
+            )
+            self.assertRegex(
+                result["registry_selection_digest"], r"^sha256:[0-9a-f]{64}$"
+            )
+
     def test_missing_environment_binding_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
             with self.assertRaisesRegex(
                 ModelProfileResolutionError,
-                "active_binding_by_environment.stage must be a non-empty string",
+                "selected_binding_by_environment.stage must be a non-empty string",
             ):
                 self.resolve(Path(temp_dir), environment="stage")
 

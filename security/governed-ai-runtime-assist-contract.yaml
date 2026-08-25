@@ -14,19 +14,24 @@ contract:
     runtime assists before any consumer can activate a live model-assisted path.
   model_profiles:
     - intake-classifier-v1
+    - delivery-work-design-advisor-v1
   consumers:
     allowed_callers:
       - workspace-governance/intake-assist
+    registered_not_active_callers:
+      - operator-orchestration-service/work-design-assist
     denied_patterns:
       - direct-provider-client
       - repo-local-provider-secret
       - model-output-direct-mutation
+      - untyped-task-invocation
   model_profile_selection:
     required_profile_status_for_live_activation: active
     require_profile_purpose_match: true
     require_allowed_caller_match: true
     require_allowed_data_scope_match: true
     require_output_schema_ref: true
+    require_task_contract_match: true
     require_security_review_ref: true
     require_provider_route_match: true
     require_upstream_model_allowlist_match: true
@@ -41,6 +46,7 @@ contract:
       - operator acceptance identity when human approval is required
       - direct provider egress block for governed consumers
       - structured audit emission before returning model output
+      - exact task kind, contract version, and output schema enforcement before provider access
   approval_boundary:
     human_approval_required: true
     approval_authority: operator
@@ -64,6 +70,9 @@ contract:
       - upstream_model_digest
       - provider_runtime_version
       - prompt_version
+      - task_kind
+      - task_contract_ref
+      - task_contract_version
       - provider_schema_valid
       - provider_latency_ms
       - provider_usage
@@ -103,6 +112,9 @@ contract:
     - id: revoke-provider-route
       trigger: provider credential exposure or direct provider egress is detected
       required_action: revoke the route or credential and record security remediation evidence
+    - id: suspend-one-profile
+      trigger: a profile-specific task, schema, caller, audit, or Security control fails
+      required_action: suspend only the affected logical profile while preserving independently active profiles
   security_review_refs:
     - repo: security-architecture
       path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md

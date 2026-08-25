@@ -8,7 +8,14 @@ import sys
 import yaml
 
 
-ALLOWED_STATUSES = {"active", "suspended", "retired", "exception"}
+ALLOWED_STATUSES = {
+    "active",
+    "selected-not-active",
+    "suspended",
+    "retired",
+    "exception",
+}
+MODEL_BINDING_STATUSES = {"active", "selected-not-active", "retired"}
 PROFILE_PATH = Path("security/governed-ai-model-profiles.yaml")
 RUNTIME_ASSIST_CONTRACT_PATH = Path("security/governed-ai-runtime-assist-contract.yaml")
 ACCESS_PLANE_PATH = Path("security/governed-ai-access-plane.yaml")
@@ -34,6 +41,9 @@ REQUIRED_RUNTIME_AUDIT_FIELDS = {
     "provider_latency_ms",
     "provider_usage",
     "purpose",
+    "task_kind",
+    "task_contract_ref",
+    "task_contract_version",
     "output_schema_ref",
     "policy_decision",
     "outcome",
@@ -143,6 +153,7 @@ def validate_runtime_assist_contract(
             "require_allowed_caller_match",
             "require_allowed_data_scope_match",
             "require_output_schema_ref",
+            "require_task_contract_match",
             "require_security_review_ref",
             "require_provider_route_match",
             "require_upstream_model_allowlist_match",
@@ -449,7 +460,9 @@ def validate_access_plane_contract(
         if not isinstance(profile, dict):
             continue
         bindings = profile.get("bindings") or {}
-        active_bindings = set((profile.get("active_binding_by_environment") or {}).values())
+        selected_bindings = set(
+            (profile.get("selected_binding_by_environment") or {}).values()
+        )
         for binding_id, binding in bindings.items():
             if not isinstance(binding, dict):
                 continue
@@ -475,10 +488,10 @@ def validate_access_plane_contract(
                     f"{ACCESS_PLANE_PATH}: provider route {route_id} must allow model "
                     f"{binding.get('upstream_model')!r}"
                 )
-            if binding_id in active_bindings and route.get("status") != "active":
+            if binding_id in selected_bindings and route.get("status") == "retired":
                 errors.append(
-                    f"{ACCESS_PLANE_PATH}: active binding {profile_id}/{binding_id} "
-                    f"requires active provider route {route_id}"
+                    f"{ACCESS_PLANE_PATH}: selected binding {profile_id}/{binding_id} "
+                    f"cannot use retired provider route {route_id}"
                 )
 
     allowed_callers = require_non_empty_list(
@@ -494,11 +507,32 @@ def validate_access_plane_contract(
             required_profile = caller.get("required_profile")
             if required_profile not in profiles:
                 errors.append(f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} references unknown profile {required_profile!r}")
+            allowed_task_kinds = caller.get("allowed_task_kinds")
+            if (
+                not isinstance(allowed_task_kinds, list)
+                or not allowed_task_kinds
+                or any(not isinstance(item, str) or not item for item in allowed_task_kinds)
+            ):
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} "
+                    "allowed_task_kinds must be a non-empty string list"
+                )
+            elif isinstance(profiles.get(required_profile), dict):
+                profile_tasks = set(
+                    ((profiles[required_profile].get("task_contracts") or {}).get("allowed") or {})
+                )
+                if set(allowed_task_kinds) != profile_tasks:
+                    errors.append(
+                        f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} task kinds "
+                        f"must match profile {required_profile}"
+                    )
             for schema_field in (
                 "required_provider_output_schema_ref",
                 "accepted_record_schema_ref",
             ):
                 output_schema_ref = caller.get(schema_field)
+                if output_schema_ref is None:
+                    continue
                 if not isinstance(output_schema_ref, dict):
                     errors.append(
                         f"{ACCESS_PLANE_PATH}: allowed_callers entry #{idx} "
@@ -611,6 +645,42 @@ def validate_access_plane_contract(
         errors=errors,
     )
     if activation is not None:
+        profile_activations = activation.get("profile_activations")
+        if not isinstance(profile_activations, dict) or set(profile_activations) != set(profiles):
+            errors.append(
+                f"{ACCESS_PLANE_PATH}: activation_state.profile_activations must "
+                "cover every profile exactly"
+            )
+            profile_activations = {}
+        for profile_id, profile_activation in profile_activations.items():
+            if not isinstance(profile_activation, dict):
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: activation for {profile_id} must be a mapping"
+                )
+                continue
+            allowed = profile_activation.get("activation_allowed")
+            environment = profile_activation.get("environment")
+            binding_id = profile_activation.get("binding")
+            if not isinstance(allowed, bool):
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: activation for {profile_id} must declare activation_allowed"
+                )
+            profile = profiles.get(profile_id) or {}
+            selected = (profile.get("selected_binding_by_environment") or {}).get(environment)
+            if selected != binding_id:
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: activation for {profile_id}/{environment} "
+                    f"must select binding {binding_id!r}"
+                )
+            binding = (profile.get("bindings") or {}).get(binding_id) or {}
+            if allowed and (
+                profile.get("status") != "active" or binding.get("status") != "active"
+            ):
+                errors.append(
+                    f"{ACCESS_PLANE_PATH}: allowed activation for {profile_id} requires "
+                    "active profile and binding status"
+                )
+
         activation_allowed = activation.get("profile_activation_allowed")
         if not isinstance(activation_allowed, bool):
             errors.append(f"{ACCESS_PLANE_PATH}: activation_state.profile_activation_allowed must be boolean")
@@ -634,7 +704,7 @@ def validate_access_plane_contract(
                 f"{ACCESS_PLANE_PATH}: activation_state.active_profile references unknown profile {active_profile!r}"
             )
         elif isinstance(selected_profile, dict) and isinstance(active_environment, str):
-            selected_binding = (selected_profile.get("active_binding_by_environment") or {}).get(
+            selected_binding = (selected_profile.get("selected_binding_by_environment") or {}).get(
                 active_environment
             )
             if selected_binding != active_binding:
@@ -697,9 +767,9 @@ def validate(repo_root: Path) -> list[str]:
             value = profile.get(field_name)
             if not isinstance(value, str) or not value.strip():
                 errors.append(f"{PROFILE_PATH}: {profile_id} missing non-empty {field_name}")
-        environment_bindings = profile.get("active_binding_by_environment")
+        environment_bindings = profile.get("selected_binding_by_environment")
         if not isinstance(environment_bindings, dict) or not environment_bindings:
-            errors.append(f"{PROFILE_PATH}: {profile_id} active_binding_by_environment must be a non-empty mapping")
+            errors.append(f"{PROFILE_PATH}: {profile_id} selected_binding_by_environment must be a non-empty mapping")
             environment_bindings = {}
         bindings = profile.get("bindings")
         if not isinstance(bindings, dict) or not bindings:
@@ -741,9 +811,10 @@ def validate(repo_root: Path) -> list[str]:
                             f"{PROFILE_PATH}: {profile_id} binding {binding_id} selection "
                             f"missing non-empty {field_name}"
                         )
-            if binding_id in environment_bindings.values() and binding.get("status") != "active":
+            if binding.get("status") not in MODEL_BINDING_STATUSES:
                 errors.append(
-                    f"{PROFILE_PATH}: {profile_id} active environment binding {binding_id} must be active"
+                    f"{PROFILE_PATH}: {profile_id} binding {binding_id} status must be "
+                    f"one of {sorted(MODEL_BINDING_STATUSES)}"
                 )
             if binding.get("provider") == "ollama":
                 for field_name in ("model_digest", "runtime_version"):
@@ -771,8 +842,64 @@ def validate(repo_root: Path) -> list[str]:
             if not isinstance(profile.get(bool_field), bool):
                 errors.append(f"{PROFILE_PATH}: {profile_id} {bool_field} must be boolean")
 
+        task_root = profile.get("task_contracts")
+        if not isinstance(task_root, dict):
+            errors.append(f"{PROFILE_PATH}: {profile_id} task_contracts must be a mapping")
+            task_root = {}
+        tasks = task_root.get("allowed")
+        if not isinstance(tasks, dict) or not tasks:
+            errors.append(f"{PROFILE_PATH}: {profile_id} task_contracts.allowed must be a non-empty mapping")
+            tasks = {}
+        default_task = task_root.get("default_task_kind")
+        if default_task is not None and default_task not in tasks:
+            errors.append(f"{PROFILE_PATH}: {profile_id} default task must reference an allowed task")
+        for task_kind, task in tasks.items():
+            label = f"{PROFILE_PATH}: {profile_id} task {task_kind}"
+            if not isinstance(task, dict):
+                errors.append(f"{label} must be a mapping")
+                continue
+            for field_name in (
+                "contract_ref",
+                "contract_version",
+                "instruction_owner_repo",
+                "instruction_source",
+            ):
+                if not isinstance(task.get(field_name), str) or not task.get(field_name):
+                    errors.append(f"{label} missing non-empty {field_name}")
+            if task.get("instruction_source") not in {"caller", "gateway-profile"}:
+                errors.append(f"{label} instruction_source must be caller or gateway-profile")
+            if task.get("instruction_source") == "gateway-profile" and not task.get("prompt_version"):
+                errors.append(f"{label} gateway-profile instruction requires prompt_version")
+            for ref_field in ("contract_source_ref", "provider_output_schema_ref"):
+                ref = task.get(ref_field)
+                if not isinstance(ref, dict):
+                    errors.append(f"{label} {ref_field} must be a mapping")
+                else:
+                    resolve_cross_repo_path(
+                        workspace_root,
+                        ref,
+                        label=f"{label} {ref_field}",
+                        errors=errors,
+                    )
+            input_contract = task.get("input_contract")
+            if not isinstance(input_contract, dict):
+                errors.append(f"{label} input_contract must be a mapping")
+            else:
+                allowed_fields = input_contract.get("allowed_fields")
+                required_fields = input_contract.get("required_fields")
+                if not isinstance(allowed_fields, list) or not allowed_fields:
+                    errors.append(f"{label} input_contract.allowed_fields must be a non-empty list")
+                if not isinstance(required_fields, list) or not required_fields:
+                    errors.append(f"{label} input_contract.required_fields must be a non-empty list")
+                if isinstance(allowed_fields, list) and isinstance(required_fields, list):
+                    unknown = sorted(set(required_fields).difference(allowed_fields))
+                    if unknown:
+                        errors.append(f"{label} requires fields outside its allowlist: {unknown}")
+
         for schema_field in ("provider_output_schema_ref", "accepted_record_schema_ref"):
             output_schema_ref = profile.get(schema_field)
+            if output_schema_ref is None:
+                continue
             if not isinstance(output_schema_ref, dict):
                 errors.append(f"{PROFILE_PATH}: {profile_id} {schema_field} must be a mapping")
                 continue

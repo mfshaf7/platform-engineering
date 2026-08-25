@@ -33,11 +33,18 @@ The invocation endpoint is:
 
 - `POST /v1/governed-ai/invoke`
 
-Requests name logical profile `intake-classifier-v1` and the platform provider
-output schema. They do not name Ollama, OpenAI, or a concrete model. The gateway
-resolves the active environment binding and returns a pre-acceptance suggestion;
-the consumer records operator acceptance separately before workspace truth can
-change.
+Requests name a logical profile and platform-owned output schema. Typed
+consumers also provide the exact task kind, contract reference, and contract
+version. They do not name Ollama, OpenAI, or a concrete model. The gateway
+resolves the selected environment binding and returns a pre-acceptance
+suggestion; the consumer records operator acceptance separately before
+canonical truth can change.
+
+`intake-classifier-v1` retains its default `intake_classification` task for
+request compatibility. `delivery-work-design-advisor-v1` requires either
+`context_advice` or `tree_advice` under `oos.delivery-work-design.v1`. That
+profile is registered but inactive, so requests are denied before provider
+access until its later activation gates pass.
 
 The current profile status is intentionally policy-controlled. If the requested
 model profile is not active, invocation returns a deny decision and still emits
@@ -51,3 +58,4 @@ an audit event.
 - no stage or prod endpoint
 - no dashboard endpoint
 - no raw provider token readback endpoint
+- no untyped Work Design invocation

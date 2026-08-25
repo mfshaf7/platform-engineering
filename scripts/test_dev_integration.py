@@ -217,41 +217,39 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             REPO_ROOT
             / "dev-integration/profiles/governed-ai-gateway/scripts/common.sh"
         ).read_text(encoding="utf-8")
+        policy_source = (
+            REPO_ROOT
+            / "dev-integration/profiles/governed-ai-gateway/runtime/gateway_policy.py"
+        ).read_text(encoding="utf-8")
 
+        self.assertIn("--all", common_source)
+        self.assertIn("model-profile-selections.json", common_source)
+        self.assertIn("gateway_policy.py", common_source)
+        self.assertIn("strict_output_schema.py", common_source)
+        self.assertNotIn('cat >"${RENDERED_DIR}/gateway_app.py"', common_source)
+        self.assertIn('reasons.append("profile-not-active")', policy_source)
+        self.assertIn('reasons.append("binding-not-active")', policy_source)
+        self.assertIn('reasons.append("provider-route-not-active")', policy_source)
         self.assertIn(
-            "GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED",
-            common_source,
+            'reasons.append("profile-activation-not-allowed")', policy_source
         )
-        self.assertIn(
-            "if not ACCESS_PLANE_ACTIVATION_ALLOWED:",
-            common_source,
-        )
-        self.assertIn(
-            'denial_reasons.append("access-plane-not-active")',
-            common_source,
-        )
-        self.assertIn(
-            'denial_reasons.append("binding-not-active")',
-            common_source,
-        )
-        self.assertIn(
-            'denial_reasons.append("provider-route-not-active")',
-            common_source,
-        )
-        self.assertIn("def selected_binding_evidence()", common_source)
         self.assertIn(
             'if [[ "${UPSTREAM_PROVIDER}" != "ollama" ]]',
             common_source,
         )
         self.assertIn("require_active_model_binding", common_source)
         self.assertIn(
-            'denial_reasons.append("model-selection-not-activation-eligible")',
-            common_source,
+            'reasons.append("model-selection-not-activation-eligible")',
+            policy_source,
         )
         probe_source = common_source.split("run_consumer_probe()", 1)[1]
         self.assertIn('"${MODEL_PROFILE_ID}" "${MODEL_SMOKE_CALLER_ID}"', probe_source)
         self.assertIn('"${PROVIDER_OUTPUT_SCHEMA_REF}"', probe_source)
         self.assertNotIn('"profile_id": "intake-classifier-v1"', probe_source)
+        self.assertIn(
+            'caller_repo, caller_workflow = caller_id.split("/", 1)', probe_source
+        )
+        self.assertIn('"caller_workflow": caller_workflow', probe_source)
 
     def test_governed_ai_runtime_manifest_is_valid_multi_document_yaml(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-render-") as temp_dir:
@@ -292,10 +290,28 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 and (document.get("metadata") or {}).get("name")
                 == "governed-ai-gateway-app"
             )
-            compile(
-                gateway_config["data"]["gateway_app.py"],
-                "rendered-gateway-app.py",
-                "exec",
+            for runtime_file in (
+                "gateway_app.py",
+                "gateway_policy.py",
+                "ollama_adapter.py",
+                "strict_output_schema.py",
+            ):
+                compile(
+                    gateway_config["data"][runtime_file],
+                    f"rendered-{runtime_file}",
+                    "exec",
+                )
+            selections = json.loads(
+                gateway_config["data"]["model-profile-selections.json"]
+            )
+            self.assertEqual(
+                set(selections["profiles"]),
+                {"intake-classifier-v1", "delivery-work-design-advisor-v1"},
+            )
+            self.assertFalse(
+                selections["profiles"]["delivery-work-design-advisor-v1"][
+                    "activation_eligible"
+                ]
             )
             gateway = next(
                 document
@@ -309,36 +325,30 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 for item in gateway["spec"]["template"]["spec"]["containers"][0]["env"]
             }
             self.assertRegex(
-                env["GOVERNED_AI_PROVIDER_BASE_URL"],
+                env["GOVERNED_AI_OLLAMA_BASE_URL"],
                 r"^http://\d{1,3}(?:\.\d{1,3}){3}:11434$",
             )
-            self.assertEqual(env["GOVERNED_AI_PROFILE_ID"], "intake-classifier-v1")
-            self.assertEqual(env["GOVERNED_AI_MODEL_ENVIRONMENT"], "dev-integration")
-            self.assertEqual(env["GOVERNED_AI_BINDING_ID"], "local-ollama-qwen3-8b")
-            self.assertEqual(env["GOVERNED_AI_BINDING_STATUS"], "active")
-            self.assertEqual(env["GOVERNED_AI_PROVIDER_ROUTE_STATUS"], "active")
             self.assertEqual(
-                env["GOVERNED_AI_FALLBACK_MODE"],
-                "fail-closed-no-implicit-fallback",
+                env["GOVERNED_AI_PROFILE_SELECTIONS_PATH"],
+                "/app/model-profile-selections.json",
             )
-            self.assertEqual(env["GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE"], "true")
-            self.assertRegex(
-                env["GOVERNED_AI_BINDING_SELECTION_DIGEST"], r"^sha256:[0-9a-f]{64}$"
-            )
-            self.assertRegex(
-                env["GOVERNED_AI_BINDING_SELECTION_REF"],
-                r"^model-binding-selection:[0-9a-f]{64}$",
+            self.assertEqual(
+                env["GOVERNED_AI_COMPATIBILITY_PROFILE_ID"],
+                "intake-classifier-v1",
             )
             selection_receipt = json.loads(
                 (state_root / "model-binding-selection.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(
-                selection_receipt["selection_digest"],
-                env["GOVERNED_AI_BINDING_SELECTION_DIGEST"],
+            selections_receipt = json.loads(
+                (state_root / "model-profile-selections.json").read_text(
+                    encoding="utf-8"
+                )
             )
             self.assertEqual(
-                selection_receipt["selection_ref"],
-                env["GOVERNED_AI_BINDING_SELECTION_REF"],
+                selection_receipt["selection_digest"],
+                selections_receipt["profiles"]["intake-classifier-v1"][
+                    "selection_digest"
+                ],
             )
             consumer = next(
                 document

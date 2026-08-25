@@ -20,12 +20,13 @@ read -r -a KUBECTL_CMD <<<"${DEVINT_KUBECTL:-k3s kubectl}"
 readonly STATUS_FILE="${STATE_ROOT}/profile-status.txt"
 readonly SMOKE_SUMMARY="${STATE_ROOT}/smoke-summary.json"
 readonly MODEL_SELECTION_RECEIPT="${STATE_ROOT}/model-binding-selection.json"
+readonly MODEL_SELECTIONS_RECEIPT="${STATE_ROOT}/model-profile-selections.json"
 readonly PROFILE_PROMOTION_NOTES="${STATE_ROOT}/profile-promotion-notes.md"
 readonly RENDERED_DIR="${STATE_ROOT}/rendered"
 readonly LOGS_DIR="${STATE_ROOT}/logs"
 readonly ACCESS_LOCAL_PORT="${DEVINT_GAI_GATEWAY_LOCAL_PORT:-18290}"
 readonly RUNTIME_SOURCE_DIR="${PROFILE_ROOT}/runtime"
-readonly MODEL_PROFILE_ID_REQUESTED="${DEVINT_GAI_MODEL_PROFILE_ID:-intake-classifier-v1}"
+readonly COMPATIBILITY_MODEL_PROFILE_ID="intake-classifier-v1"
 readonly MODEL_ENVIRONMENT_REQUESTED="${DEVINT_GAI_MODEL_ENVIRONMENT:-dev-integration}"
 
 readonly GATEWAY_DEPLOYMENT="governed-ai-gateway"
@@ -75,15 +76,30 @@ PY
 
 readonly PROFILE_LIFECYCLE="$(profile_lifecycle)"
 
-load_model_binding() {
+load_model_profile_selections() {
   python3 "${RUNTIME_SOURCE_DIR}/model_profile_resolver.py" \
     --profile-registry "${OWNER_REPO_ROOT}/security/governed-ai-model-profiles.yaml" \
     --access-plane "${OWNER_REPO_ROOT}/security/governed-ai-access-plane.yaml" \
-    --profile-id "${MODEL_PROFILE_ID_REQUESTED}" \
+    --all \
     --environment "${MODEL_ENVIRONMENT_REQUESTED}"
 }
 
-MODEL_SELECTION_JSON="$(load_model_binding)"
+MODEL_SELECTIONS_JSON="$(load_model_profile_selections)"
+readonly MODEL_SELECTIONS_JSON
+MODEL_SELECTION_JSON="$({
+  python3 -c '
+import json
+import sys
+
+registry = json.load(sys.stdin)
+profile_id = sys.argv[1]
+try:
+    profile = registry["profiles"][profile_id]
+except KeyError as exc:
+    raise SystemExit(f"compatibility profile {profile_id!r} is not resolved") from exc
+print(json.dumps(profile, indent=2, sort_keys=True))
+' "${COMPATIBILITY_MODEL_PROFILE_ID}" <<<"${MODEL_SELECTIONS_JSON}"
+})"
 readonly MODEL_SELECTION_JSON
 mapfile -t MODEL_BINDING < <(
   python3 -c '
@@ -197,6 +213,7 @@ write_status_file() {
 write_model_selection_receipt() {
   ensure_state_dirs
   printf '%s\n' "${MODEL_SELECTION_JSON}" >"${MODEL_SELECTION_RECEIPT}"
+  printf '%s\n' "${MODEL_SELECTIONS_JSON}" >"${MODEL_SELECTIONS_RECEIPT}"
 }
 
 print_status() {
@@ -231,375 +248,15 @@ wait_for_runtime_ready() {
 }
 
 render_gateway_app() {
-  cat >"${RENDERED_DIR}/gateway_app.py" <<'PY'
-from __future__ import annotations
-
-from datetime import datetime, timezone
-import hashlib
-import json
-import os
-from pathlib import Path
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-from ollama_adapter import OllamaAdapter, OllamaAdapterError
-
-AUDIT_ROOT = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai-gateway"))
-AUDIT_LEDGER = AUDIT_ROOT / "audit-ledger.jsonl"
-PROFILE_ID = os.environ.get("GOVERNED_AI_PROFILE_ID", "intake-classifier-v1")
-PROFILE_STATUS = os.environ.get("GOVERNED_AI_PROFILE_STATUS", "suspended")
-PROFILE_PURPOSE = os.environ.get("GOVERNED_AI_PROFILE_PURPOSE", "unbound")
-MODEL_ENVIRONMENT = os.environ.get("GOVERNED_AI_MODEL_ENVIRONMENT", "unbound")
-BINDING_ID = os.environ.get("GOVERNED_AI_BINDING_ID", "unbound")
-BINDING_STATUS = os.environ.get("GOVERNED_AI_BINDING_STATUS", "unbound")
-BINDING_SELECTION_DIGEST = os.environ.get(
-    "GOVERNED_AI_BINDING_SELECTION_DIGEST", "unbound"
-)
-BINDING_SELECTION_REF = os.environ.get("GOVERNED_AI_BINDING_SELECTION_REF", "unbound")
-PROFILE_REGISTRY_DIGEST = os.environ.get("GOVERNED_AI_PROFILE_REGISTRY_DIGEST", "unbound")
-ACCESS_PLANE_DIGEST = os.environ.get("GOVERNED_AI_ACCESS_PLANE_DIGEST", "unbound")
-FALLBACK_MODE = os.environ.get(
-    "GOVERNED_AI_FALLBACK_MODE", "fail-closed-no-implicit-fallback"
-)
-MODEL_ACTIVATION_ELIGIBLE = (
-    os.environ.get("GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE", "false").lower()
-    == "true"
-)
-ACCESS_PLANE_ACTIVATION_ALLOWED = (
-    os.environ.get("GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED", "false").lower()
-    == "true"
-)
-UPSTREAM_PROVIDER = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER", "unbound")
-UPSTREAM_PROVIDER_ROUTE = os.environ.get("GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE", "unbound")
-PROVIDER_ROUTE_STATUS = os.environ.get("GOVERNED_AI_PROVIDER_ROUTE_STATUS", "unbound")
-UPSTREAM_MODEL = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL", "unbound")
-UPSTREAM_MODEL_DIGEST = os.environ.get("GOVERNED_AI_UPSTREAM_MODEL_DIGEST", "unbound")
-PROVIDER_RUNTIME_VERSION = os.environ.get("GOVERNED_AI_PROVIDER_RUNTIME_VERSION", "unbound")
-PROVIDER_BASE_URL = os.environ.get("GOVERNED_AI_PROVIDER_BASE_URL", "http://host.docker.internal:11434")
-INVOCATION_PATH = os.environ.get("GOVERNED_AI_INVOCATION_PATH", "governed-ai-gateway")
-OUTPUT_SCHEMA_REF = os.environ.get(
-    "GOVERNED_AI_OUTPUT_SCHEMA_REF",
-    "platform-engineering/security/schemas/intake-classification-result.schema.json",
-)
-ALLOWED_CALLERS = {
-    caller
-    for caller in os.environ.get(
-        "GOVERNED_AI_ALLOWED_CALLERS", "workspace-governance/intake-assist"
-    ).split(",")
-    if caller
-}
-MAX_REQUEST_BYTES = int(os.environ.get("GOVERNED_AI_MAX_REQUEST_BYTES", "16384"))
-
-PROVIDER = OllamaAdapter(
-    base_url=PROVIDER_BASE_URL,
-    model=UPSTREAM_MODEL,
-    expected_digest=UPSTREAM_MODEL_DIGEST,
-    expected_runtime_version=PROVIDER_RUNTIME_VERSION,
-    timeout_seconds=float(os.environ.get("GOVERNED_AI_PROVIDER_TIMEOUT_SECONDS", "30")),
-    retry_count=int(os.environ.get("GOVERNED_AI_PROVIDER_RETRY_COUNT", "1")),
-    max_concurrency=int(os.environ.get("GOVERNED_AI_PROVIDER_MAX_CONCURRENCY", "2")),
-    max_output_tokens=int(os.environ.get("GOVERNED_AI_PROVIDER_MAX_OUTPUT_TOKENS", "64")),
-)
-
-REQUIRED_CALLER_FIELDS = [
-    "caller_id",
-    "caller_repo",
-    "caller_workflow",
-    "decision_or_correlation_id",
-    "requested_profile_id",
-]
-def utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def audit_digest(payload: dict) -> str:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def append_audit(event: dict) -> dict:
-    AUDIT_ROOT.mkdir(parents=True, exist_ok=True)
-    event = dict(event)
-    event["event_time"] = utc_now()
-    event["event_digest"] = audit_digest(event)
-    with AUDIT_LEDGER.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(event, sort_keys=True) + "\n")
-    return event
-
-
-def latest_audit_event() -> dict:
-    if not AUDIT_LEDGER.exists():
-        return {"event_count": 0, "latest": None}
-    lines = [line for line in AUDIT_LEDGER.read_text(encoding="utf-8").splitlines() if line.strip()]
-    return {
-        "event_count": len(lines),
-        "latest": json.loads(lines[-1]) if lines else None,
-    }
-
-
-def selected_binding_evidence() -> dict:
-    return {
-        "profile_id": PROFILE_ID,
-        "profile_status": PROFILE_STATUS,
-        "environment": MODEL_ENVIRONMENT,
-        "binding_id": BINDING_ID,
-        "binding_status": BINDING_STATUS,
-        "provider": UPSTREAM_PROVIDER,
-        "provider_route": UPSTREAM_PROVIDER_ROUTE,
-        "provider_route_status": PROVIDER_ROUTE_STATUS,
-        "upstream_model": UPSTREAM_MODEL,
-        "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
-        "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
-        "profile_registry_digest": PROFILE_REGISTRY_DIGEST,
-        "access_plane_digest": ACCESS_PLANE_DIGEST,
-        "selection_digest": BINDING_SELECTION_DIGEST,
-        "selection_ref": BINDING_SELECTION_REF,
-        "fallback_mode": FALLBACK_MODE,
-        "activation_eligible": MODEL_ACTIVATION_ELIGIBLE,
-    }
-
-
-class Handler(BaseHTTPRequestHandler):
-    server_version = "GovernedAIGatewayDevInt/1.0"
-
-    def log_message(self, format: str, *args: object) -> None:
-        return
-
-    def send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload, sort_keys=True).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def read_json(self) -> dict:
-        length = int(self.headers.get("Content-Length", "0") or "0")
-        if length <= 0:
-            return {}
-        if length > MAX_REQUEST_BYTES:
-            raise ValueError("request-too-large")
-        raw = self.rfile.read(length)
-        payload = json.loads(raw.decode("utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("request-must-be-object")
-        return payload
-
-    def do_GET(self) -> None:
-        if self.path == "/healthz":
-            self.send_json(200, {"status": "ok", "component": "governed-ai-gateway"})
-            return
-        if self.path == "/readyz":
-            ready = MODEL_ACTIVATION_ELIGIBLE and ACCESS_PLANE_ACTIVATION_ALLOWED
-            self.send_json(
-                200 if ready else 503,
-                {
-                    "ready": ready,
-                    "profile_id": PROFILE_ID,
-                    "profile_status": PROFILE_STATUS,
-                    "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
-                    "upstream_provider": UPSTREAM_PROVIDER,
-                    "provider_route": UPSTREAM_PROVIDER_ROUTE,
-                    "upstream_model": UPSTREAM_MODEL,
-                    "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
-                    "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
-                    "selected_binding": selected_binding_evidence(),
-                    "provider_credential_required": False,
-                    "raw_provider_token_projected": False,
-                },
-            )
-            return
-        if self.path == "/v1/provider/custody":
-            self.send_json(
-                200,
-                {
-                    "provider_credential_required": False,
-                    "provider_secret_available": False,
-                    "upstream_provider": UPSTREAM_PROVIDER,
-                    "provider_route": UPSTREAM_PROVIDER_ROUTE,
-                    "upstream_model": UPSTREAM_MODEL,
-                    "provider_secret_ref": None,
-                    "consumer_provider_credentials_allowed": False,
-                    "provider_secret_projected_to_consumers": False,
-                    "token_value_projected": False,
-                },
-            )
-            return
-        if self.path == "/v1/audit/events/latest":
-            self.send_json(200, latest_audit_event())
-            return
-        self.send_json(404, {"error": "not_found"})
-
-    def do_POST(self) -> None:
-        if self.path != "/v1/governed-ai/invoke":
-            self.send_json(404, {"error": "not_found"})
-            return
-
-        try:
-            request = self.read_json()
-        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            self.send_json(400, {"error": "invalid-request", "reason": str(exc)})
-            return
-        caller_identity = request.get("caller_identity") or {}
-        missing = [field for field in REQUIRED_CALLER_FIELDS if not caller_identity.get(field)]
-        requested_profile = request.get("profile_id") or caller_identity.get("requested_profile_id")
-        output_schema_ref = request.get("provider_output_schema_ref")
-        operator_identity = request.get("operator_identity") or {}
-        operator_acceptance_state = request.get("operator_acceptance_state", "not-recorded")
-
-        denial_reasons: list[str] = []
-        if missing:
-            denial_reasons.append("missing-caller-identity:" + ",".join(missing))
-        if caller_identity.get("caller_id") not in ALLOWED_CALLERS:
-            denial_reasons.append("caller-not-allowed")
-        if requested_profile != PROFILE_ID:
-            denial_reasons.append("profile-not-allowed")
-        if PROFILE_STATUS != "active":
-            denial_reasons.append("profile-not-active")
-        if BINDING_STATUS != "active":
-            denial_reasons.append("binding-not-active")
-        if PROVIDER_ROUTE_STATUS != "active":
-            denial_reasons.append("provider-route-not-active")
-        if not ACCESS_PLANE_ACTIVATION_ALLOWED:
-            denial_reasons.append("access-plane-not-active")
-        if not MODEL_ACTIVATION_ELIGIBLE:
-            denial_reasons.append("model-selection-not-activation-eligible")
-        if UPSTREAM_MODEL == "pending-selection":
-            denial_reasons.append("upstream-model-pending-selection")
-        if output_schema_ref != OUTPUT_SCHEMA_REF:
-            denial_reasons.append("output-schema-mismatch")
-        if not operator_identity.get("operator_id"):
-            denial_reasons.append("operator-identity-missing")
-
-        intake_packet = request.get("input") or {}
-        if not isinstance(intake_packet, dict):
-            denial_reasons.append("input-must-be-object")
-            intake_packet = {}
-        allowed_input_fields = {"operator_supplied_intake_notes", "model_safe_packet"}
-        if set(intake_packet).difference(allowed_input_fields):
-            denial_reasons.append("input-field-not-allowed")
-        note = intake_packet.get("operator_supplied_intake_notes")
-        if not isinstance(note, str) or not note.strip():
-            denial_reasons.append("intake-notes-missing")
-        model_safe_packet = intake_packet.get("model_safe_packet")
-        if model_safe_packet is not None:
-            required_packet_fields = {"packet_ref", "redaction_receipt_ref", "content"}
-            if not isinstance(model_safe_packet, dict) or not all(
-                isinstance(model_safe_packet.get(field), str) and model_safe_packet.get(field)
-                for field in required_packet_fields
-            ):
-                denial_reasons.append("model-safe-packet-invalid")
-
-        policy_decision = "deny" if denial_reasons else "allow"
-        correlation_id = caller_identity.get("decision_or_correlation_id") or request.get("correlation_id")
-        event_base = {
-                "correlation_id": correlation_id,
-                "caller_identity": caller_identity,
-                "operator_identity": operator_identity,
-                "approved_profile_id": PROFILE_ID,
-                "selected_binding": selected_binding_evidence(),
-                "access_plane_activation_allowed": ACCESS_PLANE_ACTIVATION_ALLOWED,
-                "requested_profile_id": requested_profile,
-                "invocation_path": INVOCATION_PATH,
-                "upstream_provider": UPSTREAM_PROVIDER,
-                "provider_route": UPSTREAM_PROVIDER_ROUTE,
-                "upstream_model": UPSTREAM_MODEL,
-                "upstream_model_digest": UPSTREAM_MODEL_DIGEST,
-                "provider_runtime_version": PROVIDER_RUNTIME_VERSION,
-                "prompt_version": PROVIDER.prompt_version,
-                "purpose": PROFILE_PURPOSE,
-                "output_schema_ref": OUTPUT_SCHEMA_REF,
-                "policy_decision": policy_decision,
-                "policy_reasons": denial_reasons,
-                "operator_acceptance_state": operator_acceptance_state,
-                "override_reason": request.get("override_reason"),
-                "model_safe_packet_ref": (model_safe_packet or {}).get("packet_ref"),
-                "redaction_receipt_ref": (model_safe_packet or {}).get("redaction_receipt_ref"),
-                "provider_secret_ref": None,
-                "provider_secret_projected": False,
-        }
-
-        if denial_reasons:
-            event = append_audit(
-                {
-                    **event_base,
-                    "outcome": "denied",
-                    "provider_schema_valid": False,
-                    "provider_latency_ms": 0,
-                    "provider_usage": {},
-                }
-            )
-            self.send_json(
-                403,
-                {
-                    "policy_decision": "deny",
-                    "reasons": denial_reasons,
-                    "audit_ref": f"local-ledger:{event['event_digest']}",
-                },
-            )
-            return
-
-        try:
-            provider_result = PROVIDER.classify(intake_packet)
-        except OllamaAdapterError as exc:
-            event = append_audit(
-                {
-                    **event_base,
-                    "outcome": exc.code,
-                    "provider_schema_valid": False,
-                    "provider_latency_ms": 0,
-                    "provider_usage": {},
-                }
-            )
-            status = 504 if exc.code == "provider-timeout" else 503
-            self.send_json(
-                status,
-                {
-                    "policy_decision": "deny",
-                    "reasons": [exc.code],
-                    "audit_ref": f"local-ledger:{event['event_digest']}",
-                },
-            )
-            return
-
-        event = append_audit(
-            {
-                **event_base,
-                "upstream_model_digest": provider_result.model_digest,
-                "provider_runtime_version": provider_result.runtime_version,
-                "outcome": "suggestion-produced",
-                "provider_schema_valid": True,
-                "provider_latency_ms": provider_result.latency_ms,
-                "provider_usage": provider_result.usage,
-            }
-        )
-
-        self.send_json(
-            200,
-            {
-                "profile_id": PROFILE_ID,
-                "policy_status": PROFILE_STATUS,
-                "policy_decision": "allow",
-                "decision_id": correlation_id,
-                "generated_at": event["event_time"],
-                "confidence": provider_result.output["confidence"],
-                "caller_id": caller_identity.get("caller_id"),
-                "invocation_path": INVOCATION_PATH,
-                "binding_selection_ref": BINDING_SELECTION_REF,
-                "suggested_decision": provider_result.output["suggested_decision"],
-                "audit_ref": f"local-ledger:{event['event_digest']}",
-            },
-        )
-
-
-def main() -> None:
-    AUDIT_ROOT.mkdir(parents=True, exist_ok=True)
-    server = ThreadingHTTPServer(("0.0.0.0", 8080), Handler)
-    server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()
-PY
+  local runtime_file
+  for runtime_file in \
+    gateway_app.py \
+    gateway_policy.py \
+    ollama_adapter.py \
+    strict_output_schema.py; do
+    cp "${RUNTIME_SOURCE_DIR}/${runtime_file}" "${RENDERED_DIR}/${runtime_file}"
+  done
+  cp "${MODEL_SELECTIONS_RECEIPT}" "${RENDERED_DIR}/model-profile-selections.json"
 }
 
 render_provider_sentinel_app() {
@@ -634,7 +291,6 @@ render_runtime_manifest() {
   fi
   render_gateway_app
   render_provider_sentinel_app
-  cp "${RUNTIME_SOURCE_DIR}/ollama_adapter.py" "${RENDERED_DIR}/ollama_adapter.py"
 
   local provider_host_ip
   provider_host_ip="${DEVINT_GAI_PROVIDER_HOST_IP:-}"
@@ -695,8 +351,14 @@ metadata:
 data:
   gateway_app.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/gateway_app.py")
+  gateway_policy.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/gateway_policy.py")
   ollama_adapter.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/ollama_adapter.py")
+  strict_output_schema.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/strict_output_schema.py")
+  model-profile-selections.json: |
+$(sed 's/^/    /' "${RENDERED_DIR}/model-profile-selections.json")
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -732,62 +394,12 @@ spec:
           env:
             - name: GOVERNED_AI_AUDIT_ROOT
               value: /var/lib/governed-ai-gateway
-            - name: GOVERNED_AI_PROFILE_ID
-              value: "${MODEL_PROFILE_ID}"
-            - name: GOVERNED_AI_PROFILE_STATUS
-              value: "${MODEL_PROFILE_STATUS}"
-            - name: GOVERNED_AI_PROFILE_PURPOSE
-              value: "${MODEL_PROFILE_PURPOSE}"
-            - name: GOVERNED_AI_MODEL_ENVIRONMENT
-              value: "${MODEL_ENVIRONMENT}"
-            - name: GOVERNED_AI_BINDING_ID
-              value: "${MODEL_BINDING_ID}"
-            - name: GOVERNED_AI_BINDING_STATUS
-              value: "${MODEL_BINDING_STATUS}"
-            - name: GOVERNED_AI_BINDING_SELECTION_DIGEST
-              value: "${MODEL_SELECTION_DIGEST}"
-            - name: GOVERNED_AI_BINDING_SELECTION_REF
-              value: "${MODEL_SELECTION_REF}"
-            - name: GOVERNED_AI_PROFILE_REGISTRY_DIGEST
-              value: "${MODEL_PROFILE_REGISTRY_DIGEST}"
-            - name: GOVERNED_AI_ACCESS_PLANE_DIGEST
-              value: "${MODEL_ACCESS_PLANE_DIGEST}"
-            - name: GOVERNED_AI_FALLBACK_MODE
-              value: "${MODEL_FALLBACK_MODE}"
-            - name: GOVERNED_AI_MODEL_ACTIVATION_ELIGIBLE
-              value: "${MODEL_ACTIVATION_ELIGIBLE}"
-            - name: GOVERNED_AI_ACCESS_PLANE_ACTIVATION_ALLOWED
-              value: "${ACCESS_PLANE_ACTIVATION_ALLOWED}"
-            - name: GOVERNED_AI_UPSTREAM_PROVIDER
-              value: "${UPSTREAM_PROVIDER}"
-            - name: GOVERNED_AI_UPSTREAM_PROVIDER_ROUTE
-              value: "${UPSTREAM_PROVIDER_ROUTE}"
-            - name: GOVERNED_AI_PROVIDER_ROUTE_STATUS
-              value: "${MODEL_PROVIDER_ROUTE_STATUS}"
-            - name: GOVERNED_AI_UPSTREAM_MODEL
-              value: "${UPSTREAM_MODEL}"
-            - name: GOVERNED_AI_UPSTREAM_MODEL_DIGEST
-              value: "${UPSTREAM_MODEL_DIGEST}"
-            - name: GOVERNED_AI_PROVIDER_RUNTIME_VERSION
-              value: "${PROVIDER_RUNTIME_VERSION}"
-            - name: GOVERNED_AI_PROVIDER_BASE_URL
+            - name: GOVERNED_AI_PROFILE_SELECTIONS_PATH
+              value: /app/model-profile-selections.json
+            - name: GOVERNED_AI_COMPATIBILITY_PROFILE_ID
+              value: "${COMPATIBILITY_MODEL_PROFILE_ID}"
+            - name: GOVERNED_AI_OLLAMA_BASE_URL
               value: "http://${provider_host_ip}:11434"
-            - name: GOVERNED_AI_INVOCATION_PATH
-              value: "${INVOCATION_PATH}"
-            - name: GOVERNED_AI_OUTPUT_SCHEMA_REF
-              value: "${PROVIDER_OUTPUT_SCHEMA_REF}"
-            - name: GOVERNED_AI_ALLOWED_CALLERS
-              value: "${ALLOWED_CALLERS_CSV}"
-            - name: GOVERNED_AI_MAX_REQUEST_BYTES
-              value: "16384"
-            - name: GOVERNED_AI_PROVIDER_TIMEOUT_SECONDS
-              value: "30"
-            - name: GOVERNED_AI_PROVIDER_RETRY_COUNT
-              value: "1"
-            - name: GOVERNED_AI_PROVIDER_MAX_CONCURRENCY
-              value: "2"
-            - name: GOVERNED_AI_PROVIDER_MAX_OUTPUT_TOKENS
-              value: "64"
           ports:
             - containerPort: 8080
               name: http
@@ -993,14 +605,14 @@ ollama_url = sys.argv[3]
 profile_id = sys.argv[4]
 caller_id = sys.argv[5]
 output_schema_ref = sys.argv[6]
-caller_repo = caller_id.split("/", 1)[0]
+caller_repo, caller_workflow = caller_id.split("/", 1)
 
 payload = {
     "profile_id": profile_id,
     "caller_identity": {
         "caller_id": caller_id,
         "caller_repo": caller_repo,
-        "caller_workflow": "governed-ai-devint-smoke",
+        "caller_workflow": caller_workflow,
         "decision_or_correlation_id": "devint-smoke-governed-ai-gateway",
         "requested_profile_id": profile_id,
     },

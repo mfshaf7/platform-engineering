@@ -16,6 +16,7 @@ access_plane:
     path: security/governed-ai-runtime-assist-contract.yaml
   allowed_profiles:
     - intake-classifier-v1
+    - delivery-work-design-advisor-v1
   provider_routes:
     - route_id: ollama-local-host
       provider: ollama
@@ -26,6 +27,7 @@ access_plane:
       credential_required: false
       allowed_profiles:
         - intake-classifier-v1
+        - delivery-work-design-advisor-v1
       allowed_models:
         - qwen3:8b
     - route_id: openai-responses-api
@@ -49,6 +51,14 @@ access_plane:
       accepted_record_schema_ref:
         repo: workspace-governance
         path: contracts/schemas/intake-ai-suggestion.schema.json
+      allowed_task_kinds:
+        - intake_classification
+    - caller_id: operator-orchestration-service/work-design-assist
+      purpose: delivery-work-design-assist
+      required_profile: delivery-work-design-advisor-v1
+      allowed_task_kinds:
+        - context_advice
+        - tree_advice
   caller_identity:
     required_fields:
       - caller_id
@@ -95,6 +105,9 @@ access_plane:
       - upstream_model_digest
       - provider_runtime_version
       - prompt_version
+      - task_kind
+      - task_contract_ref
+      - task_contract_version
       - provider_schema_valid
       - provider_latency_ms
       - provider_usage
@@ -116,6 +129,19 @@ access_plane:
     repo: platform-engineering
     path: security/governed-ai-devint-egress-policy.yaml
   activation_state:
+    profile_activations:
+      intake-classifier-v1:
+        activation_allowed: true
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: reviewed-local-intake-binding-active
+      delivery-work-design-advisor-v1:
+        activation_allowed: false
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: blocked-pending-exact-security-review-and-platform-activation
+    compatibility_projection:
+      consumer: workspace-governance/intake-assist
     profile_activation_allowed: true
     active_profile: intake-classifier-v1
     active_environment: dev-integration
@@ -123,5 +149,7 @@ access_plane:
     reason: >
       The reviewed local Ollama binding is active for platform-owned
       dev-integration proof. Workspace consumer use remains separately gated
-      until its dependent activation work completes. The OpenAI route is not
-      active.
+      until its dependent activation work completes. These flat fields are the
+      compatibility projection for intake-classifier-v1; profile_activations is
+      the canonical per-profile lifecycle map. The Work Design profile and the
+      OpenAI route are not active.

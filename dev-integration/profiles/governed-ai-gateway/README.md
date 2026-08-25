@@ -24,12 +24,11 @@ The gateway profile and access-plane activation states remain independent
 policy inputs. The local platform route is active; workspace consumer use is
 still gated by its dependent activation work.
 
-The profile resolves one logical profile and environment-selected binding from
-`security/governed-ai-model-profiles.yaml` and verifies it against
-`security/governed-ai-access-plane.yaml`. The runtime instance defaults to
-`intake-classifier-v1` in `dev-integration`; operators may select another
-reviewed profile and environment through `DEVINT_GAI_MODEL_PROFILE_ID` and
-`DEVINT_GAI_MODEL_ENVIRONMENT` without changing resolver source.
+The profile resolves the complete logical profile registry and every
+environment-selected binding from `security/governed-ai-model-profiles.yaml`,
+then verifies them against `security/governed-ai-access-plane.yaml`.
+`intake-classifier-v1` remains the compatibility readiness and smoke profile.
+Other profiles can be present in the runtime without becoming active.
 
 Resolution emits deterministic, non-secret selected-binding evidence. The
 evidence binds the profile, environment, binding, provider route, model
@@ -39,12 +38,17 @@ denied invocation audit record carry the same selection digest and reference.
 The resolver never searches for an alternate binding when the configured one
 is inactive or invalid.
 
-Runtime rendering preserves that evidence at
-`.dev-integration/governed-ai-gateway/<operator>/model-binding-selection.json`.
-The file is a local dev-integration receipt, not stage or production evidence.
+Runtime rendering preserves the intake compatibility evidence at
+`.dev-integration/governed-ai-gateway/<operator>/model-binding-selection.json`
+and the complete resolved registry at `model-profile-selections.json`. These
+files are local dev-integration receipts, not stage or production evidence.
 
 The current dev-integration instance calls host Ollama with `qwen3:8b`; the
 future paid OpenAI binding remains inactive and unproven.
+
+The Work Design profile is selected but not active. Its requests must carry an
+OOS-owned typed task contract and are denied before provider access until the
+separate security and activation work is complete.
 
 ## Operator Actions
 

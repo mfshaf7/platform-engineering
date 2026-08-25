@@ -12,6 +12,8 @@ shared_paths:
       - test_dev_integration.py
       - test_dev_integration_host_services.py
       - test_ai_model_profiles.py
+      - test_governed_ai_gateway_policy.py
+      - test_governed_ai_gateway_runtime.py
       - test_governed_ai_ollama_adapter.py
       - migrate_k8s_secret_to_vault.py
       - validate_ai_model_profiles.py

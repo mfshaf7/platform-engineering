@@ -4,9 +4,11 @@ from dataclasses import dataclass
 import json
 import threading
 import time
-from typing import Callable
+from typing import Any, Callable
 import urllib.error
 import urllib.request
+
+from strict_output_schema import OutputSchemaError, validate_output
 
 
 CLASSIFICATION_SCHEMA = {
@@ -59,11 +61,12 @@ class ProviderOutputInvalid(OllamaAdapterError):
 
 @dataclass(frozen=True)
 class ProviderResult:
-    output: dict[str, str]
+    output: dict[str, Any]
     model_digest: str
     runtime_version: str
     latency_ms: int
     usage: dict[str, int]
+    prompt_version: str
 
 
 class OllamaAdapter:
@@ -93,6 +96,21 @@ class OllamaAdapter:
         self._slots = threading.BoundedSemaphore(max_concurrency)
 
     def classify(self, intake_packet: dict) -> ProviderResult:
+        return self.invoke(
+            input_payload=intake_packet,
+            output_schema=CLASSIFICATION_SCHEMA,
+            prompt_version=self.prompt_version,
+            system_prompt=SYSTEM_PROMPT,
+        )
+
+    def invoke(
+        self,
+        *,
+        input_payload: dict,
+        output_schema: dict,
+        prompt_version: str,
+        system_prompt: str,
+    ) -> ProviderResult:
         if not self._slots.acquire(blocking=False):
             raise ProviderBusy("provider concurrency limit reached")
         try:
@@ -105,12 +123,12 @@ class OllamaAdapter:
                     "model": self.model,
                     "stream": False,
                     "think": False,
-                    "format": CLASSIFICATION_SCHEMA,
+                    "format": output_schema,
                     "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {
                             "role": "user",
-                            "content": json.dumps(intake_packet, sort_keys=True),
+                            "content": json.dumps(input_payload, sort_keys=True),
                         },
                     ],
                     "options": {
@@ -122,7 +140,7 @@ class OllamaAdapter:
                     "keep_alive": "5m",
                 },
             )
-            output = self._parse_output(response)
+            output = self._parse_output(response, output_schema)
             return ProviderResult(
                 output=output,
                 model_digest=model_digest,
@@ -132,6 +150,7 @@ class OllamaAdapter:
                     "prompt_tokens": int(response.get("prompt_eval_count") or 0),
                     "completion_tokens": int(response.get("eval_count") or 0),
                 },
+                prompt_version=prompt_version,
             )
         finally:
             self._slots.release()
@@ -197,7 +216,7 @@ class OllamaAdapter:
         raise ProviderUnavailable("provider request failed")
 
     @staticmethod
-    def _parse_output(response: dict) -> dict[str, str]:
+    def _parse_output(response: dict, output_schema: dict) -> dict:
         message = response.get("message")
         if not isinstance(message, dict):
             raise ProviderOutputInvalid("provider response is missing message")
@@ -210,10 +229,8 @@ class OllamaAdapter:
             output = json.loads(content)
         except json.JSONDecodeError as exc:
             raise ProviderOutputInvalid("provider content is not JSON") from exc
-        if not isinstance(output, dict) or set(output) != {"suggested_decision", "confidence"}:
-            raise ProviderOutputInvalid("provider output fields do not match the schema")
-        if output["suggested_decision"] not in {"out-of-scope", "proposed", "admitted"}:
-            raise ProviderOutputInvalid("provider suggested_decision is invalid")
-        if output["confidence"] not in {"low", "medium", "high"}:
-            raise ProviderOutputInvalid("provider confidence is invalid")
+        try:
+            validate_output(output, output_schema)
+        except OutputSchemaError as exc:
+            raise ProviderOutputInvalid("provider output does not match the schema") from exc
         return output

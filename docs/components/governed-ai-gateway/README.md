@@ -42,19 +42,25 @@ provider output, audit emission, and gateway-only consumer egress in
 dev-integration. Workspace consumption remains separately gated by the
 dependent consumer activation work.
 
-## Selected Intake Binding
+## Selected Model Profiles
 
 `intake-classifier-v1` is a provider-neutral logical profile. Dev-integration
 selects `qwen3:8b` through the local Ollama route. The OpenAI Responses API and
 `gpt-5.6-terra` binding remains recorded as an inactive future paid route under
 separate activation work.
 
-The dev-integration launcher resolves one configured logical profile and
-environment binding from the governed registry, verifies the matching access
-plane route, and emits a content-addressed non-secret selection reference.
-Gateway readiness and every allowed or denied invocation audit event bind that
-same reference. An invalid or inactive selected binding fails closed; the
-launcher and gateway never search for an alternate binding automatically.
+`delivery-work-design-advisor-v1` is registered for the OOS-owned Work Design
+assist contract. Its local binding is selected but not active. It cannot invoke
+the provider until the profile, binding, caller, and independent activation
+gates are approved in later work.
+
+The dev-integration launcher resolves every configured logical profile for one
+environment, verifies each matching access-plane route, and emits
+content-addressed non-secret selection references. Requests must name an exact
+profile, caller, task contract, contract version, and output schema. Intake
+retains its untyped default-task compatibility request; Work Design does not
+have a default task and fails closed when task identity is omitted. An invalid
+or inactive selected binding never falls back to another binding.
 
 ## Owner Boundaries
 
@@ -62,6 +68,8 @@ launcher and gateway never search for an alternate binding automatically.
   contracts, provider custody, and release gates.
 - `workspace-governance` owns the intake-assist consumer contract and workspace
   truth updates after operator acceptance.
+- `operator-orchestration-service` owns Work Design task instructions,
+  workflow semantics, suggestion presentation, and operator-approved apply.
 - `security-architecture` owns security review, findings, and activation
   acceptance.
 

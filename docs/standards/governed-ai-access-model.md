@@ -63,6 +63,9 @@ Every approved governed profile must define at least:
 
 - `active`
   - approved for real governed use
+- `selected-not-active`
+  - binding and contract are registered for integration, but provider
+    invocation remains denied
 - `suspended`
   - reviewable and reserved, but not currently allowed for live governed use
 - `retired`
@@ -147,9 +150,17 @@ The platform access-plane source of truth is
 
 The access-plane contract is source truth, not proof of live operation by
 itself. A profile remains unavailable for governed live use while
-`activation_state.profile_activation_allowed` is false. An allowed activation
-is bound to the complete logical profile, environment, and binding identity;
-matching a profile-scoped binding name alone is insufficient.
+its entry under `activation_state.profile_activations` does not allow
+activation. An allowed activation is bound to the complete logical profile,
+environment, and binding identity; matching a profile-scoped binding name
+alone is insufficient. Flat activation fields are a compatibility projection
+for the intake consumer, not the lifecycle source for every profile.
+
+Profiles with more than one operation must declare typed task contracts. The
+access plane must match the exact profile, caller, task kind, contract
+reference, contract version, input contract, and output schema before provider
+access. A compatibility default task is allowed only when explicitly recorded
+for an existing caller contract.
 
 The first active runtime posture is local `dev-integration`. The local-k3s
 gateway resolves an environment-selected provider binding, retains the local

@@ -17,7 +17,8 @@ Current allowed posture:
 - local-k3s `dev-integration` runtime through profile `governed-ai-gateway`
 - gateway API Deployment and Service in the profile namespace
 - bounded Ollama adapter with pinned model digest and runtime version
-- data-driven single-profile resolver with deterministic binding evidence
+- data-driven multi-profile resolver with deterministic per-profile binding
+  evidence
 - PVC-backed local audit ledger
 - consumer probe namespace with default-deny egress
 - provider sentinel namespace used to prove direct-provider bypass denial
@@ -36,28 +37,30 @@ tools, enforces a strict classification schema, and bounds input size,
 concurrency, timeout, retry, context, and output tokens. The OpenAI binding is
 preserved as an inactive future route.
 
-One runtime instance resolves exactly one logical profile and environment
-binding. Resolution is data-driven, but it is not request-time profile
-discovery: a caller cannot choose a profile different from the instance's
-reviewed selection. The resolver records the selected profile, environment,
-binding, provider route, model identity, source-contract digests, and explicit
-`fail-closed-no-implicit-fallback` posture as one deterministic evidence
-object. Readiness and invocation audits carry the same digest and reference.
+One runtime instance resolves the complete reviewed profile registry for one
+environment. A request can select only an exact resolved profile and an allowed
+task contract for its authenticated caller; it cannot discover profiles or
+substitute tasks at request time. The resolver records each selected profile,
+environment, binding, provider route, model identity, task schema, source
+contract digests, and explicit `fail-closed-no-implicit-fallback` posture as a
+deterministic evidence object. Readiness exposes the independent lifecycle
+state of each profile, and invocation audits carry the selected profile and
+task evidence.
 
 ## Model
 
 ```mermaid
 flowchart LR
     Registry[Profile registry + access-plane contract]
-    Resolver[Single-profile binding resolver]
+    Resolver[Profile registry resolver]
     Consumer[Governed consumer]
     Gateway[governed-ai-gateway]
     Audit[Audit ledger]
     Provider[Provider or provider adapter]
 
     Registry --> Resolver
-    Resolver -->|selected binding + evidence| Gateway
-    Consumer -->|profile + caller identity + schema| Gateway
+    Resolver -->|per-profile bindings + evidence| Gateway
+    Consumer -->|profile + caller + task + schema| Gateway
     Gateway --> Audit
     Gateway -. controlled provider path .-> Provider
     Consumer -. denied direct egress .-> Provider
@@ -66,6 +69,11 @@ flowchart LR
 The provider sentinel remains a negative bypass target. Positive proof uses the
 real local Ollama route; the consumer namespace cannot reach either the
 sentinel or Ollama directly.
+
+`intake-classifier-v1` remains the active compatibility profile.
+`delivery-work-design-advisor-v1` is selected but not active. The platform
+gateway validates its typed request and strict output boundary, while OOS owns
+the instruction text and all workflow or apply semantics.
 
 ## Activation Gates
 

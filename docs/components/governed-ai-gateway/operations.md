@@ -16,6 +16,8 @@ Smoke is read-only. It proves:
 - audit ledger event emission
 - active binding, Ollama version, and model digest match the registry
 - provider output passes the strict classification schema
+- the complete profile registry resolves with independent lifecycle state
+- inactive Work Design requests are denied before provider access
 - consumer can reach the gateway service
 - consumer cannot reach the direct-provider sentinel service
 - consumer cannot reach host Ollama directly
@@ -29,6 +31,8 @@ Smoke is read-only. It proves:
 - Ollama version or model digest differs from the approved binding
 - provider response contains malformed JSON, extra fields, thinking, or tools
 - provider request times out or the concurrency bound is exhausted
+- caller, task contract, version, or output schema does not match the selected
+  profile
 - direct-provider sentinel is reachable from the consumer probe
 
 ## First Response
@@ -60,6 +64,8 @@ make devint-up PROFILE=governed-ai-gateway
 ## Evidence To Capture
 
 - `profile-status.txt`
+- `model-binding-selection.json` for the intake compatibility projection
+- `model-profile-selections.json` for the complete resolved registry
 - `smoke-summary.json`
 - rendered runtime manifest path
 - audit event digest from `/v1/audit/events/latest`

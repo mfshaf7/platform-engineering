@@ -35,6 +35,7 @@ session:
   required_artifacts:
     - profile-status.txt
     - model-binding-selection.json
+    - model-profile-selections.json
     - smoke-summary.json
     - profile-promotion-notes.md
     - promotion-report.yaml

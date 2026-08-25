@@ -8,8 +8,9 @@ import unittest
 import urllib.error
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_ROOT = (
-    Path(__file__).resolve().parents[1]
+    REPO_ROOT
     / "dev-integration/profiles/governed-ai-gateway/runtime"
 )
 sys.path.insert(0, str(RUNTIME_ROOT))
@@ -85,6 +86,51 @@ class OllamaAdapterTests(unittest.TestCase):
         self.assertEqual(result.model_digest, DIGEST)
         self.assertEqual(result.runtime_version, "0.32.14")
         self.assertEqual(result.usage, {"prompt_tokens": 30, "completion_tokens": 12})
+        self.assertEqual(result.prompt_version, "intake-classifier-v1.0")
+
+    def test_generic_task_uses_the_supplied_prompt_and_strict_schema(self) -> None:
+        schema = json.loads(
+            (REPO_ROOT / "security/schemas/delivery-work-design-advice.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def opener(request, **_kwargs):
+            if request.full_url.endswith("/api/version"):
+                return FakeResponse({"version": "0.32.14"})
+            if request.full_url.endswith("/api/tags"):
+                return FakeResponse({"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
+            body = json.loads(request.data)
+            self.assertEqual(body["messages"][0]["content"], "Review the Work Design tree.")
+            self.assertEqual(body["format"], schema)
+            return FakeResponse(
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "confidence": "high",
+                                "required_operator_action": "review",
+                                "text": "Split the package into two bounded Features.",
+                                "affected_node_id": "feature-1",
+                                "patch_proposal": {
+                                    "patch_type": "tree_shape",
+                                    "summary": "Keep one outcome per Feature.",
+                                },
+                            }
+                        )
+                    }
+                }
+            )
+
+        result = adapter(opener).invoke(
+            input_payload={"content": "model-safe packet"},
+            output_schema=schema,
+            prompt_version="oos.delivery-work-design.tree-advice.v1",
+            system_prompt="Review the Work Design tree.",
+        )
+
+        self.assertEqual(result.output["affected_node_id"], "feature-1")
+        self.assertEqual(result.prompt_version, "oos.delivery-work-design.tree-advice.v1")
 
     def test_model_digest_drift_fails_closed(self) -> None:
         def opener(request, **_kwargs):

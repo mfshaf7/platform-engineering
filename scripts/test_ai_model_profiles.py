@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import shutil
 import sys
 import tempfile
@@ -22,6 +23,7 @@ from model_profile_resolver import (
     resolve_model_profile,
     resolve_model_profile_registry,
 )
+from strict_output_schema import OutputSchemaError, validate_output
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -427,6 +429,25 @@ class ModelProfileResolverTests(unittest.TestCase):
                     environment="dev-integration",
                     require_active=True,
                 )
+
+    def test_refinement_provider_output_rejects_empty_field_key(self) -> None:
+        schema = json.loads(
+            (
+                REPO_ROOT
+                / "security/schemas/delivery-refinement-advice.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        output = {
+            "confidence": "medium",
+            "required_operator_action": "review",
+            "field_key": "",
+            "value": "Example",
+            "summary": "A bounded suggestion.",
+            "rationale": "The current metadata is incomplete.",
+        }
+
+        with self.assertRaisesRegex(OutputSchemaError, "field_key is shorter"):
+            validate_output(output, schema)
 
     def test_missing_environment_binding_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:

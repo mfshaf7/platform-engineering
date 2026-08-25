@@ -22,7 +22,8 @@
       "const": "review"
     },
     "field_key": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "value": {
       "type": ["string", "null"],

@@ -17,6 +17,7 @@ access_plane:
   allowed_profiles:
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
+    - delivery-refinement-advisor-v1
   provider_routes:
     - route_id: ollama-local-host
       provider: ollama
@@ -28,6 +29,7 @@ access_plane:
       allowed_profiles:
         - intake-classifier-v1
         - delivery-work-design-advisor-v1
+        - delivery-refinement-advisor-v1
       allowed_models:
         - qwen3:8b
     - route_id: openai-responses-api
@@ -59,6 +61,17 @@ access_plane:
       allowed_task_kinds:
         - context_advice
         - tree_advice
+    - caller_id: operator-orchestration-service/refinement-assist
+      purpose: delivery-refinement-assist
+      required_profile: delivery-refinement-advisor-v1
+      required_provider_output_schema_ref:
+        repo: platform-engineering
+        path: security/schemas/delivery-refinement-advice.schema.json
+      accepted_record_schema_ref:
+        repo: operator-orchestration-service
+        path: contracts/refinement/assist-result.schema.json
+      allowed_task_kinds:
+        - metadata_advice
   caller_identity:
     required_fields:
       - caller_id
@@ -140,6 +153,11 @@ access_plane:
         environment: dev-integration
         binding: local-ollama-qwen3-8b
         reason: reviewed-work-design-devint-activation-994-995
+      delivery-refinement-advisor-v1:
+        activation_allowed: false
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: registered-pending-security-1012-and-platform-activation-1013
     compatibility_projection:
       consumer: workspace-governance/intake-assist
     profile_activation_allowed: true

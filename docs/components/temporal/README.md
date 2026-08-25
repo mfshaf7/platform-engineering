@@ -43,6 +43,13 @@ Ed25519-attested exact-reconciliation receipt from OOS's explicit one-shot
 worker before a fresh activation. This contract does not imply that any runtime
 or retirement run is currently active.
 
+The source registers `delivery.refinement.apply` version `1` as a
+selected-not-active OOS-owned workflow profile. The registration binds the
+versioned OOS contract to existing Temporal queue and worker identities for
+compatibility proof only. It does not start a worker, expose Temporal
+credentials, or authorize Console access. Security review #1012 and Platform
+activation #1013 remain mandatory before launch.
+
 ## Owner Boundaries
 
 - `workspace-governance` owns durable-orchestration authority and admission

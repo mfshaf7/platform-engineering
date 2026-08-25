@@ -15,11 +15,13 @@ contract:
   model_profiles:
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
+    - delivery-refinement-advisor-v1
   consumers:
     allowed_callers:
       - workspace-governance/intake-assist
       - operator-orchestration-service/work-design-assist
-    registered_not_active_callers: []
+    registered_not_active_callers:
+      - operator-orchestration-service/refinement-assist
     denied_patterns:
       - direct-provider-client
       - repo-local-provider-secret

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import shutil
 import sys
 import tempfile
@@ -22,6 +23,7 @@ from model_profile_resolver import (
     resolve_model_profile,
     resolve_model_profile_registry,
 )
+from strict_output_schema import OutputSchemaError, validate_output
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +34,7 @@ CONTRACT_PATHS = (
     Path("security/governed-ai-devint-egress-policy.yaml"),
     Path("security/schemas/intake-classification-result.schema.json"),
     Path("security/schemas/delivery-work-design-advice.schema.json"),
+    Path("security/schemas/delivery-refinement-advice.schema.json"),
 )
 LOCAL_REFERENCE_PATHS = (
     Path("docs/standards/governed-ai-access-model.md"),
@@ -119,6 +122,32 @@ class GovernedAiModelProfileTests(unittest.TestCase):
                 validate(repo_root),
             )
 
+    def test_selected_not_active_caller_cannot_be_listed_as_active(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
+            repo_root = self.prepare_repo(Path(temp_dir))
+            contract_path = repo_root / "security/governed-ai-runtime-assist-contract.yaml"
+            payload = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+            consumers = payload["contract"]["consumers"]
+            caller = "operator-orchestration-service/refinement-assist"
+            consumers["registered_not_active_callers"].remove(caller)
+            consumers["allowed_callers"].append(caller)
+            contract_path.write_text(
+                yaml.safe_dump(payload, sort_keys=False), encoding="utf-8"
+            )
+
+            errors = validate(repo_root)
+            self.assertIn(
+                "security/governed-ai-runtime-assist-contract.yaml: "
+                "consumers.allowed_callers must match active profile callers exactly",
+                errors,
+            )
+            self.assertIn(
+                "security/governed-ai-runtime-assist-contract.yaml: "
+                "consumers.registered_not_active_callers must match "
+                "selected-not-active profile callers exactly",
+                errors,
+            )
+
     def test_activation_profile_must_own_the_selected_environment_binding(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
             repo_root = self.prepare_repo(Path(temp_dir))
@@ -143,6 +172,7 @@ class ModelProfileResolverTests(unittest.TestCase):
         for schema_name in (
             "intake-classification-result.schema.json",
             "delivery-work-design-advice.schema.json",
+            "delivery-refinement-advice.schema.json",
         ):
             schema_path = root / "security/schemas" / schema_name
             schema_path.parent.mkdir(parents=True, exist_ok=True)
@@ -350,7 +380,11 @@ class ModelProfileResolverTests(unittest.TestCase):
 
             self.assertEqual(
                 set(result["profiles"]),
-                {"intake-classifier-v1", "delivery-work-design-advisor-v1"},
+                {
+                    "intake-classifier-v1",
+                    "delivery-work-design-advisor-v1",
+                    "delivery-refinement-advisor-v1",
+                },
             )
             self.assertTrue(
                 result["profiles"]["intake-classifier-v1"]["activation_eligible"]
@@ -360,9 +394,60 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "activation_eligible"
                 ]
             )
+            self.assertFalse(
+                result["profiles"]["delivery-refinement-advisor-v1"][
+                    "activation_eligible"
+                ]
+            )
             self.assertRegex(
                 result["registry_selection_digest"], r"^sha256:[0-9a-f]{64}$"
             )
+
+    def test_refinement_profile_resolves_but_cannot_activate(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
+            profile_path, access_path = self.prepare_contracts(Path(temp_dir))
+
+            result = resolve_model_profile(
+                profile_path,
+                access_path,
+                profile_id="delivery-refinement-advisor-v1",
+                environment="dev-integration",
+            )
+
+            self.assertEqual(result["profile_status"], "selected-not-active")
+            self.assertEqual(result["binding_status"], "selected-not-active")
+            self.assertFalse(result["profile_activation_allowed"])
+            self.assertFalse(result["activation_eligible"])
+            self.assertEqual(result["default_task_kind"], "metadata_advice")
+            self.assertEqual(set(result["task_contracts"]), {"metadata_advice"})
+            self.assertIn("profile-not-active", result["activation_denial_reasons"])
+            with self.assertRaisesRegex(ModelProfileResolutionError, "profile-not-active"):
+                resolve_model_profile(
+                    profile_path,
+                    access_path,
+                    profile_id="delivery-refinement-advisor-v1",
+                    environment="dev-integration",
+                    require_active=True,
+                )
+
+    def test_refinement_provider_output_rejects_empty_field_key(self) -> None:
+        schema = json.loads(
+            (
+                REPO_ROOT
+                / "security/schemas/delivery-refinement-advice.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        output = {
+            "confidence": "medium",
+            "required_operator_action": "review",
+            "field_key": "",
+            "value": "Example",
+            "summary": "A bounded suggestion.",
+            "rationale": "The current metadata is incomplete.",
+        }
+
+        with self.assertRaisesRegex(OutputSchemaError, "field_key is shorter"):
+            validate_output(output, schema)
 
     def test_missing_environment_binding_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:

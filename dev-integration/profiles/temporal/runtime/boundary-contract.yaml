@@ -121,6 +121,27 @@ database_identities:
     password_key: password
     credential_scope: temporal-and-visibility-databases
     superuser: false
+workflow_profiles:
+  - profile_id: delivery-refinement-apply-v1
+    status: selected-not-active
+    definition:
+      id: delivery.refinement.apply
+      version: 1
+      owner_repo: operator-orchestration-service
+      contract_ref: contracts/refinement/manifest.json
+    runtime_binding:
+      profile_id: temporal
+      workflow_task_queue_id: delivery-refinement-apply
+      activity_task_queue_id: delivery-refinement-activity
+      worker_identity: oos_workflow_worker
+    authority:
+      console_direct_access_allowed: false
+      consumer_temporal_credentials_allowed: false
+      platform_business_logic_allowed: false
+    activation:
+      worker_start_allowed: false
+      security_acceptance_ref: openproject://work_packages/1012
+      platform_activation_ref: openproject://work_packages/1013
 task_queues:
   - id: validation-readiness-run
     name_prefix: oos.validation-readiness-run.v1

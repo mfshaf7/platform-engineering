@@ -137,6 +137,60 @@ def validate_runtime_assist_contract(
             elif profile_id not in profiles:
                 errors.append(f"{RUNTIME_ASSIST_CONTRACT_PATH}: unknown referenced profile {profile_id}")
 
+    consumers = require_non_empty_mapping(
+        contract.get("consumers"),
+        label=f"{RUNTIME_ASSIST_CONTRACT_PATH}: contract.consumers",
+        errors=errors,
+    )
+    if consumers is not None:
+        allowed_callers = consumers.get("allowed_callers")
+        registered_not_active_callers = consumers.get("registered_not_active_callers")
+        if not isinstance(allowed_callers, list) or any(
+            not isinstance(caller, str) or not caller for caller in (allowed_callers or [])
+        ):
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: consumers.allowed_callers must be a string list"
+            )
+            allowed_callers = []
+        if not isinstance(registered_not_active_callers, list) or any(
+            not isinstance(caller, str) or not caller
+            for caller in (registered_not_active_callers or [])
+        ):
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: consumers.registered_not_active_callers "
+                "must be a string list"
+            )
+            registered_not_active_callers = []
+        overlap = sorted(set(allowed_callers).intersection(registered_not_active_callers))
+        if overlap:
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: callers cannot be both active and "
+                f"registered-not-active: {overlap}"
+            )
+        expected_allowed = sorted(
+            caller
+            for profile in profiles.values()
+            if isinstance(profile, dict) and profile.get("status") == "active"
+            for caller in (profile.get("allowed_callers") or [])
+        )
+        expected_registered = sorted(
+            caller
+            for profile in profiles.values()
+            if isinstance(profile, dict)
+            and profile.get("status") == "selected-not-active"
+            for caller in (profile.get("allowed_callers") or [])
+        )
+        if sorted(allowed_callers) != expected_allowed:
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: consumers.allowed_callers must match "
+                "active profile callers exactly"
+            )
+        if sorted(registered_not_active_callers) != expected_registered:
+            errors.append(
+                f"{RUNTIME_ASSIST_CONTRACT_PATH}: consumers.registered_not_active_callers "
+                "must match selected-not-active profile callers exactly"
+            )
+
     selection = require_non_empty_mapping(
         contract.get("model_profile_selection"),
         label=f"{RUNTIME_ASSIST_CONTRACT_PATH}: contract.model_profile_selection",

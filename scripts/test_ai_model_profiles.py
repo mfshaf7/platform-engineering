@@ -122,15 +122,15 @@ class GovernedAiModelProfileTests(unittest.TestCase):
                 validate(repo_root),
             )
 
-    def test_selected_not_active_caller_cannot_be_listed_as_active(self) -> None:
+    def test_active_caller_cannot_be_listed_as_registered_not_active(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
             repo_root = self.prepare_repo(Path(temp_dir))
             contract_path = repo_root / "security/governed-ai-runtime-assist-contract.yaml"
             payload = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
             consumers = payload["contract"]["consumers"]
             caller = "operator-orchestration-service/refinement-assist"
-            consumers["registered_not_active_callers"].remove(caller)
-            consumers["allowed_callers"].append(caller)
+            consumers["allowed_callers"].remove(caller)
+            consumers["registered_not_active_callers"].append(caller)
             contract_path.write_text(
                 yaml.safe_dump(payload, sort_keys=False), encoding="utf-8"
             )
@@ -394,7 +394,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "activation_eligible"
                 ]
             )
-            self.assertFalse(
+            self.assertTrue(
                 result["profiles"]["delivery-refinement-advisor-v1"][
                     "activation_eligible"
                 ]
@@ -403,7 +403,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                 result["registry_selection_digest"], r"^sha256:[0-9a-f]{64}$"
             )
 
-    def test_refinement_profile_resolves_but_cannot_activate(self) -> None:
+    def test_refinement_profile_resolves_as_active(self) -> None:
         with tempfile.TemporaryDirectory(prefix="model-profile-resolution-") as temp_dir:
             profile_path, access_path = self.prepare_contracts(Path(temp_dir))
 
@@ -414,21 +414,21 @@ class ModelProfileResolverTests(unittest.TestCase):
                 environment="dev-integration",
             )
 
-            self.assertEqual(result["profile_status"], "selected-not-active")
-            self.assertEqual(result["binding_status"], "selected-not-active")
-            self.assertFalse(result["profile_activation_allowed"])
-            self.assertFalse(result["activation_eligible"])
+            self.assertEqual(result["profile_status"], "active")
+            self.assertEqual(result["binding_status"], "active")
+            self.assertTrue(result["profile_activation_allowed"])
+            self.assertTrue(result["activation_eligible"])
             self.assertEqual(result["default_task_kind"], "metadata_advice")
             self.assertEqual(set(result["task_contracts"]), {"metadata_advice"})
-            self.assertIn("profile-not-active", result["activation_denial_reasons"])
-            with self.assertRaisesRegex(ModelProfileResolutionError, "profile-not-active"):
-                resolve_model_profile(
-                    profile_path,
-                    access_path,
-                    profile_id="delivery-refinement-advisor-v1",
-                    environment="dev-integration",
-                    require_active=True,
-                )
+            self.assertEqual(result["activation_denial_reasons"], [])
+            active = resolve_model_profile(
+                profile_path,
+                access_path,
+                profile_id="delivery-refinement-advisor-v1",
+                environment="dev-integration",
+                require_active=True,
+            )
+            self.assertEqual(active["profile_id"], "delivery-refinement-advisor-v1")
 
     def test_refinement_provider_output_rejects_empty_field_key(self) -> None:
         schema = json.loads(

@@ -35,8 +35,9 @@ yet. Use each component's `Current Live Footprint` section for live-state truth.
 | Governed AI Gateway | [README.md](governed-ai-gateway/README.md) | [architecture.md](governed-ai-gateway/architecture.md) | [access.md](governed-ai-gateway/access.md) | [operations.md](governed-ai-gateway/operations.md) |
 | Temporal | [README.md](temporal/README.md) | [architecture.md](temporal/architecture.md) | [access.md](temporal/access.md) | [operations.md](temporal/operations.md) |
 
-Temporal remains `build-admitted` with no live namespace or direct surface. Its
-source-reviewed commissioning shape declares separate Temporal, PostgreSQL,
+Temporal is active only in local `dev-integration` for admitted OOS workflow
+compositions, with no direct business surface. Its source-reviewed runtime
+shape declares separate Temporal, PostgreSQL,
 OOS API, OOS worker, WGCF worker, and diagnostic identities only inside one
 permit-bound, operator-scoped local proof; ordinary launch remains denied.
 

@@ -159,6 +159,60 @@ class GatewayRuntimeTests(unittest.TestCase):
             "Review the tree without applying changes.",
         )
 
+    def test_active_refinement_profile_returns_typed_result(self) -> None:
+        adapter = FakeAdapter(
+            {
+                "confidence": "high",
+                "required_operator_action": "review",
+                "field_key": "definition_of_ready",
+                "value": "Repository readiness is current and receipt-bound.",
+                "summary": "Use the current readiness receipt.",
+                "rationale": "The proposal is specific and independently reviewable.",
+            }
+        )
+        runtime = GatewayRuntime(
+            selections=selections(),
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={"delivery-refinement-advisor-v1": adapter},
+        )
+
+        status, payload = runtime.invoke(self.refinement_request())
+
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            payload["task"],
+            {
+                "kind": "metadata_advice",
+                "contract_ref": "oos.delivery-refinement.v1",
+                "version": "1.0",
+            },
+        )
+        self.assertEqual(payload["output"]["field_key"], "definition_of_ready")
+        self.assertEqual(len(adapter.calls), 1)
+
+    def test_suspended_refinement_is_denied_before_provider_access(self) -> None:
+        resolved = copy.deepcopy(selections())
+        profile = resolved["profiles"]["delivery-refinement-advisor-v1"]
+        profile["profile_status"] = "suspended"
+        profile["binding_status"] = "suspended"
+        profile["profile_activation_allowed"] = False
+        profile["activation_eligible"] = False
+        adapter = FakeAdapter({"field_key": "must-not-run"})
+        runtime = GatewayRuntime(
+            selections=resolved,
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={"delivery-refinement-advisor-v1": adapter},
+        )
+
+        status, payload = runtime.invoke(self.refinement_request())
+
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["policy_decision"], "deny")
+        self.assertIn("profile-not-active", payload["reasons"])
+        self.assertEqual(adapter.calls, [])
+
     def test_readiness_stays_available_when_compatibility_profile_is_suspended(self) -> None:
         resolved = copy.deepcopy(selections())
         intake = resolved["profiles"]["intake-classifier-v1"]
@@ -184,7 +238,10 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.assertFalse(readiness["compatibility_profile_ready"])
         self.assertEqual(
             readiness["ready_profile_ids"],
-            ["delivery-work-design-advisor-v1"],
+            [
+                "delivery-refinement-advisor-v1",
+                "delivery-work-design-advisor-v1",
+            ],
         )
         self.assertFalse(readiness["profiles"]["intake-classifier-v1"]["ready"])
         self.assertTrue(
@@ -254,6 +311,38 @@ class GatewayRuntimeTests(unittest.TestCase):
                         "/v1/context/work-design/projections/work-design-1"
                     ),
                     "content": "A bounded model-safe package projection.",
+                },
+            },
+        }
+
+    @staticmethod
+    def refinement_request() -> dict:
+        profile_id = "delivery-refinement-advisor-v1"
+        return {
+            "profile_id": profile_id,
+            "caller_identity": caller(
+                profile_id, "operator-orchestration-service/refinement-assist"
+            ),
+            "operator_identity": {"operator_id": "operator:test"},
+            "task": {
+                "kind": "metadata_advice",
+                "contract_ref": "oos.delivery-refinement.v1",
+                "version": "1.0",
+            },
+            "provider_output_schema_ref": (
+                "platform-engineering/security/schemas/"
+                "delivery-refinement-advice.schema.json"
+            ),
+            "input": {
+                "task_instruction": "Suggest a value without applying it.",
+                "operator_prompt": "Make the readiness field verifiable.",
+                "model_safe_packet": {
+                    "packet_ref": "/v1/context/packets/refinement-1",
+                    "redaction_receipt_ref": "/v1/context/receipts/refinement-1",
+                    "projection_receipt_ref": (
+                        "/v1/context/refinement/projections/refinement-1"
+                    ),
+                    "content": "A bounded model-safe Refinement projection.",
                 },
             },
         }

@@ -2,18 +2,17 @@
 
 ## Current Release State
 
-Temporal is a build-admitted shared platform component.
+Temporal is an active local `dev-integration` shared platform component for
+admitted OOS workflow compositions.
 
 There is currently no approved:
 
-- dev-integration activation
-- PostgreSQL deployment
-- active operator access
 - Argo application
 - `stage` or `prod` deployment
 
-The runtime source, artifact pins, and operator commands are implemented. They
-do not change live state.
+The runtime source, artifact pins, and operator commands are implemented.
+Operator-scoped Temporal and PostgreSQL resources exist only while an admitted
+local composition is running; normal suspension preserves workflow history.
 
 ## Build-Admission Gate
 
@@ -28,7 +27,7 @@ Build admission remains bounded to source implementation and validation.
 
 ## Dev-Integration Activation Gate
 
-Self-serve local launch requires:
+Self-serve local launch has satisfied:
 
 - profile lifecycle `active`
 - implemented owner commands

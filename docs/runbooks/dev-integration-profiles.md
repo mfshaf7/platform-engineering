@@ -138,16 +138,13 @@ make devint-smoke PROFILE=governed-ai-gateway
 The runtime resolves every reviewed profile for that environment. Each request
 must select one exact profile, caller, task contract, output schema, and binding;
 unknown, inactive, or mismatched selections fail closed without falling back to
-another profile or provider binding. The shared smoke command intentionally
-exercises the active intake compatibility profile. Selected-but-inactive
-profiles such as Refinement remain covered by source tests until their
-independent activation gate is approved. The selected-not-active
-`delivery-refinement-advisor-v1` profile and
-`delivery-refinement-apply-v1` Temporal workflow profile are therefore
-resolvable for compatibility validation, but cannot invoke a provider, start a
-worker, expose runtime credentials, or be called directly by the Console.
+another profile or provider binding. The shared smoke command exercises the
+active intake compatibility profile, while the `refinement-catalog`
+composition activates the independently reviewed
+`delivery-refinement-advisor-v1` profile. The Console still cannot call the
+gateway or Temporal directly.
 
-Current build-admitted profile:
+Current active composition profile:
 
 - `temporal`
   - owner repo: `platform-engineering`
@@ -157,25 +154,22 @@ Current build-admitted profile:
     [platform-engineering/dev-integration/profiles/temporal/profile.yaml](../../dev-integration/profiles/temporal/profile.yaml)
   - role: source-defined persistent local-k3s runtime adapter behind OOS for durable
     scheduling, replay, timers, waits, and activity retry dispatch
-  - launch rule: source implementation is authorized, but self-serve launch,
-    diagnostic access, backup, restore, and workflow execution remain denied
-    until fresh Platform, Security, and workspace lifecycle gates make the
-    profile `active`
+  - launch rule: self-serve local launch is allowed only through the active
+    `refinement-catalog` composition after Security review #1012, Workspace
+    activation #1017, and Platform activation #1013
   - controlled commissioning: the bounded proof remains non-self-serve and is
     unavailable until its issuer and executor are reviewed and an exact permit
     is approved; use the
     [Temporal controlled commissioning procedure](../components/temporal/operations.md#controlled-commissioning-proof)
     as the primary Platform operator surface
   - selected business definition: `delivery.refinement.apply` version `1` is
-    registered against OOS-owned contracts and existing Temporal queue/worker
-    identities, but remains non-launchable pending Security review #1012 and
-    Platform activation #1013
+    active only through OOS-owned contracts and the composition-bound Temporal
+    queue and worker identities
 
 ### Temporal Generation Retirement
 
-Temporal remains inactive, so there is no generation to retire now. Once the
-profile is active and a prior OOS workflow generation exists, use the
-Platform-owned procedure before suspension, replacement, or fresh activation:
+When a prior OOS workflow generation exists, use the Platform-owned procedure
+before suspension, replacement, or fresh activation:
 
 1. quiesce OOS start ingress and prove zero active replicas and zero in-flight
    starts

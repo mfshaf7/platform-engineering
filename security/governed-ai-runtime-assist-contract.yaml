@@ -20,8 +20,8 @@ contract:
     allowed_callers:
       - workspace-governance/intake-assist
       - operator-orchestration-service/work-design-assist
-    registered_not_active_callers:
       - operator-orchestration-service/refinement-assist
+    registered_not_active_callers: []
     denied_patterns:
       - direct-provider-client
       - repo-local-provider-secret

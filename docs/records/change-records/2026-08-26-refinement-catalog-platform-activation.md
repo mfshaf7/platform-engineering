@@ -46,6 +46,10 @@
   - cleanup of both a partially started failing profile and completed dependencies
   - one bounded operator-template source with exactly one sanitized
     `{operator}` token and no general formatting or credential interpolation
+  - one profile-namespace source that projects the runner's exact bounded peer
+    namespace without profile-local reconstruction
+  - default-deny governed-AI gateway ingress with admission only for its smoke
+    probe and the exact composition-projected OOS namespace and API workload
   - composition-only OOS business workflow and direct Console access denial
   - current Temporal and governed-AI operator documentation
   - no paid-provider, stage, production, tool, or autonomous mutation expansion
@@ -66,6 +70,10 @@
   - the exact Refinement model and Temporal profiles validate as active
   - the composition admits only the reviewed OOS and WGCF identities
   - operator-template bindings render one sanitized operator identity
+  - profile-namespace bindings preserve the runner-computed namespace for long
+    operator identities
+  - gateway ingress rejects pods outside the isolated probe and composed OOS
+    workload boundary before request-level caller policy runs
   - unsupported placeholders, ambient values, and unsafe syntax fail closed
   - failed starts clean up the failing profile and completed dependencies
 - Residual risk: ART #1019 must project the operator-scoped namespace and ART

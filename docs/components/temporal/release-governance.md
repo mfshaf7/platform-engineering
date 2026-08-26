@@ -2,8 +2,9 @@
 
 ## Current Release State
 
-Temporal is an active local `dev-integration` shared platform component for
-admitted OOS workflow compositions.
+Temporal has an active local `dev-integration` source profile for admitted OOS
+workflow compositions. This does not claim a live runtime before the separate
+merged-runtime proof.
 
 There is currently no approved:
 
@@ -27,7 +28,7 @@ Build admission remains bounded to source implementation and validation.
 
 ## Dev-Integration Activation Gate
 
-Self-serve local launch has satisfied:
+Self-serve local launch requires:
 
 - profile lifecycle `active`
 - implemented owner commands

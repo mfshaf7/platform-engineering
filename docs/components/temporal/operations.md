@@ -2,9 +2,10 @@
 
 ## Current Operational Posture
 
-Temporal is active only in local `dev-integration` for admitted OOS workflow
-compositions. It may be suspended with no running platform footprint while its
-operator-scoped PostgreSQL and workflow history remain preserved.
+Temporal's source profile is active only in local `dev-integration` for admitted
+OOS workflow compositions. No running footprint is claimed before merged
+runtime proof. After that proof, it may be suspended while its operator-scoped
+PostgreSQL and workflow history remain preserved.
 
 The supported status check is:
 
@@ -12,7 +13,8 @@ The supported status check is:
 make devint-status PROFILE=temporal
 ```
 
-Launch the first business workflow through the registered composition:
+After Workspace binding and merged-runtime admission, launch the first business
+workflow through the registered composition:
 
 ```bash
 make devint-up COMPOSITION=refinement-catalog OPERATOR=<operator>

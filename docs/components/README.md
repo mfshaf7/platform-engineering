@@ -35,11 +35,12 @@ yet. Use each component's `Current Live Footprint` section for live-state truth.
 | Governed AI Gateway | [README.md](governed-ai-gateway/README.md) | [architecture.md](governed-ai-gateway/architecture.md) | [access.md](governed-ai-gateway/access.md) | [operations.md](governed-ai-gateway/operations.md) |
 | Temporal | [README.md](temporal/README.md) | [architecture.md](temporal/architecture.md) | [access.md](temporal/access.md) | [operations.md](temporal/operations.md) |
 
-Temporal is active only in local `dev-integration` for admitted OOS workflow
-compositions, with no direct business surface. Its source-reviewed runtime
-shape declares separate Temporal, PostgreSQL,
+Temporal has an active local `dev-integration` source profile for admitted OOS
+workflow compositions, with no direct business surface. No live runtime is
+claimed until the registered composition passes merged-runtime proof. Its
+source-reviewed runtime shape declares separate Temporal, PostgreSQL,
 OOS API, OOS worker, WGCF worker, and diagnostic identities only inside one
-permit-bound, operator-scoped local proof; ordinary launch remains denied.
+permit-bound, operator-scoped local proof; direct profile launch remains denied.
 
 WGCF has retained historical operator-scoped proof for PostgreSQL metadata and
 isolated MinIO evidence storage. The current evidence-storage lifecycle remains

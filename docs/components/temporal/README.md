@@ -4,8 +4,9 @@
 
 Temporal is the platform-owned durable workflow runtime adapter for workflows
 whose waits, retries, restarts, reconciliation, or cross-owner history must
-survive one request. It is active only in local `dev-integration` for admitted
-OOS workflow compositions.
+survive one request. Its source profile is active only for admitted local
+`dev-integration` OOS workflow compositions; runtime activation is separately
+proof-gated.
 
 Temporal does not own business workflow policy. `operator-orchestration-service`
 owns aggregate workflow definitions, run control, correlation, projections,
@@ -24,8 +25,8 @@ and final orchestration receipts.
 
 - intake classification: `proposed`
 - dev-integration profile: `temporal`
-- profile lifecycle: `active`
-- namespace: operator-scoped and present only while the profile is running
+- source profile lifecycle: `active`
+- live namespace: absent until the merged-runtime proof owned by ART #1020
 - Argo application: none
 - runtime service: none
 - direct operator UI: none
@@ -35,8 +36,9 @@ and final orchestration receipts.
 
 The local runtime source and operator commands are implemented. Normal launch
 is governed by the shared dev-integration runner and the registered
-`refinement-catalog` composition; active lifecycle is not stage, production,
-or direct business-workflow authority.
+`refinement-catalog` composition after Workspace binding #1019 and merged
+runtime proof #1020. Active source lifecycle is not a live-runtime, stage,
+production, or direct business-workflow claim.
 
 The source also defines ordered generation retirement: Platform drains ingress
 and ordinary pollers, issues the old generation's digest-pinned business-queue
@@ -46,7 +48,7 @@ worker before a fresh activation. This contract does not imply that any runtime
 or retirement run is currently active.
 
 The source registers `delivery.refinement.apply` version `1` as the first
-active OOS-owned business workflow for the `refinement-catalog` composition.
+selected OOS-owned business workflow for the `refinement-catalog` composition.
 The registration binds the versioned OOS contract to composition-scoped queue,
 worker, and activation evidence. It does not expose Temporal credentials or
 authorize Console access.

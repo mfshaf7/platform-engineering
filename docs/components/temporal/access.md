@@ -3,14 +3,15 @@
 ## Current Operator Path
 
 Temporal has no public or direct business UI. Operators may inspect the active
-local profile even while its composition is suspended:
+source profile even while no composed runtime is present:
 
 ```bash
 make devint-status PROFILE=temporal
 ```
 
-Use the registered composition for normal launch, then use profile commands for
-operator-scoped diagnostics and state protection:
+The registered composition is the normal launch path after Workspace binding
+#1019 and merged-runtime proof #1020 land. This source activation does not claim
+that launch has happened:
 
 ```bash
 make devint-up COMPOSITION=refinement-catalog OPERATOR=<operator>
@@ -22,8 +23,8 @@ make devint-restore PROFILE=temporal BACKUP_FILE=<path> CONFIRM=restore-temporal
 
 ## Diagnostic Access
 
-`make devint-access PROFILE=temporal` is the primary local diagnostic path while
-the profile is running. The Temporal UI may expose workflow history and runtime
+`make devint-access PROFILE=temporal` is the primary local diagnostic path only
+while the composition is running. The Temporal UI may expose workflow history and runtime
 diagnostics through an operator-local port-forward only. It is not the business
 command surface.
 
@@ -42,8 +43,9 @@ Source now defines separate identities and secret references for:
 - credential rotation and revocation
 - denial of direct Console access
 
-The profile does not commit secret values. Runtime credentials are generated
-for the operator-scoped composition lifetime and removed during teardown.
+The profile does not commit secret values. Once the composition is proven,
+runtime credentials are generated for its operator-scoped lifetime and removed
+during teardown.
 
 The source-reviewed commissioning adapter is not an alternate access path. Its
 internal runtime script rejects caller flags and identifiers unless the full

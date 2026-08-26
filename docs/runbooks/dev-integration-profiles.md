@@ -246,8 +246,9 @@ The shared runner validates every participant and required lifecycle, starts
 providers before consumers, derives cluster-local service endpoints, and
 projects only contract-declared environment variables. Endpoint projections
 support URL and host-port formats. Caller bindings must name a declared
-dependency edge, while literal, profile-service, and operator-template bindings must name an exact
-target profile and variable; duplicate or ambient targets fail closed.
+dependency edge. Literal, profile-service, operator-template, and
+profile-namespace bindings must name an exact target profile and variable;
+duplicate or ambient targets fail closed.
 Runtime-generated
 credentials live under the operator-private composition state root, never in
 Git or command arguments. Repeated `up` reuses the active composition binding;
@@ -256,6 +257,9 @@ An operator-template binding accepts exactly one literal `{operator}` token and
 renders it from the same sanitized operator identity used by the composition.
 It is not a general formatting language and cannot interpolate credentials,
 profile data, or arbitrary environment values.
+A profile-namespace binding projects the runner's already computed namespace
+for one declared participant. Profiles must not reconstruct peer namespaces
+from an operator string because the runner owns normalization and length bounds.
 Failed start, status, teardown, ownership, lifecycle, credential, or projection
 checks fail closed. Composition state reports identifiers and outcomes only;
 it never records credential values.

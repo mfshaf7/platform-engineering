@@ -398,6 +398,17 @@ def resolve_runtime_composition(
                 composition_id=composition_id,
                 label=f"profile binding {binding_id!r}",
             )
+        elif source.get("kind") == "profile-namespace":
+            source_profile_id = source.get("source_profile_id")
+            if (
+                set(source) != {"kind", "source_profile_id"}
+                or not isinstance(source_profile_id, str)
+                or source_profile_id not in participants
+            ):
+                raise CompositionError(
+                    "composition-profile-binding-invalid",
+                    f"profile binding {binding_id!r} has an invalid namespace source",
+                )
         else:
             raise CompositionError(
                 "composition-profile-binding-invalid",
@@ -476,6 +487,8 @@ def build_profile_environments(
                 source,
                 namespace=namespaces[binding["profile_id"]],
             )
+        elif source["kind"] == "profile-namespace":
+            value = namespaces[source["source_profile_id"]]
         else:
             value = _render_operator_template(source, operator=operator)
         environments[binding["profile_id"]][binding["environment_variable"]] = value

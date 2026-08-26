@@ -630,6 +630,10 @@ def main() -> int:
                 str(rendered_root),
                 "--namespace",
                 "devint-temporal-validator",
+                "--oos-kubernetes-namespace",
+                "runner-bounded-oos-validator",
+                "--wgcf-kubernetes-namespace",
+                "runner-bounded-wgcf-validator",
                 "--operator-scope",
                 "validator",
                 "--temporal-namespace",
@@ -715,7 +719,7 @@ def main() -> int:
             {
                 "namespaceSelector": {
                     "matchLabels": {
-                        "kubernetes.io/metadata.name": "devint-accepted-idea-delivery-validator"
+                        "kubernetes.io/metadata.name": "runner-bounded-oos-validator"
                     }
                 },
                 "podSelector": {
@@ -740,7 +744,7 @@ def main() -> int:
             {
                 "namespaceSelector": {
                     "matchLabels": {
-                        "kubernetes.io/metadata.name": "devint-governance-control-fabric-validator"
+                        "kubernetes.io/metadata.name": "runner-bounded-wgcf-validator"
                     }
                 },
                 "podSelector": {

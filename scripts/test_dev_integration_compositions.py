@@ -117,6 +117,15 @@ def registry() -> dict:
                             "template": "governance-{operator}",
                         },
                     },
+                    "context-namespace": {
+                        "owner_repo": "platform-engineering",
+                        "profile_id": "root",
+                        "environment_variable": "CONTEXT_NAMESPACE",
+                        "source": {
+                            "kind": "profile-namespace",
+                            "source_profile_id": "context",
+                        },
+                    },
                 },
             }
         },
@@ -178,6 +187,7 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "FEATURE_ENABLED": "true",
                 "ROOT_SERVICE_URL": "http://root-api.root-ns.svc.cluster.local:8082",
                 "OPERATOR_NAMESPACE": "governance-mf-shaf7",
+                "CONTEXT_NAMESPACE": "context-ns",
             },
         )
         self.assertEqual(
@@ -289,6 +299,44 @@ class RuntimeCompositionTests(unittest.TestCase):
         ]["source"]["extra"] = "not-allowed"
         with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "invalid operator template"):
             COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+    def test_profile_namespace_contract_fails_closed(self) -> None:
+        for source in (
+            {"kind": "profile-namespace", "source_profile_id": "missing"},
+            {"kind": "profile-namespace"},
+            {
+                "kind": "profile-namespace",
+                "source_profile_id": "context",
+                "extra": "not-allowed",
+            },
+        ):
+            with self.subTest(source=source):
+                payload = registry()
+                payload["runtime_compositions"]["example"]["profile_bindings"][
+                    "context-namespace"
+                ]["source"] = source
+                with self.assertRaisesRegex(
+                    COMPOSITIONS.CompositionError,
+                    "invalid namespace source",
+                ):
+                    COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+    def test_profile_namespace_projects_runner_computed_namespace(self) -> None:
+        composition, _ = self.composition()
+        environments = COMPOSITIONS.build_profile_environments(
+            composition,
+            namespaces={
+                "root": "root-namespace",
+                "context": "runner-bounded-context-namespace",
+                "gateway": "gateway-namespace",
+            },
+            credential_values={},
+            operator="operator",
+        )
+        self.assertEqual(
+            environments["root"]["CONTEXT_NAMESPACE"],
+            "runner-bounded-context-namespace",
+        )
 
     def test_runtime_credential_is_private_and_reused(self) -> None:
         composition, _ = self.composition()

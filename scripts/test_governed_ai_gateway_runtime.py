@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +62,68 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory(prefix="governed-ai-runtime-")
         self.addCleanup(self.temp_dir.cleanup)
         self.audit_root = Path(self.temp_dir.name)
+
+    def test_rendered_gateway_admits_only_probe_and_composed_oos(self) -> None:
+        state_root = self.audit_root / "profile-state"
+        trusted_namespace = "runner-bounded-oos-namespace"
+        environment = {
+            **os.environ,
+            "DEVINT_PROFILE_LIFECYCLE": "active",
+            "DEVINT_STATE_ROOT": str(state_root),
+            "DEVINT_GAI_PROVIDER_HOST_IP": "127.0.0.1",
+            "DEVINT_GAI_TRUSTED_CONSUMER_NAMESPACE": trusted_namespace,
+        }
+        subprocess.run(
+            [
+                "bash",
+                "-c",
+                "source dev-integration/profiles/governed-ai-gateway/scripts/common.sh; "
+                "ensure_state_dirs; render_runtime_manifest",
+            ],
+            cwd=REPO_ROOT,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        documents = list(
+            yaml.safe_load_all(
+                (
+                    state_root
+                    / "rendered/governed-ai-gateway-runtime.yaml"
+                ).read_text(encoding="utf-8")
+            )
+        )
+        policies = {
+            document["metadata"]["name"]: document
+            for document in documents
+            if document.get("kind") == "NetworkPolicy"
+        }
+        self.assertEqual(
+            policies["governed-ai-gateway-default-deny-ingress"]["spec"][
+                "ingress"
+            ],
+            [],
+        )
+        peers = policies["governed-ai-gateway-admitted-callers"]["spec"][
+            "ingress"
+        ][0]["from"]
+        self.assertEqual(len(peers), 2)
+        self.assertIn(
+            {
+                "namespaceSelector": {
+                    "matchLabels": {
+                        "kubernetes.io/metadata.name": trusted_namespace
+                    }
+                },
+                "podSelector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "operator-orchestration-service"
+                    }
+                },
+            },
+            peers,
+        )
 
     def test_suspended_work_design_is_denied_before_provider_access(self) -> None:
         resolved = copy.deepcopy(selections())

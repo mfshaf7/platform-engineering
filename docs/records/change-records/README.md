@@ -28,6 +28,10 @@ The current bounded WGCF local storage proof is recorded in
 and implements
 [ADR-019](../../decisions/adr/ADR-019-wgcf-dev-integration-evidence-storage.md).
 
+The Refinement and Temporal source activation is recorded in
+[2026-08-26-refinement-catalog-platform-activation.md](2026-08-26-refinement-catalog-platform-activation.md).
+It changes source contracts only; ART #1020 owns any merged-runtime claim.
+
 ## Goals
 
 Each record should make it easy to answer:

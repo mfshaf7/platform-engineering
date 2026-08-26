@@ -617,11 +617,15 @@ def execute_composition(
         else:
             completed.append(profile_id)
 
+    rollback_completed: list[str] = []
     rollback_failures: list[str] = []
     if action == "up" and failures:
-        for profile_id in reversed(completed):
+        rollback_order = [*failures, *reversed(completed)]
+        for profile_id in rollback_order:
             if dispatch("down", profile_id, environments[profile_id]):
                 rollback_failures.append(profile_id)
+            else:
+                rollback_completed.append(profile_id)
         if created_credentials and not rollback_failures:
             remove_credentials(composition, state_root=state_root)
 
@@ -666,6 +670,7 @@ def execute_composition(
         "last_action": action,
         "completed_profile_ids": completed,
         "failed_profile_ids": failures,
+        "rollback_completed_profile_ids": rollback_completed,
         "rollback_failed_profile_ids": rollback_failures,
         "updated_at": _now_utc(),
     }

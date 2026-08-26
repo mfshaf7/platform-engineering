@@ -202,6 +202,15 @@ def main() -> int:
         errors,
     )
     require(
+        identities.get("oos_workflow_worker", {}).get("pod_labels")
+        == [
+            "orchestration.workspace/identity=oos-workflow-worker",
+            "orchestration.workspace/identity=oos-refinement-worker",
+        ],
+        "OOS workflow worker identity must bind both admitted worker pod labels",
+        errors,
+    )
+    require(
         boundary.get("runtime", {}).get("public_ingress") is False,
         "public ingress must be denied",
         errors,
@@ -262,8 +271,8 @@ def main() -> int:
         {},
     )
     require(
-        refinement_profile.get("status") == "selected-not-active",
-        "delivery-refinement-apply-v1 must remain selected-not-active",
+        refinement_profile.get("status") == "active",
+        "delivery-refinement-apply-v1 must be active",
         errors,
     )
     require(
@@ -314,7 +323,7 @@ def main() -> int:
     )
     activation = refinement_profile.get("activation", {})
     require(
-        activation.get("worker_start_allowed") is False
+        activation.get("worker_start_allowed") is True
         and activation.get("security_acceptance_ref")
         == "openproject://work_packages/1012"
         and activation.get("platform_activation_ref")
@@ -692,6 +701,56 @@ def main() -> int:
             }
             <= policy_names,
             "network policy set is incomplete",
+            errors,
+        )
+        frontend_policy = resource(
+            network,
+            "NetworkPolicy",
+            "temporal-admitted-worker-frontend",
+        )
+        frontend_peers = frontend_policy.get("spec", {}).get("ingress", [{}])[0].get(
+            "from", []
+        )
+        require(
+            {
+                "namespaceSelector": {
+                    "matchLabels": {
+                        "kubernetes.io/metadata.name": "devint-accepted-idea-delivery-validator"
+                    }
+                },
+                "podSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "orchestration.workspace/identity",
+                            "operator": "In",
+                            "values": [
+                                "oos-api",
+                                "oos-workflow-worker",
+                                "oos-refinement-worker",
+                            ],
+                        }
+                    ]
+                },
+            }
+            in frontend_peers,
+            "Temporal frontend must admit only reviewed OOS identities from the operator-scoped OOS namespace",
+            errors,
+        )
+        require(
+            {
+                "namespaceSelector": {
+                    "matchLabels": {
+                        "kubernetes.io/metadata.name": "devint-governance-control-fabric-validator"
+                    }
+                },
+                "podSelector": {
+                    "matchLabels": {
+                        "orchestration.workspace/identity": "wgcf-activity-worker"
+                    }
+                },
+            }
+            in frontend_peers,
+            "Temporal frontend must admit only the reviewed WGCF activity identity from the operator-scoped WGCF namespace",
             errors,
         )
         service_account_names = {

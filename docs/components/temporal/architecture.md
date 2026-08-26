@@ -50,7 +50,13 @@ Activity owners retain their domain authority. For example, WGCF owns
 governance validation and readiness activity behavior, while OOS retains the
 aggregate workflow.
 
-## Build-Admitted Dev-Integration Shape
+Temporal frontend ingress admits only the operator-scoped OOS namespace with
+the `oos-api`, `oos-workflow-worker`, or `oos-refinement-worker` identity, and
+the operator-scoped WGCF namespace with the `wgcf-activity-worker` identity.
+The namespace and pod selectors are conjunctive; matching a label in another
+namespace does not grant access.
+
+## Active Dev-Integration Shape
 
 The first profile requests:
 

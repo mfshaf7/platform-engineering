@@ -412,15 +412,23 @@ class RuntimeCompositionTests(unittest.TestCase):
             self.assertEqual(returncode, 1)
             self.assertEqual(
                 calls,
-                [("up", "context"), ("up", "gateway"), ("down", "context")],
+                [
+                    ("up", "context"),
+                    ("up", "gateway"),
+                    ("down", "gateway"),
+                    ("down", "context"),
+                ],
             )
             self.assertFalse((state_root / "credentials/caller.secret").exists())
-            self.assertEqual(
-                yaml.safe_load(
-                    (state_root / "current-composition.yaml").read_text()
-                )["lifecycle"],
-                "degraded",
+            state = yaml.safe_load(
+                (state_root / "current-composition.yaml").read_text()
             )
+            self.assertEqual(state["lifecycle"], "degraded")
+            self.assertEqual(
+                state["rollback_completed_profile_ids"],
+                ["gateway", "context"],
+            )
+            self.assertEqual(state["rollback_failed_profile_ids"], [])
 
     def test_cleanup_rejects_foreign_composition_state(self) -> None:
         composition, order = self.composition()

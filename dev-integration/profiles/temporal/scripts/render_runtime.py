@@ -72,6 +72,8 @@ def main() -> int:
 
     tokens = {
         "KUBERNETES_NAMESPACE": args.namespace,
+        "OOS_KUBERNETES_NAMESPACE": f"devint-accepted-idea-delivery-{args.operator_scope}",
+        "WGCF_KUBERNETES_NAMESPACE": f"devint-governance-control-fabric-{args.operator_scope}",
         "OPERATOR": args.operator_scope,
         "POSTGRESQL_IMAGE": image_ref(images["postgresql"]),
         "TEMPORAL_NAMESPACE": args.temporal_namespace,

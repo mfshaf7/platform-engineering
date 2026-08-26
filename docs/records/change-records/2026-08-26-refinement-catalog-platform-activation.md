@@ -40,7 +40,9 @@
 - Commit(s): finalized Review Packet for ART #1013 records the merged commit.
 - Guardrails added:
   - exact Refinement caller, task, schema, and local model binding activation
+  - exact OOS and WGCF namespace-and-identity admission to Temporal frontend
   - positive typed advice and suspended-profile denial before provider access
+  - cleanup of both a partially started failing profile and completed dependencies
   - composition-only OOS business workflow and direct Console access denial
   - current Temporal and governed-AI operator documentation
   - no paid-provider, stage, production, tool, or autonomous mutation expansion

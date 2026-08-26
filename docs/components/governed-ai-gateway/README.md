@@ -54,11 +54,11 @@ the OOS-owned Work Design assist contract. Security review #994 and Platform
 activation #995 approve that bounded profile; they do not approve Console
 integration, a paid provider, stage, prod, tools, or direct model mutation.
 
-`delivery-refinement-advisor-v1` is registered as `selected-not-active` for
-the typed OOS Refinement assist contract. It can be resolved and tested without
-provider invocation, but activation is denied until Security review #1012 and
-Platform activation #1013 complete. The Console continues to call OOS only;
-neither OOS business handlers nor CGG receive provider credentials.
+`delivery-refinement-advisor-v1` is active only in local `dev-integration` for
+the typed OOS Refinement assist contract under Security review #1012 and
+Platform activation #1013. The Console continues to call OOS only; neither OOS
+business handlers nor CGG receive provider credentials. Paid-provider, stage,
+and production activation remain prohibited.
 
 The dev-integration launcher resolves every configured logical profile for one
 environment, verifies each matching access-plane route, and emits

@@ -19,6 +19,8 @@ print(value or "operator")
 PY
 )"
 readonly NAMESPACE="${DEVINT_NAMESPACE:-devint-${PROFILE_ID}-${OPERATOR_SLUG}}"
+readonly OOS_KUBERNETES_NAMESPACE="${DEVINT_TEMPORAL_OOS_KUBERNETES_NAMESPACE:-devint-no-oos-admitted}"
+readonly WGCF_KUBERNETES_NAMESPACE="${DEVINT_TEMPORAL_WGCF_KUBERNETES_NAMESPACE:-devint-no-wgcf-admitted}"
 readonly STATE_ROOT="${DEVINT_STATE_ROOT:-${OWNER_REPO_ROOT}/.dev-integration/${PROFILE_ID}/${OPERATOR_SLUG}}"
 readonly SESSION_FILE="${DEVINT_SESSION_FILE:-${STATE_ROOT}/current-session.yaml}"
 readonly PROMOTION_REPORT="${DEVINT_PROMOTION_REPORT:-${STATE_ROOT}/promotion-report.yaml}"
@@ -161,6 +163,8 @@ profile: ${PROFILE_ID}
 lifecycle: ${PROFILE_LIFECYCLE}
 kubernetes namespace: ${NAMESPACE}
 temporal namespace: ${TEMPORAL_WORKFLOW_NAMESPACE}
+OOS Kubernetes namespace: ${OOS_KUBERNETES_NAMESPACE}
+WGCF Kubernetes namespace: ${WGCF_KUBERNETES_NAMESPACE}
 operator: ${OPERATOR}
 state root: ${STATE_ROOT}
 runtime state: $(runtime_state)

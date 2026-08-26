@@ -108,6 +108,24 @@ def registry() -> dict:
                             "service_port": 8082,
                         },
                     },
+                    "operator-namespace": {
+                        "owner_repo": "platform-engineering",
+                        "profile_id": "root",
+                        "environment_variable": "OPERATOR_NAMESPACE",
+                        "source": {
+                            "kind": "operator-template",
+                            "template": "governance-{operator}",
+                        },
+                    },
+                    "context-namespace": {
+                        "owner_repo": "platform-engineering",
+                        "profile_id": "root",
+                        "environment_variable": "CONTEXT_NAMESPACE",
+                        "source": {
+                            "kind": "profile-namespace",
+                            "source_profile_id": "context",
+                        },
+                    },
                 },
             }
         },
@@ -157,6 +175,7 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "gateway": "gateway-ns",
             },
             credential_values={"caller": "private-value"},
+            operator="MF Shaf7",
         )
         self.assertEqual(
             environments["root"],
@@ -167,6 +186,8 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "CALLER_SECRET": "private-value",
                 "FEATURE_ENABLED": "true",
                 "ROOT_SERVICE_URL": "http://root-api.root-ns.svc.cluster.local:8082",
+                "OPERATOR_NAMESPACE": "governance-mf-shaf7",
+                "CONTEXT_NAMESPACE": "context-ns",
             },
         )
         self.assertEqual(
@@ -207,6 +228,7 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "gateway": "gateway-ns",
             },
             credential_values={"caller": "private-value"},
+            operator="operator",
         )
         self.assertEqual(
             environments["root"]["GATEWAY_URL"],
@@ -253,6 +275,68 @@ class RuntimeCompositionTests(unittest.TestCase):
         projection["address_format"] = "host-port"
         with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "must not declare a scheme"):
             COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+    def test_operator_template_contract_fails_closed(self) -> None:
+        invalid_templates = (
+            "governance-operator",
+            "governance-{operator}-{operator}",
+            "governance-{profile}",
+            "governance-{operator.upper}",
+            "governance_{operator}",
+        )
+        for template in invalid_templates:
+            with self.subTest(template=template):
+                payload = registry()
+                payload["runtime_compositions"]["example"]["profile_bindings"][
+                    "operator-namespace"
+                ]["source"]["template"] = template
+                with self.assertRaises(COMPOSITIONS.CompositionError):
+                    COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+        payload = registry()
+        payload["runtime_compositions"]["example"]["profile_bindings"][
+            "operator-namespace"
+        ]["source"]["extra"] = "not-allowed"
+        with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "invalid operator template"):
+            COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+    def test_profile_namespace_contract_fails_closed(self) -> None:
+        for source in (
+            {"kind": "profile-namespace", "source_profile_id": "missing"},
+            {"kind": "profile-namespace"},
+            {
+                "kind": "profile-namespace",
+                "source_profile_id": "context",
+                "extra": "not-allowed",
+            },
+        ):
+            with self.subTest(source=source):
+                payload = registry()
+                payload["runtime_compositions"]["example"]["profile_bindings"][
+                    "context-namespace"
+                ]["source"] = source
+                with self.assertRaisesRegex(
+                    COMPOSITIONS.CompositionError,
+                    "invalid namespace source",
+                ):
+                    COMPOSITIONS.resolve_runtime_composition(payload, "example")
+
+    def test_profile_namespace_projects_runner_computed_namespace(self) -> None:
+        composition, _ = self.composition()
+        environments = COMPOSITIONS.build_profile_environments(
+            composition,
+            namespaces={
+                "root": "root-namespace",
+                "context": "runner-bounded-context-namespace",
+                "gateway": "gateway-namespace",
+            },
+            credential_values={},
+            operator="operator",
+        )
+        self.assertEqual(
+            environments["root"]["CONTEXT_NAMESPACE"],
+            "runner-bounded-context-namespace",
+        )
 
     def test_runtime_credential_is_private_and_reused(self) -> None:
         composition, _ = self.composition()
@@ -412,15 +496,23 @@ class RuntimeCompositionTests(unittest.TestCase):
             self.assertEqual(returncode, 1)
             self.assertEqual(
                 calls,
-                [("up", "context"), ("up", "gateway"), ("down", "context")],
+                [
+                    ("up", "context"),
+                    ("up", "gateway"),
+                    ("down", "gateway"),
+                    ("down", "context"),
+                ],
             )
             self.assertFalse((state_root / "credentials/caller.secret").exists())
-            self.assertEqual(
-                yaml.safe_load(
-                    (state_root / "current-composition.yaml").read_text()
-                )["lifecycle"],
-                "degraded",
+            state = yaml.safe_load(
+                (state_root / "current-composition.yaml").read_text()
             )
+            self.assertEqual(state["lifecycle"], "degraded")
+            self.assertEqual(
+                state["rollback_completed_profile_ids"],
+                ["gateway", "context"],
+            )
+            self.assertEqual(state["rollback_failed_profile_ids"], [])
 
     def test_cleanup_rejects_foreign_composition_state(self) -> None:
         composition, order = self.composition()

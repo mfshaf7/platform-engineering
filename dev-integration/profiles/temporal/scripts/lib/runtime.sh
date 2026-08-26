@@ -80,6 +80,8 @@ render_runtime() {
     --profile-root "${PROFILE_ROOT}" \
     --output-dir "${RENDERED_DIR}" \
     --namespace "${NAMESPACE}" \
+    --oos-kubernetes-namespace "${OOS_KUBERNETES_NAMESPACE}" \
+    --wgcf-kubernetes-namespace "${WGCF_KUBERNETES_NAMESPACE}" \
     --operator-scope "${CONTROLLED_PROOF_OPERATOR_SCOPE:-${OPERATOR_SLUG}}" \
     --temporal-namespace "${TEMPORAL_WORKFLOW_NAMESPACE}"
 }

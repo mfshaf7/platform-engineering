@@ -2,7 +2,10 @@
 
 ## Current Operational Posture
 
-Temporal is build-admitted and has no running platform footprint.
+Temporal's source profile is active only in local `dev-integration` for admitted
+OOS workflow compositions. No running footprint is claimed before merged
+runtime proof. After that proof, it may be suspended while its operator-scoped
+PostgreSQL and workflow history remain preserved.
 
 The supported status check is:
 
@@ -10,14 +13,22 @@ The supported status check is:
 make devint-status PROFILE=temporal
 ```
 
-Runtime launch, diagnostic access, backup, restore, and workflow execution fail
-closed while the profile is build-admitted.
+After Workspace binding and merged-runtime admission, launch the first business
+workflow through the registered composition:
+
+```bash
+make devint-up COMPOSITION=refinement-catalog OPERATOR=<operator>
+```
+
+The shared runner supplies the active lifecycle, exact source bindings,
+composition-scoped identities, and cleanup boundary. The Console never calls
+Temporal directly.
 
 ## Controlled Commissioning Proof
 
-This section is the primary Platform operator surface for a bounded Temporal
-commissioning proof. The proof is not a normal profile launch and does not
-change the profile from `build-admitted`.
+This section preserves the historical, permit-bound component commissioning
+procedure. It is not the normal active composition path and does not authorize
+a new commissioning run without a fresh permit.
 
 The permit issuer and executor source is reviewed under ART #825. The latest
 permit-bound session under ART #751 restored the exact baseline but failed its
@@ -29,9 +40,9 @@ label maximum. ART #846 bounds Temporal namespaces to 46 characters while
 preserving the collision-resistant suffix and rejects overlong overrides during
 rendering. The consumed v7 permit cannot be reused; another attempt requires a
 fresh baseline, claims set, Security authorization, operator approval, and
-permit after the correction lands. Ordinary `devint-up`, access, smoke, backup,
-restore, and workflow commands remain denied while the profile is
-`build-admitted`.
+permit after the correction lands. The completed commissioning history does
+not replace the active composition's runtime evidence or grant stage or
+production authority.
 
 The commissioning procedure is governed by the shared runtime-drill ledger:
 
@@ -427,13 +438,13 @@ from the receipt without its top-level `attestation`. The checked-in
 cross-language vector must pass before the source validator accepts this
 profile.
 
-This operator surface is source-valid now. It does not make the build-admitted
-profile launchable and must not be used as evidence that a retirement run has
+This operator surface is source-valid now. It does not independently authorize
+profile launch and must not be used as evidence that a retirement run has
 already occurred.
 
 ## Common Failure Signals
 
-- proposed or build-admitted profile is treated as launchable
+- a non-active profile or unregistered composition is treated as launchable
 - Console or another caller attempts direct Temporal access
 - OOS and an activity owner disagree on workflow ownership
 - workflow payload contains secrets, raw context, or unbounded artifacts

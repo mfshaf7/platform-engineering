@@ -36,8 +36,8 @@ OOS owns:
 - final orchestration receipts
 
 The first registered business definition is `delivery.refinement.apply`
-version `1`. Its Platform profile records only the runtime binding and inactive
-launch gates; the OOS contract remains the semantic authority.
+version `1`. Its Platform profile records only the runtime binding and active
+local admission gates; the OOS contract remains the semantic authority.
 
 Temporal owns:
 
@@ -50,7 +50,13 @@ Activity owners retain their domain authority. For example, WGCF owns
 governance validation and readiness activity behavior, while OOS retains the
 aggregate workflow.
 
-## Build-Admitted Dev-Integration Shape
+Temporal frontend ingress admits only the operator-scoped OOS namespace with
+the `oos-api`, `oos-workflow-worker`, or `oos-refinement-worker` identity, and
+the operator-scoped WGCF namespace with the `wgcf-activity-worker` identity.
+The namespace and pod selectors are conjunctive; matching a label in another
+namespace does not grant access.
+
+## Active Dev-Integration Shape
 
 The first profile requests:
 
@@ -194,16 +200,15 @@ Allowed now:
 - source-defined and validated component, profile, persistence, identity,
   queue, payload, and operator contracts
 - architecture and security review
-- build-admitted status inspection
+- active local dev-integration launch through an admitted OOS composition
+- operator-scoped status, diagnostic access, backup, restore, and suspension
 - generation-retirement manifest preparation and receipt verification against
   existing evidence
 
 Denied now:
 
-- runtime installation
-- persistent volume creation
-- workflow execution
-- self-serve access
+- direct Console or browser access to Temporal
+- unregistered workflow execution or caller credentials
 - `stage` or `prod` deployment
 
 ## Read With

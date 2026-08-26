@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +62,68 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory(prefix="governed-ai-runtime-")
         self.addCleanup(self.temp_dir.cleanup)
         self.audit_root = Path(self.temp_dir.name)
+
+    def test_rendered_gateway_admits_only_probe_and_composed_oos(self) -> None:
+        state_root = self.audit_root / "profile-state"
+        trusted_namespace = "runner-bounded-oos-namespace"
+        environment = {
+            **os.environ,
+            "DEVINT_PROFILE_LIFECYCLE": "active",
+            "DEVINT_STATE_ROOT": str(state_root),
+            "DEVINT_GAI_PROVIDER_HOST_IP": "127.0.0.1",
+            "DEVINT_GAI_TRUSTED_CONSUMER_NAMESPACE": trusted_namespace,
+        }
+        subprocess.run(
+            [
+                "bash",
+                "-c",
+                "source dev-integration/profiles/governed-ai-gateway/scripts/common.sh; "
+                "ensure_state_dirs; render_runtime_manifest",
+            ],
+            cwd=REPO_ROOT,
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        documents = list(
+            yaml.safe_load_all(
+                (
+                    state_root
+                    / "rendered/governed-ai-gateway-runtime.yaml"
+                ).read_text(encoding="utf-8")
+            )
+        )
+        policies = {
+            document["metadata"]["name"]: document
+            for document in documents
+            if document.get("kind") == "NetworkPolicy"
+        }
+        self.assertEqual(
+            policies["governed-ai-gateway-default-deny-ingress"]["spec"][
+                "ingress"
+            ],
+            [],
+        )
+        peers = policies["governed-ai-gateway-admitted-callers"]["spec"][
+            "ingress"
+        ][0]["from"]
+        self.assertEqual(len(peers), 2)
+        self.assertIn(
+            {
+                "namespaceSelector": {
+                    "matchLabels": {
+                        "kubernetes.io/metadata.name": trusted_namespace
+                    }
+                },
+                "podSelector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/name": "operator-orchestration-service"
+                    }
+                },
+            },
+            peers,
+        )
 
     def test_suspended_work_design_is_denied_before_provider_access(self) -> None:
         resolved = copy.deepcopy(selections())
@@ -159,6 +225,60 @@ class GatewayRuntimeTests(unittest.TestCase):
             "Review the tree without applying changes.",
         )
 
+    def test_active_refinement_profile_returns_typed_result(self) -> None:
+        adapter = FakeAdapter(
+            {
+                "confidence": "high",
+                "required_operator_action": "review",
+                "field_key": "definition_of_ready",
+                "value": "Repository readiness is current and receipt-bound.",
+                "summary": "Use the current readiness receipt.",
+                "rationale": "The proposal is specific and independently reviewable.",
+            }
+        )
+        runtime = GatewayRuntime(
+            selections=selections(),
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={"delivery-refinement-advisor-v1": adapter},
+        )
+
+        status, payload = runtime.invoke(self.refinement_request())
+
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            payload["task"],
+            {
+                "kind": "metadata_advice",
+                "contract_ref": "oos.delivery-refinement.v1",
+                "version": "1.0",
+            },
+        )
+        self.assertEqual(payload["output"]["field_key"], "definition_of_ready")
+        self.assertEqual(len(adapter.calls), 1)
+
+    def test_suspended_refinement_is_denied_before_provider_access(self) -> None:
+        resolved = copy.deepcopy(selections())
+        profile = resolved["profiles"]["delivery-refinement-advisor-v1"]
+        profile["profile_status"] = "suspended"
+        profile["binding_status"] = "suspended"
+        profile["profile_activation_allowed"] = False
+        profile["activation_eligible"] = False
+        adapter = FakeAdapter({"field_key": "must-not-run"})
+        runtime = GatewayRuntime(
+            selections=resolved,
+            audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={"delivery-refinement-advisor-v1": adapter},
+        )
+
+        status, payload = runtime.invoke(self.refinement_request())
+
+        self.assertEqual(status, 403)
+        self.assertEqual(payload["policy_decision"], "deny")
+        self.assertIn("profile-not-active", payload["reasons"])
+        self.assertEqual(adapter.calls, [])
+
     def test_readiness_stays_available_when_compatibility_profile_is_suspended(self) -> None:
         resolved = copy.deepcopy(selections())
         intake = resolved["profiles"]["intake-classifier-v1"]
@@ -184,7 +304,10 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.assertFalse(readiness["compatibility_profile_ready"])
         self.assertEqual(
             readiness["ready_profile_ids"],
-            ["delivery-work-design-advisor-v1"],
+            [
+                "delivery-refinement-advisor-v1",
+                "delivery-work-design-advisor-v1",
+            ],
         )
         self.assertFalse(readiness["profiles"]["intake-classifier-v1"]["ready"])
         self.assertTrue(
@@ -254,6 +377,38 @@ class GatewayRuntimeTests(unittest.TestCase):
                         "/v1/context/work-design/projections/work-design-1"
                     ),
                     "content": "A bounded model-safe package projection.",
+                },
+            },
+        }
+
+    @staticmethod
+    def refinement_request() -> dict:
+        profile_id = "delivery-refinement-advisor-v1"
+        return {
+            "profile_id": profile_id,
+            "caller_identity": caller(
+                profile_id, "operator-orchestration-service/refinement-assist"
+            ),
+            "operator_identity": {"operator_id": "operator:test"},
+            "task": {
+                "kind": "metadata_advice",
+                "contract_ref": "oos.delivery-refinement.v1",
+                "version": "1.0",
+            },
+            "provider_output_schema_ref": (
+                "platform-engineering/security/schemas/"
+                "delivery-refinement-advice.schema.json"
+            ),
+            "input": {
+                "task_instruction": "Suggest a value without applying it.",
+                "operator_prompt": "Make the readiness field verifiable.",
+                "model_safe_packet": {
+                    "packet_ref": "/v1/context/packets/refinement-1",
+                    "redaction_receipt_ref": "/v1/context/receipts/refinement-1",
+                    "projection_receipt_ref": (
+                        "/v1/context/refinement/projections/refinement-1"
+                    ),
+                    "content": "A bounded model-safe Refinement projection.",
                 },
             },
         }

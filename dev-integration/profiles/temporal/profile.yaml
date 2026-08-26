@@ -1,7 +1,7 @@
 schema_version: 1
 profile_id: temporal
 lane_class: governed-devint
-summary: Build-admitted persistent local-k3s profile for the platform-owned Temporal runtime behind OOS.
+summary: Active persistent local-k3s profile for the platform-owned Temporal runtime behind OOS.
 runtime:
   platform: local-k3s
   state_model: persistent

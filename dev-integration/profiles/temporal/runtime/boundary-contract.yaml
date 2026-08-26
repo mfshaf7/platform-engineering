@@ -97,7 +97,9 @@ identities:
   oos_workflow_worker:
     owner_repo: operator-orchestration-service
     service_account: temporal-oos-worker
-    pod_label: orchestration.workspace/identity=oos-workflow-worker
+    pod_labels:
+      - orchestration.workspace/identity=oos-workflow-worker
+      - orchestration.workspace/identity=oos-refinement-worker
     credential_scope: workflow-definition-and-run-control
   wgcf_activity_worker:
     owner_repo: workspace-governance-control-fabric
@@ -123,7 +125,7 @@ database_identities:
     superuser: false
 workflow_profiles:
   - profile_id: delivery-refinement-apply-v1
-    status: selected-not-active
+    status: active
     definition:
       id: delivery.refinement.apply
       version: 1
@@ -139,7 +141,7 @@ workflow_profiles:
       consumer_temporal_credentials_allowed: false
       platform_business_logic_allowed: false
     activation:
-      worker_start_allowed: false
+      worker_start_allowed: true
       security_acceptance_ref: openproject://work_packages/1012
       platform_activation_ref: openproject://work_packages/1013
 task_queues:

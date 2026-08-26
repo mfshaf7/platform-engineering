@@ -154,10 +154,10 @@ access_plane:
         binding: local-ollama-qwen3-8b
         reason: reviewed-work-design-devint-activation-994-995
       delivery-refinement-advisor-v1:
-        activation_allowed: false
+        activation_allowed: true
         environment: dev-integration
         binding: local-ollama-qwen3-8b
-        reason: registered-pending-security-1012-and-platform-activation-1013
+        reason: reviewed-refinement-devint-activation-1012-1013
     compatibility_projection:
       consumer: workspace-governance/intake-assist
     profile_activation_allowed: true

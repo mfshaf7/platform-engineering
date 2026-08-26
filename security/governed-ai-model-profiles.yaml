@@ -190,14 +190,14 @@ model_profiles:
       activation in #995. Console integration remains independently gated by
       #996. Paid-provider, stage, and prod activation remain prohibited.
   delivery-refinement-advisor-v1:
-    status: selected-not-active
+    status: active
     purpose: delivery-refinement-assist
     invocation_path: governed-ai-gateway
     selected_binding_by_environment:
       dev-integration: local-ollama-qwen3-8b
     bindings:
       local-ollama-qwen3-8b:
-        status: selected-not-active
+        status: active
         environments:
           - dev-integration
         provider: ollama
@@ -262,12 +262,10 @@ model_profiles:
     direct_provider_access_allowed: false
     security_review_ref:
       repo: security-architecture
-      path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
+      path: docs/reviews/components/2026-08-26-refinement-catalog-dev-integration-boundary.md
     activation_review_ref: openproject://work_packages/1012
     notes: >
-      The Refinement profile and local Ollama binding are registered for exact
-      contract resolution but remain selected-not-active. Security review
-      #1012 and Platform activation #1013 must approve the caller, context,
-      output, audit, and runtime composition before invocation is allowed.
-      Console integration remains independently gated by #1014. Paid-provider,
-      stage, and prod activation remain prohibited.
+      The Refinement profile and local Ollama binding are active only in local
+      dev-integration under Security review #1012 and Platform activation
+      #1013. Console integration remains independently gated by #1014.
+      Paid-provider, stage, and prod activation remain prohibited.

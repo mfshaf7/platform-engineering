@@ -271,14 +271,23 @@ spec:
     - Ingress
   ingress:
     - from:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: __OOS_KUBERNETES_NAMESPACE__
+          podSelector:
             matchExpressions:
               - key: orchestration.workspace/identity
                 operator: In
                 values:
                   - oos-api
                   - oos-workflow-worker
-                  - wgcf-activity-worker
+                  - oos-refinement-worker
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: __WGCF_KUBERNETES_NAMESPACE__
+          podSelector:
+            matchLabels:
+              orchestration.workspace/identity: wgcf-activity-worker
       ports:
         - protocol: TCP
           port: 7233

@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Temporal is the build-admitted platform-owned durable workflow runtime adapter
-for workflows whose waits, retries, restarts, reconciliation, or cross-owner
-history must survive one request.
+Temporal is the platform-owned durable workflow runtime adapter for workflows
+whose waits, retries, restarts, reconciliation, or cross-owner history must
+survive one request. Its source profile is active only for admitted local
+`dev-integration` OOS workflow compositions; runtime activation is separately
+proof-gated.
 
 Temporal does not own business workflow policy. `operator-orchestration-service`
 owns aggregate workflow definitions, run control, correlation, projections,
@@ -23,8 +25,8 @@ and final orchestration receipts.
 
 - intake classification: `proposed`
 - dev-integration profile: `temporal`
-- profile lifecycle: `build-admitted`
-- namespace: none
+- source profile lifecycle: `active`
+- live namespace: absent until the merged-runtime proof owned by ART #1020
 - Argo application: none
 - runtime service: none
 - direct operator UI: none
@@ -32,9 +34,11 @@ and final orchestration receipts.
   diagnostic UI `2.52.1`, PostgreSQL `17.10-alpine3.24`
 - `stage` or `prod` deployment: not approved
 
-The local runtime source and operator commands are implemented, but no runtime
-has been installed. Build admission is source authorization, not self-serve
-launch or workflow-execution authority.
+The local runtime source and operator commands are implemented. Normal launch
+is governed by the shared dev-integration runner and the registered
+`refinement-catalog` composition after Workspace binding #1019 and merged
+runtime proof #1020. Active source lifecycle is not a live-runtime, stage,
+production, or direct business-workflow claim.
 
 The source also defines ordered generation retirement: Platform drains ingress
 and ordinary pollers, issues the old generation's digest-pinned business-queue
@@ -43,12 +47,11 @@ Ed25519-attested exact-reconciliation receipt from OOS's explicit one-shot
 worker before a fresh activation. This contract does not imply that any runtime
 or retirement run is currently active.
 
-The source registers `delivery.refinement.apply` version `1` as a
-selected-not-active OOS-owned workflow profile. The registration binds the
-versioned OOS contract to existing Temporal queue and worker identities for
-compatibility proof only. It does not start a worker, expose Temporal
-credentials, or authorize Console access. Security review #1012 and Platform
-activation #1013 remain mandatory before launch.
+The source registers `delivery.refinement.apply` version `1` as the first
+selected OOS-owned business workflow for the `refinement-catalog` composition.
+The registration binds the versioned OOS contract to composition-scoped queue,
+worker, and activation evidence. It does not expose Temporal credentials or
+authorize Console access.
 
 ## Owner Boundaries
 
@@ -70,7 +73,8 @@ activation #1013 remain mandatory before launch.
 2. `delivery.refinement.apply`
    - first business workflow after runtime admission
 
-Neither definition is active merely because this component record exists.
+The business definition is usable only while its admitted composition and
+activation evidence are current.
 
 ## Denied Claims
 

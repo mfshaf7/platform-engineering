@@ -39,6 +39,8 @@ def main() -> int:
     parser.add_argument("--profile-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--namespace", required=True)
+    parser.add_argument("--oos-kubernetes-namespace", required=True)
+    parser.add_argument("--wgcf-kubernetes-namespace", required=True)
     parser.add_argument("--operator-scope", required=True)
     parser.add_argument("--temporal-namespace", required=True)
     args = parser.parse_args()
@@ -52,6 +54,8 @@ def main() -> int:
 
     for label, value in (
         ("Kubernetes namespace", args.namespace),
+        ("OOS Kubernetes namespace", args.oos_kubernetes_namespace),
+        ("WGCF Kubernetes namespace", args.wgcf_kubernetes_namespace),
         ("operator scope", args.operator_scope),
         ("Temporal namespace", args.temporal_namespace),
     ):
@@ -72,6 +76,8 @@ def main() -> int:
 
     tokens = {
         "KUBERNETES_NAMESPACE": args.namespace,
+        "OOS_KUBERNETES_NAMESPACE": args.oos_kubernetes_namespace,
+        "WGCF_KUBERNETES_NAMESPACE": args.wgcf_kubernetes_namespace,
         "OPERATOR": args.operator_scope,
         "POSTGRESQL_IMAGE": image_ref(images["postgresql"]),
         "TEMPORAL_NAMESPACE": args.temporal_namespace,

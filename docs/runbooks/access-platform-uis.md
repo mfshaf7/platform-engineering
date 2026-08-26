@@ -60,8 +60,8 @@ These are intentionally not documented as direct operator UIs:
   - after activation, use the shared dev-integration profile runner for
     lifecycle actions
 - Temporal controlled commissioning
-  - no live namespace, shared UI, or normal operator access path
-  - a later permit-bound proof may use only an operator-local loopback
+  - no live namespace or shared UI exists before merged-runtime proof #1020
+  - once the registered composition is running, diagnostics use only an operator-local loopback
     port-forward and does not make Temporal directly reachable from the Console
 - OpenClaw gateway
   - health and runtime API surface only, not an end-user browser application

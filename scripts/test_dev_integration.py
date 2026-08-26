@@ -317,7 +317,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "activation_eligible"
                 ]
             )
-            self.assertFalse(
+            self.assertTrue(
                 selections["profiles"]["delivery-refinement-advisor-v1"][
                     "activation_eligible"
                 ]

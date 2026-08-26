@@ -8,6 +8,7 @@ readonly OPERATOR="${DEVINT_OPERATOR:-${USER:-operator}}"
 readonly NAMESPACE="${DEVINT_NAMESPACE:-devint-${PROFILE_ID}-${OPERATOR}}"
 readonly CONSUMER_NAMESPACE="${DEVINT_GAI_CONSUMER_NAMESPACE:-${NAMESPACE}-consumer}"
 readonly PROVIDER_NAMESPACE="${DEVINT_GAI_PROVIDER_NAMESPACE:-${NAMESPACE}-provider-sentinel}"
+readonly TRUSTED_CONSUMER_NAMESPACE="${DEVINT_GAI_TRUSTED_CONSUMER_NAMESPACE:-devint-no-external-consumer-admitted}"
 readonly STATE_ROOT="${DEVINT_STATE_ROOT:-${OWNER_REPO_ROOT}/.dev-integration/${PROFILE_ID}/${OPERATOR}}"
 readonly SESSION_FILE="${DEVINT_SESSION_FILE:-${STATE_ROOT}/session.yaml}"
 readonly PROMOTION_REPORT="${DEVINT_PROMOTION_REPORT:-${STATE_ROOT}/promotion-report.yaml}"
@@ -219,6 +220,7 @@ lifecycle: ${PROFILE_LIFECYCLE}
 namespace: ${NAMESPACE}
 consumer namespace: ${CONSUMER_NAMESPACE}
 provider sentinel namespace: ${PROVIDER_NAMESPACE}
+trusted composition consumer namespace: ${TRUSTED_CONSUMER_NAMESPACE}
 operator: ${OPERATOR}
 state root: ${STATE_ROOT}
 runtime: $(is_active_profile && printf 'active-local-k3s' || printf 'build-admitted-not-active')
@@ -467,6 +469,48 @@ spec:
         - name: audit
           persistentVolumeClaim:
             claimName: ${GATEWAY_PVC}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: governed-ai-gateway-default-deny-ingress
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      governed-ai-gateway: "true"
+  policyTypes:
+    - Ingress
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: governed-ai-gateway-admitted-callers
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      governed-ai-gateway: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ${CONSUMER_NAMESPACE}
+          podSelector:
+            matchLabels:
+              governed-ai-caller: "true"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ${TRUSTED_CONSUMER_NAMESPACE}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: operator-orchestration-service
+      ports:
+        - protocol: TCP
+          port: 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -90,8 +90,22 @@ class GatewayPolicyTests(unittest.TestCase):
         self.assertIn("profile-activation-not-allowed", work_design.reasons)
         self.assertTrue(intake.allowed)
 
-    def test_refinement_profile_is_resolvable_but_invocation_stays_denied(self) -> None:
+    def test_refinement_profile_allows_the_reviewed_typed_request(self) -> None:
         decision = GatewayPolicy(selections()).evaluate(self.refinement_request())
+
+        self.assertTrue(decision.allowed)
+        self.assertFalse(decision.compatibility_mode)
+        self.assertEqual(decision.task["task_kind"], "metadata_advice")
+
+    def test_suspended_refinement_profile_fails_closed(self) -> None:
+        resolved = selections()
+        profile = resolved["profiles"]["delivery-refinement-advisor-v1"]
+        profile["profile_status"] = "suspended"
+        profile["binding_status"] = "suspended"
+        profile["profile_activation_allowed"] = False
+        profile["activation_eligible"] = False
+
+        decision = GatewayPolicy(resolved).evaluate(self.refinement_request())
 
         self.assertFalse(decision.allowed)
         self.assertIn("profile-not-active", decision.reasons)

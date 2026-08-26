@@ -10,9 +10,10 @@
 ## Classification
 
 - Type: platform governance activation
-- User-facing impact: Enables the reviewed OOS Refinement and Catalog runtime
-  through the registered composition without enabling Console integration,
-  direct browser access, paid providers, stage, or production.
+- User-facing impact: Activates the reviewed Platform source contracts required
+  by the Refinement and Catalog composition without claiming merged runtime,
+  Console integration, direct browser access, paid providers, stage, or
+  production.
 
 ## Ownership
 
@@ -20,7 +21,7 @@
 - Related repos: `operator-orchestration-service`, `context-governance-gateway`,
   `workspace-governance-control-fabric`, `workspace-governance`, and
   `security-architecture`
-- Related architecture: Workspace Delivery ART #884 architecture packet v19
+- Related architecture: Workspace Delivery ART #884 architecture packet v22
 - Related ADR:
   `docs/decisions/adr/ADR-017-temporal-durable-workflow-runtime.md`
 
@@ -43,6 +44,8 @@
   - exact OOS and WGCF namespace-and-identity admission to Temporal frontend
   - positive typed advice and suspended-profile denial before provider access
   - cleanup of both a partially started failing profile and completed dependencies
+  - one bounded operator-template source with exactly one sanitized
+    `{operator}` token and no general formatting or credential interpolation
   - composition-only OOS business workflow and direct Console access denial
   - current Temporal and governed-AI operator documentation
   - no paid-provider, stage, production, tool, or autonomous mutation expansion
@@ -57,21 +60,22 @@
 
 ## Live Verification
 
-- App health: recorded by the ART #1013 Review Packet for the exact
-  `refinement-catalog` composition source head.
-- Functional verification:
-  - the exact Refinement caller receives typed local advice
-  - immutable operator acceptance starts durable `delivery.refinement.apply`
-  - repository readiness and Catalog apply/readback produce bound receipts
-  - mismatched caller, profile, evidence, replay, and receipt cases fail without mutation
-  - reverse teardown removes composition credentials and preserves canonical state
-- Residual risk: Governance Operations Console integration remains unavailable
-  until ART #1014 lands; stage, production, and paid-provider activation remain
-  prohibited.
+- App health: Not claimed by this source Landing Unit; merged runtime proof is
+  owned by ART #1020.
+- Source verification:
+  - the exact Refinement model and Temporal profiles validate as active
+  - the composition admits only the reviewed OOS and WGCF identities
+  - operator-template bindings render one sanitized operator identity
+  - unsupported placeholders, ambient values, and unsafe syntax fail closed
+  - failed starts clean up the failing profile and completed dependencies
+- Residual risk: ART #1019 must project the operator-scoped namespace and ART
+  #1020 must prove the merged runtime before ART #1014 integrates the Console.
+  Stage, production, and paid-provider activation remain prohibited.
 
 ## Follow-Up Actions
 
-- Required follow-up: ART #1014 integrates the Governance Operations Console
-  through its same-origin server and OOS only.
+- Required follow-up: ART #1019 aligns the Workspace binding, ART #1020 proves
+  the merged composition and teardown, then ART #1014 integrates the Governance
+  Operations Console through its same-origin server and OOS only.
 - Owner: Governance Operations Console, OOS, Platform Engineering, and Security
   Architecture according to their existing boundaries.

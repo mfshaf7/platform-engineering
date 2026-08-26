@@ -156,7 +156,8 @@ Current active composition profile:
     scheduling, replay, timers, waits, and activity retry dispatch
   - launch rule: self-serve local launch is allowed only through the active
     `refinement-catalog` composition after Security review #1012, Workspace
-    activation #1017, and Platform activation #1013
+    activation #1017, Platform activation #1013, the operator-scoped Workspace
+    binding, and successful merged-runtime rehearsal
   - controlled commissioning: the bounded proof remains non-self-serve and is
     unavailable until its issuer and executor are reviewed and an exact permit
     is approved; use the
@@ -245,12 +246,16 @@ The shared runner validates every participant and required lifecycle, starts
 providers before consumers, derives cluster-local service endpoints, and
 projects only contract-declared environment variables. Endpoint projections
 support URL and host-port formats. Caller bindings must name a declared
-dependency edge, while literal and profile-service bindings must name an exact
+dependency edge, while literal, profile-service, and operator-template bindings must name an exact
 target profile and variable; duplicate or ambient targets fail closed.
 Runtime-generated
 credentials live under the operator-private composition state root, never in
 Git or command arguments. Repeated `up` reuses the active composition binding;
 successful `down` stops consumers before providers and removes that binding.
+An operator-template binding accepts exactly one literal `{operator}` token and
+renders it from the same sanitized operator identity used by the composition.
+It is not a general formatting language and cannot interpolate credentials,
+profile data, or arbitrary environment values.
 Failed start, status, teardown, ownership, lifecycle, credential, or projection
 checks fail closed. Composition state reports identifiers and outcomes only;
 it never records credential values.

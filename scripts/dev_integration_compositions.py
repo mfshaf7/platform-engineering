@@ -19,6 +19,11 @@ ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*$")
 SERVICE_NAME_PATTERN = re.compile(
     r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$"
 )
+OPERATOR_TEMPLATE_TOKEN = "{operator}"
+OPERATOR_TEMPLATE_LITERAL_PATTERN = re.compile(r"^[a-z0-9-]*$")
+OPERATOR_TEMPLATE_RESULT_PATTERN = re.compile(
+    r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+)
 
 
 class CompositionError(RuntimeError):
@@ -106,6 +111,42 @@ def _render_service_projection(
     if projection.get("address_format", "url") == "host-port":
         return f"{host}:{projection['service_port']}"
     return f"{projection['scheme']}://{host}:{projection['service_port']}"
+
+
+def _validate_operator_template(
+    source: Mapping[str, Any],
+    *,
+    composition_id: str,
+    label: str,
+) -> None:
+    template = source.get("template")
+    if set(source) != {"kind", "template"} or not isinstance(template, str):
+        raise CompositionError(
+            "composition-profile-binding-invalid",
+            f"{label} in composition {composition_id!r} has an invalid operator template",
+        )
+    if template.count(OPERATOR_TEMPLATE_TOKEN) != 1:
+        raise CompositionError(
+            "composition-profile-binding-invalid",
+            f"{label} in composition {composition_id!r} must contain exactly one "
+            f"{OPERATOR_TEMPLATE_TOKEN} token",
+        )
+    literal = template.replace(OPERATOR_TEMPLATE_TOKEN, "")
+    if not OPERATOR_TEMPLATE_LITERAL_PATTERN.fullmatch(literal):
+        raise CompositionError(
+            "composition-profile-binding-invalid",
+            f"{label} in composition {composition_id!r} contains unsupported template syntax",
+        )
+
+
+def _render_operator_template(source: Mapping[str, Any], *, operator: str) -> str:
+    rendered = source["template"].replace(OPERATOR_TEMPLATE_TOKEN, _slugify(operator))
+    if not OPERATOR_TEMPLATE_RESULT_PATTERN.fullmatch(rendered):
+        raise CompositionError(
+            "composition-profile-binding-invalid",
+            "operator template rendered an invalid bounded identifier",
+        )
+    return rendered
 
 
 def _now_utc() -> str:
@@ -351,6 +392,12 @@ def resolve_runtime_composition(
                 composition_id=composition_id,
                 label=f"profile binding {binding_id!r}",
             )
+        elif source.get("kind") == "operator-template":
+            _validate_operator_template(
+                source,
+                composition_id=composition_id,
+                label=f"profile binding {binding_id!r}",
+            )
         else:
             raise CompositionError(
                 "composition-profile-binding-invalid",
@@ -391,6 +438,7 @@ def build_profile_environments(
     *,
     namespaces: Mapping[str, str],
     credential_values: Mapping[str, str],
+    operator: str,
 ) -> dict[str, dict[str, str]]:
     environments = {
         profile_id: {} for profile_id in (composition.get("profiles") or {})
@@ -421,12 +469,15 @@ def build_profile_environments(
             ] = value
     for binding in (composition.get("profile_bindings") or {}).values():
         source = binding["source"]
-        value = source["value"] if source["kind"] == "literal" else (
-            _render_service_projection(
+        if source["kind"] == "literal":
+            value = source["value"]
+        elif source["kind"] == "profile-service":
+            value = _render_service_projection(
                 source,
                 namespace=namespaces[binding["profile_id"]],
             )
-        )
+        else:
+            value = _render_operator_template(source, operator=operator)
         environments[binding["profile_id"]][binding["environment_variable"]] = value
     return environments
 
@@ -604,6 +655,7 @@ def execute_composition(
         composition,
         namespaces=namespaces,
         credential_values=credentials,
+        operator=operator,
     )
     run_order = list(reversed(profile_order)) if action == "down" else profile_order
     completed: list[str] = []

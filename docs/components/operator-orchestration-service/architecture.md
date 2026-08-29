@@ -37,6 +37,19 @@ today.
   - Vault role: `platform-operator-orchestration-secrets`
   - External Secret: `operator-orchestration-service-secrets`
 
+The repository-custody workflow uses a separate, bounded provider identity:
+
+- dedicated GitHub App installation identity
+- GitHub API destination pinned to `https://api.github.com`
+- exact repository scope on every issued token
+- only `Metadata: read` repository permission
+- Platform-owned private-key custody and short-lived token delivery
+- no personal token, ambient `gh` session, or browser-held provider credential
+
+The source contract remains disabled for normal operation until the Platform
+identity evidence and Console composition under ART #1044 and #1045 are both
+accepted. See [repository-provider-identity.md](repository-provider-identity.md).
+
 ## Model
 
 The current admitted model is:

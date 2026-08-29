@@ -20,5 +20,10 @@ Then use:
   - Vault path `kv/components/operator-orchestration-service/prod/openproject`
 - caller-auth shared secret source:
   - Vault path `kv/components/operator-orchestration-service/shared/runtime`
+- repository-provider GitHub App private-key source:
+  - Vault path
+    `kv/components/operator-orchestration-service/dev-integration/repository-provider`
+  - property `privateKey`
 
-Do not surface either credential in Telegram repo config or Git-tracked docs.
+Do not surface any of these credentials in Console responses, product config,
+Git-tracked docs, logs, receipts, or command arguments.

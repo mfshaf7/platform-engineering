@@ -60,6 +60,14 @@ OpenProject API token material remains at:
 - `kv/components/operator-orchestration-service/prod/openproject`
   - property: `apiToken`
 
+## Repository Provider Identity
+
+The primary operator procedure for commissioning, delivering, and revoking the
+repository-custody GitHub App identity is
+[repository-provider-identity.md](repository-provider-identity.md). The normal
+broker runtime remains denied until that identity and the Console composition
+have accepted evidence.
+
 ## Evidence To Capture
 
 - Argo application state
@@ -72,3 +80,4 @@ OpenProject API token material remains at:
 - [../../../products/openproject/idea-backlog-contract.md](../../../products/openproject/idea-backlog-contract.md)
 - [../../architecture/current-platform-topology.md](../../architecture/current-platform-topology.md)
 - [release-governance.md](release-governance.md)
+- [repository-provider-identity.md](repository-provider-identity.md)

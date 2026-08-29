@@ -33,6 +33,18 @@ These support shared platform operations:
   - writes generated run state under `.platform-drills/`, which is local
     scratch state; promote durable outcomes through governed records instead of
     committing raw drill directories
+- `repository_provider_identity.py`
+  - validates and commissions the dedicated repository-custody GitHub App
+    installation identity
+  - mints a short-lived token limited to the exact requested repository set and
+    `Metadata: read`, projects it to a Kubernetes Secret, and records only
+    redacted identity evidence
+  - revokes the issued provider token and removes the local projection without
+    deleting or changing a repository
+- `test_repository_provider_identity.py`
+  - proves positive commissioning and delivery plus unavailable, expired,
+    over-privileged, mismatched, redirected, and revoked failure paths against a
+    local fake provider
 
 The default shared drill profile and evidence template live under:
 

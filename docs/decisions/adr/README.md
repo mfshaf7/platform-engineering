@@ -25,6 +25,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-019-wgcf-dev-integration-evidence-storage.md](ADR-019-wgcf-dev-integration-evidence-storage.md) - bounded local WGCF evidence custody with isolated credentials, versioning, and verified recovery
 - [ADR-020-dev-integration-declared-host-services.md](ADR-020-dev-integration-declared-host-services.md) - runner-owned lifecycle for explicitly declared persistent host processes
 - [ADR-021-multi-profile-governed-ai-gateway.md](ADR-021-multi-profile-governed-ai-gateway.md) - request-scoped typed profiles with independent activation and service readiness
+- [ADR-022-bounded-repository-provider-identity.md](ADR-022-bounded-repository-provider-identity.md) - dedicated GitHub App identity with Vault custody and dev-integration-only projection
 
 ## Rules
 

@@ -49,6 +49,11 @@ jobs:
       - name: Validate platform repo structure
         run: python scripts/validate_repo_structure.py
 
+      - name: Validate repository provider identity
+        run: |
+          python scripts/repository_provider_identity.py validate
+          python scripts/test_repository_provider_identity.py
+
       - name: Validate governance docs
         run: python scripts/validate_governance_docs.py
 

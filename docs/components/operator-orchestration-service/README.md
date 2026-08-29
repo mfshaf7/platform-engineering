@@ -16,6 +16,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [access.md](access.md)
 - [operations.md](operations.md)
 - [release-governance.md](release-governance.md)
+- [repository-provider-identity.md](repository-provider-identity.md)
 
 ## Current Live Footprint
 

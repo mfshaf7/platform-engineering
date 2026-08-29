@@ -33,6 +33,14 @@ they never contain secret values.
 Normal runtime activation remains disabled until Console composition and
 positive and negative end-to-end evidence are accepted under ART `#1049`.
 
+## Security Review
+
+Security Architecture review `openproject://work_packages/1047` accepted this
+inactive source boundary with findings and requires the dedicated App owner,
+installation target, exact permissions, secret delivery, provider destination,
+audit, recovery, and revocation controls implemented here. The durable review
+is [Repository Provisioning Authority Review](https://github.com/mfshaf7/security-architecture/blob/0bf89e00195bc30c580ccff9bc2f5b3c11902f9a/docs/reviews/components/2026-08-29-repository-provisioning-authority.md).
+
 ## Consequences
 
 - Read-only custody never receives repository-creation authority.

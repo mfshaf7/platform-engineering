@@ -124,6 +124,17 @@ def verify_installation(
         raise IdentityError("provider installation must not subscribe to events")
 
 
+def verify_app(app: dict[str, Any], *, app_id: int, organization: str) -> None:
+    owner = app.get("owner") or {}
+    if app.get("id") != app_id:
+        raise IdentityError("provider app identity does not match requested app")
+    if (
+        owner.get("type") != "Organization"
+        or str(owner.get("login") or "").casefold() != organization.casefold()
+    ):
+        raise IdentityError("provider app is not owned by the requested organization")
+
+
 def verify_token(token: IssuedToken, contract: Contract) -> None:
     if token.permissions != contract.required_permissions:
         raise IdentityError("issued token permissions exceed the provisioning contract")
@@ -163,6 +174,8 @@ def validated_token(
         raise IdentityError("organization must be one GitHub organization login")
     client = ProviderClient(args.provider_api_base_url or contract.api_base_url, sandbox=args.sandbox)
     app_jwt = create_app_jwt(args.app_id, args.private_key_file)
+    app = client.authenticated_app(app_jwt)
+    verify_app(app, app_id=args.app_id, organization=args.organization)
     installation = client.installation(args.installation_id, app_jwt)
     verify_installation(
         installation,

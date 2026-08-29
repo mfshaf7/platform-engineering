@@ -215,6 +215,12 @@ class ProviderClient:
             raise IdentityError("provider installation readback is invalid")
         return value
 
+    def authenticated_app(self, app_jwt: str) -> dict[str, Any]:
+        value = self.call("GET", "/app", bearer=app_jwt)
+        if not isinstance(value, dict):
+            raise IdentityError("provider app readback is invalid")
+        return value
+
     def issue_token(
         self,
         installation_id: int,

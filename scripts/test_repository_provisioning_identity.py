@@ -59,6 +59,18 @@ class ProviderHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         state = self.server.state
+        if self.path == "/app":
+            self.respond(
+                200,
+                {
+                    "id": state.app_id,
+                    "owner": {
+                        "login": "personal-owner" if state.mode == "wrong-app-owner" else state.organization,
+                        "type": "User" if state.mode == "wrong-app-owner" else "Organization",
+                    },
+                },
+            )
+            return
         if self.path != f"/app/installations/{state.installation_id}":
             self.respond(404, {"message": "not found"})
             return
@@ -266,7 +278,7 @@ class RepositoryProvisioningIdentityTests(unittest.TestCase):
         self.assertEqual(1, self.state.revocations)
 
     def test_wrong_org_overprivilege_and_redirect_fail_closed(self) -> None:
-        for mode in ("wrong-org", "overprivileged", "redirect"):
+        for mode in ("wrong-app-owner", "wrong-org", "overprivileged", "redirect"):
             with self.subTest(mode=mode):
                 self.state.mode = mode
                 self.assertEqual(1, module.main(self.identity_args("commission")))

@@ -215,18 +215,27 @@ class ProviderClient:
             raise IdentityError("provider installation readback is invalid")
         return value
 
+    def authenticated_app(self, app_jwt: str) -> dict[str, Any]:
+        value = self.call("GET", "/app", bearer=app_jwt)
+        if not isinstance(value, dict):
+            raise IdentityError("provider app readback is invalid")
+        return value
+
     def issue_token(
         self,
         installation_id: int,
         app_jwt: str,
-        repositories: list[str],
+        repositories: list[str] | None,
         permissions: dict[str, str],
     ) -> IssuedToken:
+        body: dict[str, Any] = {"permissions": permissions}
+        if repositories is not None:
+            body["repositories"] = repositories
         value = self.call(
             "POST",
             f"/app/installations/{installation_id}/access_tokens",
             bearer=app_jwt,
-            body={"repositories": repositories, "permissions": permissions},
+            body=body,
         )
         if not isinstance(value, dict) or not isinstance(value.get("token"), str):
             raise IdentityError("provider token response is invalid")

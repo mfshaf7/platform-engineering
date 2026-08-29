@@ -68,6 +68,10 @@ repository-custody GitHub App identity is
 broker runtime remains denied until that identity and the Console composition
 have accepted evidence.
 
+The separate repository-creation identity is operated through
+[repository-provisioning-identity.md](repository-provisioning-identity.md).
+Its bounded dev-integration evidence does not activate the normal Console path.
+
 ## Evidence To Capture
 
 - Argo application state
@@ -81,3 +85,4 @@ have accepted evidence.
 - [../../architecture/current-platform-topology.md](../../architecture/current-platform-topology.md)
 - [release-governance.md](release-governance.md)
 - [repository-provider-identity.md](repository-provider-identity.md)
+- [repository-provisioning-identity.md](repository-provisioning-identity.md)

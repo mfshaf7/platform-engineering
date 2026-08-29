@@ -50,6 +50,12 @@ The source contract remains disabled for normal operation until the Platform
 identity evidence and Console composition under ART #1044 and #1045 are both
 accepted. See [repository-provider-identity.md](repository-provider-identity.md).
 
+Repository creation uses a second organization-bound GitHub App with exactly
+`Administration: write` and `Contents: read`. It has separate Vault custody,
+runtime projection, and revocation so read-only custody never inherits mutation
+authority. See
+[repository-provisioning-identity.md](repository-provisioning-identity.md).
+
 ## Model
 
 The current admitted model is:

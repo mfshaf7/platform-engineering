@@ -24,6 +24,10 @@ Then use:
   - Vault path
     `kv/components/operator-orchestration-service/dev-integration/repository-provider`
   - property `privateKey`
+- repository-provisioning GitHub App private-key source:
+  - Vault path
+    `kv/components/operator-orchestration-service/dev-integration/repository-provisioning-provider`
+  - property `privateKey`
 
 Do not surface any of these credentials in Console responses, product config,
 Git-tracked docs, logs, receipts, or command arguments.

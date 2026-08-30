@@ -9,8 +9,10 @@ shared_paths:
       - platform_drill.py
       - repository_provider_identity.py
       - repository_provisioning_identity.py
+      - repository_lifecycle_identity.py
       - test_repository_provider_identity.py
       - test_repository_provisioning_identity.py
+      - test_repository_lifecycle_identity.py
       - dev_integration.py
       - dev_integration_compositions.py
       - dev_integration_host_services.py

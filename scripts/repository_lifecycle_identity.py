@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commission and deliver the bounded repository-provisioning GitHub App identity."""
+"""Commission and deliver the bounded repository lifecycle GitHub App identity."""
 
 from __future__ import annotations
 
@@ -22,22 +22,21 @@ from repository_provider_identity import (
     IdentityError,
     IssuedToken,
     ProviderClient,
+    ProviderRepository,
     create_app_jwt,
     load_dev_integration_target,
-    parse_timestamp,
+    parse_provider_repositories,
     run_kubectl,
+    validate_repositories,
     verify_dev_integration_cluster,
     verify_kubectl_command,
     verify_organization_app,
     verify_organization_installation,
+    verify_token,
 )
 
 
-DEFAULT_CONTRACT = (
-    Path(__file__).resolve().parents[1]
-    / "security/repository-provisioning-identity.yaml"
-)
-MIN_REMAINING_TOKEN_SECONDS = 300
+DEFAULT_CONTRACT = Path(__file__).resolve().parents[1] / "security/repository-lifecycle-identity.yaml"
 
 
 @dataclass(frozen=True)
@@ -45,6 +44,7 @@ class Contract:
     identity_id: str
     contract_digest: str
     api_base_url: str
+    maximum_repository_count: int
     maximum_token_lifetime_seconds: int
     runtime_secret_name: str
     runtime_secret_key: str
@@ -56,28 +56,25 @@ def load_contract(path: Path) -> Contract:
     source = path.read_bytes()
     payload = yaml.safe_load(source)
     if not isinstance(payload, dict) or payload.get("schema_version") != 1:
-        raise IdentityError("provisioning identity contract must use schema_version 1")
+        raise IdentityError("lifecycle identity contract must use schema_version 1")
     identity = payload.get("identity") or {}
     projection = ((payload.get("secret_custody") or {}).get("runtime_projection") or {})
     consumer = payload.get("consumer") or {}
     permissions = identity.get("required_permissions")
-    if permissions != {
-        "administration": "write",
-        "contents": "read",
-        "metadata": "read",
-    }:
+    if permissions != {"administration": "write", "metadata": "read"}:
         raise IdentityError(
-            "provisioning identity must require exactly Administration: write, "
-            "Contents: read, and implicit Metadata: read"
+            "lifecycle identity must require exactly Administration: write and implicit Metadata: read"
         )
     if identity.get("provider") != "github":
-        raise IdentityError("provisioning identity provider must be github")
+        raise IdentityError("lifecycle identity provider must be github")
     if identity.get("credential_kind") != "github-app-installation":
-        raise IdentityError("provisioning identity must use a GitHub App installation")
-    if identity.get("owner_scope") != "exact-organization-per-delivery":
-        raise IdentityError("provisioning identity must bind one exact organization per delivery")
+        raise IdentityError("lifecycle identity must use a GitHub App installation")
+    if identity.get("repository_scope") != "explicit-per-token":
+        raise IdentityError("lifecycle identity must require explicit per-token repository scope")
+    if int(identity.get("maximum_repository_count") or 0) != 1:
+        raise IdentityError("lifecycle identity must target exactly one repository per token")
     if identity.get("allowed_runtime_lane") != "dev-integration":
-        raise IdentityError("provisioning identity must remain limited to dev-integration")
+        raise IdentityError("lifecycle identity must remain limited to dev-integration")
     api_base_url = str(identity.get("api_base_url") or "").rstrip("/")
     if api_base_url != "https://api.github.com":
         raise IdentityError("normal provider destination must be pinned to https://api.github.com")
@@ -87,16 +84,17 @@ def load_contract(path: Path) -> Contract:
         raise IdentityError("runtime token values must be denied in receipts")
     activation = payload.get("activation") or {}
     if activation.get("bounded_evidence_enabled") is not True:
-        raise IdentityError("bounded provisioning evidence must be enabled")
+        raise IdentityError("bounded lifecycle evidence must be enabled")
     if activation.get("normal_runtime_enabled") is not False:
-        raise IdentityError("normal runtime activation must remain disabled until Console proof")
+        raise IdentityError("normal runtime activation must remain disabled")
     allowed_profiles = consumer.get("allowed_dev_integration_profiles")
     if allowed_profiles != ["accepted-idea-delivery"]:
-        raise IdentityError("provisioning identity must target only accepted-idea-delivery")
+        raise IdentityError("lifecycle identity must target only accepted-idea-delivery")
     return Contract(
         identity_id=str(identity["id"]),
         contract_digest=f"sha256:{hashlib.sha256(source).hexdigest()}",
         api_base_url=api_base_url,
+        maximum_repository_count=1,
         maximum_token_lifetime_seconds=int(identity["maximum_token_lifetime_seconds"]),
         runtime_secret_name=str(projection["name"]),
         runtime_secret_key=str(projection["key"]),
@@ -105,50 +103,26 @@ def load_contract(path: Path) -> Contract:
     )
 
 
-def verify_token(token: IssuedToken, contract: Contract) -> None:
-    if token.permissions != contract.required_permissions:
-        raise IdentityError("issued token permissions exceed the provisioning contract")
-    remaining = (parse_timestamp(token.expires_at) - datetime.now(timezone.utc)).total_seconds()
-    if remaining < MIN_REMAINING_TOKEN_SECONDS:
-        raise IdentityError("issued token is expired or too close to expiry")
-    if remaining > contract.maximum_token_lifetime_seconds + 60:
-        raise IdentityError("issued token lifetime exceeds the contract")
-
-
-def binding_digest(
-    contract: Contract,
-    app_id: int,
-    installation_id: int,
-    organization: str,
-) -> str:
-    value = {
-        "app_id": app_id,
-        "identity_id": contract.identity_id,
-        "contract_digest": contract.contract_digest,
-        "installation_id": installation_id,
-        "organization": organization.casefold(),
-        "permissions": contract.required_permissions,
-        "provider_api_base_url": contract.api_base_url,
-    }
-    canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
-
-
 def validated_token(
-    args: argparse.Namespace,
-    contract: Contract,
-) -> tuple[ProviderClient, IssuedToken]:
+    args: argparse.Namespace, contract: Contract
+) -> tuple[ProviderClient, IssuedToken, tuple[ProviderRepository, ...]]:
     if args.app_id <= 0 or args.installation_id <= 0:
         raise IdentityError("app id and installation id must be positive integers")
     if not args.organization.strip() or "/" in args.organization:
         raise IdentityError("organization must be one GitHub organization login")
+    repositories = validate_repositories([args.repository], contract.maximum_repository_count)
+    owner, name = repositories[0].split("/", 1)
+    if owner.casefold() != args.organization.casefold():
+        raise IdentityError("repository owner must match the requested organization")
     client = ProviderClient(args.provider_api_base_url or contract.api_base_url, sandbox=args.sandbox)
     app_jwt = create_app_jwt(args.app_id, args.private_key_file)
-    app = client.authenticated_app(app_jwt)
-    verify_organization_app(app, app_id=args.app_id, organization=args.organization)
-    installation = client.installation(args.installation_id, app_jwt)
+    verify_organization_app(
+        client.authenticated_app(app_jwt),
+        app_id=args.app_id,
+        organization=args.organization,
+    )
     verify_organization_installation(
-        installation,
+        client.installation(args.installation_id, app_jwt),
         app_id=args.app_id,
         installation_id=args.installation_id,
         organization=args.organization,
@@ -157,18 +131,47 @@ def validated_token(
     token = client.issue_token(
         args.installation_id,
         app_jwt,
-        None,
+        [name],
         contract.required_permissions,
     )
     try:
-        verify_token(token, contract)
+        provider_repositories = verify_token(
+            token,
+            client.accessible_repositories(token.token),
+            repositories,
+            contract,
+        )
+        if provider_repositories[0].provider_repository_id != args.repository_id:
+            raise IdentityError("provider repository identity does not match the requested immutable id")
     except Exception:
         try:
             client.revoke_token(token.token)
         except IdentityError:
             pass
         raise
-    return client, token
+    return client, token, provider_repositories
+
+
+def binding_digest(
+    contract: Contract,
+    app_id: int,
+    installation_id: int,
+    repository: ProviderRepository,
+) -> str:
+    value = {
+        "app_id": app_id,
+        "contract_digest": contract.contract_digest,
+        "identity_id": contract.identity_id,
+        "installation_id": installation_id,
+        "permissions": contract.required_permissions,
+        "provider_api_base_url": contract.api_base_url,
+        "repository": {
+            "full_name": repository.full_name,
+            "provider_repository_id": repository.provider_repository_id,
+        },
+    }
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
 
 
 def receipt(
@@ -178,13 +181,14 @@ def receipt(
     app_id: int,
     installation_id: int,
     organization: str,
+    repository: ProviderRepository,
     outcome: str,
     expires_at: str | None = None,
     target: DevIntegrationTarget | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema_version": 1,
-        "artifact_type": "repository-provisioning-identity-receipt",
+        "artifact_type": "repository-lifecycle-identity-receipt",
         "identity_id": contract.identity_id,
         "contract_digest": contract.contract_digest,
         "action": action,
@@ -194,9 +198,13 @@ def receipt(
         "app_id": app_id,
         "installation_id": installation_id,
         "organization": organization,
+        "repository": {
+            "full_name": repository.full_name,
+            "provider_repository_id": repository.provider_repository_id,
+        },
         "permissions": contract.required_permissions,
         "credential_binding_digest": binding_digest(
-            contract, app_id, installation_id, organization
+            contract, app_id, installation_id, repository
         ),
         "token_expires_at": expires_at,
         "recorded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -229,6 +237,7 @@ def secret_manifest(
     contract: Contract,
     token: IssuedToken,
     organization: str,
+    repository: ProviderRepository,
     digest: str,
     target: DevIntegrationTarget,
 ) -> str:
@@ -239,12 +248,22 @@ def secret_manifest(
             "name": contract.runtime_secret_name,
             "namespace": target.namespace,
             "labels": {
-                "app.kubernetes.io/component": "repository-provisioning-identity",
+                "app.kubernetes.io/component": "repository-lifecycle-identity",
                 "app.kubernetes.io/managed-by": "platform-engineering",
             },
             "annotations": {
                 "workspace-governance/credential-binding-digest": digest,
                 "workspace-governance/provider-organization": organization,
+                "workspace-governance/provider-repositories": json.dumps(
+                    [
+                        {
+                            "full_name": repository.full_name,
+                            "provider_repository_id": repository.provider_repository_id,
+                        }
+                    ],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
                 "workspace-governance/dev-integration-profile": target.profile_id,
                 "workspace-governance/dev-integration-session": target.session_id,
                 "workspace-governance/token-expires-at": token.expires_at,
@@ -258,13 +277,13 @@ def secret_manifest(
 
 def command_validate(args: argparse.Namespace) -> int:
     contract = load_contract(args.contract)
-    print(f"repository provisioning identity contract valid: {contract.identity_id}")
+    print(f"repository lifecycle identity contract valid: {contract.identity_id}")
     return 0
 
 
 def command_commission(args: argparse.Namespace) -> int:
     contract = load_contract(args.contract)
-    client, token = validated_token(args, contract)
+    client, token, repositories = validated_token(args, contract)
     client.revoke_token(token.token)
     write_receipt(
         args.receipt,
@@ -274,11 +293,12 @@ def command_commission(args: argparse.Namespace) -> int:
             app_id=args.app_id,
             installation_id=args.installation_id,
             organization=args.organization,
+            repository=repositories[0],
             outcome="verified-and-proof-token-revoked",
             expires_at=token.expires_at,
         ),
     )
-    print(f"provisioning identity verified; receipt={args.receipt}")
+    print(f"repository lifecycle identity verified; receipt={args.receipt}")
     return 0
 
 
@@ -288,21 +308,19 @@ def command_deliver(args: argparse.Namespace) -> int:
     target = verify_dev_integration_cluster(
         args.kubectl,
         load_dev_integration_target(
-            args.session_manifest,
-            args.workspace_root,
-            contract,
-            require_running=True,
+            args.session_manifest, args.workspace_root, contract, require_running=True
         ),
     )
-    client, token = validated_token(args, contract)
-    digest = binding_digest(contract, args.app_id, args.installation_id, args.organization)
+    client, token, repositories = validated_token(args, contract)
+    repository = repositories[0]
+    digest = binding_digest(contract, args.app_id, args.installation_id, repository)
     projected = False
     try:
         run_kubectl(
             args.kubectl,
             ["apply", "-f", "-"],
             input_text=secret_manifest(
-                contract, token, args.organization, digest, target
+                contract, token, args.organization, repository, digest, target
             ),
         )
         projected = True
@@ -314,6 +332,7 @@ def command_deliver(args: argparse.Namespace) -> int:
                 app_id=args.app_id,
                 installation_id=args.installation_id,
                 organization=args.organization,
+                repository=repository,
                 outcome="delivered",
                 expires_at=token.expires_at,
                 target=target,
@@ -340,7 +359,7 @@ def command_deliver(args: argparse.Namespace) -> int:
                     pass
         raise
     print(
-        f"provisioning identity delivered; namespace={target.namespace} "
+        f"repository lifecycle identity delivered; namespace={target.namespace} "
         f"secret={contract.runtime_secret_name} receipt={args.receipt}"
     )
     return 0
@@ -352,10 +371,7 @@ def command_revoke(args: argparse.Namespace) -> int:
     target = verify_dev_integration_cluster(
         args.kubectl,
         load_dev_integration_target(
-            args.session_manifest,
-            args.workspace_root,
-            contract,
-            require_running=False,
+            args.session_manifest, args.workspace_root, contract, require_running=False
         ),
     )
     secret_result = run_kubectl(
@@ -366,25 +382,31 @@ def command_revoke(args: argparse.Namespace) -> int:
         secret = json.loads(secret_result.stdout)
         token = base64.b64decode(
             secret["data"][contract.runtime_secret_key], validate=True
-        ).decode("utf-8")
+        ).decode()
         annotations = secret["metadata"]["annotations"]
+        repositories = parse_provider_repositories(
+            annotations["workspace-governance/provider-repositories"]
+        )
         projected_organization = annotations["workspace-governance/provider-organization"]
         projected_digest = annotations["workspace-governance/credential-binding-digest"]
         projected_profile = annotations["workspace-governance/dev-integration-profile"]
         projected_session = annotations["workspace-governance/dev-integration-session"]
     except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-        raise IdentityError("runtime provisioning credential projection is invalid") from None
-    expected_digest = binding_digest(
-        contract, args.app_id, args.installation_id, args.organization
-    )
+        raise IdentityError("runtime lifecycle credential projection is invalid") from None
+    expected_repositories = validate_repositories([args.repository], 1)
+    repository = repositories[0]
+    expected_digest = binding_digest(contract, args.app_id, args.installation_id, repository)
     if (
-        not token
+        len(repositories) != 1
+        or repository.full_name != expected_repositories[0]
+        or repository.provider_repository_id != args.repository_id
+        or not token
         or projected_organization.casefold() != args.organization.casefold()
         or projected_digest != expected_digest
         or projected_profile != target.profile_id
         or projected_session != target.session_id
     ):
-        raise IdentityError("runtime provisioning credential binding does not match")
+        raise IdentityError("runtime lifecycle credential binding does not match")
     client = ProviderClient(args.provider_api_base_url or contract.api_base_url, sandbox=args.sandbox)
     outcome = "revoked"
     try:
@@ -405,11 +427,12 @@ def command_revoke(args: argparse.Namespace) -> int:
             app_id=args.app_id,
             installation_id=args.installation_id,
             organization=args.organization,
+            repository=repository,
             outcome=outcome,
             target=target,
         ),
     )
-    print(f"provisioning identity revoked; receipt={args.receipt}")
+    print(f"repository lifecycle identity revoked; receipt={args.receipt}")
     return 0
 
 
@@ -417,6 +440,8 @@ def add_identity_arguments(parser: argparse.ArgumentParser, *, private_key: bool
     parser.add_argument("--app-id", type=int, required=True)
     parser.add_argument("--installation-id", type=int, required=True)
     parser.add_argument("--organization", required=True)
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--repository-id", type=int, required=True)
     if private_key:
         parser.add_argument("--private-key-file", type=Path, required=True)
     parser.add_argument("--provider-api-base-url")
@@ -433,7 +458,7 @@ def parser() -> argparse.ArgumentParser:
     commission = commands.add_parser("commission", help="verify identity and revoke the proof token")
     add_identity_arguments(commission)
     commission.set_defaults(handler=command_commission)
-    deliver = commands.add_parser("deliver", help="deliver an exact short-lived token to Kubernetes")
+    deliver = commands.add_parser("deliver", help="deliver one exact short-lived token to Kubernetes")
     add_identity_arguments(deliver)
     deliver.add_argument("--session-manifest", type=Path, required=True)
     deliver.add_argument("--workspace-root", type=Path, required=True)
@@ -451,9 +476,11 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if getattr(args, "repository_id", 1) <= 0:
+            raise IdentityError("repository id must be a positive integer")
         return args.handler(args)
     except (IdentityError, FileNotFoundError, KeyError, subprocess.SubprocessError) as exc:
-        print(f"repository provisioning identity failed: {exc}", file=sys.stderr)
+        print(f"repository lifecycle identity failed: {exc}", file=sys.stderr)
         return 1
 
 

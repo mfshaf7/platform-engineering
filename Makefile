@@ -40,6 +40,7 @@ help:
 	@printf "  environment-readiness Assess aggregate governed readiness for stage or prod\n"
 	@printf "  repository-provider-identity Validate, commission, deliver, or revoke the repository-custody GitHub App identity\n"
 	@printf "  repository-provisioning-identity Validate, commission, deliver, or revoke the repository-provisioning GitHub App identity\n"
+	@printf "  repository-lifecycle-identity Validate, commission, deliver, or revoke the repository-lifecycle GitHub App identity\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -248,6 +249,11 @@ repository-provisioning-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
 	python3 scripts/repository_provisioning_identity.py $(ACTION) $(ARGS)
 
+.PHONY: repository-lifecycle-identity
+repository-lifecycle-identity:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
+	python3 scripts/repository_lifecycle_identity.py $(ACTION) $(ARGS)
+
 .PHONY: verify-platform-host
 verify-platform-host:
 	$(ANSIBLE_ENV) ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/verify-platform-host.yml $(ANSIBLE_EXTRA_VARS_ARG)
@@ -346,6 +352,8 @@ validate:
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate
 	python3 scripts/test_repository_provisioning_identity.py
+	python3 scripts/repository_lifecycle_identity.py validate
+	python3 scripts/test_repository_lifecycle_identity.py
 	python3 scripts/test_dev_integration.py
 	python3 scripts/test_dev_integration_compositions.py
 	python3 products/openproject/catalog-control/test_validate_catalog_control.py

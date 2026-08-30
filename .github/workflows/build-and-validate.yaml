@@ -53,6 +53,10 @@ jobs:
         run: |
           python scripts/repository_provider_identity.py validate
           python scripts/test_repository_provider_identity.py
+          python scripts/repository_provisioning_identity.py validate
+          python scripts/test_repository_provisioning_identity.py
+          python scripts/repository_lifecycle_identity.py validate
+          python scripts/test_repository_lifecycle_identity.py
 
       - name: Validate governance docs
         run: python scripts/validate_governance_docs.py

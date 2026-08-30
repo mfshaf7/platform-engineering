@@ -1,0 +1,46 @@
+schema_version: 1
+identity:
+  id: repository-lifecycle-github-app-v1
+  provider: github
+  credential_kind: github-app-installation
+  api_base_url: https://api.github.com
+  allowed_runtime_lane: dev-integration
+  repository_scope: explicit-per-token
+  maximum_repository_count: 1
+  required_permissions:
+    administration: write
+    metadata: read
+  maximum_token_lifetime_seconds: 3600
+secret_custody:
+  authority: platform-engineering
+  private_key_source:
+    backend: vault
+    path: components/operator-orchestration-service/dev-integration/repository-lifecycle-provider
+    property: privateKey
+  runtime_projection:
+    kind: kubernetes-secret
+    name: operator-orchestration-service-repository-lifecycle-provider
+    key: OOS_REPOSITORY_LIFECYCLE_INSTALLATION_TOKEN
+    value_in_source_allowed: false
+    value_in_receipts_allowed: false
+consumer:
+  component: operator-orchestration-service
+  allowed_dev_integration_profiles:
+    - accepted-idea-delivery
+  provider_api_base_env: OOS_REPOSITORY_PROVIDER_API_BASE_URL
+  installation_token_env: OOS_REPOSITORY_LIFECYCLE_INSTALLATION_TOKEN
+activation:
+  bounded_evidence_enabled: true
+  normal_runtime_enabled: false
+  required_work_item_refs:
+    - openproject://work_packages/1058
+    - openproject://work_packages/1052
+    - openproject://work_packages/1059
+    - openproject://work_packages/1051
+    - openproject://work_packages/1053
+rollback:
+  revoke_issued_token: true
+  remove_runtime_projection: true
+  retain_governance_evidence: true
+  alter_repository_state: false
+  delete_repository: false

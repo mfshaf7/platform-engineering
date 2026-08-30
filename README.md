@@ -208,6 +208,7 @@ product-neutral.
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
+  - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make verify-platform-host`
   - `make verify-restart-survival`
   - `make render-windows-bootstrap`

@@ -262,6 +262,45 @@ class ProviderClient:
         self.call("DELETE", "/installation/token", bearer=installation_token)
 
 
+def verify_organization_app(
+    app: dict[str, Any], *, app_id: int, organization: str
+) -> None:
+    owner = app.get("owner") or {}
+    if app.get("id") != app_id:
+        raise IdentityError("provider app identity does not match requested app")
+    if (
+        owner.get("type") != "Organization"
+        or str(owner.get("login") or "").casefold() != organization.casefold()
+    ):
+        raise IdentityError("provider app is not owned by the requested organization")
+
+
+def verify_organization_installation(
+    installation: dict[str, Any],
+    *,
+    app_id: int,
+    installation_id: int,
+    organization: str,
+    required_permissions: dict[str, str],
+) -> None:
+    account = installation.get("account") or {}
+    if installation.get("id") != installation_id or installation.get("app_id") != app_id:
+        raise IdentityError(
+            "provider installation identity does not match requested app and installation"
+        )
+    if installation.get("suspended_at") is not None:
+        raise IdentityError("provider installation is suspended")
+    if (
+        account.get("type") != "Organization"
+        or str(account.get("login") or "").casefold() != organization.casefold()
+    ):
+        raise IdentityError("provider installation is not bound to the requested organization")
+    if installation.get("permissions") != required_permissions:
+        raise IdentityError("provider installation permissions exceed the identity contract")
+    if installation.get("events") not in (None, []):
+        raise IdentityError("provider installation must not subscribe to events")
+
+
 def parse_repository(value: str) -> tuple[str, str]:
     parts = value.strip().split("/")
     if len(parts) != 2 or not all(parts):

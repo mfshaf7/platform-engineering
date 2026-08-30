@@ -27,6 +27,7 @@ This directory stores Architecture Decision Records for shared platform design.
 - [ADR-021-multi-profile-governed-ai-gateway.md](ADR-021-multi-profile-governed-ai-gateway.md) - request-scoped typed profiles with independent activation and service readiness
 - [ADR-022-bounded-repository-provider-identity.md](ADR-022-bounded-repository-provider-identity.md) - dedicated GitHub App identity with Vault custody and dev-integration-only projection
 - [ADR-023-separated-repository-provisioning-identity.md](ADR-023-separated-repository-provisioning-identity.md) - separate organization-bound GitHub App authority for repository creation
+- [ADR-024-separated-repository-lifecycle-identity.md](ADR-024-separated-repository-lifecycle-identity.md) - exact-repository GitHub App authority for archive and unarchive
 
 ## Rules
 

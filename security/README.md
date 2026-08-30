@@ -10,3 +10,4 @@ Expected contents include:
 - threat-model documentation
 - access-control guidance
 - governed AI model-profile registry
+- bounded repository provider identity contracts

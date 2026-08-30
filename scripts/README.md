@@ -48,6 +48,12 @@ These support shared platform operations:
     implicit `Metadata: read` installation token to the active dev-integration
     session
   - records value-free evidence and revokes without compensating deletion
+- `repository_lifecycle_identity.py`
+  - validates and commissions a separate exact-repository GitHub App for
+    archive and unarchive authority
+  - delivers only a short-lived `Administration: write` and implicit
+    `Metadata: read` token after immutable repository-id readback
+  - records value-free evidence and revokes without altering repository state
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a
@@ -55,6 +61,9 @@ These support shared platform operations:
 - `test_repository_provisioning_identity.py`
   - proves exact organization and permission binding, redacted delivery and
     revocation, and fail-closed mismatch, over-privilege, and redirect cases
+- `test_repository_lifecycle_identity.py`
+  - proves exact App, organization, repository, immutable id, and permission
+    binding plus redacted delivery, revocation, and fail-closed scope cases
 
 The default shared drill profile and evidence template live under:
 

@@ -206,6 +206,7 @@ product-neutral.
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill`
   - `make platform-drill ACTION=<plan|snapshot|status> PROFILE=temporal-component-commissioning-proof` (permit-gated source-reviewed path; see [Temporal operations](docs/components/temporal/operations.md))
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
+  - `make workspace-intake-identity ACTION=validate` validates the [inactive intake identity](docs/components/operator-orchestration-service/workspace-intake-identity.md); activation is separately gated
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

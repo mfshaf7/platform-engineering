@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Selected Workspace Intake Identity Definition",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "identity", "selection", "source_boundary", "secret_custody", "consumer", "activation", "audit", "rollback"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "provider", "credential_kind", "api_base_url", "repository", "repository_selection", "maximum_repository_count", "required_permissions", "maximum_token_lifetime_seconds", "rotate_before_expiry_seconds", "events"],
+      "properties": {
+        "id": {"const": "workspace-intake-github-app-v1"},
+        "provider": {"const": "github"},
+        "credential_kind": {"const": "github-app-installation"},
+        "api_base_url": {"const": "https://api.github.com"},
+        "repository": {"const": {"full_name": "mfshaf7/workspace-governance", "id": 1212447211, "owner_id": 244414185, "owner_type": "User"}},
+        "repository_selection": {"const": "selected"},
+        "maximum_repository_count": {"const": 1},
+        "required_permissions": {"const": {"metadata": "read", "contents": "write", "pull_requests": "write", "checks": "read"}},
+        "maximum_token_lifetime_seconds": {"const": 3600},
+        "rotate_before_expiry_seconds": {"const": 900},
+        "events": {"const": []}
+      }
+    },
+    "selection": {"const": {"state": "selected-not-active", "app_id": null, "installation_id": null, "runtime_enabled": false}},
+    "source_boundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allowed_branch_pattern", "allowed_write_paths", "canonical_branch", "merge_authority", "provider_enforcement_required", "denied_actions"],
+      "properties": {
+        "allowed_branch_pattern": {"const": "^intake/[0-9a-f]{64}$"},
+        "allowed_write_paths": {"const": ["contracts/intake-register.yaml"]},
+        "canonical_branch": {"const": "main"},
+        "merge_authority": {"const": "human-reviewer"},
+        "provider_enforcement_required": {"const": ["restrict-main-updates-to-human-actors", "intake-app-has-no-bypass", "require-exact-head-review", "dismiss-stale-approvals", "require-trusted-owner-validation", "deny-force-push-and-deletion"]},
+        "denied_actions": {"const": ["merge", "direct-main-write", "force-push", "repository-create", "repository-delete", "repository-administration", "secret-access", "unrelated-repository-access", "wildcard-repository-selection", "personal-token", "ambient-gh-credentials"]}
+      }
+    },
+    "secret_custody": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authority", "private_key_source", "runtime_projection", "values_in_source", "values_in_receipts", "values_in_logs", "private_key_in_oos"],
+      "properties": {
+        "authority": {"const": "platform-engineering"},
+        "private_key_source": {"const": {"backend": "vault", "path": "components/operator-orchestration-service/dev-integration/workspace-intake", "property": "privateKey"}},
+        "runtime_projection": {"const": {"kind": "kubernetes-secret-volume", "name": "operator-orchestration-service-workspace-intake", "key": "installation-token", "directory": "/var/run/oos/workspace-intake", "filename": "installation-token", "mount_read_only": true, "sub_path_allowed": false}},
+        "values_in_source": {"const": false}, "values_in_receipts": {"const": false},
+        "values_in_logs": {"const": false}, "private_key_in_oos": {"const": false}
+      }
+    },
+    "consumer": {"const": {"component": "operator-orchestration-service", "runtime_lane": "dev-integration", "allowed_profiles": ["accepted-idea-delivery"], "token_file_env": "OOS_WORKSPACE_INTAKE_TOKEN_FILE", "repository_owner_env": "OOS_WORKSPACE_INTAKE_GITHUB_OWNER", "repository_id_env": "OOS_WORKSPACE_INTAKE_GITHUB_REPOSITORY_ID"}},
+    "activation": {"const": {"authority_work_item": "openproject://work_packages/1082", "security_gate": "openproject://work_packages/1066", "required_evidence": ["exact-definition-digest-and-source-heads", "exact-app-installation-and-repository-ids", "provider-enforced-main-and-merge-denial", "exact-permissions-and-no-bypass", "authenticated-oos-profile-session-execution", "short-lived-token-projection-and-rotation", "suspension-revocation-and-rollback", "secret-free-owner-receipt"], "definition_is_activation": false}},
+    "audit": {"const": {"receipt_fields": ["definition_digest", "source_revisions", "app_id", "installation_id", "repository_id", "repository_owner_id", "permissions", "caller_id", "profile_id", "session_ref", "execution_ref", "action", "outcome", "issued_at", "expires_at", "recorded_at", "security_receipt_ref", "rollback_receipt_ref"], "receipt_contains_secret_values": false}},
+    "rollback": {"const": {"suspend_new_requests": true, "revoke_issued_token": true, "remove_runtime_projection": true, "retain_workflow_and_review_evidence": true, "retain_canonical_git_history": true, "delete_repository": false, "rewrite_main": false}}
+  }
+}

@@ -57,6 +57,8 @@ jobs:
           python scripts/test_repository_provisioning_identity.py
           python scripts/repository_lifecycle_identity.py validate
           python scripts/test_repository_lifecycle_identity.py
+          python scripts/workspace_intake_identity.py validate
+          python scripts/test_workspace_intake_identity.py
 
       - name: Validate governance docs
         run: python scripts/validate_governance_docs.py

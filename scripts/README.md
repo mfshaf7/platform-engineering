@@ -54,6 +54,12 @@ These support shared platform operations:
   - delivers only a short-lived `Administration: write` and implicit
     `Metadata: read` token after immutable repository-id readback
   - records value-free evidence and revokes without altering repository state
+- `workspace_intake_identity.py`
+  - validates the selected, inactive Workspace Governance identity definition;
+    no credential issuance or runtime activation
+- `test_workspace_intake_identity.py`
+  - checks exact scope, denial rules, inactive state, secret-free diagnostics
+    and configuration restore using filesystem fixtures
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

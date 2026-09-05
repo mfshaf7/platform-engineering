@@ -1,0 +1,119 @@
+schema_version: 1
+identity:
+  id: workspace-intake-github-app-v1
+  provider: github
+  credential_kind: github-app-installation
+  api_base_url: https://api.github.com
+  repository:
+    full_name: mfshaf7/workspace-governance
+    id: 1212447211
+    owner_id: 244414185
+    owner_type: User
+  repository_selection: selected
+  maximum_repository_count: 1
+  required_permissions:
+    metadata: read
+    contents: write
+    pull_requests: write
+    checks: read
+  maximum_token_lifetime_seconds: 3600
+  rotate_before_expiry_seconds: 900
+  events: []
+selection:
+  state: selected-not-active
+  app_id: null
+  installation_id: null
+  runtime_enabled: false
+source_boundary:
+  allowed_branch_pattern: '^intake/[0-9a-f]{64}$'
+  allowed_write_paths:
+    - contracts/intake-register.yaml
+  canonical_branch: main
+  merge_authority: human-reviewer
+  provider_enforcement_required:
+    - restrict-main-updates-to-human-actors
+    - intake-app-has-no-bypass
+    - require-exact-head-review
+    - dismiss-stale-approvals
+    - require-trusted-owner-validation
+    - deny-force-push-and-deletion
+  denied_actions:
+    - merge
+    - direct-main-write
+    - force-push
+    - repository-create
+    - repository-delete
+    - repository-administration
+    - secret-access
+    - unrelated-repository-access
+    - wildcard-repository-selection
+    - personal-token
+    - ambient-gh-credentials
+secret_custody:
+  authority: platform-engineering
+  private_key_source:
+    backend: vault
+    path: components/operator-orchestration-service/dev-integration/workspace-intake
+    property: privateKey
+  runtime_projection:
+    kind: kubernetes-secret-volume
+    name: operator-orchestration-service-workspace-intake
+    key: installation-token
+    directory: /var/run/oos/workspace-intake
+    filename: installation-token
+    mount_read_only: true
+    sub_path_allowed: false
+  values_in_source: false
+  values_in_receipts: false
+  values_in_logs: false
+  private_key_in_oos: false
+consumer:
+  component: operator-orchestration-service
+  runtime_lane: dev-integration
+  allowed_profiles:
+    - accepted-idea-delivery
+  token_file_env: OOS_WORKSPACE_INTAKE_TOKEN_FILE
+  repository_owner_env: OOS_WORKSPACE_INTAKE_GITHUB_OWNER
+  repository_id_env: OOS_WORKSPACE_INTAKE_GITHUB_REPOSITORY_ID
+activation:
+  authority_work_item: openproject://work_packages/1082
+  security_gate: openproject://work_packages/1066
+  required_evidence:
+    - exact-definition-digest-and-source-heads
+    - exact-app-installation-and-repository-ids
+    - provider-enforced-main-and-merge-denial
+    - exact-permissions-and-no-bypass
+    - authenticated-oos-profile-session-execution
+    - short-lived-token-projection-and-rotation
+    - suspension-revocation-and-rollback
+    - secret-free-owner-receipt
+  definition_is_activation: false
+audit:
+  receipt_fields:
+    - definition_digest
+    - source_revisions
+    - app_id
+    - installation_id
+    - repository_id
+    - repository_owner_id
+    - permissions
+    - caller_id
+    - profile_id
+    - session_ref
+    - execution_ref
+    - action
+    - outcome
+    - issued_at
+    - expires_at
+    - recorded_at
+    - security_receipt_ref
+    - rollback_receipt_ref
+  receipt_contains_secret_values: false
+rollback:
+  suspend_new_requests: true
+  revoke_issued_token: true
+  remove_runtime_projection: true
+  retain_workflow_and_review_evidence: true
+  retain_canonical_git_history: true
+  delete_repository: false
+  rewrite_main: false

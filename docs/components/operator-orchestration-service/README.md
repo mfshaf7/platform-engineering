@@ -19,7 +19,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [repository-provider-identity.md](repository-provider-identity.md)
 - [repository-provisioning-identity.md](repository-provisioning-identity.md)
 - [repository-lifecycle-identity.md](repository-lifecycle-identity.md)
-- [workspace-intake-identity.md](workspace-intake-identity.md) - selected source definition; activation remains gated
+- [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
 
 ## Current Live Footprint
 

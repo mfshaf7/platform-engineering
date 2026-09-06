@@ -9,9 +9,9 @@ repository, not an organization repository. The existing repository
 provisioning and lifecycle Apps must not be reused: their administrative
 authority and organization-specific commissioning checks are different.
 
-The definition is **selected, not active**. No App or installation id has
-been assigned by this work. No credential is issued, mounted or enabled.
-The authoritative definition is
+The Git-tracked definition remains a stable **selected, not active** source
+contract; live activation state is recorded in value-free Platform receipts,
+not written back into the contract. The authoritative definition is
 [workspace-intake-identity.yaml](../../../security/workspace-intake-identity.yaml).
 
 ## Primary Operator Path
@@ -21,11 +21,18 @@ make workspace-intake-identity ACTION=validate
 python3 scripts/test_workspace_intake_identity.py
 ```
 
-Validation is read-only and reports the exact definition digest. It does not
-verify a provider installation or permit runtime writes. There is deliberately
-no commission or deliver command in this source-definition child (#1065).
-The approved activation child #1082 will add the real provider procedure and
-its API-compatible receipt after Security #1066 reviews the complete source.
+`validate` is read-only. `commission` verifies the exact App, installation,
+account, repository id, permissions, event set, and one-repository token scope,
+then revokes its proof token. `deliver` repeats those checks before projecting
+one short-lived installation token into the admitted OOS dev-integration
+runtime. `revoke` invalidates that token and removes its projection. Use
+`make workspace-intake-identity ACTION=<action> ARGS="..."`; the command help
+lists the required source-revision, caller, provider, session, and receipt
+arguments.
+
+The activation source is ART #1082 and the exact-source Security decision is
+#1066. A runtime receipt never changes the source definition into a mutable
+state database.
 
 ## Least Privilege
 
@@ -63,7 +70,7 @@ a `subPath` mount that would prevent rotation. The file path is passed through
 `OOS_WORKSPACE_INTAKE_TOKEN_FILE`; OOS re-reads the file for requests. No private
 key, token, or authorization header belongs in source, ART, receipts or logs.
 
-Activation must bind the definition digest, reviewed source heads, App and
+Every activation receipt binds the definition digest, reviewed source heads, App and
 installation identities, exact repository and owner ids, permissions, caller,
 profile, session and execution, issue/expiry/recording times, Security receipt,
 and revocation/rollback receipt. A new activation cannot reuse stale source or

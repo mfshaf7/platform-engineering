@@ -41,7 +41,7 @@ help:
 	@printf "  repository-provider-identity Validate, commission, deliver, or revoke the repository-custody GitHub App identity\n"
 	@printf "  repository-provisioning-identity Validate, commission, deliver, or revoke the repository-provisioning GitHub App identity\n"
 	@printf "  repository-lifecycle-identity Validate, commission, deliver, or revoke the repository-lifecycle GitHub App identity\n"
-	@printf "  workspace-intake-identity Validate the selected, inactive Workspace Intake Git identity\n"
+	@printf "  workspace-intake-identity Validate, commission, deliver, or revoke the Workspace Intake Git identity\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -242,8 +242,8 @@ environment-readiness:
 
 .PHONY: workspace-intake-identity
 workspace-intake-identity:
-	@test "$(ACTION)" = "validate" || { echo "ACTION=validate only; runtime activation remains gated"; exit 1; }
-	python3 scripts/workspace_intake_identity.py validate $(ARGS)
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
+	python3 scripts/workspace_intake_identity.py $(ACTION) $(ARGS)
 
 .PHONY: repository-provider-identity
 repository-provider-identity:

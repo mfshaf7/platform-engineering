@@ -58,8 +58,9 @@ None. This work does not change host, cluster, Vault or provider configuration.
 
 Read-only GitHub repository identity confirmed the exact repository id and
 personal-account owner. Definition tests prove configuration denial and restore,
-not live authorization. Live provider and token proof is reserved for #1082
-after #1066. Composed workflow proof remains #1069.
+not live authorization. Live provider and token proof is owned by #1082 after
+#1066 and retained with that ART evidence rather than this source-definition
+record. Composed workflow proof remains #1069.
 
 ## Follow-Up
 

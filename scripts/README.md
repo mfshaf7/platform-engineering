@@ -55,11 +55,15 @@ These support shared platform operations:
     `Metadata: read` token after immutable repository-id readback
   - records value-free evidence and revokes without altering repository state
 - `workspace_intake_identity.py`
-  - validates the selected, inactive Workspace Governance identity definition;
-    no credential issuance or runtime activation
+  - validates the stable Workspace Intake identity definition, verifies the
+    exact GitHub App installation, and delivers or revokes one short-lived
+    token for the admitted OOS dev-integration runtime
+  - binds source revisions, caller, provider identity, runtime session, and
+    rollback evidence in secret-free receipts
 - `test_workspace_intake_identity.py`
-  - checks exact scope, denial rules, inactive state, secret-free diagnostics
-    and configuration restore using filesystem fixtures
+  - checks exact scope and permissions, provider mismatch denials, runtime
+    delivery and teardown, and secret-free receipt behavior using a local fake
+    provider and runtime
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

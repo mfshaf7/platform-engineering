@@ -407,7 +407,11 @@ def deployment_revoke_patch(contract: Contract) -> str:
                                 {"name": contract.repository_id_env, "$patch": "delete"},
                             ],
                             "volumeMounts": [
-                                {"name": "workspace-intake-identity", "$patch": "delete"}
+                                {
+                                    "name": "workspace-intake-identity",
+                                    "mountPath": contract.runtime_directory,
+                                    "$patch": "delete",
+                                }
                             ],
                         }
                     ],
@@ -465,7 +469,13 @@ def command_deliver(args: argparse.Namespace) -> int:
     try:
         run_kubectl(
             args.kubectl,
-            ["apply", "-f", "-"],
+            [
+                "apply",
+                "--server-side",
+                "--field-manager=platform-workspace-intake",
+                "-f",
+                "-",
+            ],
             input_text=secret_manifest(contract, token, digest, target),
         )
         projected = True

@@ -345,7 +345,18 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
         )
         deliver_receipt = (self.work / "deliver.json").read_text()
         self.assertNotIn(self.state.token, deliver_receipt)
+        self.assertIn(
+            "apply --server-side --field-manager=platform-workspace-intake -f -",
+            self.commands.read_text(),
+        )
         self.assertIn("patch deployment operator-orchestration-service", self.commands.read_text())
+        revoke_patch = json.loads(
+            module.deployment_revoke_patch(module.load_contract(module.DEFAULT_CONTRACT))
+        )
+        mount = revoke_patch["spec"]["template"]["spec"]["containers"][0][
+            "volumeMounts"
+        ][0]
+        self.assertEqual("/var/run/oos/workspace-intake", mount["mountPath"])
         secret = dict(manifest)
         secret["data"] = {
             "installation-token": base64.b64encode(self.state.token.encode()).decode()

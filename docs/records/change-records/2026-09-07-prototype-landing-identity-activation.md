@@ -54,10 +54,21 @@ session, credential, and runtime bindings before writing a value-free receipt.
 
 ## Artifact And Deployment Evidence
 
-Source validation and sandbox-runtime evidence are recorded by the #1090 Review
-Packet. Live App, ruleset, Vault, token projection, rotation, and revocation
-evidence will be added here after commissioning. No credential value belongs in
-this record.
+Source validation and sandbox-runtime evidence are recorded by Platform PR
+[#235](https://github.com/mfshaf7/platform-engineering/pull/235) and the #1090
+Review Packet. Live commissioning is recorded in
+[the value-free activation evidence](../evidence/prototype-landing-identity-activation-2026-09-07.json):
+
+- GitHub App id `4861143`, installation id `159774010`
+- exact repository `mfshaf7/workspace-prototype-studio` (`1231020532`)
+- active human-only merge ruleset `22447647`
+- private-key custody at the contracted Platform Vault path, version `2`
+- active OOS session `accepted-idea-delivery-mfshaf7-20260907T085034Z`
+- credential binding `sha256:341ea9822df4edf33783adddd7ce684b0c6bd2ba9dcf22f2e38eb1624307d3e0`
+- runtime binding `sha256:0482c655912be2d27d1d4130ac15668b4e75ab694acbb09448b2a0ecacb06553`
+
+No private key, installation token, or WGCF caller secret is stored in source,
+this record, the evidence artifact, or a receipt.
 
 ## Runtime Boundary
 
@@ -68,10 +79,25 @@ before normal operator availability can be claimed.
 
 ## Live Verification
 
-Source validation and sandbox-runtime tests are complete. Live provider App,
-ruleset, Vault, Kubernetes projection, rotation, and revocation evidence remains
-pending commissioning and will be recorded here before #1090 closes. Prototype
-Landing workflow availability is not claimed.
+Provider readback confirmed the exact account, selected repository, immutable
+repository id, permissions, and empty event subscription. Disposable proof PR
+[#8](https://github.com/mfshaf7/workspace-prototype-studio/pull/8) proved that
+the App can prepare a review branch while direct `main` update, merge,
+repository-administration write, and unrelated-repository write all return
+`403`. Prototype Studio `main` remained unchanged; the proof PR was closed and
+its branch was removed.
+
+The first short-lived token was projected into the active OOS session. Runtime
+readback confirmed one ready replica, read-only credential and source mounts,
+persistent coordination state, and no client-side Secret payload annotation.
+The first rollback revoked the token before Kubernetes exposed that the
+teardown patch lacked the `volumeMounts` merge key. Commit `5a80767` corrected
+the patch and added regression coverage; retry completed exact runtime cleanup
+and retained coordination state. A distinct replacement token was then issued
+and projected successfully.
+
+`OOS_PROTOTYPE_LANDING_ENABLED` remains explicitly `false`. This proves the
+identity boundary only; Prototype Landing workflow availability is not claimed.
 
 ## Rollback
 
@@ -81,7 +107,6 @@ Prototype, repository, or canonical Git history as compensation.
 
 ## Follow-Up Actions
 
-Commission and exercise the exact App and repository ruleset, then record the
-value-free proof in this record and the #1090 Review Packet. #1091 owns Console
-wiring. #1092 owns composed runtime activation and conformance after both are
-complete.
+#1091 owns Console wiring. #1092 owns source-gate activation and composed
+runtime conformance after both are complete. Neither child may treat this
+identity projection as workflow activation.

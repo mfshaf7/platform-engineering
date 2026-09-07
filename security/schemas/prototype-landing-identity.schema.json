@@ -65,19 +65,19 @@
         "wgcf_caller_id": "operator-orchestration-service",
         "wgcf_caller_secret_env": "WGCF_PROTOTYPE_LANDING_CALLER_SECRET",
         "wgcf_implementation_ref_env": "WGCF_PROTOTYPE_LANDING_IMPLEMENTATION_REF",
-        "wgcf_implementation_ref": "e19a18240a0ac1a5bbea8cceeaccbba4d544cd7b",
+        "wgcf_implementation_ref": "c099752592825e8988dca32a1a0e40c590cd9d66",
         "wgcf_service_identity_ref_env": "WGCF_PROTOTYPE_LANDING_SERVICE_IDENTITY_REF",
         "wgcf_service_identity_ref": "service-identity://workspace-governance-control-fabric/dev-integration"
       }
     },
     "activation": {
       "const": {
-        "authority_work_item": "openproject://work_packages/1090",
-        "security_gate": "openproject://work_packages/1089",
+        "authority_work_item": "openproject://work_packages/1114",
+        "security_gate": "openproject://work_packages/1111",
         "source_authority_minimum_revision": "2d18349ffab42bff052061e5adbc1d2c76d6210c",
         "required_evidence": ["exact-definition-digest-and-source-heads", "exact-app-installation-and-repository-ids", "provider-enforced-main-and-merge-denial", "exact-permissions-and-no-bypass", "authenticated-oos-profile-session-projection", "read-only-source-and-persistent-state-mounts", "short-lived-token-projection-and-rotation", "suspension-revocation-and-rollback", "secret-free-owner-receipt"],
         "definition_is_activation": false,
-        "workflow_runtime_enabled": false
+        "workflow_runtime_enabled": true
       }
     },
     "audit": {

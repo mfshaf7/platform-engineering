@@ -68,6 +68,7 @@ class Contract(ExactRepositoryContract):
     wgcf_service_identity_ref_env: str
     wgcf_service_identity_ref: str
     source_authority_minimum_revision: str
+    workflow_runtime_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,7 @@ def load_contract(path: Path) -> Contract:
         source_authority_minimum_revision=activation[
             "source_authority_minimum_revision"
         ],
+        workflow_runtime_enabled=activation["workflow_runtime_enabled"],
     )
 
 
@@ -156,7 +158,7 @@ def validate_definition(path: Path) -> dict[str, Any]:
         "definition_digest": contract.contract_digest,
         "state": "selected-not-active",
         "identity_projection_enabled": False,
-        "workflow_runtime_enabled": False,
+        "workflow_runtime_enabled": contract.workflow_runtime_enabled,
         "provider_verified": False,
         "secret_values_embedded": False,
     }
@@ -269,6 +271,7 @@ def receipt(
     target: DevIntegrationTarget | None = None,
     runtime_binding: str | None = None,
     rollback_receipt_ref: str | None = None,
+    workflow_runtime_enabled: bool = False,
 ) -> dict[str, Any]:
     recorded_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     payload: dict[str, Any] = {
@@ -295,7 +298,7 @@ def receipt(
         "issued_at": recorded_at if expires_at is not None else None,
         "expires_at": expires_at,
         "recorded_at": recorded_at,
-        "workflow_runtime_enabled": False,
+        "workflow_runtime_enabled": workflow_runtime_enabled,
         "secret_values_embedded": False,
     }
     if target is not None:
@@ -357,7 +360,10 @@ def deployment_patch(contract: Contract, runtime: RuntimeInputs) -> str:
     state_volume = "prototype-landing-state"
     authority_volume = "prototype-landing-authority"
     env: list[dict[str, Any]] = [
-        _env("OOS_PROTOTYPE_LANDING_ENABLED", "false"),
+        _env(
+            "OOS_PROTOTYPE_LANDING_ENABLED",
+            str(contract.workflow_runtime_enabled).lower(),
+        ),
         _env(contract.runtime_profile_env, contract.runtime_profile),
         _env(
             contract.token_file_env,
@@ -506,6 +512,87 @@ def deployment_revoke_patch(contract: Contract) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def deployment_suspend_patch(contract: Contract) -> str:
+    value = {
+        "spec": {
+            "template": {
+                "spec": {
+                    "containers": [
+                        {
+                            "name": contract.broker_deployment,
+                            "env": [
+                                _env("OOS_PROTOTYPE_LANDING_ENABLED", "false")
+                            ],
+                        }
+                    ]
+                }
+            }
+        }
+    }
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def projected_runtime_token(
+    kubectl: str,
+    contract: Contract,
+    target: DevIntegrationTarget,
+    *,
+    app_id: int,
+    installation_id: int,
+    allow_missing: bool,
+    allow_prior_session: bool = False,
+) -> str | None:
+    result = run_kubectl(
+        kubectl,
+        [
+            "-n",
+            target.namespace,
+            "get",
+            "secret",
+            contract.runtime_secret_name,
+            "--ignore-not-found",
+            "-o",
+            "json",
+        ],
+    )
+    if not result.stdout.strip() and allow_missing:
+        return None
+    try:
+        secret = json.loads(result.stdout)
+        token = base64.b64decode(
+            secret["data"][contract.runtime_secret_key], validate=True
+        ).decode()
+        annotations = secret["metadata"]["annotations"]
+        projected_digest = annotations[
+            "workspace-governance/credential-binding-digest"
+        ]
+        projected_profile = annotations[
+            "workspace-governance/dev-integration-profile"
+        ]
+        projected_session = annotations[
+            "workspace-governance/dev-integration-session"
+        ]
+    except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        raise IdentityError(
+            "runtime Prototype Landing credential projection is invalid"
+        ) from None
+    repository = ProviderRepository(contract.repository, contract.repository_id)
+    expected_digest = exact_repository_binding_digest(
+        contract, app_id, installation_id, repository
+    )
+    if (
+        not token
+        or projected_digest != expected_digest
+        or projected_profile != target.profile_id
+        or (
+            projected_session != target.session_id
+            and not allow_prior_session
+        )
+    ):
+        raise IdentityError("runtime Prototype Landing credential binding does not match")
+    return token
+
+
 def remove_runtime_projection(
     kubectl: str, contract: Contract, target: DevIntegrationTarget
 ) -> None:
@@ -585,7 +672,19 @@ def command_deliver(args: argparse.Namespace) -> int:
         ),
     )
     runtime = _runtime_inputs(args, contract)
+    previous_token = projected_runtime_token(
+        args.kubectl,
+        contract,
+        target,
+        app_id=args.app_id,
+        installation_id=args.installation_id,
+        allow_missing=True,
+        allow_prior_session=True,
+    )
     client, token, repository = validated_exact_repository_token(args, contract)
+    if previous_token == token.token:
+        client.revoke_token(token.token)
+        raise IdentityError("provider returned the currently projected token during rotation")
     credential_digest = exact_repository_binding_digest(
         contract, args.app_id, args.installation_id, repository
     )
@@ -636,6 +735,12 @@ def command_deliver(args: argparse.Namespace) -> int:
                 "--timeout=180s",
             ],
         )
+        if previous_token is not None:
+            try:
+                client.revoke_token(previous_token)
+            except IdentityError as exc:
+                if "HTTP 401" not in str(exc) and "HTTP 404" not in str(exc):
+                    raise
         write_receipt(
             args.receipt,
             receipt(
@@ -644,18 +749,24 @@ def command_deliver(args: argparse.Namespace) -> int:
                 app_id=args.app_id,
                 installation_id=args.installation_id,
                 repository=repository,
-                outcome="identity-projected-workflow-disabled",
+                outcome="identity-projected-workflow-enabled",
                 source_revisions=source_revisions,
                 caller_id=args.caller_id,
                 expires_at=token.expires_at,
                 target=target,
                 runtime_binding=runtime_digest,
+                workflow_runtime_enabled=contract.workflow_runtime_enabled,
             ),
         )
     except Exception:
         try:
             client.revoke_token(token.token)
         finally:
+            if previous_token is not None and previous_token != token.token:
+                try:
+                    client.revoke_token(previous_token)
+                except IdentityError:
+                    pass
             if projected:
                 try:
                     remove_runtime_projection(args.kubectl, contract, target)
@@ -664,7 +775,7 @@ def command_deliver(args: argparse.Namespace) -> int:
         raise
     print(
         f"Prototype Landing identity projected; namespace={target.namespace} "
-        f"workflow=disabled receipt={args.receipt}"
+        f"workflow=enabled receipt={args.receipt}"
     )
     return 0
 
@@ -681,46 +792,16 @@ def command_revoke(args: argparse.Namespace) -> int:
             args.session_manifest, args.workspace_root, contract, require_running=False
         ),
     )
-    result = run_kubectl(
+    token = projected_runtime_token(
         args.kubectl,
-        [
-            "-n",
-            target.namespace,
-            "get",
-            "secret",
-            contract.runtime_secret_name,
-            "-o",
-            "json",
-        ],
+        contract,
+        target,
+        app_id=args.app_id,
+        installation_id=args.installation_id,
+        allow_missing=False,
     )
-    try:
-        secret = json.loads(result.stdout)
-        token = base64.b64decode(
-            secret["data"][contract.runtime_secret_key], validate=True
-        ).decode()
-        annotations = secret["metadata"]["annotations"]
-        projected_digest = annotations[
-            "workspace-governance/credential-binding-digest"
-        ]
-        projected_profile = annotations[
-            "workspace-governance/dev-integration-profile"
-        ]
-        projected_session = annotations[
-            "workspace-governance/dev-integration-session"
-        ]
-    except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-        raise IdentityError("runtime Prototype Landing credential projection is invalid") from None
+    assert token is not None
     repository = ProviderRepository(contract.repository, contract.repository_id)
-    expected_digest = exact_repository_binding_digest(
-        contract, args.app_id, args.installation_id, repository
-    )
-    if (
-        not token
-        or projected_digest != expected_digest
-        or projected_profile != target.profile_id
-        or projected_session != target.session_id
-    ):
-        raise IdentityError("runtime Prototype Landing credential binding does not match")
     client = ProviderClient(
         args.provider_api_base_url or contract.api_base_url,
         sandbox=args.sandbox,
@@ -749,6 +830,68 @@ def command_revoke(args: argparse.Namespace) -> int:
         ),
     )
     print(f"Prototype Landing identity revoked; receipt={args.receipt}")
+    return 0
+
+
+def command_suspend(args: argparse.Namespace) -> int:
+    contract = load_contract(args.contract)
+    source_revisions = parse_source_revisions(args.source_revision)
+    verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
+    target = verify_dev_integration_cluster(
+        args.kubectl,
+        load_dev_integration_target(
+            args.session_manifest, args.workspace_root, contract, require_running=True
+        ),
+    )
+    token = projected_runtime_token(
+        args.kubectl,
+        contract,
+        target,
+        app_id=args.app_id,
+        installation_id=args.installation_id,
+        allow_missing=False,
+    )
+    assert token is not None
+    run_kubectl(
+        args.kubectl,
+        [
+            "-n",
+            target.namespace,
+            "patch",
+            "deployment",
+            contract.broker_deployment,
+            "--type=strategic",
+            "-p",
+            deployment_suspend_patch(contract),
+        ],
+    )
+    run_kubectl(
+        args.kubectl,
+        [
+            "-n",
+            target.namespace,
+            "rollout",
+            "status",
+            f"deployment/{contract.broker_deployment}",
+            "--timeout=180s",
+        ],
+    )
+    repository = ProviderRepository(contract.repository, contract.repository_id)
+    write_receipt(
+        args.receipt,
+        receipt(
+            contract,
+            action="suspend",
+            app_id=args.app_id,
+            installation_id=args.installation_id,
+            repository=repository,
+            outcome="new-requests-suspended",
+            source_revisions=source_revisions,
+            caller_id=args.caller_id,
+            target=target,
+        ),
+    )
+    print(f"Prototype Landing workflow suspended; receipt={args.receipt}")
     return 0
 
 
@@ -797,6 +940,12 @@ def parser() -> argparse.ArgumentParser:
     deliver.add_argument("--wgcf-base-url", required=True)
     deliver.add_argument("--wgcf-caller-secret-file", type=Path, required=True)
     deliver.set_defaults(handler=command_deliver)
+    suspend = commands.add_parser(
+        "suspend", help="stop new Prototype Landing requests while retaining runtime state"
+    )
+    add_identity_arguments(suspend, private_key=False)
+    add_runtime_arguments(suspend)
+    suspend.set_defaults(handler=command_suspend)
     revoke = commands.add_parser(
         "revoke", help="revoke the token and remove its runtime projection"
     )

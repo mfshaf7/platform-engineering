@@ -210,7 +210,7 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         self.assertEqual(result, module.validate_definition(module.DEFAULT_CONTRACT))
         self.assertEqual("selected-not-active", result["state"])
         self.assertFalse(result["identity_projection_enabled"])
-        self.assertFalse(result["workflow_runtime_enabled"])
+        self.assertTrue(result["workflow_runtime_enabled"])
         self.assertFalse(result["provider_verified"])
         self.assertEqual(original, module.DEFAULT_CONTRACT.read_bytes())
 
@@ -267,7 +267,7 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         patch = json.loads(module.deployment_patch(contract, self.runtime))
         container = patch["spec"]["template"]["spec"]["containers"][0]
         env = {item["name"]: item for item in container["env"]}
-        self.assertEqual("false", env["OOS_PROTOTYPE_LANDING_ENABLED"]["value"])
+        self.assertEqual("true", env["OOS_PROTOTYPE_LANDING_ENABLED"]["value"])
         self.assertEqual(
             "/var/lib/oos/prototype-landing/authority",
             env["OOS_PROTOTYPE_LANDING_AUTHORITY_ROOT"]["value"],
@@ -276,6 +276,15 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         self.assertTrue(mounts["prototype-landing-authority"]["readOnly"])
         self.assertTrue(mounts["prototype-landing-identity"]["readOnly"])
         self.assertNotIn(self.WGCF_SECRET, json.dumps(patch))
+
+        suspend_patch = json.loads(module.deployment_suspend_patch(contract))
+        suspend_env = suspend_patch["spec"]["template"]["spec"]["containers"][0][
+            "env"
+        ]
+        self.assertEqual(
+            [{"name": "OOS_PROTOTYPE_LANDING_ENABLED", "value": "false"}],
+            suspend_env,
+        )
 
         revoke_patch = json.loads(module.deployment_revoke_patch(contract))
         revoke_container = revoke_patch["spec"]["template"]["spec"]["containers"][0]
@@ -325,6 +334,7 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         rendered = (self.work / "deliver.json").read_text()
         self.assertNotIn(self.state.token, rendered)
         self.assertNotIn(self.WGCF_SECRET, rendered)
+        self.assertTrue(json.loads(rendered)["workflow_runtime_enabled"])
         self.assertIn(
             "apply --server-side --field-manager=platform-prototype-landing -f -",
             self.commands.read_text(),
@@ -337,6 +347,31 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         }
         secret.pop("stringData")
         os.environ["KUBECTL_SECRET_JSON"] = json.dumps(secret)
+        suspend_args = [
+            "suspend",
+            "--app-id",
+            str(self.state.app_id),
+            "--installation-id",
+            str(self.state.installation_id),
+            "--sandbox",
+            "--receipt",
+            str(self.work / "suspend.json"),
+            "--caller-id",
+            "platform-engineering/test-operator",
+            "--source-revision",
+            f"platform-engineering={self.SOURCE_REVISION}",
+            *self.target_args(),
+        ]
+        self.assertEqual(0, module.main(suspend_args))
+        self.assertFalse(
+            json.loads((self.work / "suspend.json").read_text())[
+                "workflow_runtime_enabled"
+            ]
+        )
+        self.assertIn(
+            '"name":"OOS_PROTOTYPE_LANDING_ENABLED","value":"false"',
+            self.commands.read_text(),
+        )
         revoke_args = [
             "revoke",
             "--app-id",
@@ -365,6 +400,48 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         revoke_receipt = (self.work / "revoke.json").read_text()
         self.assertNotIn(self.state.token, revoke_receipt)
         self.assertNotIn(self.WGCF_SECRET, revoke_receipt)
+
+    def test_repeated_delivery_revokes_the_previous_projected_token(self) -> None:
+        delivery_args = [
+            *self.identity_args("deliver"),
+            *self.target_args(),
+            "--wgcf-base-url",
+            self.runtime.wgcf_base_url,
+            "--wgcf-caller-secret-file",
+            str(self.wgcf_secret_file),
+        ]
+        with mock.patch.object(
+            module, "_runtime_inputs", return_value=self.runtime
+        ), mock.patch.object(
+            module, "runtime_binding_digest", return_value="sha256:" + "c" * 64
+        ):
+            self.assertEqual(0, module.main(delivery_args))
+            first_manifest = yaml.safe_load(self.capture.read_text())
+            first_token = self.state.token
+            projected = dict(first_manifest)
+            projected["data"] = {
+                "installation-token": base64.b64encode(first_token.encode()).decode(),
+                "wgcf-caller-secret": base64.b64encode(
+                    self.WGCF_SECRET.encode()
+                ).decode(),
+            }
+            projected.pop("stringData")
+            projected["metadata"]["annotations"][
+                "workspace-governance/dev-integration-session"
+            ] = "accepted-idea-delivery-test-operator-prior-session"
+            os.environ["KUBECTL_SECRET_JSON"] = json.dumps(projected)
+            self.state.token = "ghs_rotated_prototype_landing_secret"
+            self.assertEqual(0, module.main(delivery_args))
+
+        self.assertEqual(1, self.state.revocations)
+        rotated_manifest = yaml.safe_load(self.capture.read_text())
+        self.assertEqual(
+            self.state.token, rotated_manifest["stringData"]["installation-token"]
+        )
+        self.assertNotIn(
+            first_token,
+            (self.work / "deliver.json").read_text(),
+        )
 
     def test_delivery_failure_removes_deployment_projection_before_secret(self) -> None:
         with mock.patch.object(

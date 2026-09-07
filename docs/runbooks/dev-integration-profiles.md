@@ -228,6 +228,27 @@ make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>
 make devint-down PROFILE=<profile>
 ```
 
+Persistent profiles may explicitly declare:
+
+```yaml
+runtime:
+  state_model: persistent
+  resume_policy: operator-login
+```
+
+`manual` is the default resume policy. `operator-login` is valid only for a
+persistent profile. After a successful `up`, the shared runner generates and
+enables one user-systemd unit bound to the exact profile, operator, workspace,
+and resolved source-repository paths. The unit contains no credentials and
+replays the existing shared `up` path after the operator's user-systemd session
+starts, allowing volatile runtime directories and declared host services to be
+reconciled after a host or WSL restart.
+
+This is login-scoped recovery, not pre-login availability or a governed
+stage/production availability claim. A successful `down` or `reset` disables
+and removes the generated unit. Failed lifecycle actions do not change the
+existing recovery registration.
+
 When a workspace-registered runtime composition is required, use the same
 shared lifecycle surface with `COMPOSITION` instead of `PROFILE`:
 

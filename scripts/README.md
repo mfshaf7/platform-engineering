@@ -14,6 +14,12 @@ These support shared platform operations:
     action such as `up`, `smoke`, or `promote-check` into a repo-owned profile
   - only launches profiles whose lifecycle is currently `active` in the
     workspace contract registry
+- `dev_integration_auto_resume.py`
+  - manages the optional profile-declared `operator-login` recovery policy
+  - generates one secret-free user-systemd unit that replays the normal shared
+    `up` path with the exact profile, operator, workspace, and source paths
+  - removes the unit after a successful `down` or `reset`; profiles remain
+    manual unless they explicitly opt in
 - `dev_integration_compositions.py`
   - validates and executes workspace-registered runtime compositions through
     the existing single-profile runner

@@ -35,7 +35,8 @@
 - Add `runtime.resume_policy` with a default of `manual` and an
   `operator-login` option restricted to persistent profiles.
 - Generate one secret-free user-systemd unit that replays the existing shared
-  `up` path with exact source paths.
+  `up` path with exact source paths and the command search path proven by the
+  successful manual launch.
 - Disable and remove the unit after a successful `down` or `reset`.
 - Add unit rendering, lifecycle, and profile-contract tests plus operator
   guidance.

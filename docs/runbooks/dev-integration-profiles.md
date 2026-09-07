@@ -239,10 +239,11 @@ runtime:
 `manual` is the default resume policy. `operator-login` is valid only for a
 persistent profile. After a successful `up`, the shared runner generates and
 enables one user-systemd unit bound to the exact profile, operator, workspace,
-and resolved source-repository paths. The unit contains no credentials and
-replays the existing shared `up` path after the operator's user-systemd session
-starts, allowing volatile runtime directories and declared host services to be
-reconciled after a host or WSL restart.
+resolved source-repository paths, and the command search path that passed the
+manual launch. The unit contains no credentials and replays the existing shared
+`up` path after the operator's user-systemd session starts, allowing volatile
+runtime directories and declared host services to be reconciled after a host
+or WSL restart even when required tools live outside systemd's default path.
 
 This is login-scoped recovery, not pre-login availability or a governed
 stage/production availability claim. A successful `down` or `reset` disables

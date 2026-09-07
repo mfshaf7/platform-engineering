@@ -53,6 +53,25 @@ def _systemd_path_value(path: Path) -> str:
     return rendered.replace("%", "%%")
 
 
+def _resolve_path_environment(value: str | None = None) -> str:
+    raw_value = value if value is not None else os.environ.get("PATH", "")
+    entries: list[str] = []
+    for entry in raw_value.split(os.pathsep):
+        if not entry or "\n" in entry or not Path(entry).is_absolute():
+            raise AutoResumeError(
+                "auto-resume-contract-invalid",
+                "auto-resume PATH entries must be absolute single-line paths",
+            )
+        if entry not in entries:
+            entries.append(entry)
+    if not entries:
+        raise AutoResumeError(
+            "auto-resume-runtime-unavailable",
+            "PATH is required for dev-integration auto-resume",
+        )
+    return os.pathsep.join(entries)
+
+
 def resolve_resume_policy(profile: dict) -> str:
     runtime = profile.get("runtime") or {}
     if not isinstance(runtime, dict):
@@ -83,6 +102,7 @@ def build_auto_resume_spec(
     repo_paths: dict[str, Path],
     workspace_root: Path,
     config_home: Path | None = None,
+    path_environment: str | None = None,
     python_executable: str | None = None,
 ) -> AutoResumeSpec:
     policy = resolve_resume_policy(profile)
@@ -113,6 +133,7 @@ def build_auto_resume_spec(
     for repo_name, repo_path in sorted(repo_paths.items()):
         command.extend(["--repo-path", f"{repo_name}={repo_path}"])
     exec_start = " ".join(_systemd_quote(value) for value in command)
+    environment_path = _resolve_path_environment(path_environment)
     unit_content = "\n".join(
         [
             "[Unit]",
@@ -122,6 +143,7 @@ def build_auto_resume_spec(
             "[Service]",
             "Type=oneshot",
             f"Environment={AUTO_RESUME_ENV}=1",
+            f"Environment={_systemd_quote('PATH=' + environment_path)}",
             f"WorkingDirectory={_systemd_path_value(platform_runner.parent.parent)}",
             f"ExecStart={exec_start}",
             "RemainAfterExit=yes",

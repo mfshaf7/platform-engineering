@@ -32,6 +32,7 @@ class DevIntegrationAutoResumeTest(unittest.TestCase):
             platform_runner=runner,
             profile=profile or self.profile(),
             profile_id="accepted-idea-delivery",
+            path_environment="/opt/node/bin:/usr/bin:/opt/node/bin",
             python_executable="/usr/bin/python3",
             repo_paths={
                 "operator-orchestration-service": workspace_root / "operator-orchestration-service",
@@ -61,6 +62,10 @@ class DevIntegrationAutoResumeTest(unittest.TestCase):
             "workspace-devint-accepted-idea-delivery-test-operator.service",
         )
         self.assertIn("Environment=DEVINT_AUTO_RESUME=1", spec.unit_content)
+        self.assertIn(
+            'Environment="PATH=/opt/node/bin:/usr/bin"',
+            spec.unit_content,
+        )
         self.assertIn("WorkingDirectory=/", spec.unit_content)
         self.assertNotIn('WorkingDirectory="', spec.unit_content)
         self.assertIn('"up" "--profile" "accepted-idea-delivery"', spec.unit_content)
@@ -70,6 +75,24 @@ class DevIntegrationAutoResumeTest(unittest.TestCase):
             spec.unit_content,
         )
         self.assertNotIn("SECRET", spec.unit_content)
+
+    def test_relative_path_entries_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-auto-resume-") as temp_dir:
+            with self.assertRaisesRegex(
+                AUTO_RESUME.AutoResumeError,
+                "PATH entries must be absolute",
+            ):
+                AUTO_RESUME.build_auto_resume_spec(
+                    config_home=Path(temp_dir) / "config",
+                    operator="test-operator",
+                    path_environment="relative/bin:/usr/bin",
+                    platform_runner=Path(temp_dir).resolve() / "dev_integration.py",
+                    profile=self.profile(),
+                    profile_id="test-profile",
+                    python_executable="/usr/bin/python3",
+                    repo_paths={},
+                    workspace_root=Path(temp_dir).resolve(),
+                )
 
     def test_enable_and_disable_manage_one_user_unit(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-auto-resume-") as temp_dir:

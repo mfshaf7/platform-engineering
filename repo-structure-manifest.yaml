@@ -16,9 +16,11 @@ shared_paths:
       - workspace_intake_identity.py
       - test_workspace_intake_identity.py
       - dev_integration.py
+      - dev_integration_auto_resume.py
       - dev_integration_compositions.py
       - dev_integration_host_services.py
       - test_dev_integration.py
+      - test_dev_integration_auto_resume.py
       - test_dev_integration_compositions.py
       - test_dev_integration_host_services.py
       - test_ai_model_profiles.py

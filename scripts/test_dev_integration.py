@@ -704,6 +704,97 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 if Path(f"/proc/{pid}/stat").exists():
                     os.killpg(pid, signal.SIGKILL)
 
+    def test_main_enables_declared_operator_login_recovery_after_up(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-runner-auto-resume-") as temp_dir:
+            workspace_root = Path(temp_dir) / "workspace"
+            owner_root = workspace_root / "owner-repo"
+            owner_root.mkdir(parents=True)
+            command_path = owner_root / "up.sh"
+            command_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            command_path.chmod(0o700)
+            profile_path = owner_root / "profile.yaml"
+            profile = {
+                "summary": "auto resume integration test",
+                "runtime": {
+                    "namespace_pattern": "devint-{profile}-{operator}",
+                    "resume_policy": "operator-login",
+                    "state_model": "persistent",
+                },
+                "source_repos": [{"repo": "owner-repo"}],
+                "stage_handoff": {"required_checks": []},
+                "commands": {"up": "up.sh"},
+            }
+            profile_path.write_text(
+                yaml.safe_dump(profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            resolved = (
+                {
+                    "lifecycle": "active",
+                    "owner_repo": "owner-repo",
+                    "runtime_owner": "platform-engineering",
+                    "security_owner": "security-architecture",
+                },
+                profile,
+                owner_root,
+                profile_path,
+                {"owner-repo": owner_root},
+                {
+                    "owner-repo": {
+                        "branch": "test",
+                        "dirty": False,
+                        "head_sha": "a" * 40,
+                        "path": str(owner_root),
+                        "upstream": None,
+                    }
+                },
+            )
+            projection = {
+                "policy": "operator-login",
+                "status": "enabled",
+                "enabled": True,
+                "installed": True,
+                "unit": "workspace-devint-test-profile-test-operator.service",
+                "unit_path": str(Path(temp_dir) / "unit.service"),
+            }
+
+            with (
+                patch.object(DEV_INTEGRATION, "resolve_profile", return_value=resolved),
+                patch.object(
+                    DEV_INTEGRATION.sys,
+                    "argv",
+                    [
+                        "dev_integration.py",
+                        "up",
+                        "--profile",
+                        "test-profile",
+                        "--operator",
+                        "test-operator",
+                        "--workspace-root",
+                        str(workspace_root),
+                    ],
+                ),
+                patch.object(
+                    DEV_INTEGRATION,
+                    "dispatch_command",
+                    side_effect=lambda _command, **kwargs: kwargs["publish_result"](0),
+                ),
+                patch.object(
+                    DEV_INTEGRATION,
+                    "enable_auto_resume",
+                    return_value=projection,
+                ) as enable_auto_resume,
+            ):
+                self.assertEqual(DEV_INTEGRATION.main(), 0)
+
+            enable_auto_resume.assert_called_once()
+            manifest_path = (
+                workspace_root
+                / ".dev-integration/test-profile/test-operator/current-session.yaml"
+            )
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["auto_resume"], projection)
+
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"

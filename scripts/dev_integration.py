@@ -19,6 +19,15 @@ from uuid import uuid4
 
 import yaml
 
+from dev_integration_auto_resume import (
+    AUTO_RESUME_ENV,
+    AutoResumeError,
+    build_auto_resume_spec,
+    disable_auto_resume,
+    enable_auto_resume,
+    inspect_auto_resume,
+    render_auto_resume_status,
+)
 from dev_integration_host_services import (
     HostServiceError,
     inspect_host_services,
@@ -823,6 +832,17 @@ def main() -> int:
             )
     paths = session_paths(workspace_root, args.profile, operator)
     namespace = compute_namespace(profile, args.profile, operator)
+    try:
+        auto_resume_spec = build_auto_resume_spec(
+            operator=operator,
+            platform_runner=Path(__file__).resolve(),
+            profile=profile,
+            profile_id=args.profile,
+            repo_paths=repo_paths,
+            workspace_root=workspace_root,
+        )
+    except AutoResumeError as exc:
+        raise SystemExit(f"{exc.code}: {exc}") from exc
 
     current_manifest_path = paths["current_manifest"]
     existing_manifest = load_yaml(current_manifest_path) if current_manifest_path.exists() else {}
@@ -917,6 +937,7 @@ def main() -> int:
     )
     lifecycle_error: HostServiceError | None = None
     host_service_projection: list[dict] = []
+    auto_resume_projection: dict = {}
     if command_key in {"down", "reset"}:
         try:
             host_service_projection = stop_host_services(
@@ -929,6 +950,7 @@ def main() -> int:
             raise SystemExit(1) from exc
 
     def publish_result(action_returncode: int) -> int:
+        nonlocal auto_resume_projection
         nonlocal host_service_projection, lifecycle_error
         final_returncode = action_returncode
         if command_key == "up":
@@ -988,6 +1010,34 @@ def main() -> int:
             and any(not projection["healthy"] for projection in host_service_projection)
         ):
             final_returncode = final_returncode or 1
+        try:
+            if final_returncode == 0 and command_key == "up":
+                if os.environ.get(AUTO_RESUME_ENV) == "1":
+                    auto_resume_projection = inspect_auto_resume(auto_resume_spec)
+                else:
+                    auto_resume_projection = enable_auto_resume(auto_resume_spec)
+            elif final_returncode == 0 and command_key in {"down", "reset"}:
+                auto_resume_projection = disable_auto_resume(auto_resume_spec)
+            else:
+                auto_resume_projection = inspect_auto_resume(auto_resume_spec)
+        except AutoResumeError as exc:
+            final_returncode = final_returncode or 1
+            print(f"{exc.code}: {exc}", file=sys.stderr)
+            auto_resume_projection = {
+                "policy": auto_resume_spec.policy,
+                "status": "error",
+                "enabled": False,
+                "installed": auto_resume_spec.unit_path.is_file(),
+                "unit": auto_resume_spec.unit_name,
+                "unit_path": str(auto_resume_spec.unit_path),
+                "error": {"code": exc.code, "message": str(exc)},
+            }
+        if (
+            auto_resume_spec.policy != "manual"
+            or auto_resume_projection.get("installed")
+        ):
+            render_auto_resume_status(auto_resume_projection)
+            manifest["auto_resume"] = auto_resume_projection
         manifest["host_services"] = host_service_projection
         if action_files is not None:
             assert archive_path is not None and result_path is not None

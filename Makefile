@@ -364,6 +364,7 @@ validate:
 	python3 scripts/test_workspace_intake_identity.py
 	python3 scripts/test_dev_integration.py
 	python3 scripts/test_dev_integration_compositions.py
+	python3 scripts/test_dev_integration_auto_resume.py
 	python3 products/openproject/catalog-control/test_validate_catalog_control.py
 	python3 scripts/test_dev_integration_host_services.py
 	python3 scripts/validate_governance_docs.py

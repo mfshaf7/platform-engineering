@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "proof_type": "prototype-landing-identity-activation",
+  "generated_at": "2026-09-07T13:58:10Z",
+  "scope": {
+    "art_work_item": "openproject://work_packages/1090",
+    "landing_unit": "delivery-892-prototype-landing-identity",
+    "lane": "dev-integration",
+    "profile_id": "accepted-idea-delivery",
+    "workflow_runtime_enabled": false,
+    "stage_or_prod_authorized": false
+  },
+  "source_repositories": {
+    "platform-engineering": "5a8076716ac384380cdf16d94be9301647b2a0ce",
+    "operator-orchestration-service": "90a0347e7f405c5abe37fd6975d84e04f7e52dbe",
+    "workspace-governance-control-fabric": "e19a18240a0ac1a5bbea8cceeaccbba4d544cd7b",
+    "workspace-prototype-studio": "2d18349ffab42bff052061e5adbc1d2c76d6210c",
+    "security-architecture": "484de62d69b5291d39a0e3d317862cdf44f77150"
+  },
+  "provider": {
+    "kind": "github-app-installation",
+    "app_id": 4861143,
+    "installation_id": 159774010,
+    "repository": "mfshaf7/workspace-prototype-studio",
+    "repository_id": 1231020532,
+    "repository_owner_id": 244414185,
+    "repository_selection": "selected",
+    "repository_count": 1,
+    "permissions": {
+      "checks": "read",
+      "contents": "write",
+      "metadata": "read",
+      "pull_requests": "write"
+    },
+    "events": [],
+    "ruleset_id": 22447647,
+    "ruleset_enforcement": "active"
+  },
+  "provider_enforcement": {
+    "proof_pull_request": "https://github.com/mfshaf7/workspace-prototype-studio/pull/8",
+    "proof_pull_request_state": "closed",
+    "direct_main_update_status": 403,
+    "merge_status": 403,
+    "repository_administration_write_status": 403,
+    "unrelated_repository_write_status": 403,
+    "canonical_main_unchanged": true,
+    "proof_branch_removed": true
+  },
+  "vault_custody": {
+    "path": "kv/components/operator-orchestration-service/dev-integration/prototype-landing",
+    "property": "privateKey",
+    "version": 2,
+    "exact_readback_verified": true,
+    "private_key_in_runtime": false
+  },
+  "runtime": {
+    "namespace": "devint-accepted-idea-delivery-mfshaf7",
+    "session_id": "accepted-idea-delivery-mfshaf7-20260907T085034Z",
+    "deployment": "operator-orchestration-service",
+    "ready_replicas": 1,
+    "available_replicas": 1,
+    "workflow_enabled_value": "false",
+    "token_mount_read_only": true,
+    "authority_mount_read_only": true,
+    "state_mount_persistent": true,
+    "client_side_secret_annotation_absent": true,
+    "credential_binding_digest": "sha256:341ea9822df4edf33783adddd7ce684b0c6bd2ba9dcf22f2e38eb1624307d3e0",
+    "runtime_binding_digest": "sha256:0482c655912be2d27d1d4130ac15668b4e75ab694acbb09448b2a0ecacb06553"
+  },
+  "receipts": {
+    "commission": "sha256:07a2bf8e0eb20e6b3c14f9c012a5365410126091782dc96979f3e0e44afa6e93",
+    "first_delivery": "sha256:62300731170bb2222643d5d63d1768314b9075aea42e1b988d72d40706b206be",
+    "revocation": "sha256:f36b4b1c952aaeac386142daa7316e9787bcb7ec3d3b45c71c0f708e68507560",
+    "replacement_delivery": "sha256:d7d2d33528905e5cd0d503b718245bc806bd332583a6a485951a903041a6e15f",
+    "secret_values_embedded": false
+  },
+  "rotation_and_rollback": {
+    "replacement_token_distinct": true,
+    "first_token_revoked": true,
+    "runtime_projection_removed": true,
+    "coordination_state_retained": true,
+    "replacement_projection_succeeded": true
+  },
+  "validation": {
+    "pull_request": "https://github.com/mfshaf7/platform-engineering/pull/235",
+    "exact_head": "5a8076716ac384380cdf16d94be9301647b2a0ce",
+    "validate": "passed",
+    "repo_posture": "passed",
+    "focused_identity_tests": "passed"
+  },
+  "outcome": {
+    "result": "accepted",
+    "accepted_scope": "bounded Prototype Landing identity projection in dev-integration",
+    "identity_projection_active": true,
+    "prototype_landing_workflow_active": false,
+    "secret_values_emitted": false
+  }
+}

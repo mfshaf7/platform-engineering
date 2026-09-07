@@ -20,6 +20,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [repository-provisioning-identity.md](repository-provisioning-identity.md)
 - [repository-lifecycle-identity.md](repository-lifecycle-identity.md)
 - [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
+- [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
 
 ## Current Live Footprint
 

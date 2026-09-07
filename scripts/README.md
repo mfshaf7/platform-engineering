@@ -66,10 +66,19 @@ These support shared platform operations:
     token for the admitted OOS dev-integration runtime
   - binds source revisions, caller, provider identity, runtime session, and
     rollback evidence in secret-free receipts
+- `prototype_landing_identity.py`
+  - commissions the exact-repository Prototype Landing GitHub App and projects
+    its rotating token, WGCF caller binding, read-only Studio authority, and
+    persistent coordination path into the admitted OOS profile
+  - keeps the workflow fail-closed until composed conformance removes the
+    source-owned runtime activation gates
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, and secret-free receipt behavior using a local fake
     provider and runtime
+- `test_prototype_landing_identity.py`
+  - proves exact Prototype Studio scope, bounded runtime projection, provider
+    mismatch denial, complete revocation, and secret-free receipts
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

@@ -67,14 +67,26 @@ logs, receipts, or ART evidence.
 
 ## Artifact And Deployment Evidence
 
-The value-free evidence artifact and finalized Review Packet will be linked
-here after the live commissioning sequence completes against the reviewed
-source head.
+The value-free commissioning proof is recorded in
+[Prototype Landing normal-availability evidence](../evidence/prototype-landing-normal-availability-2026-09-08.json).
+It binds the exact source heads, contract digest, provider ids, runtime binding,
+and receipt digests without carrying a private key, installation token, or WGCF
+caller secret.
 
 ## Live Verification
 
-Pending the bounded `dev-integration` commissioning sequence. No stage or
-production runtime is in scope.
+The Platform runner reconciled WGCF to merged image `sha-c099752` and the OOS
+profile to merged source `9e6e468`. Delivery then projected a fresh exact-
+repository token and enabled the OOS source gate. One ready and available OOS
+replica remained healthy after an explicit rollout restart, with its current
+session binding, read-only identity mount, and persistent state path retained.
+
+Repeated delivery issued a distinct replacement and revoked the prior token.
+Suspension set the workflow gate false while retaining the Secret and state.
+Revocation removed the Secret and all exact environment and mount bindings
+while retaining state. Final redelivery restored one ready replica with the
+gate true and the current reviewed WGCF binding. No stage or production runtime
+was changed.
 
 ## Rollback
 

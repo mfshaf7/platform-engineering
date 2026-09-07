@@ -366,6 +366,50 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         self.assertNotIn(self.state.token, revoke_receipt)
         self.assertNotIn(self.WGCF_SECRET, revoke_receipt)
 
+    def test_delivery_failure_removes_deployment_projection_before_secret(self) -> None:
+        with mock.patch.object(
+            module, "_runtime_inputs", return_value=self.runtime
+        ), mock.patch.object(
+            module, "runtime_binding_digest", return_value="sha256:" + "c" * 64
+        ), mock.patch.object(
+            module, "write_receipt", side_effect=OSError("receipt unavailable")
+        ):
+            self.assertEqual(
+                1,
+                module.main(
+                    [
+                        *self.identity_args("deliver"),
+                        *self.target_args(),
+                        "--wgcf-base-url",
+                        self.runtime.wgcf_base_url,
+                        "--wgcf-caller-secret-file",
+                        str(self.wgcf_secret_file),
+                    ]
+                ),
+            )
+
+        commands = self.commands.read_text().splitlines()
+        patch_indexes = [
+            index
+            for index, command in enumerate(commands)
+            if " patch deployment " in f" {command} "
+        ]
+        rollout_indexes = [
+            index
+            for index, command in enumerate(commands)
+            if " rollout status " in f" {command} "
+        ]
+        delete_index = next(
+            index
+            for index, command in enumerate(commands)
+            if "delete secret operator-orchestration-service-prototype-landing" in command
+        )
+        self.assertEqual(2, len(patch_indexes))
+        self.assertEqual(2, len(rollout_indexes))
+        self.assertLess(patch_indexes[-1], rollout_indexes[-1])
+        self.assertLess(rollout_indexes[-1], delete_index)
+        self.assertEqual(1, self.state.revocations)
+
 
 if __name__ == "__main__":
     unittest.main()

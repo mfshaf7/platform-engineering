@@ -506,6 +506,46 @@ def deployment_revoke_patch(contract: Contract) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def remove_runtime_projection(
+    kubectl: str, contract: Contract, target: DevIntegrationTarget
+) -> None:
+    run_kubectl(
+        kubectl,
+        [
+            "-n",
+            target.namespace,
+            "patch",
+            "deployment",
+            contract.broker_deployment,
+            "--type=strategic",
+            "-p",
+            deployment_revoke_patch(contract),
+        ],
+    )
+    run_kubectl(
+        kubectl,
+        [
+            "-n",
+            target.namespace,
+            "rollout",
+            "status",
+            f"deployment/{contract.broker_deployment}",
+            "--timeout=180s",
+        ],
+    )
+    run_kubectl(
+        kubectl,
+        [
+            "-n",
+            target.namespace,
+            "delete",
+            "secret",
+            contract.runtime_secret_name,
+            "--ignore-not-found",
+        ],
+    )
+
+
 def command_validate(args: argparse.Namespace) -> int:
     print(json.dumps({"valid": True, **validate_definition(args.contract)}, sort_keys=True))
     return 0
@@ -618,17 +658,7 @@ def command_deliver(args: argparse.Namespace) -> int:
         finally:
             if projected:
                 try:
-                    run_kubectl(
-                        args.kubectl,
-                        [
-                            "-n",
-                            target.namespace,
-                            "delete",
-                            "secret",
-                            contract.runtime_secret_name,
-                            "--ignore-not-found",
-                        ],
-                    )
+                    remove_runtime_projection(args.kubectl, contract, target)
                 except IdentityError:
                     pass
         raise
@@ -702,41 +732,7 @@ def command_revoke(args: argparse.Namespace) -> int:
         if "HTTP 401" not in str(exc) and "HTTP 404" not in str(exc):
             raise
         outcome = "already-revoked"
-    run_kubectl(
-        args.kubectl,
-        [
-            "-n",
-            target.namespace,
-            "patch",
-            "deployment",
-            contract.broker_deployment,
-            "--type=strategic",
-            "-p",
-            deployment_revoke_patch(contract),
-        ],
-    )
-    run_kubectl(
-        args.kubectl,
-        [
-            "-n",
-            target.namespace,
-            "rollout",
-            "status",
-            f"deployment/{contract.broker_deployment}",
-            "--timeout=180s",
-        ],
-    )
-    run_kubectl(
-        args.kubectl,
-        [
-            "-n",
-            target.namespace,
-            "delete",
-            "secret",
-            contract.runtime_secret_name,
-            "--ignore-not-found",
-        ],
-    )
+    remove_runtime_projection(args.kubectl, contract, target)
     write_receipt(
         args.receipt,
         receipt(

@@ -730,6 +730,16 @@ def command_deliver(args: argparse.Namespace) -> int:
                 "-n",
                 target.namespace,
                 "rollout",
+                "restart",
+                f"deployment/{contract.broker_deployment}",
+            ],
+        )
+        run_kubectl(
+            args.kubectl,
+            [
+                "-n",
+                target.namespace,
+                "rollout",
                 "status",
                 f"deployment/{contract.broker_deployment}",
                 "--timeout=180s",

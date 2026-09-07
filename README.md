@@ -207,7 +207,7 @@ product-neutral.
   - `make platform-drill ACTION=<plan|snapshot|status> PROFILE=temporal-component-commissioning-proof` (permit-gated source-reviewed path; see [Temporal operations](docs/components/temporal/operations.md))
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
   - `make workspace-intake-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"` operates the [Workspace Intake identity](docs/components/operator-orchestration-service/workspace-intake-identity.md)
-  - `make prototype-landing-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Landing identity](docs/components/operator-orchestration-service/prototype-landing-identity.md)
+  - `make prototype-landing-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Landing identity](docs/components/operator-orchestration-service/prototype-landing-identity.md)
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

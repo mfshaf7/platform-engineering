@@ -25,9 +25,10 @@ token. `deliver` repeats those checks and projects one short-lived token into
 the active `accepted-idea-delivery` session. It also projects the existing WGCF
 service-caller credential, a read-only Prototype Studio authority mount, and a
 persistent session-scoped coordination path. Repeating `deliver` replaces the
-projection and revokes the prior token. `suspend` blocks new requests while
-retaining the identity projection and coordination state. `revoke` invalidates
-the token and removes only those exact runtime bindings.
+projection, rolls the OOS deployment so the replacement Secret is mounted, and
+only then revokes the prior token. `suspend` blocks new requests while retaining
+the identity projection and coordination state. `revoke` invalidates the token
+and removes only those exact runtime bindings.
 
 Use `make prototype-landing-identity ACTION=<action> ARGS="..."`; command help
 lists the required source revisions, session manifest, caller, provider, WGCF,

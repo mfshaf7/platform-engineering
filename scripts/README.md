@@ -70,8 +70,9 @@ These support shared platform operations:
   - commissions the exact-repository Prototype Landing GitHub App and projects
     its rotating token, WGCF caller binding, read-only Studio authority, and
     persistent coordination path into the admitted OOS profile
-  - keeps the workflow fail-closed until composed conformance removes the
-    source-owned runtime activation gates
+  - activates the workflow after its Security, WGCF, and OOS source gates land,
+    forces replacement pods to mount each rotated token before revoking the
+    prior token, and supports explicit suspension or complete revocation
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, and secret-free receipt behavior using a local fake

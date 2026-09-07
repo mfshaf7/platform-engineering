@@ -45,9 +45,11 @@ to the Platform runtime as one recoverable composition.
 The existing Prototype Landing identity operator now reads the source-owned
 runtime gate from the validated contract, projects the exact reviewed WGCF and
 OOS bindings, rotates away a prior projected token during repeated delivery,
-and exposes a bounded `suspend` action. Suspension disables new requests without
-removing the identity, mounts, or persistent coordination state. Revocation
-removes the exact runtime projection and retains source and evidence.
+and exposes a bounded `suspend` action. Each delivery forces a replacement OOS
+pod to mount the new Secret before the prior token is revoked. Suspension
+disables new requests without removing the identity, mounts, or persistent
+coordination state. Revocation removes the exact runtime projection and retains
+source and evidence.
 
 ## Required Evidence
 

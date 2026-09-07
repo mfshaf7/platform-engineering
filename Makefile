@@ -243,12 +243,12 @@ environment-readiness:
 
 .PHONY: workspace-intake-identity
 workspace-intake-identity:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
 	python3 scripts/workspace_intake_identity.py $(ACTION) $(ARGS)
 
 .PHONY: prototype-landing-identity
 prototype-landing-identity:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/prototype_landing_identity.py $(ACTION) $(ARGS)
 
 .PHONY: repository-provider-identity

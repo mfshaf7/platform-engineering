@@ -339,6 +339,18 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
             "apply --server-side --field-manager=platform-prototype-landing -f -",
             self.commands.read_text(),
         )
+        commands = self.commands.read_text().splitlines()
+        restart_index = next(
+            index
+            for index, command in enumerate(commands)
+            if "rollout restart deployment/operator-orchestration-service" in command
+        )
+        status_index = next(
+            index
+            for index, command in enumerate(commands)
+            if "rollout status deployment/operator-orchestration-service" in command
+        )
+        self.assertLess(restart_index, status_index)
 
         secret = dict(manifest)
         secret["data"] = {
@@ -437,6 +449,12 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         rotated_manifest = yaml.safe_load(self.capture.read_text())
         self.assertEqual(
             self.state.token, rotated_manifest["stringData"]["installation-token"]
+        )
+        self.assertEqual(
+            2,
+            self.commands.read_text().count(
+                "rollout restart deployment/operator-orchestration-service"
+            ),
         )
         self.assertNotIn(
             first_token,

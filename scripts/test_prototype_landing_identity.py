@@ -277,6 +277,27 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         self.assertTrue(mounts["prototype-landing-identity"]["readOnly"])
         self.assertNotIn(self.WGCF_SECRET, json.dumps(patch))
 
+        revoke_patch = json.loads(module.deployment_revoke_patch(contract))
+        revoke_container = revoke_patch["spec"]["template"]["spec"]["containers"][0]
+        revoke_mounts = {
+            item["name"]: item for item in revoke_container["volumeMounts"]
+        }
+        self.assertEqual(
+            contract.runtime_directory,
+            revoke_mounts["prototype-landing-identity"]["mountPath"],
+        )
+        self.assertEqual(
+            contract.state_mount_path,
+            revoke_mounts["prototype-landing-state"]["mountPath"],
+        )
+        self.assertEqual(
+            contract.authority_mount_path,
+            revoke_mounts["prototype-landing-authority"]["mountPath"],
+        )
+        self.assertTrue(
+            all(item["$patch"] == "delete" for item in revoke_mounts.values())
+        )
+
     def test_delivery_and_revocation_bind_and_remove_projection(self) -> None:
         with mock.patch.object(module, "_runtime_inputs", return_value=self.runtime), mock.patch.object(
             module, "runtime_binding_digest", return_value="sha256:" + "c" * 64

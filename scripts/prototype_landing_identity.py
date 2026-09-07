@@ -469,6 +469,11 @@ def deployment_revoke_patch(contract: Contract) -> str:
         "prototype-landing-state",
         "prototype-landing-authority",
     ]
+    volume_mounts = [
+        ("prototype-landing-identity", contract.runtime_directory),
+        ("prototype-landing-state", contract.state_mount_path),
+        ("prototype-landing-authority", contract.authority_mount_path),
+    ]
     value = {
         "spec": {
             "template": {
@@ -481,8 +486,12 @@ def deployment_revoke_patch(contract: Contract) -> str:
                                 for name in env_names
                             ],
                             "volumeMounts": [
-                                {"name": name, "$patch": "delete"}
-                                for name in volume_names
+                                {
+                                    "name": name,
+                                    "mountPath": mount_path,
+                                    "$patch": "delete",
+                                }
+                                for name, mount_path in volume_mounts
                             ],
                         }
                     ],

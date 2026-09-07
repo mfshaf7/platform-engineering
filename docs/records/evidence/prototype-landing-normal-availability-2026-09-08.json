@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "proof_type": "prototype-landing-normal-availability",
+  "generated_at": "2026-09-07T22:42:31Z",
+  "scope": {
+    "art_work_item": "openproject://work_packages/1114",
+    "landing_unit": "delivery-892-prototype-landing-activation-platform",
+    "lane": "dev-integration",
+    "profile_id": "accepted-idea-delivery",
+    "workflow_runtime_enabled": true,
+    "stage_or_prod_authorized": false
+  },
+  "source_repositories": {
+    "platform-engineering": "5984a2346249a260fd94a1fa9f995acb915a96f7",
+    "operator-orchestration-service": "9e6e46835d36dfe206b23413a50bf69cd3d81de7",
+    "workspace-governance-control-fabric": "c099752592825e8988dca32a1a0e40c590cd9d66",
+    "workspace-prototype-studio": "2d18349ffab42bff052061e5adbc1d2c76d6210c",
+    "security-architecture": "7acfd9f86c24e8d454c7df8ee29abfbf2ad8ae20"
+  },
+  "provider": {
+    "kind": "github-app-installation",
+    "app_id": 4861143,
+    "installation_id": 159774010,
+    "repository": "mfshaf7/workspace-prototype-studio",
+    "repository_id": 1231020532,
+    "repository_owner_id": 244414185,
+    "repository_selection": "selected",
+    "repository_count": 1,
+    "permissions": {
+      "checks": "read",
+      "contents": "write",
+      "metadata": "read",
+      "pull_requests": "write"
+    },
+    "events": [],
+    "ruleset_id": 22447647,
+    "ruleset_enforcement": "active"
+  },
+  "source_contract": {
+    "definition_digest": "sha256:fbe696f59b1da9d1dcc31e675d64070fc108a4898d4a94bc7109495ec826ae3b",
+    "security_gate": "openproject://work_packages/1111",
+    "wgcf_implementation_ref": "c099752592825e8988dca32a1a0e40c590cd9d66",
+    "oos_implementation_ref": "9e6e46835d36dfe206b23413a50bf69cd3d81de7"
+  },
+  "runtime": {
+    "namespace": "devint-accepted-idea-delivery-mfshaf7",
+    "session_id": "accepted-idea-delivery-mfshaf7-20260907T222806Z",
+    "deployment": "operator-orchestration-service",
+    "ready_replicas": 1,
+    "available_replicas": 1,
+    "workflow_enabled_value": "true",
+    "token_mount_read_only": true,
+    "authority_mount_read_only": true,
+    "state_mount_persistent": true,
+    "client_side_secret_annotation_absent": true,
+    "credential_binding_digest": "sha256:c1db7693d0bd3261acc9ef12a2faf8f862feada0e98b6bbe5d48e657a7726343",
+    "runtime_binding_digest": "sha256:0edc294d3a989a5a44465cfa6c5a34b72b1b8fd41f7a3df5c0ae5f4dcecfceeb"
+  },
+  "receipts": {
+    "commission": "sha256:820a608425678d2de4111167e2ee928f8a5f0cd6df632e01e7d8c2169e919825",
+    "first_delivery": "sha256:b6df670998204571ba13047167367178fd4cfe142963ae3ce547e630ce5dc7df",
+    "rotation_delivery": "sha256:169d5c61f868a39ee2269bd93adb10381c7111f227b04b15ae78ec56628d7ce2",
+    "suspension": "sha256:0d21d7b3a205ac76d4028f0e9c0c65a364ab69241e71bf983a390a510f8baf74",
+    "revocation": "sha256:a7141ded62004cbb4369dcbbdccff7819b2322cd19ae1aef6d4a23a2622681ea",
+    "final_delivery": "sha256:68dea7cb3ec04c34e5267c7cb1b668690a4c81f369d84cbb6907e27d5ba95aee",
+    "secret_values_embedded": false
+  },
+  "restart_rotation_and_rollback": {
+    "runtime_ready_after_restart": true,
+    "session_binding_retained_after_restart": true,
+    "coordination_state_retained_after_restart": true,
+    "replacement_token_distinct": true,
+    "previous_token_revoked": true,
+    "suspension_disabled_new_requests": true,
+    "suspension_retained_projection": true,
+    "revocation_removed_projection": true,
+    "revocation_retained_coordination_state": true,
+    "final_redelivery_succeeded": true
+  },
+  "predecessor_reconciliation": {
+    "prior_projection_contract": "inactive",
+    "prior_token_expired": true,
+    "prior_binding_rejected_by_current_contract": true,
+    "exact_projection_removed_before_activation": true,
+    "coordination_state_retained": true
+  },
+  "validation": {
+    "repo_validate": "passed",
+    "focused_identity_tests": "passed",
+    "governance_docs": "passed",
+    "operational_docs": "passed",
+    "wgcf_runtime_image": "sha-c099752"
+  },
+  "outcome": {
+    "result": "accepted",
+    "accepted_scope": "bounded Prototype Landing runtime composition in dev-integration",
+    "identity_projection_active": true,
+    "prototype_landing_workflow_active": true,
+    "secret_values_emitted": false
+  }
+}

@@ -24,8 +24,11 @@ permissions, event set, and selected-repository token, then revokes the proof
 token. `deliver` repeats those checks and projects one short-lived token into
 the active `accepted-idea-delivery` session. It also projects the existing WGCF
 service-caller credential, a read-only Prototype Studio authority mount, and a
-persistent session-scoped coordination path. `revoke` invalidates the token and
-removes only those exact runtime bindings.
+persistent session-scoped coordination path. Repeating `deliver` replaces the
+projection, rolls the OOS deployment so the replacement Secret is mounted, and
+only then revokes the prior token. `suspend` blocks new requests while retaining
+the identity projection and coordination state. `revoke` invalidates the token
+and removes only those exact runtime bindings.
 
 Use `make prototype-landing-identity ACTION=<action> ARGS="..."`; command help
 lists the required source revisions, session manifest, caller, provider, WGCF,
@@ -62,10 +65,10 @@ revision clones for source preparation. Coordination state is stored under the
 active local profile session and survives pod restarts; revocation retains that
 state and all source/review evidence.
 
-This work activates only the identity projection. The OOS and WGCF Prototype
-Landing manifests remain fail-closed and `OOS_PROTOTYPE_LANDING_ENABLED` is
-forced to `false`. Console wiring and composed conformance must complete before
-normal workflow availability is enabled.
+The active source definition enables the OOS runtime gate only after Security
+#1111, WGCF #1112, and OOS #1113 have landed. Platform delivery projects those
+exact bindings together; a partial or mismatched contract fails closed. Console
+wiring and composed conformance remain separate downstream proof in #1115.
 
 ## Evidence And Recovery
 
@@ -74,15 +77,16 @@ installation ids, repository and owner ids, permissions, caller, profile,
 session, runtime binding, issue/expiry times, Security review, and rollback.
 They never contain credential values.
 
-Suspension stops new projection. Revocation invalidates the issued token,
-removes the OOS Secret, environment entries, and mounts, and retains source,
-reviews, coordination state, and receipts. Definition rollback restores prior
-reviewed Platform source; it does not delete a Prototype or rewrite Studio
-`main`.
+Suspension sets the OOS gate false and retains the current credential, mounts,
+state, reviews, and receipts so delivery can resume without reconstructing
+workflow state. Revocation invalidates the issued token, removes the OOS Secret,
+environment entries, and mounts, and retains source, reviews, coordination
+state, and receipts. Definition rollback restores prior reviewed Platform
+source; it does not delete a Prototype or rewrite Studio `main`.
 
 ## Delivery Sequence
 
-1. OOS source workflow #1088 and Security review #1089 are complete.
-2. Platform #1090 defines, commissions, projects, rotates, and revokes this identity.
-3. Console #1091 binds the browser projection to OOS without gaining source authority.
-4. Composed conformance #1092 enables the source-owned runtime gates and proves all positive and negative paths before normal availability.
+1. Security #1111 approves the bounded activation contract.
+2. WGCF #1112 and OOS #1113 land their source-owned gates and runtime bindings.
+3. Platform #1114 commissions the exact composition, enables the OOS gate, and proves restart, rotation, suspension, revocation, and recovery.
+4. Console and composed conformance #1115 prove operator-path availability without granting browser-side source authority.

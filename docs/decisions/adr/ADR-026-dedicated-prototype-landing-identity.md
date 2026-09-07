@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for local `dev-integration` identity projection. Workflow activation
-remains pending composed conformance.
+Accepted and active for local `dev-integration`. Composed Console conformance
+remains a separate downstream proof.
 
 ## Context
 
@@ -20,9 +20,10 @@ private key, short-lived token delivery, rotation, revocation, runtime mounts,
 and value-free receipts. OOS owns branch and path enforcement and cannot merge.
 GitHub rules protect `main` from App updates or bypass.
 
-Identity projection and workflow activation are separate. #1090 may project
-the credential and runtime dependencies while forcing the workflow disabled.
-Normal availability requires the later Console and composed conformance gates.
+Identity projection and workflow activation remain separate controls. Platform
+#1114 may enable the OOS source-owned gate only with the exact Security #1111,
+WGCF #1112, and OOS #1113 bindings. Console authority and composed conformance
+remain outside that Platform activation.
 
 ## Consequences
 

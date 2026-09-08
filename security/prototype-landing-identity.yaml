@@ -96,7 +96,7 @@ consumer:
   wgcf_caller_id: operator-orchestration-service
   wgcf_caller_secret_env: WGCF_PROTOTYPE_LANDING_CALLER_SECRET
   wgcf_implementation_ref_env: WGCF_PROTOTYPE_LANDING_IMPLEMENTATION_REF
-  wgcf_implementation_ref: c099752592825e8988dca32a1a0e40c590cd9d66
+  wgcf_implementation_ref: bf37a247162414edf9aa047dfabd0327d2d3d513
   wgcf_service_identity_ref_env: WGCF_PROTOTYPE_LANDING_SERVICE_IDENTITY_REF
   wgcf_service_identity_ref: service-identity://workspace-governance-control-fabric/dev-integration
 activation:

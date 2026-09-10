@@ -21,7 +21,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [repository-lifecycle-identity.md](repository-lifecycle-identity.md)
 - [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
 - [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
-- [prototype-maturity-identity.md](prototype-maturity-identity.md) - separate inactive identity definition for candidate and baseline source transitions
+- [prototype-maturity-identity.md](prototype-maturity-identity.md) - bounded active `dev-integration` identity and projection procedure for candidate and baseline source transitions
 
 ## Current Live Footprint
 
@@ -29,3 +29,4 @@ adapter behind OOS; it is not part of the current live footprint.
 - Argo application: `operator-orchestration-service`
 - direct operator UI: none
 - Temporal runtime binding: none
+- local `dev-integration`: Prototype Maturity is active only in the operator-scoped `accepted-idea-delivery` and `governance-control-fabric` sessions; stage and production remain unauthorized

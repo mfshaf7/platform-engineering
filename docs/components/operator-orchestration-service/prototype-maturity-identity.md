@@ -7,22 +7,33 @@ Its only repository is `mfshaf7/workspace-prototype-studio`, immutable id
 `1231020532`, owned by user id `244414185`. It is separate from Prototype
 Landing even though both target the same repository.
 
-The definition is **selected, not active**. No App or installation id has been
-assigned, no credential has been issued, and the workflow gate remains off.
-The authoritative definition is
+The definition authorizes a dedicated `dev-integration` projection after the
+exact Security, WGCF, and OOS activation revisions are present. Platform may
+commission, deliver, rotate, suspend, and revoke only this identity. The
+authoritative definition is
 [prototype-maturity-identity.yaml](../../../security/prototype-maturity-identity.yaml).
 
 ## Primary Operator Path
 
 ```bash
 make prototype-maturity-identity ACTION=validate
-python3 scripts/test_prototype_maturity_identity.py
+make prototype-maturity-identity ACTION=commission ARGS="<identity arguments>"
+make prototype-maturity-identity ACTION=deliver ARGS="<identity and runtime arguments>"
+make prototype-maturity-identity ACTION=suspend ARGS="<identity and runtime arguments>"
+make prototype-maturity-identity ACTION=revoke ARGS="<identity, runtime, and rollback arguments>"
 ```
 
-Validation is read-only and reports the exact definition digest. There is no
-commission, delivery, suspension, or revocation command in source-definition
-work #1128. Platform commissioning #1131 adds those operations only after
-Security #1125, WGCF #1129, and OOS #1130 have landed.
+`validate` is read-only. `commission` verifies the exact selected-repository
+installation and revokes its proof token. `deliver` projects one rotating
+installation token and one dedicated WGCF caller secret into the admitted OOS
+profile, enables the dedicated WGCF readiness gate first, mounts Prototype
+Studio read-only, retains a separate persistent state path, and restarts the
+broker before revoking the prior token. `suspend` disables OOS admission before
+disabling WGCF readiness without deleting state. `revoke` removes the OOS
+projection before removing the WGCF gate and retains source, history, and
+evidence. All three runtime actions require the exact admitted WGCF service URL;
+they do not alter Prototype Landing or remove the shared OOS runtime-profile
+configuration.
 
 ## Security Authority
 
@@ -33,8 +44,10 @@ normal availability. Its machine-identity, custody, and recovery controls apply
 the revision-pinned [Identity and Access](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/identity-and-access.md),
 [Secrets and Recovery](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/secrets-and-recovery.md),
 and [GitOps and Machine Trust](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/architecture/domains/gitops-and-machine-trust.md)
-requirements. Final Security decision #1125 must review this exact definition
-and the composed conformance evidence before activation.
+requirements. Final Security decision
+[`#1125`](https://github.com/mfshaf7/security-architecture/blob/087118a5f79034684f0ca895a85cb735d1298627/docs/reviews/components/2026-09-10-prototype-maturity-normal-availability.md)
+approved bounded activation with findings. The Platform operator fail-closes
+unless the exact merged WGCF, OOS, and Security revisions are supplied.
 
 ## Least Privilege
 
@@ -56,21 +69,22 @@ push and branch deletion.
 
 ## Custody And Evidence
 
-The future private key belongs in the dedicated Platform Vault path declared by
+The private key belongs in the dedicated Platform Vault path declared by
 the contract. OOS may receive only a rotating installation token through a
 read-only Secret directory and a separate WGCF caller binding. Private keys,
 tokens, caller secrets, and authorization headers must not enter source, logs,
 receipts, ART evidence, or Console projections.
 
-Commissioning must bind exact source revisions, provider ids, permissions,
+Commissioning binds exact source revisions, provider ids, permissions,
 runtime profile and session, Security approval, WGCF and OOS implementations,
 restart survival, rotation, suspension, revocation, rollback, and value-free
-receipts. Filesystem validation in this work proves only the inactive contract.
+receipts. The shared mechanism lives in `prototype_workflow_identity.py`; the
+Landing and Maturity commands remain separate contract-specific entrypoints.
 
 ## Owner Sequence
 
-1. #1128 defines and validates the inactive identity.
-2. #1125 accepts or rejects the exact identity and conformance revisions.
-3. #1129 and #1130 activate WGCF readiness and OOS orchestration independently.
+1. #1128 defined and validated the inactive identity.
+2. #1125 approved the exact identity and conformance revisions with findings.
+3. #1129 and #1130 activated WGCF readiness and OOS orchestration independently.
 4. #1131 commissions the runtime identity and proves recovery and revocation.
 5. #1132 proves the normal Console path before Prototype closure begins.

@@ -15,6 +15,7 @@ shared_paths:
       - test_repository_lifecycle_identity.py
       - workspace_intake_identity.py
       - test_workspace_intake_identity.py
+      - prototype_workflow_identity.py
       - prototype_landing_identity.py
       - test_prototype_landing_identity.py
       - prototype_maturity_identity.py

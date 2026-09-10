@@ -43,7 +43,7 @@ help:
 	@printf "  repository-lifecycle-identity Validate, commission, deliver, or revoke the repository-lifecycle GitHub App identity\n"
 	@printf "  workspace-intake-identity Validate, commission, deliver, or revoke the Workspace Intake Git identity\n"
 	@printf "  prototype-landing-identity Validate, commission, deliver, suspend, or revoke the Prototype Landing Git identity\n"
-	@printf "  prototype-maturity-identity Validate the inactive Prototype Maturity Git identity\n"
+	@printf "  prototype-maturity-identity Validate, commission, deliver, suspend, or revoke the Prototype Maturity Git identity\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -254,7 +254,7 @@ prototype-landing-identity:
 
 .PHONY: prototype-maturity-identity
 prototype-maturity-identity:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/prototype_maturity_identity.py $(ACTION) $(ARGS)
 
 .PHONY: repository-provider-identity

@@ -68,6 +68,7 @@ class ProviderRepository:
 @dataclass(frozen=True)
 class DevIntegrationTarget:
     profile_id: str
+    operator: str
     session_id: str
     namespace: str
     cluster_server: str
@@ -434,6 +435,7 @@ def load_dev_integration_target(
         raise IdentityError("dev-integration session namespace does not match the active profile")
     return DevIntegrationTarget(
         profile_id=profile_id,
+        operator=operator,
         session_id=session_id,
         namespace=namespace,
         cluster_server="",
@@ -705,6 +707,7 @@ def verify_dev_integration_cluster(
         raise IdentityError("dev-integration namespace is not active")
     return DevIntegrationTarget(
         profile_id=target.profile_id,
+        operator=target.operator,
         session_id=target.session_id,
         namespace=target.namespace,
         cluster_server=server,

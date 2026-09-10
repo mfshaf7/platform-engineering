@@ -39,6 +39,13 @@ security_authority:
       - docs/standards/secrets-and-recovery.md
       - docs/architecture/domains/gitops-and-machine-trust.md
   final_normal_availability_gate: openproject://work_packages/1125
+  normal_availability_review:
+    ref: openproject://work_packages/1125
+    repository: security-architecture
+    revision: 087118a5f79034684f0ca895a85cb735d1298627
+    path: docs/reviews/components/2026-09-10-prototype-maturity-normal-availability.md
+    content_sha256: e0923786d5e19f7843ec4a8941fc007c701dec55e7b3d523695d2049923665da
+    decision: approved-with-findings
 source_boundary:
   allowed_branch_pattern: '^prototype-maturity/[0-9a-f]{64}$'
   allowed_write_paths:
@@ -110,14 +117,19 @@ consumer:
   wgcf_caller_id: operator-orchestration-service
   wgcf_caller_secret_env: WGCF_PROTOTYPE_MATURITY_CALLER_SECRET
   wgcf_implementation_ref_env: WGCF_PROTOTYPE_MATURITY_IMPLEMENTATION_REF
-  wgcf_implementation_ref: 145e5e28c6933d0cd40fc45a0d01401c3e7af9aa
+  wgcf_implementation_ref: 4136e643dc05b0df02cf860c3cbd3052fae8df55
   wgcf_service_identity_ref_env: WGCF_PROTOTYPE_MATURITY_SERVICE_IDENTITY_REF
   wgcf_service_identity_ref: service-identity://workspace-governance-control-fabric/dev-integration
+readiness_runtime:
+  deployment: workspace-governance-control-fabric-api
+  container: api
+  enabled_env: WGCF_PROTOTYPE_MATURITY_READINESS_ENABLED
+  service_identity_env: WGCF_PROTOTYPE_MATURITY_SERVICE_IDENTITY_REF
 activation:
   authority_work_item: openproject://work_packages/1131
   security_gate: openproject://work_packages/1125
   source_authority_minimum_revision: 31a73628b0bfd5af1133bc3b633921a18e6e3941
-  orchestration_minimum_revision: f19d762a3cee52c7ee3185a0ba0014cc661a6177
+  orchestration_minimum_revision: 6e47866e041cd62406ef2d646ced846b1cb0a5a4
   required_evidence:
     - exact-definition-digest-and-source-heads
     - exact-app-installation-and-repository-ids
@@ -130,7 +142,7 @@ activation:
     - suspension-revocation-and-rollback
     - secret-free-owner-receipt
   definition_is_activation: false
-  workflow_runtime_enabled: false
+  workflow_runtime_enabled: true
 audit:
   receipt_fields:
     - definition_digest

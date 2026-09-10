@@ -26,6 +26,13 @@ Definition, Security approval, WGCF activation, OOS activation, Platform
 commissioning, and Console operating proof remain independent controls. This
 decision defines authority but does not activate it.
 
+The controlling Security inputs are the accepted-with-findings
+[Prototype Maturity Trust-Boundary Review](https://github.com/mfshaf7/security-architecture/blob/61c96e53cf87491e8d42ba076fa241844b5132e5/docs/reviews/components/2026-09-09-prototype-maturity-trust-boundary.md),
+the [Identity and Access](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/identity-and-access.md)
+and [Secrets and Recovery](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/secrets-and-recovery.md)
+standards, and the [GitOps and Machine Trust](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/architecture/domains/gitops-and-machine-trust.md)
+domain. ART #1125 remains the final normal-availability gate.
+
 ## Consequences
 
 - Landing and Maturity can be suspended, revoked, and rolled back separately.

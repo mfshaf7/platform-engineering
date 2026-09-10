@@ -21,6 +21,13 @@ Studio owns canonical maturity state. WGCF owns readiness. Security #1125 owns
 the normal-availability decision. Related decision:
 [ADR-027](../../decisions/adr/ADR-027-dedicated-prototype-maturity-identity.md).
 
+The concrete Security authority is the accepted-with-findings
+[Prototype Maturity Trust-Boundary Review](https://github.com/mfshaf7/security-architecture/blob/61c96e53cf87491e8d42ba076fa241844b5132e5/docs/reviews/components/2026-09-09-prototype-maturity-trust-boundary.md).
+The definition also pins the applicable Identity and Access, Secrets and
+Recovery, and GitOps and Machine Trust sources at Security Architecture
+revision `2814c54542e020913af37c5805f953ec18864e05`. This prior review permits
+inactive implementation only; it does not replace final gate #1125.
+
 ## Root Cause
 
 Prototype Maturity source and conformance work is complete, but its normal path

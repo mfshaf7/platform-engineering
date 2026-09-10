@@ -24,6 +24,21 @@ selection:
   app_id: null
   installation_id: null
   runtime_enabled: false
+security_authority:
+  review:
+    ref: openproject://work_packages/1098
+    repository: security-architecture
+    revision: 61c96e53cf87491e8d42ba076fa241844b5132e5
+    path: docs/reviews/components/2026-09-09-prototype-maturity-trust-boundary.md
+    decision: approved-with-findings
+  standards:
+    repository: security-architecture
+    revision: 2814c54542e020913af37c5805f953ec18864e05
+    paths:
+      - docs/standards/identity-and-access.md
+      - docs/standards/secrets-and-recovery.md
+      - docs/architecture/domains/gitops-and-machine-trust.md
+  final_normal_availability_gate: openproject://work_packages/1125
 source_boundary:
   allowed_branch_pattern: '^prototype-maturity/[0-9a-f]{64}$'
   allowed_write_paths:

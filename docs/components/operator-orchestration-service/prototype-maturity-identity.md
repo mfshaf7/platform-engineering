@@ -24,6 +24,18 @@ commission, delivery, suspension, or revocation command in source-definition
 work #1128. Platform commissioning #1131 adds those operations only after
 Security #1125, WGCF #1129, and OOS #1130 have landed.
 
+## Security Authority
+
+The inactive definition is bound to Security Architecture review
+[`#1098`](https://github.com/mfshaf7/security-architecture/blob/61c96e53cf87491e8d42ba076fa241844b5132e5/docs/reviews/components/2026-09-09-prototype-maturity-trust-boundary.md),
+which accepted the implementation foundation with findings but did not approve
+normal availability. Its machine-identity, custody, and recovery controls apply
+the revision-pinned [Identity and Access](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/identity-and-access.md),
+[Secrets and Recovery](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/standards/secrets-and-recovery.md),
+and [GitOps and Machine Trust](https://github.com/mfshaf7/security-architecture/blob/2814c54542e020913af37c5805f953ec18864e05/docs/architecture/domains/gitops-and-machine-trust.md)
+requirements. Final Security decision #1125 must review this exact definition
+and the composed conformance evidence before activation.
+
 ## Least Privilege
 
 The App uses Metadata read, Contents write, Pull requests write, and Checks

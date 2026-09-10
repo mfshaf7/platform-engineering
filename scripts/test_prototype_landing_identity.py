@@ -308,8 +308,8 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
         )
 
     def test_delivery_and_revocation_bind_and_remove_projection(self) -> None:
-        with mock.patch.object(module, "_runtime_inputs", return_value=self.runtime), mock.patch.object(
-            module, "runtime_binding_digest", return_value="sha256:" + "c" * 64
+        with mock.patch.object(module.workflow, "_runtime_inputs", return_value=self.runtime), mock.patch.object(
+            module.workflow, "runtime_binding_digest", return_value="sha256:" + "c" * 64
         ):
             self.assertEqual(
                 0,
@@ -423,9 +423,9 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
             str(self.wgcf_secret_file),
         ]
         with mock.patch.object(
-            module, "_runtime_inputs", return_value=self.runtime
+            module.workflow, "_runtime_inputs", return_value=self.runtime
         ), mock.patch.object(
-            module, "runtime_binding_digest", return_value="sha256:" + "c" * 64
+            module.workflow, "runtime_binding_digest", return_value="sha256:" + "c" * 64
         ):
             self.assertEqual(0, module.main(delivery_args))
             first_manifest = yaml.safe_load(self.capture.read_text())
@@ -463,11 +463,11 @@ class PrototypeLandingIdentityTests(unittest.TestCase):
 
     def test_delivery_failure_removes_deployment_projection_before_secret(self) -> None:
         with mock.patch.object(
-            module, "_runtime_inputs", return_value=self.runtime
+            module.workflow, "_runtime_inputs", return_value=self.runtime
         ), mock.patch.object(
-            module, "runtime_binding_digest", return_value="sha256:" + "c" * 64
+            module.workflow, "runtime_binding_digest", return_value="sha256:" + "c" * 64
         ), mock.patch.object(
-            module, "write_receipt", side_effect=OSError("receipt unavailable")
+            module.workflow, "write_receipt", side_effect=OSError("receipt unavailable")
         ):
             self.assertEqual(
                 1,

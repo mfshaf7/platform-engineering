@@ -73,10 +73,17 @@ These support shared platform operations:
   - activates the workflow after its Security, WGCF, and OOS source gates land,
     forces replacement pods to mount each rotated token before revoking the
     prior token, and supports explicit suspension or complete revocation
+- `prototype_workflow_identity.py`
+  - owns the shared exact-repository commissioning, rotating projection,
+    suspension, revocation, receipt, and rollback mechanism used by the
+    independently governed Landing and Maturity entrypoints
 - `prototype_maturity_identity.py`
-  - validates the selected, inactive Prototype Maturity identity, exact source
-    branch and path boundary, separate custody path, and disabled runtime gate
-  - commissioning and runtime projection remain deferred to ART #1131
+  - commissions the exact-repository Prototype Maturity GitHub App and projects
+    only its dedicated token, WGCF binding, source authority, and persistent
+    state into the admitted OOS profile
+  - enables WGCF readiness before OOS admission, reverses that order for
+    suspension and revocation, enforces exact Security, WGCF, and OOS activation
+    revisions, and leaves Prototype Landing and shared OOS profile state intact
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, and secret-free receipt behavior using a local fake
@@ -86,7 +93,8 @@ These support shared platform operations:
     mismatch denial, complete revocation, and secret-free receipts
 - `test_prototype_maturity_identity.py`
   - proves exact Maturity-only source scope, Landing identity separation,
-    inactive posture, negative configuration cases, and secret-safe rejection
+    activation revision binding, projection/rollback shape, negative
+    configuration cases, and secret-safe rejection
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

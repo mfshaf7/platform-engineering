@@ -1,0 +1,149 @@
+schema_version: 1
+identity:
+  id: prototype-maturity-github-app-v1
+  provider: github
+  credential_kind: github-app-installation
+  api_base_url: https://api.github.com
+  repository:
+    full_name: mfshaf7/workspace-prototype-studio
+    id: 1231020532
+    owner_id: 244414185
+    owner_type: User
+  repository_selection: selected
+  maximum_repository_count: 1
+  required_permissions:
+    metadata: read
+    contents: write
+    pull_requests: write
+    checks: read
+  maximum_token_lifetime_seconds: 3600
+  rotate_before_expiry_seconds: 900
+  events: []
+selection:
+  state: selected-not-active
+  app_id: null
+  installation_id: null
+  runtime_enabled: false
+source_boundary:
+  allowed_branch_pattern: '^prototype-maturity/[0-9a-f]{64}$'
+  allowed_write_paths:
+    - prototypes.yaml
+    - records/prototype-maturity/**
+    - records/design-baselines/**
+  canonical_branch: main
+  merge_authority: human-reviewer
+  provider_enforcement_required:
+    - restrict-main-updates-to-human-actors
+    - prototype-maturity-app-has-no-bypass
+    - require-exact-head-review
+    - dismiss-stale-approvals
+    - require-trusted-owner-validation
+    - deny-force-push-and-deletion
+  denied_actions:
+    - merge
+    - direct-main-write
+    - force-push
+    - repository-create
+    - repository-delete
+    - repository-administration
+    - secret-access
+    - unrelated-repository-access
+    - wildcard-repository-selection
+    - prototype-landing-write
+    - prototype-closure-write
+    - referenced-source-mutation
+    - personal-token
+    - ambient-gh-credentials
+secret_custody:
+  authority: platform-engineering
+  private_key_source:
+    backend: vault
+    path: components/operator-orchestration-service/dev-integration/prototype-maturity
+    property: privateKey
+  runtime_projection:
+    kind: kubernetes-secret-volume
+    name: operator-orchestration-service-prototype-maturity
+    token_key: installation-token
+    wgcf_caller_secret_key: wgcf-caller-secret
+    directory: /var/run/oos/prototype-maturity
+    token_filename: installation-token
+    mount_read_only: true
+    sub_path_allowed: false
+  values_in_source: false
+  values_in_receipts: false
+  values_in_logs: false
+  private_key_in_oos: false
+consumer:
+  component: operator-orchestration-service
+  runtime_lane: dev-integration
+  allowed_profiles:
+    - accepted-idea-delivery
+  broker_deployment: operator-orchestration-service
+  runtime_profile: dev-integration
+  token_file_env: OOS_PROTOTYPE_MATURITY_TOKEN_FILE
+  repository_owner_env: OOS_PROTOTYPE_MATURITY_GITHUB_OWNER
+  repository_id_env: OOS_PROTOTYPE_MATURITY_GITHUB_REPOSITORY_ID
+  state_root_env: OOS_PROTOTYPE_MATURITY_STATE_ROOT
+  state_mount_path: /var/lib/oos/prototype-maturity/state
+  authority_root_env: OOS_PROTOTYPE_MATURITY_AUTHORITY_ROOT
+  authority_mount_path: /var/lib/oos/prototype-maturity/authority
+  python_env: OOS_PROTOTYPE_MATURITY_PYTHON
+  python_command: python3
+  runtime_profile_env: OOS_RUNTIME_PROFILE
+  wgcf_base_url_env: WGCF_PROTOTYPE_MATURITY_BASE_URL
+  wgcf_caller_id_env: WGCF_PROTOTYPE_MATURITY_CALLER_ID
+  wgcf_caller_id: operator-orchestration-service
+  wgcf_caller_secret_env: WGCF_PROTOTYPE_MATURITY_CALLER_SECRET
+  wgcf_implementation_ref_env: WGCF_PROTOTYPE_MATURITY_IMPLEMENTATION_REF
+  wgcf_implementation_ref: 145e5e28c6933d0cd40fc45a0d01401c3e7af9aa
+  wgcf_service_identity_ref_env: WGCF_PROTOTYPE_MATURITY_SERVICE_IDENTITY_REF
+  wgcf_service_identity_ref: service-identity://workspace-governance-control-fabric/dev-integration
+activation:
+  authority_work_item: openproject://work_packages/1131
+  security_gate: openproject://work_packages/1125
+  source_authority_minimum_revision: 31a73628b0bfd5af1133bc3b633921a18e6e3941
+  orchestration_minimum_revision: f19d762a3cee52c7ee3185a0ba0014cc661a6177
+  required_evidence:
+    - exact-definition-digest-and-source-heads
+    - exact-app-installation-and-repository-ids
+    - provider-enforced-main-and-merge-denial
+    - exact-permissions-and-no-bypass
+    - authenticated-oos-profile-session-projection
+    - read-only-source-and-persistent-state-mounts
+    - short-lived-token-projection-and-rotation
+    - landing-identity-separation
+    - suspension-revocation-and-rollback
+    - secret-free-owner-receipt
+  definition_is_activation: false
+  workflow_runtime_enabled: false
+audit:
+  receipt_fields:
+    - definition_digest
+    - source_revisions
+    - app_id
+    - installation_id
+    - repository_id
+    - repository_owner_id
+    - permissions
+    - caller_id
+    - profile_id
+    - session_ref
+    - execution_ref
+    - action
+    - outcome
+    - issued_at
+    - expires_at
+    - recorded_at
+    - security_receipt_ref
+    - rollback_receipt_ref
+  receipt_contains_secret_values: false
+rollback:
+  suspend_new_requests: true
+  revoke_issued_token: true
+  remove_runtime_projection: true
+  retain_workflow_and_review_evidence: true
+  retain_canonical_git_history: true
+  preserve_prototype_landing_identity: true
+  delete_prototype: false
+  delete_repository: false
+  rewrite_main: false

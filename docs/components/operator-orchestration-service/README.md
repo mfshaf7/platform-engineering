@@ -21,6 +21,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [repository-lifecycle-identity.md](repository-lifecycle-identity.md)
 - [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
 - [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
+- [prototype-maturity-identity.md](prototype-maturity-identity.md) - separate inactive identity definition for candidate and baseline source transitions
 
 ## Current Live Footprint
 

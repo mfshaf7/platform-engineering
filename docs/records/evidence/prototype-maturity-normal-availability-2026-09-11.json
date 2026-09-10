@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "proof_type": "prototype-maturity-normal-availability",
+  "generated_at": "2026-09-10T19:47:15Z",
+  "scope": {
+    "art_work_item": "openproject://work_packages/1131",
+    "landing_unit": "delivery-892-prototype-maturity-activation-platform",
+    "lane": "dev-integration",
+    "profile_id": "accepted-idea-delivery",
+    "workflow_runtime_enabled": true,
+    "stage_or_prod_authorized": false
+  },
+  "source_repositories": {
+    "platform-engineering": "b4ed5b53a45afd034327bd3b85ae00b72870d42b",
+    "operator-orchestration-service": "6e47866e041cd62406ef2d646ced846b1cb0a5a4",
+    "workspace-governance-control-fabric": "4136e643dc05b0df02cf860c3cbd3052fae8df55",
+    "workspace-prototype-studio": "31a73628b0bfd5af1133bc3b633921a18e6e3941",
+    "security-architecture": "087118a5f79034684f0ca895a85cb735d1298627"
+  },
+  "provider": {
+    "kind": "github-app-installation",
+    "app_id": 4901171,
+    "app_slug": "mfshaf7-prototype-maturity",
+    "installation_id": 160690261,
+    "repository": "mfshaf7/workspace-prototype-studio",
+    "repository_id": 1231020532,
+    "repository_owner_id": 244414185,
+    "repository_selection": "selected",
+    "repository_count": 1,
+    "permissions": {
+      "checks": "read",
+      "contents": "write",
+      "metadata": "read",
+      "pull_requests": "write"
+    },
+    "events": [],
+    "ruleset_id": 22447647,
+    "ruleset_enforcement": "active",
+    "app_bypass_actor_present": false,
+    "human_pull_request_approval_required": true,
+    "stale_approvals_dismissed": true,
+    "last_push_approval_required": true,
+    "trusted_validation_context": "validate",
+    "trusted_validation_integration_id": 15368,
+    "force_push_and_deletion_denied": true
+  },
+  "source_contract": {
+    "definition_digest": "sha256:34ddaf96793f9305f2018df3dd9b5f9924cffecb9e854df25d56596e606c8875",
+    "security_gate": "openproject://work_packages/1125",
+    "wgcf_implementation_ref": "4136e643dc05b0df02cf860c3cbd3052fae8df55",
+    "oos_implementation_ref": "6e47866e041cd62406ef2d646ced846b1cb0a5a4",
+    "prototype_source_ref": "31a73628b0bfd5af1133bc3b633921a18e6e3941"
+  },
+  "secret_custody": {
+    "authority": "platform-engineering",
+    "backend": "vault",
+    "path": "kv/components/operator-orchestration-service/dev-integration/prototype-maturity",
+    "version": 2,
+    "private_key_projected_to_oos": false,
+    "runtime_secret_read_only": true,
+    "secret_values_in_source_or_evidence": false
+  },
+  "runtime": {
+    "oos_namespace": "devint-accepted-idea-delivery-mfshaf7",
+    "oos_session_id": "accepted-idea-delivery-mfshaf7-20260910T191422Z",
+    "oos_deployment": "operator-orchestration-service",
+    "oos_image": "ghcr.io/mfshaf7/operator-orchestration-service@sha256:bdfb6055416a5f3d2e71b8a3aca385be2ada99184a98b98cb7f1db20c4e05a2f",
+    "oos_ready_replicas": 1,
+    "oos_available_replicas": 1,
+    "oos_workflow_enabled_value": "true",
+    "wgcf_namespace": "devint-governance-control-fabric-mfshaf7",
+    "wgcf_deployment": "workspace-governance-control-fabric-api",
+    "wgcf_container": "api",
+    "wgcf_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4136e64",
+    "wgcf_ready_replicas": 1,
+    "wgcf_available_replicas": 1,
+    "wgcf_readiness_enabled_value": "true",
+    "wgcf_service_identity_ref": "service-identity://workspace-governance-control-fabric/dev-integration",
+    "token_mount_read_only": true,
+    "authority_mount_read_only": true,
+    "state_mount_persistent": true,
+    "credential_binding_digest": "sha256:cfda37b4e412f34d24df9ea02e892e460da224134dc6f2e6d3b47476696539f4",
+    "runtime_binding_digest": "sha256:faa1bb90eea2f15fcf76b249585932d15c0abcf7e79932e29e5b55d11a35b51b"
+  },
+  "receipts": {
+    "commission": "sha256:6f0f170c52579608d65558decb4a1ad021f0503fec7411ad4e9c3c56abe453bf",
+    "first_delivery": "sha256:8bc740a731b4c90fbb278e7ec5dfd94aefbcf3e37fb5082e4b355bc6418bc149",
+    "rotation_delivery": "sha256:88e84a1a157f81f6c3653361cb403ea6fb4309101b2fc28e338a6461fe2eb42b",
+    "suspension": "sha256:7196bf29dbeb3697ba1429971ed32b8c88bf31fdad6dde9dec168318e3fbcc95",
+    "revoke_rehearsal": "sha256:411940b45aedb546524ec3f607712b8b361a92bd664947c15a16557493eeabcf",
+    "clean_revoke_delivery": "sha256:337b39cab35deb89f9299f9720c2733341ce2d21d70866425f74445deb4dff8f",
+    "clean_revocation": "sha256:c7110e12be7d7cee67e0806f62f433e53e69575e2ccfcc31e3a1ff01c791edce",
+    "final_delivery": "sha256:0926c00336180514f96cc90348d029e043b78b5bb6e6bfe62ce5a616a81dbd41",
+    "secret_values_embedded": false
+  },
+  "restart_rotation_and_rollback": {
+    "wgcf_ready_after_restart": true,
+    "oos_ready_after_restart": true,
+    "session_binding_retained_after_restart": true,
+    "coordination_state_retained_after_restart": true,
+    "replacement_token_distinct": true,
+    "previous_token_revoked": true,
+    "suspension_disabled_oos_before_wgcf": true,
+    "suspension_retained_projection": true,
+    "clean_revocation_removed_oos_before_wgcf": true,
+    "clean_revocation_removed_projection": true,
+    "clean_revocation_preserved_shared_runtime_profile": true,
+    "clean_revocation_preserved_prototype_landing": true,
+    "final_redelivery_succeeded": true
+  },
+  "rehearsal_correction": {
+    "observed": "initial revocation removed the shared OOS runtime-profile environment setting",
+    "containment": "restored OOS_RUNTIME_PROFILE to dev-integration before rollout completion",
+    "source_fix": "workflow revocation no longer owns or deletes profile-level configuration",
+    "regression_test_added": true,
+    "clean_revoke_repeated": true,
+    "clean_revoke_passed": true
+  },
+  "validation": {
+    "make_validate": "passed",
+    "prototype_maturity_tests": "7 passed",
+    "prototype_landing_regression_tests": "8 passed",
+    "dev_integration_tests": "passed",
+    "governance_docs": "passed",
+    "operational_docs": "passed",
+    "helm_lint": "passed",
+    "terraform_validate": "passed",
+    "oos_healthz": 200,
+    "oos_readyz": 200,
+    "wgcf_healthz": 200,
+    "wgcf_readyz": 200
+  },
+  "outcome": {
+    "result": "accepted",
+    "accepted_scope": "bounded Prototype Maturity runtime composition in dev-integration",
+    "identity_projection_active": true,
+    "prototype_maturity_workflow_active": true,
+    "prototype_landing_unchanged": true,
+    "secret_values_emitted": false
+  }
+}

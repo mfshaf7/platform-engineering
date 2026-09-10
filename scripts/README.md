@@ -73,6 +73,10 @@ These support shared platform operations:
   - activates the workflow after its Security, WGCF, and OOS source gates land,
     forces replacement pods to mount each rotated token before revoking the
     prior token, and supports explicit suspension or complete revocation
+- `prototype_maturity_identity.py`
+  - validates the selected, inactive Prototype Maturity identity, exact source
+    branch and path boundary, separate custody path, and disabled runtime gate
+  - commissioning and runtime projection remain deferred to ART #1131
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, and secret-free receipt behavior using a local fake
@@ -80,6 +84,9 @@ These support shared platform operations:
 - `test_prototype_landing_identity.py`
   - proves exact Prototype Studio scope, bounded runtime projection, provider
     mismatch denial, complete revocation, and secret-free receipts
+- `test_prototype_maturity_identity.py`
+  - proves exact Maturity-only source scope, Landing identity separation,
+    inactive posture, negative configuration cases, and secret-safe rejection
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

@@ -17,6 +17,8 @@ shared_paths:
       - test_workspace_intake_identity.py
       - prototype_landing_identity.py
       - test_prototype_landing_identity.py
+      - prototype_maturity_identity.py
+      - test_prototype_maturity_identity.py
       - dev_integration.py
       - dev_integration_auto_resume.py
       - dev_integration_compositions.py

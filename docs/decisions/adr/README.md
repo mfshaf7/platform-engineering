@@ -35,6 +35,7 @@ The Workspace Intake source identity is defined by
 [ADR-025-reviewed-workspace-intake-identity.md](ADR-025-reviewed-workspace-intake-identity.md).
 
 [ADR-026-dedicated-prototype-landing-identity.md](ADR-026-dedicated-prototype-landing-identity.md).
+[ADR-027-dedicated-prototype-maturity-identity.md](ADR-027-dedicated-prototype-maturity-identity.md).
 
 - ADRs document design decisions, not rollout evidence.
 - If an ADR was implemented in governed stage, prod, or host-owned live state,

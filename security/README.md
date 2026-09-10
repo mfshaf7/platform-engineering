@@ -11,3 +11,4 @@ Expected contents include:
 - access-control guidance
 - governed AI model-profile registry
 - bounded repository provider identity contracts
+- dedicated Prototype Landing and Prototype Maturity identity contracts

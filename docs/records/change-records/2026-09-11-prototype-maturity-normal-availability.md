@@ -37,7 +37,9 @@ workflow mechanism with thin Landing and Maturity entrypoints. Maturity now
 pins exact Security, WGCF, OOS, and Studio revisions, projects only its own
 credential and state paths, enables WGCF readiness before OOS admission, and
 reverses that order for suspension and revocation. Landing remains governed by
-its existing contract and regression suite.
+its existing contract and regression suite. Runtime actions resolve the
+runner-owned WGCF session for the same operator and reject an endpoint that
+names any other operator namespace.
 
 The first revocation rehearsal exposed that inherited cleanup still treated
 `OOS_RUNTIME_PROFILE` as workflow-owned. Platform restored the value before the
@@ -66,7 +68,9 @@ held at the contracted Vault path, version `2`.
 
 Platform enabled the exact WGCF Maturity readiness gate before projecting and
 enabling OOS Maturity. Both Deployments remained ready after explicit pod
-replacement, and both health and readiness endpoints returned HTTP 200.
+replacement, and both health and readiness endpoints returned HTTP 200. The
+WGCF runtime image is attested as
+`sha256:204ab4254f03b5177b2375b0fbe47a020165ea7db322f655aaa4fd250a4c14d0`.
 Repeated delivery issued a distinct token and revoked the prior token.
 Suspension disabled OOS before WGCF while retaining projection and state. Clean
 revocation removed the Maturity Secret, environment, mounts, and WGCF gate

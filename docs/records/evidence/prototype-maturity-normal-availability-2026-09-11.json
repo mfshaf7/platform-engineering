@@ -72,6 +72,7 @@
     "wgcf_deployment": "workspace-governance-control-fabric-api",
     "wgcf_container": "api",
     "wgcf_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric:sha-4136e64",
+    "wgcf_image_id": "ghcr.io/mfshaf7/workspace-governance-control-fabric@sha256:204ab4254f03b5177b2375b0fbe47a020165ea7db322f655aaa4fd250a4c14d0",
     "wgcf_ready_replicas": 1,
     "wgcf_available_replicas": 1,
     "wgcf_readiness_enabled_value": "true",

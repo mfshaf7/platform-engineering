@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import stat
@@ -27,8 +28,10 @@ from repository_provider_identity import (
     IssuedToken,
     ProviderClient,
     ProviderRepository,
+    load_yaml_object,
     load_dev_integration_target,
     run_kubectl,
+    slugify,
     verify_dev_integration_cluster,
     verify_kubectl_command,
 )
@@ -654,8 +657,58 @@ def readiness_runtime_patch(
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def runner_owned_readiness_namespace(
+    workspace_root: Path,
+    target: DevIntegrationTarget,
+    *,
+    require_running: bool,
+) -> str:
+    manifest_path = (
+        workspace_root
+        / ".dev-integration"
+        / "governance-control-fabric"
+        / slugify(target.operator)
+        / "current-session.yaml"
+    )
+    if manifest_path.is_symlink():
+        raise IdentityError("WGCF dev-integration session manifest must not be a symlink")
+    try:
+        info = manifest_path.stat()
+    except OSError:
+        raise IdentityError("WGCF dev-integration session manifest is unavailable") from None
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        raise IdentityError("WGCF dev-integration session manifest must be operator-owned")
+    if stat.S_IMODE(info.st_mode) & 0o077:
+        raise IdentityError("WGCF dev-integration session manifest permissions are too broad")
+
+    manifest = load_yaml_object(
+        manifest_path, "WGCF dev-integration session manifest"
+    )
+    namespace = manifest.get("namespace")
+    expected_namespace = f"devint-governance-control-fabric-{slugify(target.operator)}"[:63]
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("lane") != "dev-integration"
+        or manifest.get("profile_id") != "governance-control-fabric"
+        or manifest.get("profile_lifecycle") != "active"
+        or manifest.get("runtime_owner") != "platform-engineering"
+        or manifest.get("operator") != target.operator
+        or not isinstance(manifest.get("session_id"), str)
+        or not manifest["session_id"]
+        or namespace != expected_namespace
+        or (require_running and manifest.get("action") in {"down", "reset"})
+    ):
+        raise IdentityError("WGCF dev-integration session is not the active operator target")
+    return namespace
+
+
 def validate_readiness_runtime_target(
-    contract: Contract, wgcf_base_url: str | None
+    contract: Contract,
+    wgcf_base_url: str | None,
+    workspace_root: Path,
+    target: DevIntegrationTarget,
+    *,
+    require_running: bool,
 ) -> None:
     if contract.readiness_deployment is None:
         return
@@ -663,17 +716,31 @@ def validate_readiness_runtime_target(
         raise IdentityError(
             "WGCF base URL is required for readiness runtime activation"
         )
-    readiness_namespace(wgcf_base_url)
+    endpoint_namespace = readiness_namespace(wgcf_base_url)
+    admitted_namespace = runner_owned_readiness_namespace(
+        workspace_root, target, require_running=require_running
+    )
+    if endpoint_namespace != admitted_namespace:
+        raise IdentityError("WGCF endpoint does not match the active operator session")
 
 
 def reconcile_readiness_runtime(
     kubectl: str,
     contract: Contract,
     wgcf_base_url: str | None,
+    workspace_root: Path,
+    target: DevIntegrationTarget,
     *,
     enabled: bool | None,
+    require_running: bool,
 ) -> None:
-    validate_readiness_runtime_target(contract, wgcf_base_url)
+    validate_readiness_runtime_target(
+        contract,
+        wgcf_base_url,
+        workspace_root,
+        target,
+        require_running=require_running,
+    )
     if contract.readiness_deployment is None:
         return
     assert wgcf_base_url is not None
@@ -772,6 +839,7 @@ def remove_runtime_projection(
     contract: Contract,
     target: DevIntegrationTarget,
     wgcf_base_url: str | None,
+    workspace_root: Path,
 ) -> None:
     run_kubectl(
         kubectl,
@@ -808,7 +876,15 @@ def remove_runtime_projection(
             "--ignore-not-found",
         ],
     )
-    reconcile_readiness_runtime(kubectl, contract, wgcf_base_url, enabled=None)
+    reconcile_readiness_runtime(
+        kubectl,
+        contract,
+        wgcf_base_url,
+        workspace_root,
+        target,
+        enabled=None,
+        require_running=False,
+    )
 
 
 def command_validate(args: argparse.Namespace) -> int:
@@ -895,7 +971,10 @@ def command_deliver(args: argparse.Namespace) -> int:
             args.kubectl,
             contract,
             runtime.wgcf_base_url,
+            args.workspace_root,
+            target,
             enabled=True,
+            require_running=True,
         )
         run_kubectl(
             args.kubectl,
@@ -970,6 +1049,7 @@ def command_deliver(args: argparse.Namespace) -> int:
                         contract,
                         target,
                         runtime.wgcf_base_url,
+                        args.workspace_root,
                     )
                 except IdentityError:
                     pass
@@ -994,7 +1074,13 @@ def command_revoke(args: argparse.Namespace) -> int:
             args.session_manifest, args.workspace_root, contract, require_running=False
         ),
     )
-    validate_readiness_runtime_target(contract, args.wgcf_base_url)
+    validate_readiness_runtime_target(
+        contract,
+        args.wgcf_base_url,
+        args.workspace_root,
+        target,
+        require_running=False,
+    )
     token = projected_runtime_token(
         args.kubectl,
         contract,
@@ -1021,6 +1107,7 @@ def command_revoke(args: argparse.Namespace) -> int:
         contract,
         target,
         args.wgcf_base_url,
+        args.workspace_root,
     )
     write_receipt(
         args.receipt,
@@ -1052,7 +1139,13 @@ def command_suspend(args: argparse.Namespace) -> int:
             args.session_manifest, args.workspace_root, contract, require_running=True
         ),
     )
-    validate_readiness_runtime_target(contract, args.wgcf_base_url)
+    validate_readiness_runtime_target(
+        contract,
+        args.wgcf_base_url,
+        args.workspace_root,
+        target,
+        require_running=True,
+    )
     token = projected_runtime_token(
         args.kubectl,
         contract,
@@ -1090,7 +1183,10 @@ def command_suspend(args: argparse.Namespace) -> int:
         args.kubectl,
         contract,
         args.wgcf_base_url,
+        args.workspace_root,
+        target,
         enabled=False,
+        require_running=True,
     )
     repository = ProviderRepository(contract.repository, contract.repository_id)
     write_receipt(

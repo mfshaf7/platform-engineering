@@ -173,6 +173,28 @@ class DefinitionTests(unittest.TestCase):
     def test_readiness_runtime_reconciliation_is_ordered_and_exact(self):
         contract = module.load_contract(DEFAULT_CONTRACT)
         commands = []
+        workspace = Path(self.temp.name) / "workspace"
+        readiness_manifest = (
+            workspace
+            / ".dev-integration/governance-control-fabric/test-operator/current-session.yaml"
+        )
+        readiness_manifest.parent.mkdir(parents=True)
+        readiness_manifest.write_text(
+            "schema_version: 1\nlane: dev-integration\n"
+            "profile_id: governance-control-fabric\nprofile_lifecycle: active\n"
+            "runtime_owner: platform-engineering\naction: up\n"
+            "operator: test-operator\n"
+            "namespace: devint-governance-control-fabric-test-operator\n"
+            "session_id: governance-control-fabric-test-operator-20260910T000000Z\n"
+        )
+        readiness_manifest.chmod(0o600)
+        target = module.workflow.DevIntegrationTarget(
+            profile_id="accepted-idea-delivery",
+            operator="test-operator",
+            session_id="accepted-idea-delivery-test-operator-20260910T000000Z",
+            namespace="devint-accepted-idea-delivery-test-operator",
+            cluster_server="https://127.0.0.1:6443",
+        )
 
         def capture(_kubectl, arguments, **_kwargs):
             commands.append(arguments)
@@ -181,20 +203,41 @@ class DefinitionTests(unittest.TestCase):
             module.workflow.reconcile_readiness_runtime(
                 "k3s kubectl",
                 contract,
-                "http://workspace-governance-control-fabric-api.devint-test.svc.cluster.local:8080",
+                "http://workspace-governance-control-fabric-api.devint-governance-control-fabric-test-operator.svc.cluster.local:8080",
+                workspace,
+                target,
                 enabled=True,
+                require_running=True,
             )
 
         self.assertEqual("patch", commands[0][2])
         self.assertEqual("workspace-governance-control-fabric-api", commands[0][4])
         self.assertEqual("rollout", commands[1][2])
-        self.assertEqual("devint-test", commands[0][1])
+        self.assertEqual("devint-governance-control-fabric-test-operator", commands[0][1])
 
         with self.assertRaisesRegex(
             module.workflow.IdentityError,
             "WGCF base URL is required",
         ):
-            module.workflow.validate_readiness_runtime_target(contract, None)
+            module.workflow.validate_readiness_runtime_target(
+                contract,
+                None,
+                workspace,
+                target,
+                require_running=True,
+            )
+
+        with self.assertRaisesRegex(
+            module.workflow.IdentityError,
+            "active operator session",
+        ):
+            module.workflow.validate_readiness_runtime_target(
+                contract,
+                "http://workspace-governance-control-fabric-api.devint-governance-control-fabric-other-operator.svc.cluster.local:8080",
+                workspace,
+                target,
+                require_running=True,
+            )
 
         suspended = json.loads(module.deployment_suspend_patch(contract))
         suspended_env = suspended["spec"]["template"]["spec"]["containers"][0][

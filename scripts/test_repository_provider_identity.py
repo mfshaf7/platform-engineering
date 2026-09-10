@@ -507,6 +507,7 @@ class RepositoryProviderIdentityTests(unittest.TestCase):
     def dev_integration_target(self):
         return module.DevIntegrationTarget(
             profile_id="accepted-idea-delivery",
+            operator="test-operator",
             session_id="accepted-idea-delivery-test-operator-20260829T000000Z",
             namespace="devint-accepted-idea-delivery-test-operator",
             cluster_server="https://127.0.0.1:6443",

@@ -22,6 +22,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
 - [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
 - [prototype-maturity-identity.md](prototype-maturity-identity.md) - bounded active `dev-integration` identity and projection procedure for candidate and baseline source transitions
+- [agent-source-identity.md](agent-source-identity.md) - Platform custody and exact-repository runtime projection for Agent source implementation
 
 ## Current Live Footprint
 

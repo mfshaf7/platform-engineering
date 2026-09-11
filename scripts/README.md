@@ -84,6 +84,15 @@ These support shared platform operations:
   - enables WGCF readiness before OOS admission, reverses that order for
     suspension and revocation, enforces exact Security, WGCF, and OOS activation
     revisions, and leaves Prototype Landing and shared OOS profile state intact
+- `agent_source_identity.py`
+  - commissions the selected-repository Agent source GitHub App while issuing
+    only one-repository proof and runtime tokens
+  - imports bootstrap private-key material into Platform Vault custody, retires
+    the temporary source after successful commissioning, and never emits key or
+    token values
+  - atomically rotates an ephemeral host credential per Landing Unit, suspends
+    all new issuance, and revokes exact projected sessions without using
+    ambient human GitHub credentials
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, and secret-free receipt behavior using a local fake
@@ -95,6 +104,10 @@ These support shared platform operations:
   - proves exact Maturity-only source scope, Landing identity separation,
     activation revision binding, projection/rollback shape, negative
     configuration cases, and secret-safe rejection
+- `test_agent_source_identity.py`
+  - proves exact App, installation, principal, selected repository ids,
+    one-repository token scope, immutable session bindings, rotation rollback,
+    suspension, revocation, bootstrap retirement, and secret-free receipts
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

@@ -56,6 +56,14 @@ runtime projection, and revocation so read-only custody never inherits mutation
 authority. See
 [repository-provisioning-identity.md](repository-provisioning-identity.md).
 
+Agent source implementation uses a distinct selected-repository GitHub App.
+Platform keeps its private key in Vault and issues only one-repository tokens
+for one immutable Landing Unit at a time. The short-lived credential is
+atomically projected to an operator-private host runtime directory because the
+finite-action Delivery source executor, not the OOS pod, owns workspace Git
+operations. Normal OOS consumption remains disabled until ART #1137. See
+[agent-source-identity.md](agent-source-identity.md).
+
 ## Model
 
 The current admitted model is:

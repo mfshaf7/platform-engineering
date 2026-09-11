@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Source Identity Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "identity", "authority", "source_boundary", "secret_custody", "consumer", "activation", "audit", "rollback"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "display_name", "logical_agent_id", "role", "provider", "provider_principal", "credential_kind", "api_base_url", "account", "app", "repository_selection", "repositories", "repositories_per_token", "required_permissions", "maximum_token_lifetime_seconds", "rotate_before_expiry_seconds", "events"],
+      "properties": {
+        "id": {"const": "agent-source-github-app-v1"},
+        "display_name": {"const": "Agent Gary"},
+        "logical_agent_id": {"const": "agent-gary"},
+        "role": {"const": "source-implementor"},
+        "provider": {"const": "github"},
+        "provider_principal": {"const": "mfshaf7-agent-gary[bot]"},
+        "credential_kind": {"const": "github-app-installation"},
+        "api_base_url": {"const": "https://api.github.com"},
+        "account": {"const": {"login": "mfshaf7", "id": 244414185, "type": "User"}},
+        "app": {"const": {"slug": "mfshaf7-agent-gary", "id": 4907049, "installation_id": 160815600}},
+        "repository_selection": {"const": "selected"},
+        "repositories": {
+          "const": [
+            {"full_name": "mfshaf7/platform-engineering", "id": 1195328534},
+            {"full_name": "mfshaf7/security-architecture", "id": 1199398992},
+            {"full_name": "mfshaf7/workspace-governance", "id": 1212447211},
+            {"full_name": "mfshaf7/operator-orchestration-service", "id": 1213863054},
+            {"full_name": "mfshaf7/workspace-prototype-studio", "id": 1231020532}
+          ]
+        },
+        "repositories_per_token": {"const": 1},
+        "required_permissions": {"const": {"metadata": "read", "contents": "write", "pull_requests": "write", "checks": "read"}},
+        "maximum_token_lifetime_seconds": {"const": 3600},
+        "rotate_before_expiry_seconds": {"const": 900},
+        "events": {"const": []}
+      }
+    },
+    "authority": {
+      "const": {
+        "workspace_contract": {"repository": "workspace-governance", "revision": "3b2c7502f01f5bc5262fe8269dc677dd7d688ae7", "path": "contracts/agent-source-implementation.yaml"},
+        "security_review": {"ref": "openproject://work_packages/1135", "repository": "security-architecture", "revision": "e622b2a53c171a47e89dcafb0391cbc53650ee9c", "path": "docs/reviews/components/2026-09-11-agent-gary-source-identity-boundary.md", "decision": "approved-with-findings"}
+      }
+    },
+    "source_boundary": {
+      "const": {
+        "git_author": {"name": "Agent Gary", "email": "327854141+mfshaf7-agent-gary[bot]@users.noreply.github.com"},
+        "canonical_branch": "main",
+        "allowed_branch_pattern": "^[a-z0-9][a-z0-9._/-]*$",
+        "human_reviewer_id": "mfshaf7",
+        "one_repository_per_session": true,
+        "provider_enforcement_required": ["restrict-main-updates-to-human-actors", "agent-source-app-has-no-bypass", "require-exact-head-review", "dismiss-stale-approvals", "require-trusted-owner-validation", "deny-force-push-and-deletion"],
+        "denied_actions": ["approve-pull-request", "merge-pull-request", "direct-main-write", "force-push", "branch-delete", "repository-create", "repository-delete", "repository-administration", "ruleset-mutation", "installation-scope-expansion", "unrelated-repository-access", "wildcard-repository-selection", "personal-token", "ambient-gh-credentials", "human-credential-fallback"]
+      }
+    },
+    "secret_custody": {
+      "const": {
+        "authority": "platform-engineering",
+        "private_key_source": {"backend": "vault", "path": "components/operator-orchestration-service/dev-integration/agent-source", "property": "privateKey"},
+        "runtime_projection": {"kind": "operator-private-runtime-directory", "root_env": "XDG_RUNTIME_DIR", "relative_directory": "platform-engineering/agent-source-identity", "credential_filename": "credential.json", "suspension_filename": "suspended", "lock_filename": "projection.lock", "directory_mode": "0700", "file_mode": "0600", "atomic_replace": true, "persists_across_host_restart": false},
+        "values_in_source": false,
+        "values_in_receipts": false,
+        "values_in_logs": false,
+        "values_in_model_context": false,
+        "private_key_in_oos": false
+      }
+    },
+    "consumer": {"const": {"component": "delivery-source-executor", "owner_repo": "operator-orchestration-service", "runtime_lane": "dev-integration", "allowed_profile": "accepted-idea-delivery", "activation_work_item": "openproject://work_packages/1137", "credential_root_env": "OOS_AGENT_SOURCE_IDENTITY_ROOT", "reread_per_action": true}},
+    "activation": {"const": {"authority_work_item": "openproject://work_packages/1136", "security_gate": "openproject://work_packages/1135", "normal_runtime_enabled": false, "final_activation_work_item": "openproject://work_packages/1137", "bootstrap_work_item_refs": ["openproject://work_packages/1134", "openproject://work_packages/1135", "openproject://work_packages/1136", "openproject://work_packages/1137"], "required_evidence": ["exact-app-installation-principal-and-selected-repository-set", "one-repository-per-token-and-session", "exact-permissions-expiry-and-provider-ids", "platform-vault-private-key-custody", "atomic-ephemeral-runtime-projection", "rotation-suspension-revocation-restart-and-rollback", "no-human-or-ambient-credential-fallback", "secret-free-owner-receipts"]}},
+    "audit": {"const": {"receipt_fields": ["identity_id", "logical_agent_id", "provider_principal", "definition_digest", "app_id", "installation_id", "repository", "repository_id", "landing_unit_id", "branch", "fetched_base", "token_expires_at", "human_reviewer_id", "action", "outcome", "recorded_at"], "receipt_contains_secret_values": false}},
+    "rollback": {"const": {"suspend_new_issuance": true, "revoke_issued_tokens": true, "remove_runtime_projection": true, "retain_source_and_review_history": true, "retain_secret_free_receipts": true, "uninstall_app": false, "delete_repository": false, "rewrite_main": false}}
+  }
+}

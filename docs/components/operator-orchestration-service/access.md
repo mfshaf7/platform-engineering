@@ -28,6 +28,15 @@ Then use:
   - Vault path
     `kv/components/operator-orchestration-service/dev-integration/repository-provisioning-provider`
   - property `privateKey`
+- Agent source GitHub App private-key source:
+  - Vault path
+    `kv/components/operator-orchestration-service/dev-integration/agent-source`
+  - property `privateKey`
+
+Agent source tokens are projected only beneath the current operator's
+`XDG_RUNTIME_DIR` using the path declared in
+[agent-source-identity.yaml](../../../security/agent-source-identity.yaml).
+They are not mounted into the browser or stored in OOS work-session state.
 
 Do not surface any of these credentials in Console responses, product config,
 Git-tracked docs, logs, receipts, or command arguments.

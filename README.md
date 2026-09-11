@@ -209,6 +209,7 @@ product-neutral.
   - `make workspace-intake-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"` operates the [Workspace Intake identity](docs/components/operator-orchestration-service/workspace-intake-identity.md)
   - `make prototype-landing-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Landing identity](docs/components/operator-orchestration-service/prototype-landing-identity.md)
   - `make prototype-maturity-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Maturity identity](docs/components/operator-orchestration-service/prototype-maturity-identity.md)
+  - `make agent-source-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Agent source identity](docs/components/operator-orchestration-service/agent-source-identity.md)
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

@@ -12,3 +12,4 @@ Expected contents include:
 - governed AI model-profile registry
 - bounded repository provider identity contracts
 - dedicated Prototype Landing and Prototype Maturity identity contracts
+- product-neutral Agent source identity and ephemeral host projection contract

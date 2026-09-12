@@ -384,6 +384,8 @@ validate:
 	python3 scripts/test_prototype_landing_identity.py
 	python3 scripts/prototype_maturity_identity.py validate
 	python3 scripts/test_prototype_maturity_identity.py
+	python3 scripts/prototype_closure_identity.py
+	python3 scripts/test_prototype_closure_identity.py
 	python3 scripts/agent_source_identity.py validate
 	python3 scripts/test_agent_source_identity.py
 	python3 scripts/test_dev_integration.py

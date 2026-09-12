@@ -20,6 +20,8 @@ shared_paths:
       - test_prototype_landing_identity.py
       - prototype_maturity_identity.py
       - test_prototype_maturity_identity.py
+      - prototype_closure_identity.py
+      - test_prototype_closure_identity.py
       - agent_source_identity.py
       - test_agent_source_identity.py
       - dev_integration.py

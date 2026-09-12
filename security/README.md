@@ -11,5 +11,5 @@ Expected contents include:
 - access-control guidance
 - governed AI model-profile registry
 - bounded repository provider identity contracts
-- dedicated Prototype Landing and Prototype Maturity identity contracts
+- dedicated Prototype Landing and Prototype Maturity identity contracts, and an inactive Prototype Closure identity definition
 - product-neutral Agent source identity and ephemeral host projection contract

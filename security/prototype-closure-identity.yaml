@@ -1,0 +1,124 @@
+schema_version: 1
+identity:
+  id: prototype-closure-github-app-v1
+  provider: github
+  credential_kind: github-app-installation
+  repository:
+    full_name: mfshaf7/workspace-prototype-studio
+    id: 1231020532
+    owner_id: 244414185
+    owner_type: User
+  repository_selection: selected
+  maximum_repository_count: 1
+  required_permissions:
+    metadata: read
+    contents: write
+    pull_requests: write
+    checks: read
+  maximum_token_lifetime_seconds: 3600
+  events: []
+selection:
+  state: defined-inactive
+  app_id: null
+  installation_id: null
+  runtime_enabled: false
+security_authority:
+  implementation_review_gate: openproject://work_packages/1106
+  normal_availability_gate: openproject://work_packages/1140
+  review_decision: pending
+source_boundary:
+  allowed_branch_pattern: '^prototype-closure/[0-9a-f]{64}$'
+  allowed_write_paths:
+    - prototypes.yaml
+    - records/prototype-closures/**
+  canonical_branch: main
+  merge_authority: human-reviewer
+  provider_enforcement_required:
+    - restrict-main-updates-to-human-actors
+    - prototype-closure-app-has-no-bypass
+    - require-exact-head-review
+    - dismiss-stale-approvals
+    - require-trusted-owner-validation
+    - deny-force-push-and-deletion
+  denied_actions:
+    - merge
+    - direct-main-write
+    - force-push
+    - repository-create
+    - repository-delete
+    - repository-administration
+    - unrelated-repository-access
+    - wildcard-repository-selection
+    - prototype-landing-write
+    - prototype-maturity-write
+    - durable-owner-repository-write
+    - prototype-source-delete
+    - personal-token
+    - ambient-gh-credentials
+secret_custody:
+  authority: platform-engineering
+  planned_private_key_source:
+    backend: vault
+    path: components/operator-orchestration-service/dev-integration/prototype-closure
+    property: privateKey
+  planned_runtime_projection:
+    kind: kubernetes-secret-volume
+    name: operator-orchestration-service-prototype-closure
+    directory: /var/run/oos/prototype-closure
+    mount_read_only: true
+  key_commissioned: false
+  token_projected: false
+  values_in_source: false
+  values_in_receipts: false
+  values_in_logs: false
+consumer:
+  component: operator-orchestration-service
+  runtime_lane: dev-integration
+  allowed_profiles:
+    - accepted-idea-delivery
+  caller_id: operator-orchestration-service
+  workflow_enabled: false
+activation:
+  authority_work_item: openproject://work_packages/1107
+  security_implementation_gate: openproject://work_packages/1106
+  security_normal_availability_gate: openproject://work_packages/1140
+  required_evidence:
+    - exact-definition-digest-and-source-heads
+    - exact-app-installation-and-repository-ids
+    - provider-enforced-main-and-merge-denial
+    - exact-permissions-and-no-bypass
+    - authenticated-profile-and-session-binding
+    - short-lived-token-delivery-and-rotation
+    - landing-and-maturity-identity-separation
+    - exact-active-resource-revocation-or-absence-proof
+    - secret-free-owner-receipt
+  definition_is_activation: false
+  runtime_enabled: false
+audit:
+  receipt_fields:
+    - definition_digest
+    - source_revisions
+    - app_id
+    - installation_id
+    - repository_id
+    - caller_id
+    - profile_id
+    - session_ref
+    - action
+    - outcome
+    - issued_at
+    - expires_at
+    - security_receipt_ref
+    - rollback_receipt_ref
+  receipt_contains_secret_values: false
+rollback:
+  suspend_new_requests: true
+  revoke_exact_active_token: true
+  remove_exact_runtime_projection: true
+  retain_workflow_and_review_evidence: true
+  retain_canonical_git_history: true
+  preserve_prototype_landing_identity: true
+  preserve_prototype_maturity_identity: true
+  delete_prototype: false
+  delete_durable_owner_source: false
+  rewrite_main: false

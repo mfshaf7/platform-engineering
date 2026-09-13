@@ -61,7 +61,7 @@ not an operator procedure.
 
 ## Authority And Least Privilege
 
-The App installation is selected over only the five repositories recorded in
+The App installation is selected over only the seven repositories recorded in
 the contract. Each issued token exposes exactly one of them and only Metadata
 read, Contents write, Pull requests write, and Checks read. Platform does not
 accept a repository from the current directory, remote URL, branch name, or
@@ -87,5 +87,9 @@ or token values. A restarted executor must obtain or observe a newly delivered
 credential and reconcile source truth; no durable work-session record may be
 used to recover an old token.
 
-The accepted Security boundary is
+The accepted source boundary is
 [Agent Gary Source Identity Boundary Review](https://github.com/mfshaf7/security-architecture/blob/e622b2a53c171a47e89dcafb0391cbc53650ee9c/docs/reviews/components/2026-09-11-agent-gary-source-identity-boundary.md).
+The two-repository extension is conditional under the
+[Closure Source Scope Review](https://github.com/mfshaf7/security-architecture/blob/7523dd5cce3bbac5fd35e4d21c8b7ad8d65b757a/docs/reviews/components/2026-09-13-agent-gary-closure-source-scope.md):
+provider installation, one-repository tokens, and protected `main` must be
+verified before OOS admits source work in Control Fabric or Console.

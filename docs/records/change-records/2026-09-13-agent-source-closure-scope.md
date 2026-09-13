@@ -65,9 +65,12 @@ The temporary WSL key copy was retired by the importer. The operator confirms
 that the exposed prior key was deleted in GitHub. That deletion was not
 independently read back through the Platform commission command.
 
-The seven approved repositories are individually proven accessible. An
-independent readback that the installation has **no additional selected
-repositories** remains pending; this record is not an activation receipt.
+The owner-account repository inventory returned 12 repositories. A read-only
+GitHub App JWT query to `GET /repos/mfshaf7/<name>/installation` for each one
+returned the expected installation id on exactly the seven names above and no
+others. This proves the selected set across the current owner inventory
+without issuing a broad installation token. This record is not an OOS
+activation receipt.
 
 The focused Agent source identity tests (13 cases), contract validator,
 repository-structure validator, and governance-doc validator passed locally.
@@ -77,7 +80,5 @@ Temporal controlled-proof tests because the local WSL environment has no
 
 ## Follow-Up Actions
 
-- Prove that the provider installation contains no repositories outside the
-  approved seven without issuing a broad runtime source token.
 - Land and validate this Platform source change, then let OOS `#1147` pin its
   merged revision and admit the two additional owner repositories.

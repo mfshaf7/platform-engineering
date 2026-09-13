@@ -33,6 +33,8 @@ REPOSITORY_IDS = {
     "workspace-governance": 1212447211,
     "operator-orchestration-service": 1213863054,
     "workspace-prototype-studio": 1231020532,
+    "workspace-governance-control-fabric": 1225028095,
+    "governance-operations-console": 1317781281,
 }
 
 
@@ -236,7 +238,7 @@ class AgentSourceIdentityTests(unittest.TestCase):
         contract = module.load_contract(module.DEFAULT_CONTRACT)
         self.assertEqual("agent-gary", contract.logical_agent_id)
         self.assertEqual("mfshaf7-agent-gary[bot]", contract.provider_principal)
-        self.assertEqual(5, len(contract.repositories))
+        self.assertEqual(7, len(contract.repositories))
         self.assertEqual(
             {"metadata": "read", "contents": "write", "pull_requests": "write", "checks": "read"},
             contract.required_permissions,
@@ -260,9 +262,9 @@ class AgentSourceIdentityTests(unittest.TestCase):
             ]
         )
         self.assertEqual(0, result)
-        self.assertEqual(5, len(self.state.issued))
+        self.assertEqual(7, len(self.state.issued))
         self.assertTrue(all(len(item) == 1 for item in self.state.issued))
-        self.assertEqual(5, len(self.state.revoked))
+        self.assertEqual(7, len(self.state.revoked))
         content = receipt.read_text(encoding="utf-8")
         self.assertNotIn("agent-source-secret", content)
         self.assertFalse(json.loads(content)["secret_values_embedded"])

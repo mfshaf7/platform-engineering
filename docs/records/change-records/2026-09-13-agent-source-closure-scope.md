@@ -54,9 +54,20 @@ and resolved conversations, and denies deletion and non-fast-forward updates.
 `gh api repos/mfshaf7/<repository>/rules/branches/main` returned the four
 effective rule types (`deletion`, `non_fast_forward`, `pull_request`, and
 `required_status_checks`) for each of the five repositories above.
-Seven-repository installation readback, fresh-key commissioning, and
-one-repository token proof are **pending**; this record is not an activation
-receipt.
+The replacement key was imported from a temporary `0600` WSL copy into the
+Platform Vault path. Platform `commission` authenticated the expected App and
+installation, issued and revoked one separately scoped proof token for each
+of the seven approved repositories, and observed their exact provider ids.
+The receipt is secret-free (`secret_values_embedded: false`), records
+`commissioned-inactive` at `2026-09-13T06:01:01Z`, and has SHA-256 digest
+`3effdfd043ecb385528a046d5a25b4aff0e6698d6355fc4c87d669a9e72071e4`.
+The temporary WSL key copy was retired by the importer. The operator confirms
+that the exposed prior key was deleted in GitHub. That deletion was not
+independently read back through the Platform commission command.
+
+The seven approved repositories are individually proven accessible. An
+independent readback that the installation has **no additional selected
+repositories** remains pending; this record is not an activation receipt.
 
 The focused Agent source identity tests (13 cases), contract validator,
 repository-structure validator, and governance-doc validator passed locally.
@@ -66,8 +77,7 @@ Temporal controlled-proof tests because the local WSL environment has no
 
 ## Follow-Up Actions
 
-- Commission a replacement private key from a local `0600` PEM through the
-  Platform Vault boundary, verify the exact seven-repository installation and
-  one-repository tokens, then revoke the exposed prior GitHub App key.
+- Prove that the provider installation contains no repositories outside the
+  approved seven without issuing a broad runtime source token.
 - Land and validate this Platform source change, then let OOS `#1147` pin its
   merged revision and admit the two additional owner repositories.

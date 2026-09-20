@@ -8,9 +8,19 @@ closure write is authorized by this change.
 Validate the definition locally:
 
 ```sh
-python3 scripts/prototype_closure_identity.py
+make prototype-closure-identity ACTION=validate
 python3 scripts/test_prototype_closure_identity.py
 ```
+
+After the exact Security decision and a dedicated App installation exist,
+`make prototype-closure-identity ACTION=commission ARGS="..."` verifies the
+App owner, selected Studio repository, repository id, exact permissions, and
+installation token scope. It revokes the proof token before writing a
+secret-free receipt. Commissioning does not deliver a credential or activate
+Closure. The arguments are `--app-id`, `--installation-id`,
+`--private-key-file`, `--security-receipt-ref`, `--caller-id`, `--workspace-root`,
+`--receipt`, and one
+`--source-revision REPOSITORY=SHA` each for WGCF, OOS, Platform, and Security.
 
 The eventual App is restricted to the Studio repository, a closure branch,
 `prototypes.yaml`, and `records/prototype-closures/**`. It cannot borrow the

@@ -44,6 +44,7 @@ help:
 	@printf "  workspace-intake-identity Validate, commission, deliver, or revoke the Workspace Intake Git identity\n"
 	@printf "  prototype-landing-identity Validate, commission, deliver, suspend, or revoke the Prototype Landing Git identity\n"
 	@printf "  prototype-maturity-identity Validate, commission, deliver, suspend, or revoke the Prototype Maturity Git identity\n"
+	@printf "  prototype-closure-identity Validate or commission the Prototype Closure Git identity\n"
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -257,6 +258,11 @@ prototype-landing-identity:
 prototype-maturity-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/prototype_maturity_identity.py $(ACTION) $(ARGS)
+
+.PHONY: prototype-closure-identity
+prototype-closure-identity:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate or commission"; exit 1; }
+	python3 scripts/prototype_closure_identity.py $(ACTION) $(ARGS)
 
 .PHONY: agent-source-identity
 agent-source-identity:

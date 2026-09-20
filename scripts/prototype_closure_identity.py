@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -15,12 +16,7 @@ from jsonschema import Draft202012Validator
 import yaml
 
 from repository_provider_identity import IdentityError
-from workspace_intake_identity import (
-    Contract,
-    parse_source_revisions,
-    validated_token,
-    write_receipt,
-)
+from workspace_intake_identity import parse_source_revisions, validated_token, write_receipt
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +57,21 @@ AUDIT_FIELDS = {
 }
 
 
+@dataclass(frozen=True)
+class ClosureProviderContract:
+    identity_id: str
+    contract_digest: str
+    api_base_url: str
+    repository: str
+    repository_id: int
+    repository_owner: str
+    repository_owner_id: int
+    repository_owner_type: str
+    maximum_repository_count: int
+    maximum_token_lifetime_seconds: int
+    required_permissions: dict[str, str]
+
+
 def validate_definition(definition: dict, schema: dict) -> list[str]:
     Draft202012Validator.check_schema(schema)
     errors = [
@@ -82,11 +93,11 @@ def validate_definition(definition: dict, schema: dict) -> list[str]:
     return errors
 
 
-def closure_contract(source: bytes, definition: dict) -> Contract:
+def closure_contract(source: bytes, definition: dict) -> ClosureProviderContract:
     identity = definition["identity"]
     repository = identity["repository"]
     owner, _ = repository["full_name"].split("/", 1)
-    return Contract(
+    return ClosureProviderContract(
         identity_id=identity["id"],
         contract_digest="sha256:" + hashlib.sha256(source).hexdigest(),
         api_base_url="https://api.github.com",
@@ -98,15 +109,6 @@ def closure_contract(source: bytes, definition: dict) -> Contract:
         maximum_repository_count=identity["maximum_repository_count"],
         maximum_token_lifetime_seconds=identity["maximum_token_lifetime_seconds"],
         required_permissions=dict(identity["required_permissions"]),
-        runtime_secret_name="",
-        runtime_secret_key="",
-        runtime_directory="",
-        runtime_filename="",
-        token_file_env="",
-        repository_owner_env="",
-        repository_id_env="",
-        allowed_dev_integration_profiles=tuple(definition["consumer"]["allowed_profiles"]),
-        security_gate=definition["security_authority"]["normal_availability_gate"],
     )
 
 

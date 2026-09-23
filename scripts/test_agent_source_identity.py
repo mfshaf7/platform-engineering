@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 import tempfile
@@ -28,13 +29,17 @@ SPEC.loader.exec_module(module)
 
 
 REPOSITORY_IDS = {
+    "workspace-governance": 1212447211,
+    "workspace-governance-control-fabric": 1225028095,
+    "context-governance-gateway": 1229561793,
+    "workspace-prototype-studio": 1231020532,
+    "governance-operations-console": 1317781281,
     "platform-engineering": 1195328534,
     "security-architecture": 1199398992,
-    "workspace-governance": 1212447211,
+    "openclaw-runtime-distribution": 1211058298,
+    "openclaw-host-bridge": 1194541500,
+    "openclaw-telegram-enhanced": 1191638177,
     "operator-orchestration-service": 1213863054,
-    "workspace-prototype-studio": 1231020532,
-    "workspace-governance-control-fabric": 1225028095,
-    "governance-operations-console": 1317781281,
 }
 
 
@@ -238,11 +243,65 @@ class AgentSourceIdentityTests(unittest.TestCase):
         contract = module.load_contract(module.DEFAULT_CONTRACT)
         self.assertEqual("agent-gary", contract.logical_agent_id)
         self.assertEqual("mfshaf7-agent-gary[bot]", contract.provider_principal)
-        self.assertEqual(7, len(contract.repositories))
+        self.assertEqual(11, len(contract.repositories))
         self.assertEqual(
             {"metadata": "read", "contents": "write", "pull_requests": "write", "checks": "read"},
             contract.required_permissions,
         )
+
+    def test_receipt_write_preserves_existing_parent_permissions(self) -> None:
+        parent = self.work / "shared-receipts"
+        parent.mkdir(mode=0o755)
+        before = stat.S_IMODE(parent.stat().st_mode)
+        receipt = parent / "receipt.json"
+
+        module.write_json_atomic(receipt, {"outcome": "verified"})
+
+        self.assertEqual(before, stat.S_IMODE(parent.stat().st_mode))
+        self.assertEqual(0o600, stat.S_IMODE(receipt.stat().st_mode))
+        self.assertEqual({"outcome": "verified"}, json.loads(receipt.read_text(encoding="utf-8")))
+
+    def test_workspace_inventory_must_match_exact_active_owner_set(self) -> None:
+        contract = module.load_contract(module.DEFAULT_CONTRACT)
+        inventory = self.work / "repos.yaml"
+        inventory.write_text(
+            yaml.safe_dump(
+                {
+                    "schema_version": 2,
+                    "repos": {
+                        repository.full_name.split("/", 1)[1]: {
+                            "lifecycle": "active",
+                            "posture": "active",
+                        }
+                        for repository in contract.repositories
+                    },
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+        definition = yaml.safe_load(module.DEFAULT_CONTRACT.read_text(encoding="utf-8"))
+        definition["authority"]["repository_inventory"]["digest"] = (
+            f"sha256:{module.hashlib.sha256(inventory.read_bytes()).hexdigest()}"
+        )
+        contract_path = self.work / "contract.yaml"
+        contract_path.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
+        schema = json.loads(module.SCHEMA.read_text(encoding="utf-8"))
+        schema["properties"]["authority"]["const"] = definition["authority"]
+        schema_path = self.work / "schema.json"
+        schema_path.write_text(json.dumps(schema), encoding="utf-8")
+        with mock.patch.object(module, "SCHEMA", schema_path):
+            resolved = module.load_contract(contract_path)
+        module.verify_workspace_repository_inventory(resolved, inventory)
+
+        payload = yaml.safe_load(inventory.read_text(encoding="utf-8"))
+        payload["repos"]["unclassified-repo"] = {
+            "lifecycle": "active",
+            "posture": "active",
+        }
+        inventory.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        with self.assertRaisesRegex(module.IdentityError, "digest does not match"):
+            module.verify_workspace_repository_inventory(resolved, inventory)
 
     def test_contract_rejects_activation_or_scope_drift(self) -> None:
         definition = yaml.safe_load(module.DEFAULT_CONTRACT.read_text(encoding="utf-8"))
@@ -262,9 +321,9 @@ class AgentSourceIdentityTests(unittest.TestCase):
             ]
         )
         self.assertEqual(0, result)
-        self.assertEqual(7, len(self.state.issued))
+        self.assertEqual(11, len(self.state.issued))
         self.assertTrue(all(len(item) == 1 for item in self.state.issued))
-        self.assertEqual(7, len(self.state.revoked))
+        self.assertEqual(11, len(self.state.revoked))
         content = receipt.read_text(encoding="utf-8")
         self.assertNotIn("agent-source-secret", content)
         self.assertFalse(json.loads(content)["secret_values_embedded"])

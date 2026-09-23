@@ -3,6 +3,7 @@ identity:
   id: prototype-closure-github-app-v1
   provider: github
   credential_kind: github-app-installation
+  api_base_url: https://api.github.com
   repository:
     full_name: mfshaf7/workspace-prototype-studio
     id: 1231020532
@@ -16,25 +17,43 @@ identity:
     pull_requests: write
     checks: read
   maximum_token_lifetime_seconds: 3600
+  rotate_before_expiry_seconds: 900
   events: []
 selection:
-  state: defined-inactive
+  state: selected-not-active
   app_id: null
   installation_id: null
   runtime_enabled: false
 security_authority:
-  implementation_review_gate: openproject://work_packages/1106
-  normal_availability_gate: openproject://work_packages/1140
-  review_decision: pending
+  review:
+    ref: openproject://work_packages/1140
+    repository: security-architecture
+    revision: 36a49a208e2dc21e4f0b2f6e5e9c4e8ac8df23dd
+    path: docs/reviews/components/2026-09-19-prototype-closure-controlled-activation.md
+    content_sha256: e9e01fbc5947ccadd7a59dae067f1a1ddefad1f5a3c11e23911483a828948e17
+    decision: approved-with-findings
+  final_normal_availability_gate: openproject://work_packages/1151
+  normal_availability_review:
+    ref: openproject://work_packages/1140
+    repository: security-architecture
+    revision: 36a49a208e2dc21e4f0b2f6e5e9c4e8ac8df23dd
+    path: docs/reviews/components/2026-09-19-prototype-closure-controlled-activation.md
+    content_sha256: e9e01fbc5947ccadd7a59dae067f1a1ddefad1f5a3c11e23911483a828948e17
+    decision: approved-with-findings
 source_boundary:
   allowed_branch_pattern: '^prototype-closure/[0-9a-f]{64}$'
   allowed_write_paths:
     - prototypes.yaml
-    - records/prototype-closures/**
+    - records/prototype-closure/**
   canonical_branch: main
-  merge_authority: human-reviewer
+  merge_authority: operator-authorized-delegated-agent
+  operator_authorization:
+    scope: exact-pull-request-and-head
+    execution: delegated-agent-using-operator-account
+    evidence: retained-decision
+    reauthorize_on_change: true
   provider_enforcement_required:
-    - restrict-main-updates-to-human-actors
+    - restrict-main-updates-to-operator-account
     - prototype-closure-app-has-no-bypass
     - require-exact-head-review
     - dismiss-stale-approvals
@@ -57,43 +76,82 @@ source_boundary:
     - ambient-gh-credentials
 secret_custody:
   authority: platform-engineering
-  planned_private_key_source:
+  private_key_source:
     backend: vault
     path: components/operator-orchestration-service/dev-integration/prototype-closure
     property: privateKey
-  planned_runtime_projection:
+  runtime_projection:
     kind: kubernetes-secret-volume
     name: operator-orchestration-service-prototype-closure
+    token_key: installation-token
+    wgcf_caller_secret_key: wgcf-caller-secret
     directory: /var/run/oos/prototype-closure
+    token_filename: installation-token
     mount_read_only: true
-  key_commissioned: false
-  token_projected: false
+    sub_path_allowed: false
   values_in_source: false
   values_in_receipts: false
   values_in_logs: false
+  private_key_in_oos: false
 consumer:
   component: operator-orchestration-service
   runtime_lane: dev-integration
   allowed_profiles:
     - accepted-idea-delivery
-  caller_id: operator-orchestration-service
-  workflow_enabled: false
+  broker_deployment: operator-orchestration-service
+  runtime_profile: dev-integration
+  token_file_env: OOS_PROTOTYPE_CLOSURE_TOKEN_FILE
+  repository_owner_env: OOS_PROTOTYPE_CLOSURE_GITHUB_OWNER
+  repository_id_env: OOS_PROTOTYPE_CLOSURE_GITHUB_REPOSITORY_ID
+  state_root_env: OOS_PROTOTYPE_CLOSURE_STATE_ROOT
+  state_mount_path: /var/lib/oos/prototype-closure/state
+  authority_root_env: OOS_PROTOTYPE_CLOSURE_AUTHORITY_ROOT
+  authority_mount_path: /var/lib/oos/prototype-closure/authority
+  python_env: OOS_PROTOTYPE_CLOSURE_PYTHON
+  python_command: python3
+  runtime_profile_env: OOS_RUNTIME_PROFILE
+  wgcf_base_url_env: WGCF_PROTOTYPE_CLOSURE_BASE_URL
+  wgcf_caller_id_env: WGCF_PROTOTYPE_CLOSURE_CALLER_ID
+  wgcf_caller_id: operator-orchestration-service
+  wgcf_caller_secret_env: WGCF_PROTOTYPE_CLOSURE_CALLER_SECRET
+  wgcf_implementation_ref_env: WGCF_PROTOTYPE_CLOSURE_IMPLEMENTATION_REF
+  wgcf_implementation_ref: cc65826f68bf1d26bbbe958d2709faa31aa451f5
+  wgcf_service_identity_ref_env: WGCF_PROTOTYPE_CLOSURE_SERVICE_IDENTITY_REF
+  wgcf_service_identity_ref: service-identity://workspace-governance-control-fabric/dev-integration
+  platform_evidence_file_env: OOS_PROTOTYPE_CLOSURE_PLATFORM_EVIDENCE_FILE
+  platform_evidence_filename: platform-evidence.json
+readiness_runtime:
+  deployment: workspace-governance-control-fabric-api
+  container: api
+  enabled_env: WGCF_PROTOTYPE_CLOSURE_READINESS_ENABLED
+  service_identity_env: WGCF_PROTOTYPE_CLOSURE_SERVICE_IDENTITY_REF
+  oos_url_env: WGCF_PROTOTYPE_CLOSURE_OOS_URL
+  oos_credential_file_env: WGCF_PROTOTYPE_CLOSURE_OOS_CREDENTIAL_FILE
+  oos_secret_name: workspace-governance-control-fabric-prototype-closure-oos-reader
+  oos_secret_key: caller-secret
+  oos_secret_filename: caller-secret
+  oos_credential_directory: /var/run/wgcf/prototype-closure-oos
 activation:
   authority_work_item: openproject://work_packages/1107
-  security_implementation_gate: openproject://work_packages/1106
-  security_normal_availability_gate: openproject://work_packages/1140
+  security_gate: openproject://work_packages/1140
+  source_authority_minimum_revision: 606fec1fe881f42f71a95e9b3358857be68ccc39
+  orchestration_minimum_revision: 5957110144cf30c56456976ee4ce80280ffffbbb
   required_evidence:
     - exact-definition-digest-and-source-heads
     - exact-app-installation-and-repository-ids
     - provider-enforced-main-and-merge-denial
     - exact-permissions-and-no-bypass
-    - authenticated-profile-and-session-binding
-    - short-lived-token-delivery-and-rotation
+    - authenticated-oos-profile-session-projection
+    - read-only-source-and-persistent-state-mounts
+    - short-lived-token-projection-and-rotation
     - landing-and-maturity-identity-separation
+    - owner-backed-platform-evidence
+    - suspension-revocation-and-rollback
     - exact-active-resource-revocation-or-absence-proof
     - secret-free-owner-receipt
+    - operator-authorization-and-delegated-execution-receipt
   definition_is_activation: false
-  runtime_enabled: false
+  workflow_runtime_enabled: true
 audit:
   receipt_fields:
     - definition_digest
@@ -101,20 +159,24 @@ audit:
     - app_id
     - installation_id
     - repository_id
+    - repository_owner_id
+    - permissions
     - caller_id
     - profile_id
     - session_ref
+    - execution_ref
     - action
     - outcome
     - issued_at
     - expires_at
+    - recorded_at
     - security_receipt_ref
     - rollback_receipt_ref
   receipt_contains_secret_values: false
 rollback:
   suspend_new_requests: true
-  revoke_exact_active_token: true
-  remove_exact_runtime_projection: true
+  revoke_issued_token: true
+  remove_runtime_projection: true
   retain_workflow_and_review_evidence: true
   retain_canonical_git_history: true
   preserve_prototype_landing_identity: true

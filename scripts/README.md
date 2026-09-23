@@ -84,6 +84,16 @@ These support shared platform operations:
   - enables WGCF readiness before OOS admission, reverses that order for
     suspension and revocation, enforces exact Security, WGCF, and OOS activation
     revisions, and leaves Prototype Landing and shared OOS profile state intact
+- `prototype_closure_identity.py`
+  - commissions the exact-repository Prototype Closure identity, persistent
+    Platform evidence ledger, and authenticated WGCF-to-OOS owner-readback
+    projection without altering Landing or Maturity
+  - preserves evidence during suspension and removes only Closure credentials
+    and runtime projections during revocation
+- `prototype_closure_evidence.py`
+  - atomically records content-addressed Platform runtime-plan, cleanup, and
+    post-merge disposition evidence in the commissioned Closure ledger
+  - validates bounded owner state and emits no credential values
 - `agent_source_identity.py`
   - commissions the selected-repository Agent source GitHub App while issuing
     only one-repository proof and runtime tokens
@@ -104,6 +114,12 @@ These support shared platform operations:
   - proves exact Maturity-only source scope, Landing identity separation,
     activation revision binding, projection/rollback shape, negative
     configuration cases, and secret-safe rejection
+- `test_prototype_closure_identity.py`
+  - proves the exact activation revisions, isolated runtime projection,
+    evidence path, readback credential mount, and rollback shape
+- `test_prototype_closure_evidence.py`
+  - proves deterministic OOS-compatible digests, idempotent replacement,
+    bounded file permissions, and input rejection
 - `test_agent_source_identity.py`
   - proves exact App, installation, principal, selected repository ids,
     one-repository token scope, immutable session bindings, rotation rollback,

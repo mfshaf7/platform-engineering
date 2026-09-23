@@ -50,6 +50,7 @@ SOURCE_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 IDENTITY_PROFILES = {
     "prototype-landing-github-app-v1": ("prototype-landing", "Prototype Landing"),
     "prototype-maturity-github-app-v1": ("prototype-maturity", "Prototype Maturity"),
+    "prototype-closure-github-app-v1": ("prototype-closure", "Prototype Closure"),
 }
 
 
@@ -83,6 +84,14 @@ class Contract(ExactRepositoryContract):
     readiness_container: str | None
     readiness_enabled_env: str | None
     readiness_service_identity_env: str | None
+    platform_evidence_file_env: str | None
+    platform_evidence_filename: str | None
+    readiness_oos_url_env: str | None
+    readiness_oos_credential_file_env: str | None
+    readiness_oos_secret_name: str | None
+    readiness_oos_secret_key: str | None
+    readiness_oos_secret_filename: str | None
+    readiness_oos_credential_directory: str | None
 
 
 @dataclass(frozen=True)
@@ -91,6 +100,7 @@ class RuntimeInputs:
     state_root: Path
     wgcf_base_url: str
     wgcf_caller_secret: str
+    oos_reader_secret: str | None = None
 
 
 def _load_definition(path: Path) -> tuple[bytes, dict[str, Any]]:
@@ -186,6 +196,20 @@ def load_contract(path: Path) -> Contract:
         readiness_service_identity_env=readiness_runtime.get(
             "service_identity_env"
         ),
+        platform_evidence_file_env=consumer.get("platform_evidence_file_env"),
+        platform_evidence_filename=consumer.get("platform_evidence_filename"),
+        readiness_oos_url_env=readiness_runtime.get("oos_url_env"),
+        readiness_oos_credential_file_env=readiness_runtime.get(
+            "oos_credential_file_env"
+        ),
+        readiness_oos_secret_name=readiness_runtime.get("oos_secret_name"),
+        readiness_oos_secret_key=readiness_runtime.get("oos_secret_key"),
+        readiness_oos_secret_filename=readiness_runtime.get(
+            "oos_secret_filename"
+        ),
+        readiness_oos_credential_directory=readiness_runtime.get(
+            "oos_credential_directory"
+        ),
     )
 
 
@@ -275,6 +299,36 @@ def _runtime_inputs(args: argparse.Namespace, contract: Contract) -> RuntimeInpu
         )
     state_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     state_root.chmod(0o700)
+    if contract.platform_evidence_file_env is not None:
+        if not contract.platform_evidence_filename:
+            raise IdentityError("Platform evidence file configuration is incomplete")
+        evidence_file = state_root / contract.platform_evidence_filename
+        if evidence_file.is_symlink():
+            raise IdentityError("Platform evidence file must not be a symlink")
+        if evidence_file.exists():
+            info = evidence_file.stat()
+            if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) & 0o077:
+                raise IdentityError("Platform evidence file permissions must be 0600 or stricter")
+            try:
+                evidence = json.loads(evidence_file.read_text())
+            except (OSError, json.JSONDecodeError):
+                raise IdentityError("Platform evidence file is invalid") from None
+            if evidence != {"schema_version": 1, "records": []} and not (
+                isinstance(evidence, dict)
+                and evidence.get("schema_version") == 1
+                and isinstance(evidence.get("records"), list)
+                and set(evidence) == {"schema_version", "records"}
+            ):
+                raise IdentityError("Platform evidence file is invalid")
+        else:
+            descriptor = os.open(
+                evidence_file,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+            with os.fdopen(descriptor, "w") as stream:
+                json.dump({"schema_version": 1, "records": []}, stream, separators=(",", ":"))
+                stream.write("\n")
 
     endpoint = parse.urlparse(args.wgcf_base_url)
     allowed_cluster_host = (
@@ -294,12 +348,24 @@ def _runtime_inputs(args: argparse.Namespace, contract: Contract) -> RuntimeInpu
             f"WGCF {contract.workflow_name} destination is not admitted"
         )
 
+    if (
+        contract.readiness_oos_secret_name is not None
+        and args.oos_reader_secret_file is None
+    ):
+        raise IdentityError("OOS reader secret file is required")
+
     return RuntimeInputs(
         authority_root=authority_root,
         state_root=state_root,
         wgcf_base_url=args.wgcf_base_url.rstrip("/"),
         wgcf_caller_secret=_read_secret(
             args.wgcf_caller_secret_file, "WGCF caller secret"
+        ),
+        oos_reader_secret=(
+            _read_secret(args.oos_reader_secret_file, "OOS reader secret")
+            if contract.readiness_oos_secret_name is not None
+            and args.oos_reader_secret_file is not None
+            else None
         ),
     )
 
@@ -319,6 +385,16 @@ def runtime_binding_digest(
         "wgcf_implementation_ref": contract.wgcf_implementation_ref,
         "wgcf_service_identity_ref": contract.wgcf_service_identity_ref,
     }
+    if contract.platform_evidence_file_env is not None:
+        value["platform_evidence_file"] = (
+            f"{contract.state_mount_path}/{contract.platform_evidence_filename}"
+        )
+    if contract.readiness_oos_secret_name is not None:
+        value["owner_readback_base_url"] = (
+            f"http://{contract.broker_deployment}.{target.namespace}."
+            "svc.cluster.local:8080"
+        )
+        value["owner_readback_identity"] = "workspace-governance-control-fabric"
     canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return "sha256:" + hashlib.sha256(canonical).hexdigest()
 
@@ -459,6 +535,15 @@ def deployment_patch(contract: Contract, runtime: RuntimeInputs) -> str:
             contract.wgcf_service_identity_ref,
         ),
     ]
+    if contract.platform_evidence_file_env is not None:
+        if not contract.platform_evidence_filename:
+            raise IdentityError("Platform evidence file configuration is incomplete")
+        env.append(
+            _env(
+                contract.platform_evidence_file_env,
+                f"{contract.state_mount_path}/{contract.platform_evidence_filename}",
+            )
+        )
     value = {
         "spec": {
             "template": {
@@ -535,6 +620,8 @@ def deployment_revoke_patch(contract: Contract) -> str:
         contract.wgcf_implementation_ref_env,
         contract.wgcf_service_identity_ref_env,
     ]
+    if contract.platform_evidence_file_env is not None:
+        env_names.append(contract.platform_evidence_file_env)
     volume_names = [
         f"{contract.workflow_slug}-identity",
         f"{contract.workflow_slug}-state",
@@ -616,7 +703,7 @@ def readiness_namespace(wgcf_base_url: str) -> str:
 
 
 def readiness_runtime_patch(
-    contract: Contract, *, enabled: bool | None
+    contract: Contract, *, enabled: bool | None, oos_base_url: str | None = None
 ) -> str:
     if not all(
         (
@@ -640,21 +727,120 @@ def readiness_runtime_patch(
                 contract.wgcf_service_identity_ref,
             ),
         ]
+    volume_mounts: list[dict[str, Any]] = []
+    volumes: list[dict[str, Any]] = []
+    reader_fields = (
+        contract.readiness_oos_url_env,
+        contract.readiness_oos_credential_file_env,
+        contract.readiness_oos_secret_name,
+        contract.readiness_oos_secret_key,
+        contract.readiness_oos_secret_filename,
+        contract.readiness_oos_credential_directory,
+    )
+    if any(reader_fields):
+        if not all(reader_fields):
+            raise IdentityError("OOS owner-readback projection is incomplete")
+        volume_name = f"{contract.workflow_slug}-oos-reader"
+        credential_path = (
+            f"{contract.readiness_oos_credential_directory}/"
+            f"{contract.readiness_oos_secret_filename}"
+        )
+        if enabled is None:
+            env.extend(
+                [
+                    {"name": contract.readiness_oos_url_env, "$patch": "delete"},
+                    {
+                        "name": contract.readiness_oos_credential_file_env,
+                        "$patch": "delete",
+                    },
+                ]
+            )
+            volume_mounts.append(
+                {
+                    "name": volume_name,
+                    "mountPath": contract.readiness_oos_credential_directory,
+                    "$patch": "delete",
+                }
+            )
+            volumes.append({"name": volume_name, "$patch": "delete"})
+        else:
+            if not oos_base_url:
+                raise IdentityError("OOS owner-readback URL is required")
+            env.extend(
+                [
+                    _env(contract.readiness_oos_url_env, oos_base_url),
+                    _env(contract.readiness_oos_credential_file_env, credential_path),
+                ]
+            )
+            volume_mounts.append(
+                {
+                    "name": volume_name,
+                    "mountPath": contract.readiness_oos_credential_directory,
+                    "readOnly": True,
+                }
+            )
+            volumes.append(
+                {
+                    "name": volume_name,
+                    "secret": {
+                        "secretName": contract.readiness_oos_secret_name,
+                        "items": [
+                            {
+                                "key": contract.readiness_oos_secret_key,
+                                "path": contract.readiness_oos_secret_filename,
+                            }
+                        ],
+                    },
+                }
+            )
+    container: dict[str, Any] = {
+        "name": contract.readiness_container,
+        "env": env,
+    }
+    pod_spec: dict[str, Any] = {"containers": [container]}
+    if any(reader_fields):
+        container["volumeMounts"] = volume_mounts
+        pod_spec["volumes"] = volumes
     value = {
         "spec": {
             "template": {
-                "spec": {
-                    "containers": [
-                        {
-                            "name": contract.readiness_container,
-                            "env": env,
-                        }
-                    ]
-                }
+                "spec": pod_spec
             }
         }
     }
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def readiness_reader_secret_manifest(
+    contract: Contract,
+    *,
+    namespace: str,
+    caller_secret: str,
+    target: DevIntegrationTarget,
+) -> str:
+    if not contract.readiness_oos_secret_name or not contract.readiness_oos_secret_key:
+        raise IdentityError("OOS owner-readback secret projection is not configured")
+    return yaml.safe_dump(
+        {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {
+                "name": contract.readiness_oos_secret_name,
+                "namespace": namespace,
+                "labels": {
+                    "app.kubernetes.io/component": f"{contract.workflow_slug}-oos-reader",
+                    "app.kubernetes.io/managed-by": "platform-engineering",
+                },
+                "annotations": {
+                    "workspace-governance/dev-integration-profile": target.profile_id,
+                    "workspace-governance/dev-integration-session": target.session_id,
+                },
+            },
+            "type": "Opaque",
+            "stringData": {contract.readiness_oos_secret_key: caller_secret},
+        },
+        sort_keys=False,
+    )
 
 
 def runner_owned_readiness_namespace(
@@ -733,6 +919,7 @@ def reconcile_readiness_runtime(
     *,
     enabled: bool | None,
     require_running: bool,
+    oos_reader_secret: str | None = None,
 ) -> None:
     validate_readiness_runtime_target(
         contract,
@@ -745,6 +932,30 @@ def reconcile_readiness_runtime(
         return
     assert wgcf_base_url is not None
     namespace = readiness_namespace(wgcf_base_url)
+    oos_base_url = (
+        f"http://{contract.broker_deployment}.{target.namespace}.svc.cluster.local:8080"
+        if contract.readiness_oos_secret_name is not None
+        else None
+    )
+    if enabled is True and contract.readiness_oos_secret_name is not None:
+        if not oos_reader_secret:
+            raise IdentityError("OOS owner-readback caller secret is required")
+        run_kubectl(
+            kubectl,
+            [
+                "apply",
+                "--server-side",
+                f"--field-manager=platform-{contract.workflow_slug}-oos-reader",
+                "-f",
+                "-",
+            ],
+            input_text=readiness_reader_secret_manifest(
+                contract,
+                namespace=namespace,
+                caller_secret=oos_reader_secret,
+                target=target,
+            ),
+        )
     run_kubectl(
         kubectl,
         [
@@ -755,7 +966,11 @@ def reconcile_readiness_runtime(
             contract.readiness_deployment,
             "--type=strategic",
             "-p",
-            readiness_runtime_patch(contract, enabled=enabled),
+            readiness_runtime_patch(
+                contract,
+                enabled=enabled,
+                oos_base_url=oos_base_url,
+            ),
         ],
     )
     run_kubectl(
@@ -769,6 +984,18 @@ def reconcile_readiness_runtime(
             "--timeout=180s",
         ],
     )
+    if enabled is None and contract.readiness_oos_secret_name is not None:
+        run_kubectl(
+            kubectl,
+            [
+                "-n",
+                namespace,
+                "delete",
+                "secret",
+                contract.readiness_oos_secret_name,
+                "--ignore-not-found",
+            ],
+        )
 
 
 def projected_runtime_token(
@@ -975,6 +1202,7 @@ def command_deliver(args: argparse.Namespace) -> int:
             target,
             enabled=True,
             require_running=True,
+            oos_reader_secret=runtime.oos_reader_secret,
         )
         run_kubectl(
             args.kubectl,
@@ -1251,6 +1479,7 @@ def parser(default_contract: Path = DEFAULT_CONTRACT) -> argparse.ArgumentParser
     add_runtime_arguments(deliver)
     deliver.add_argument("--wgcf-base-url", required=True)
     deliver.add_argument("--wgcf-caller-secret-file", type=Path, required=True)
+    deliver.add_argument("--oos-reader-secret-file", type=Path)
     deliver.set_defaults(handler=command_deliver)
     suspend = commands.add_parser(
         "suspend", help="stop new workflow requests while retaining runtime state"

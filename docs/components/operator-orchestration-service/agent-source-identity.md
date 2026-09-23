@@ -61,11 +61,14 @@ not an operator procedure.
 
 ## Authority And Least Privilege
 
-The App installation is selected over only the seven repositories recorded in
-the contract. Each issued token exposes exactly one of them and only Metadata
-read, Contents write, Pull requests write, and Checks read. Platform does not
-accept a repository from the current directory, remote URL, branch name, or
-ambient `gh` session.
+The App installation is selected over the active governed owner repositories
+recorded in the Workspace Governance repository inventory. The Platform
+definition resolves that inventory to exact provider repository ids and fails
+closed when the two sets differ. Retired, proposed, external, and unclassified
+repositories remain outside the installation. Each issued token exposes
+exactly one admitted repository and only Metadata read, Contents write, Pull
+requests write, and Checks read. Platform does not accept a repository from
+the current directory, remote URL, branch name, or ambient `gh` session.
 
 Agent Gary authors and pushes an admitted non-default review branch and may
 open or update its pull request after #1137. `mfshaf7` remains the accountable
@@ -87,9 +90,11 @@ or token values. A restarted executor must obtain or observe a newly delivered
 credential and reconcile source truth; no durable work-session record may be
 used to recover an old token.
 
-The accepted source boundary is
+The initial source boundary is
 [Agent Gary Source Identity Boundary Review](https://github.com/mfshaf7/security-architecture/blob/e622b2a53c171a47e89dcafb0391cbc53650ee9c/docs/reviews/components/2026-09-11-agent-gary-source-identity-boundary.md).
-The two-repository extension is conditional under the
+The earlier closure-repository extension is recorded by the
 [Closure Source Scope Review](https://github.com/mfshaf7/security-architecture/blob/7523dd5cce3bbac5fd35e4d21c8b7ad8d65b757a/docs/reviews/components/2026-09-13-agent-gary-closure-source-scope.md):
-provider installation, one-repository tokens, and protected `main` must be
-verified before OOS admits source work in Control Fabric or Console.
+provider installation, one-repository tokens, and protected `main` remain
+mandatory. ART `#1166` retains the final Security activation decision for the
+workspace-wide lifecycle context; this Platform commissioning does not replace
+that gate.

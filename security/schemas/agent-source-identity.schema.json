@@ -24,13 +24,17 @@
         "repository_selection": {"const": "selected"},
         "repositories": {
           "const": [
+            {"full_name": "mfshaf7/workspace-governance", "id": 1212447211},
+            {"full_name": "mfshaf7/workspace-governance-control-fabric", "id": 1225028095},
+            {"full_name": "mfshaf7/context-governance-gateway", "id": 1229561793},
+            {"full_name": "mfshaf7/workspace-prototype-studio", "id": 1231020532},
+            {"full_name": "mfshaf7/governance-operations-console", "id": 1317781281},
             {"full_name": "mfshaf7/platform-engineering", "id": 1195328534},
             {"full_name": "mfshaf7/security-architecture", "id": 1199398992},
-            {"full_name": "mfshaf7/workspace-governance", "id": 1212447211},
-            {"full_name": "mfshaf7/operator-orchestration-service", "id": 1213863054},
-            {"full_name": "mfshaf7/workspace-prototype-studio", "id": 1231020532},
-            {"full_name": "mfshaf7/workspace-governance-control-fabric", "id": 1225028095},
-            {"full_name": "mfshaf7/governance-operations-console", "id": 1317781281}
+            {"full_name": "mfshaf7/openclaw-runtime-distribution", "id": 1211058298},
+            {"full_name": "mfshaf7/openclaw-host-bridge", "id": 1194541500},
+            {"full_name": "mfshaf7/openclaw-telegram-enhanced", "id": 1191638177},
+            {"full_name": "mfshaf7/operator-orchestration-service", "id": 1213863054}
           ]
         },
         "repositories_per_token": {"const": 1},
@@ -42,6 +46,7 @@
     },
     "authority": {
       "const": {
+        "repository_inventory": {"repository": "workspace-governance", "revision": "65e5347f6e2c97805e99cd0e647a32ec314d85a4", "path": "contracts/repos.yaml", "digest": "sha256:94aeb6a58b5bcea176b629546df1577971c94c69516c7b8be544e676cc9fc342", "lifecycle": "active", "posture": "active"},
         "workspace_contract": {"repository": "workspace-governance", "revision": "3b2c7502f01f5bc5262fe8269dc677dd7d688ae7", "path": "contracts/agent-source-implementation.yaml"},
         "security_review": {"ref": "openproject://work_packages/1145", "repository": "security-architecture", "revision": "7523dd5cce3bbac5fd35e4d21c8b7ad8d65b757a", "path": "docs/reviews/components/2026-09-13-agent-gary-closure-source-scope.md", "decision": "approved-with-findings"}
       }

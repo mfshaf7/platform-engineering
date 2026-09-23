@@ -70,6 +70,7 @@ class Contract:
     git_author_name: str
     git_author_email: str
     human_reviewer_id: str
+    repository_inventory_ref: dict[str, Any]
     workspace_contract_ref: dict[str, str]
     security_review_ref: dict[str, str]
     vault_path: str
@@ -138,6 +139,7 @@ def load_contract(path: Path) -> Contract:
         git_author_name=source_boundary["git_author"]["name"],
         git_author_email=source_boundary["git_author"]["email"],
         human_reviewer_id=source_boundary["human_reviewer_id"],
+        repository_inventory_ref=dict(authority["repository_inventory"]),
         workspace_contract_ref=dict(authority["workspace_contract"]),
         security_review_ref=dict(authority["security_review"]),
         vault_path=private_key["path"],
@@ -148,6 +150,53 @@ def load_contract(path: Path) -> Contract:
         suspension_filename=projection["suspension_filename"],
         lock_filename=projection["lock_filename"],
     )
+
+
+def verify_workspace_repository_inventory(contract: Contract, inventory_path: Path) -> None:
+    source = inventory_path.read_bytes()
+    expected_digest = contract.repository_inventory_ref["digest"]
+    observed_digest = f"sha256:{hashlib.sha256(source).hexdigest()}"
+    if observed_digest != expected_digest:
+        raise IdentityError("Workspace repository inventory digest does not match the Agent source contract")
+    inventory = yaml.safe_load(source)
+    repositories = inventory.get("repos") if isinstance(inventory, dict) else None
+    if not isinstance(repositories, dict):
+        raise IdentityError("Workspace repository inventory is invalid")
+    lifecycle = contract.repository_inventory_ref["lifecycle"]
+    posture = contract.repository_inventory_ref["posture"]
+    expected = tuple(
+        f"{contract.account_login}/{name}"
+        for name, entry in repositories.items()
+        if isinstance(entry, dict)
+        and entry.get("lifecycle") == lifecycle
+        and entry.get("posture") == posture
+    )
+    observed = tuple(repository.full_name for repository in contract.repositories)
+    if observed != expected:
+        raise IdentityError("Agent source repository set does not match active Workspace Governance owners")
+
+
+def workspace_repository_inventory_path(args: argparse.Namespace) -> Path | None:
+    configured = getattr(args, "workspace_repo_inventory", None)
+    if configured is not None:
+        return configured
+    workspace_root = os.environ.get("WORKSPACE_ROOT")
+    candidates = []
+    if workspace_root:
+        candidates.append(Path(workspace_root) / "workspace-governance" / "contracts" / "repos.yaml")
+    candidates.append(ROOT.parent / "workspace-governance" / "contracts" / "repos.yaml")
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def load_operating_contract(args: argparse.Namespace) -> Contract:
+    contract = load_contract(args.contract)
+    inventory_path = workspace_repository_inventory_path(args)
+    if inventory_path is None:
+        if not getattr(args, "sandbox", False):
+            raise IdentityError("Workspace repository inventory is required for Agent source issuance")
+    else:
+        verify_workspace_repository_inventory(contract, inventory_path)
+    return contract
 
 
 def _run(args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -357,7 +406,6 @@ def session_directory(root: Path, landing_unit_id: str) -> Path:
 
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(path.parent, 0o700)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary = Path(temporary_name)
     try:
@@ -439,6 +487,7 @@ def receipt(
         "permissions": contract.required_permissions,
         "human_reviewer_id": contract.human_reviewer_id,
         "authority": {
+            "repository_inventory": contract.repository_inventory_ref,
             "workspace_contract": contract.workspace_contract_ref,
             "security_review": contract.security_review_ref,
         },
@@ -474,12 +523,15 @@ def write_receipt(path: Path, payload: dict[str, Any]) -> None:
 
 def command_validate(args: argparse.Namespace) -> int:
     contract = load_contract(args.contract)
+    inventory_path = workspace_repository_inventory_path(args)
+    if inventory_path is not None:
+        verify_workspace_repository_inventory(contract, inventory_path)
     print(f"Agent source identity contract valid: {contract.identity_id}")
     return 0
 
 
 def command_commission(args: argparse.Namespace) -> int:
-    contract = load_contract(args.contract)
+    contract = load_operating_contract(args)
     if args.bootstrap_private_key_file is not None:
         if not args.sandbox and not args.retire_bootstrap_key:
             raise IdentityError("normal bootstrap import must retire the temporary key after commissioning")
@@ -554,7 +606,7 @@ def _validate_session_inputs(
 
 
 def command_deliver(args: argparse.Namespace) -> int:
-    contract = load_contract(args.contract)
+    contract = load_operating_contract(args)
     repository = _validate_session_inputs(
         contract,
         landing_unit_id=args.landing_unit_id,
@@ -715,6 +767,7 @@ def add_provider_arguments(parser: argparse.ArgumentParser, *, private_key: bool
     parser.add_argument("--vault-command", default="vault")
     parser.add_argument("--runtime-root", type=Path)
     parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--workspace-repo-inventory", type=Path)
     if private_key:
         parser.add_argument("--private-key-file", type=Path)
 
@@ -725,6 +778,7 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
 
     validate = commands.add_parser("validate", help="validate the Agent source identity definition")
+    validate.add_argument("--workspace-repo-inventory", type=Path)
     validate.set_defaults(handler=command_validate)
 
     commission = commands.add_parser("commission", help="place the private key in Platform custody and verify the provider boundary")

@@ -121,9 +121,10 @@ These support shared platform operations:
   - proves deterministic OOS-compatible digests, idempotent replacement,
     bounded file permissions, and input rejection
 - `test_agent_source_identity.py`
-  - proves exact App, installation, principal, selected repository ids,
-    one-repository token scope, immutable session bindings, rotation rollback,
-    suspension, revocation, bootstrap retirement, and secret-free receipts
+  - proves exact App, installation, principal, active Workspace Governance
+    repository inventory, selected repository ids, one-repository token scope,
+    immutable session bindings, rotation rollback, suspension, revocation,
+    bootstrap retirement, safe receipt writes, and secret-free receipts
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

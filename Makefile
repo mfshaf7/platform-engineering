@@ -44,6 +44,8 @@ help:
 	@printf "  workspace-intake-identity Validate, commission, deliver, or revoke the Workspace Intake Git identity\n"
 	@printf "  prototype-landing-identity Validate, commission, deliver, suspend, or revoke the Prototype Landing Git identity\n"
 	@printf "  prototype-maturity-identity Validate, commission, deliver, suspend, or revoke the Prototype Maturity Git identity\n"
+	@printf "  prototype-closure-identity Validate, commission, deliver, suspend, or revoke the Prototype Closure Git identity\n"
+	@printf "  prototype-closure-evidence Record bounded Platform-owned Closure runtime evidence\n"
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -258,6 +260,17 @@ prototype-maturity-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/prototype_maturity_identity.py $(ACTION) $(ARGS)
 
+.PHONY: prototype-closure-identity
+prototype-closure-identity:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
+	python3 scripts/prototype_closure_identity.py $(ACTION) $(ARGS)
+
+.PHONY: prototype-closure-evidence
+prototype-closure-evidence:
+	@test -n "$(ACTION)" || { echo "ACTION is required: record-owner-evidence or record-post-merge-disposition"; exit 1; }
+	@test -n "$(EVIDENCE_FILE)" || { echo "EVIDENCE_FILE is required"; exit 1; }
+	python3 scripts/prototype_closure_evidence.py --evidence-file "$(EVIDENCE_FILE)" $(ACTION) $(ARGS)
+
 .PHONY: agent-source-identity
 agent-source-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
@@ -384,8 +397,9 @@ validate:
 	python3 scripts/test_prototype_landing_identity.py
 	python3 scripts/prototype_maturity_identity.py validate
 	python3 scripts/test_prototype_maturity_identity.py
-	python3 scripts/prototype_closure_identity.py
+	python3 scripts/prototype_closure_identity.py validate
 	python3 scripts/test_prototype_closure_identity.py
+	python3 scripts/test_prototype_closure_evidence.py
 	python3 scripts/agent_source_identity.py validate
 	python3 scripts/test_agent_source_identity.py
 	python3 scripts/test_dev_integration.py

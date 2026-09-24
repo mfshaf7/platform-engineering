@@ -72,6 +72,26 @@ The separate repository-creation identity is operated through
 [repository-provisioning-identity.md](repository-provisioning-identity.md).
 Its bounded dev-integration evidence does not activate the normal Console path.
 
+## Lifecycle Context Composition
+
+Use the Platform-owned operator surface to manage the local OOS-to-CGG binding:
+
+```bash
+make lifecycle-context ACTION=validate
+make lifecycle-context ACTION=up
+make lifecycle-context ACTION=status
+make lifecycle-context ACTION=smoke ARGS="--work-item-id 1167"
+make lifecycle-context ACTION=suspend
+make lifecycle-context ACTION=down
+make lifecycle-context ACTION=rollback
+```
+
+`up` also rotates the caller credential. `smoke` proves packet projection,
+explicit measured raw fallback, validation and replay denial, gateway loss,
+restart replay, and measurements. Stop actions remove only the lifecycle
+binding and then prove OOS fails closed. The full procedure and boundaries are
+in the [Lifecycle Context Composition](../../../dev-integration/compositions/lifecycle-context/README.md).
+
 ## Evidence To Capture
 
 - Argo application state
@@ -86,3 +106,4 @@ Its bounded dev-integration evidence does not activate the normal Console path.
 - [release-governance.md](release-governance.md)
 - [repository-provider-identity.md](repository-provider-identity.md)
 - [repository-provisioning-identity.md](repository-provisioning-identity.md)
+- [Lifecycle Context Composition](../../../dev-integration/compositions/lifecycle-context/README.md)

@@ -84,6 +84,25 @@ The proposed durable model keeps Temporal replaceable behind OOS:
 - domain services retain authority over bounded activities
 - Governance Operations Console calls OOS and never calls Temporal directly
 
+## Lifecycle Context Boundary
+
+In local `dev-integration`, Platform may join the admitted OOS and CGG profiles
+through the bounded lifecycle-context composition:
+
+```text
+Governance Operations Console -> OOS -> CGG
+```
+
+OOS remains the workflow and authorization boundary. CGG admits, reduces, and
+projects operational context; it does not approve lifecycle mutations or
+replace OOS, WGCF, ART, Platform, or Security authority. The Console never
+receives a CGG route or lifecycle caller credential. Packet mode is the
+default; raw fallback must be explicit, reasoned, and measured.
+
+The composition is local-only and reversible. It has no stage, production,
+release, model, or approval authority. See the
+[operator surface](../../../dev-integration/compositions/lifecycle-context/README.md).
+
 See [../temporal/architecture.md](../temporal/architecture.md).
 
 ## Read With

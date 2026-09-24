@@ -47,6 +47,7 @@ help:
 	@printf "  prototype-closure-identity Validate, commission, deliver, suspend, or revoke the Prototype Closure Git identity\n"
 	@printf "  prototype-closure-evidence Record bounded Platform-owned Closure runtime evidence\n"
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
+	@printf "  lifecycle-context Commission and prove the bounded OOS-to-CGG lifecycle context composition\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -276,6 +277,11 @@ agent-source-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/agent_source_identity.py $(ACTION) $(ARGS)
 
+.PHONY: lifecycle-context
+lifecycle-context:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, up, status, smoke, suspend, down, or rollback"; exit 1; }
+	python3 dev-integration/compositions/lifecycle-context/lifecycle.py $(ACTION) $(if $(OPERATOR),--operator $(OPERATOR),) $(ARGS)
+
 .PHONY: repository-provider-identity
 repository-provider-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
@@ -404,6 +410,7 @@ validate:
 	python3 scripts/test_agent_source_identity.py
 	python3 scripts/test_dev_integration.py
 	python3 scripts/test_dev_integration_compositions.py
+	python3 dev-integration/compositions/lifecycle-context/test_lifecycle.py
 	python3 scripts/test_dev_integration_auto_resume.py
 	python3 products/openproject/catalog-control/test_validate_catalog_control.py
 	python3 scripts/test_dev_integration_host_services.py

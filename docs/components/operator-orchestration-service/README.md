@@ -24,6 +24,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [prototype-maturity-identity.md](prototype-maturity-identity.md) - bounded active `dev-integration` identity and projection procedure for candidate and baseline source transitions
 - [prototype-closure-identity.md](prototype-closure-identity.md) - bounded local commissioning and rollback procedure for Prototype Closure
 - [agent-source-identity.md](agent-source-identity.md) - Platform custody and exact-repository runtime projection for Agent source implementation
+- [Lifecycle Context Composition](../../../dev-integration/compositions/lifecycle-context/README.md) - bounded local OOS-to-CGG context projection, proof, and rollback
 
 ## Current Live Footprint
 
@@ -31,4 +32,5 @@ adapter behind OOS; it is not part of the current live footprint.
 - Argo application: `operator-orchestration-service`
 - direct operator UI: none
 - Temporal runtime binding: none
-- local `dev-integration`: Prototype Maturity is active only in the operator-scoped `accepted-idea-delivery` and `governance-control-fabric` sessions; stage and production remain unauthorized
+- local `dev-integration`: admitted profiles may be joined by the Platform-owned
+  lifecycle-context composition; stage and production remain unauthorized

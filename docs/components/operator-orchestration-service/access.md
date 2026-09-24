@@ -2,6 +2,11 @@
 
 There is no shared browser UI for `operator-orchestration-service`.
 
+The Governance Operations Console calls OOS only. It does not receive a direct
+CGG endpoint or lifecycle caller credential. Platform operators activate and
+inspect that local binding through the
+[Lifecycle Context Composition](../../../dev-integration/compositions/lifecycle-context/README.md).
+
 ## WSL Fallback
 
 ```bash
@@ -40,3 +45,7 @@ They are not mounted into the browser or stored in OOS work-session state.
 
 Do not surface any of these credentials in Console responses, product config,
 Git-tracked docs, logs, receipts, or command arguments.
+
+The lifecycle-context caller secret is generated at activation, projected only
+to the operator-scoped OOS and CGG deployments, and removed by suspension,
+teardown, or rollback. Durable state and receipts contain its digest only.

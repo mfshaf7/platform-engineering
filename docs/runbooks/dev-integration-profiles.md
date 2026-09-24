@@ -286,6 +286,24 @@ Failed start, status, teardown, ownership, lifecycle, credential, or projection
 checks fail closed. Composition state reports identifiers and outcomes only;
 it never records credential values.
 
+### Lifecycle Context Composition
+
+The OOS-to-CGG lifecycle binding is intentionally narrower than a generic
+workspace composition. It reuses the active `accepted-idea-delivery` and
+`context-governance-gateway` profiles without taking ownership of either
+runtime:
+
+```bash
+make lifecycle-context ACTION=up
+make lifecycle-context ACTION=status
+make lifecycle-context ACTION=smoke ARGS="--work-item-id 1167"
+make lifecycle-context ACTION=rollback
+```
+
+Use its [primary operator surface](../../dev-integration/compositions/lifecycle-context/README.md)
+for suspension and teardown. Do not recreate the caller binding with direct
+`kubectl set env` or durable secret files.
+
 Meaning:
 
 - `devint-up`

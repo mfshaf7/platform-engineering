@@ -212,6 +212,7 @@ product-neutral.
   - `make prototype-closure-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Closure identity](docs/components/operator-orchestration-service/prototype-closure-identity.md)
   - `make prototype-closure-evidence ACTION=<record-owner-evidence|record-post-merge-disposition> EVIDENCE_FILE=<runtime evidence path> ARGS="<bounded evidence arguments>"` records the Platform-owned evidence consumed by the [Prototype Closure identity](docs/components/operator-orchestration-service/prototype-closure-identity.md)
   - `make agent-source-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Agent source identity](docs/components/operator-orchestration-service/agent-source-identity.md)
+  - `make lifecycle-context ACTION=<validate|up|status|smoke|suspend|down|rollback>` operates the [local OOS-to-CGG lifecycle context composition](dev-integration/compositions/lifecycle-context/README.md)
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

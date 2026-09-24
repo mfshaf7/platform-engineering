@@ -1,0 +1,50 @@
+schema_version: 1
+composition_id: lifecycle-context
+lifecycle: controlled-dev-integration
+owner_repo: platform-engineering
+operator_surface: make lifecycle-context ACTION=<validate|up|status|smoke|suspend|down|rollback>
+participants:
+  oos:
+    profile_id: accepted-idea-delivery
+    owner_repo: operator-orchestration-service
+    profile_path: dev-integration/profiles/accepted-idea-delivery/profile.yaml
+    deployment: operator-orchestration-service
+    container: operator-orchestration-service
+  cgg:
+    profile_id: context-governance-gateway
+    owner_repo: context-governance-gateway
+    profile_path: dev-integration/profiles/context-governance-gateway/profile.yaml
+    deployment: context-governance-gateway-api
+    container: api
+binding:
+  caller_id: operator-orchestration-service
+  oos_secret_name: oos-lifecycle-context-caller
+  oos_secret_key: CGG_LIFECYCLE_CALLER_SECRET
+  cgg_secret_name: cgg-lifecycle-context-caller
+  cgg_secret_key: CGG_LIFECYCLE_CALLER_SHARED_SECRET
+  oos_environment:
+    CGG_LIFECYCLE_BASE_URL: http://context-governance-gateway-api.{cgg_namespace}.svc.cluster.local:8080
+    CGG_LIFECYCLE_CALLER_ID: operator-orchestration-service
+  cgg_environment:
+    CGG_LIFECYCLE_ALLOWED_CALLERS: operator-orchestration-service
+source_boundary:
+  oos:
+    reviewed_revision: 041f167dfbb19c0da0b12707b035a4fa36ad96d9
+    selected_revision_rule: reviewed-revision-or-descendant
+  cgg:
+    reviewed_revision: f57423379aceb28d0072b977e43ee0f18590ae20
+    selected_revision_rule: exact
+security_review:
+  repository: security-architecture
+  revision: 51be54e6bfa7759589ca4960fe9ef34def7f5dd8
+  path: docs/reviews/components/2026-09-24-lifecycle-context-controlled-activation.md
+  decision: approved-with-findings
+commissioning_proof:
+  work_item_id: "1167"
+runtime_boundary:
+  lane: dev-integration
+  console_calls_oos_only: true
+  default_mode: packet
+  raw_fallback: explicit-reasoned-measured
+  preserve_profile_state_on_teardown: true
+  stage_or_production_authority: false

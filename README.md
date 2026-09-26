@@ -169,6 +169,11 @@ For enterprise workflow governance, also use:
 - [docs/standards/review-and-approval-model.md](docs/standards/review-and-approval-model.md)
 - [.github/pull_request_template.md](.github/pull_request_template.md)
 
+Delivery ART source work is validated through the base-owned profile in
+[`contracts/delivery-art-work-session/evidence-profile.json`](contracts/delivery-art-work-session/evidence-profile.json).
+OOS consumes that profile from the work session's exact accepted base; a
+candidate branch cannot redefine its own validation policy.
+
 ## Shared Component Map
 
 For shared component architecture and operations, use:

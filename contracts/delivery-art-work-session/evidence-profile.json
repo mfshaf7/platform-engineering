@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "profile_id": "platform-engineering-delivery-art-evidence-v1",
+  "owner_repo": "platform-engineering",
+  "commands": [
+    {
+      "id": "repository-structure-validation",
+      "kind": "validations",
+      "name": "Platform repository structure validation",
+      "executable": "python3",
+      "args": ["scripts/validate_repo_structure.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "dev-integration-tests",
+      "kind": "tests",
+      "name": "Platform dev-integration test suite",
+      "executable": "python3",
+      "args": ["scripts/test_dev_integration.py"],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 900
+    },
+    {
+      "id": "dev-integration-composition-tests",
+      "kind": "tests",
+      "name": "Platform dev-integration composition tests",
+      "executable": "python3",
+      "args": ["scripts/test_dev_integration_compositions.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "dev-integration-host-service-tests",
+      "kind": "tests",
+      "name": "Platform dev-integration host service tests",
+      "executable": "python3",
+      "args": ["scripts/test_dev_integration_host_services.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "agent-source-identity-tests",
+      "kind": "security_and_trust",
+      "name": "Agent source identity contract tests",
+      "executable": "python3",
+      "args": ["scripts/test_agent_source_identity.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "console-session-projection-tests",
+      "kind": "tests",
+      "name": "Governance Console session projection positive and negative tests",
+      "executable": "python3",
+      "args": ["products/governance-operations-console/scripts/test_console_session_projection.py"],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "governance-document-validation",
+      "kind": "validations",
+      "name": "Platform governance document validation",
+      "executable": "python3",
+      "args": ["scripts/validate_governance_docs.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "operational-document-validation",
+      "kind": "validations",
+      "name": "Platform operational document validation",
+      "executable": "python3",
+      "args": ["scripts/validate_operational_docs.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "source-diff-validation",
+      "kind": "validations",
+      "name": "Source diff whitespace validation",
+      "executable": "git",
+      "args": ["diff", "--check", "{{base_commit}}...{{head_commit}}"],
+      "fidelity": "real-git",
+      "conformance_binding": "none",
+      "timeout_seconds": 60
+    }
+  ]
+}

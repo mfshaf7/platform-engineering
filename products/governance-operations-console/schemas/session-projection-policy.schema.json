@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mfshaf7.github.io/platform-engineering/governance-operations-console/session-projection-policy.schema.json",
+  "title": "Governance Operations Console session projection policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection",
+    "admission",
+    "principals",
+    "security_refs",
+    "activation"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_authority",
+        "source_mode",
+        "session_mode",
+        "environment",
+        "maximum_lifetime_seconds",
+        "secret_values_allowed"
+      ],
+      "properties": {
+        "schema_version": { "const": "console-operator-identity/v1" },
+        "source_authority": { "const": "platform-engineering" },
+        "source_mode": { "const": "live" },
+        "session_mode": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "environment": { "const": "Dev integration" },
+        "maximum_lifetime_seconds": { "type": "integer", "minimum": 300, "maximum": 28800 },
+        "secret_values_allowed": { "const": false }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "profile_lifecycle", "profiles"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "profile_lifecycle": { "const": "active" },
+        "profiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+        }
+      }
+    },
+    "principals": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "reference", "display_name", "roles", "authorities"],
+        "properties": {
+          "kind": { "const": "human" },
+          "reference": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*:" },
+          "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "authorities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        }
+      }
+    },
+    "security_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "security_approval_required", "definition_is_security_approval"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "security_approval_required": { "const": true },
+        "definition_is_security_approval": { "const": false }
+      }
+    }
+  }
+}

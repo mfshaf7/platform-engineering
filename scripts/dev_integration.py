@@ -448,6 +448,7 @@ def build_manifest(
     profile_path: Path,
     repo_states: dict[str, dict],
     session_id: str,
+    session_started_at: str,
     state_root: Path,
     workspace_root: Path,
 ) -> dict:
@@ -472,6 +473,7 @@ def build_manifest(
         "operator": operator,
         "namespace": namespace,
         "session_id": session_id,
+        "session_started_at": session_started_at,
         "created_at": now_utc(),
         "workspace_root": str(workspace_root),
         "state_root": str(state_root),
@@ -860,8 +862,12 @@ def main() -> int:
         )
     if existing_manifest.get("session_id") and args.action != "up":
         session_id = existing_manifest["session_id"]
+        session_started_at = existing_manifest.get("session_started_at")
+        if not session_started_at:
+            session_started_at = existing_manifest.get("created_at") or now_utc()
     else:
         session_id = f"{slugify(args.profile)}-{slugify(operator)}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+        session_started_at = now_utc()
 
     manifest = build_manifest(
         action=ACTIONS[args.action],
@@ -873,6 +879,7 @@ def main() -> int:
         profile_path=profile_path,
         repo_states=repo_states,
         session_id=session_id,
+        session_started_at=session_started_at,
         state_root=paths["state_root"],
         workspace_root=workspace_root,
     )

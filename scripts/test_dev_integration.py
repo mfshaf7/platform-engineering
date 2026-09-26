@@ -143,6 +143,34 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertIsNone(action_files)
             self.assertEqual(list(root.iterdir()), [])
 
+    def test_manifest_keeps_session_start_separate_from_action_time(self) -> None:
+        manifest = DEV_INTEGRATION.build_manifest(
+            action="smoke",
+            entry={
+                "lifecycle": "active",
+                "owner_repo": "owner-repo",
+                "runtime_owner": "platform-engineering",
+                "security_owner": "security-architecture",
+            },
+            operator="operator",
+            namespace="devint-test-operator",
+            profile={
+                "runtime": {"state_model": "persistent"},
+                "stage_handoff": {"owner_repo": "platform-engineering"},
+                "summary": "test profile",
+            },
+            profile_id="test-profile",
+            profile_path=Path("profile.yaml"),
+            repo_states={},
+            session_id="test-profile-operator-20260927T000000Z",
+            session_started_at="2026-09-27T00:00:00Z",
+            state_root=Path("state"),
+            workspace_root=Path("workspace"),
+        )
+
+        self.assertEqual(manifest["session_started_at"], "2026-09-27T00:00:00Z")
+        self.assertNotEqual(manifest["created_at"], manifest["session_started_at"])
+
     def test_temporal_status_script_does_not_create_profile_state(self) -> None:
         with tempfile.TemporaryDirectory(prefix="temporal-status-") as temp_dir:
             root = Path(temp_dir)

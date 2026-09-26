@@ -218,6 +218,7 @@ Every `dev-integration` run must record:
 - operator
 - namespace
 - session id
+- session start time, stable across actions in the same session
 - owner repo
 - runtime owner
 - source repos with:

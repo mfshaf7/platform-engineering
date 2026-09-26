@@ -41,6 +41,8 @@ Optional depending on the product:
 
 ## Current Products
 
+- `governance-operations-console/`
+  - Console identity/session projection and platform integration contract
 - `openclaw/`
   - current AI runtime and host-control integration
 - `openproject/`

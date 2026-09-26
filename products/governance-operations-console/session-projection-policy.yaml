@@ -1,0 +1,32 @@
+schema_version: 1
+projection:
+  schema_version: console-operator-identity/v1
+  source_authority: platform-engineering
+  source_mode: live
+  session_mode: Platform dev-integration
+  environment: Dev integration
+  maximum_lifetime_seconds: 28800
+  secret_values_allowed: false
+admission:
+  lane: dev-integration
+  profile_lifecycle: active
+  profiles:
+    - accepted-idea-delivery
+    - accepted-idea-delivery-mutation-smoke
+principals:
+  mfshaf7:
+    kind: human
+    reference: operator:workspace-owner
+    display_name: mfshaf7
+    roles:
+      - Operator
+    authorities:
+      - Workspace owner
+security_refs:
+  - security-architecture/docs/architecture/domains/identity-and-access.md
+  - security-architecture/docs/standards/identity-and-access.md
+  - security-architecture/docs/adr/0001-federated-human-access.md
+activation:
+  lane: dev-integration
+  security_approval_required: true
+  definition_is_security_approval: false

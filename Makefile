@@ -48,6 +48,7 @@ help:
 	@printf "  prototype-closure-evidence Record bounded Platform-owned Closure runtime evidence\n"
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
 	@printf "  lifecycle-context Commission and prove the bounded OOS-to-CGG lifecycle context composition\n"
+	@printf "  governance-console-session Validate, issue, inspect, or revoke the Console dev-integration session projection\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -191,6 +192,11 @@ devint-up:
 	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
 	@test -z "$(PROFILE)" -o -z "$(COMPOSITION)" || { echo "PROFILE and COMPOSITION are mutually exclusive"; exit 1; }
 	python3 scripts/dev_integration.py up $(if $(COMPOSITION),--composition $(COMPOSITION),--profile $(PROFILE)) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+
+.PHONY: governance-console-session
+governance-console-session:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, issue, inspect, or revoke"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_session_projection.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: devint-status
 devint-status:
@@ -391,6 +397,8 @@ OOS_REPO_ROOT ?= ../operator-orchestration-service
 .PHONY: validate
 validate:
 	python3 scripts/validate_repo_structure.py
+	python3 products/governance-operations-console/scripts/console_session_projection.py validate
+	python3 products/governance-operations-console/scripts/test_console_session_projection.py
 	python3 scripts/repository_provider_identity.py validate
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate

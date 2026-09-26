@@ -787,6 +787,14 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             }
 
             with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "DEVINT_ACTION": "status",
+                        "DEVINT_PROFILE_ID": "parent-profile",
+                        "DEVINT_SESSION_ID": "parent-session",
+                    },
+                ),
                 patch.object(DEV_INTEGRATION, "resolve_profile", return_value=resolved),
                 patch.object(
                     DEV_INTEGRATION.sys,

@@ -34,7 +34,9 @@ unreliable.
 Platform PR #248 added the Console product integration contract, strict policy
 and schema, projection operator, tests, validation wiring, stable
 `dev-integration` session start time, and the owner evidence profile used by
-the normal OOS work-session path.
+the normal OOS work-session path. The follow-up also makes the shared runner
+replace inherited `DEVINT_*` action context safely, allowing owner evidence to
+run from an active dev-integration host service without duplicate-key failure.
 
 - Implemented head: `ed45224f27e3a32103beecb6f4ff33d74816d9c6`
 - Merged revision: `f4475dbd0129961302ff48aea10b751b6b85512a`

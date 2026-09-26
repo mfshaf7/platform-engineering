@@ -899,24 +899,26 @@ def main() -> int:
     if ACTIONS[args.action] == "promote_check":
         render_promotion_report(manifest=manifest, report_path=promotion_report_path)
 
-    env = dict(
+    env = {
         **os.environ,
-        DEVINT_ACTION=ACTIONS[args.action],
-        DEVINT_NAMESPACE=namespace,
-        DEVINT_OPERATOR=operator,
-        DEVINT_OWNER_REPO=entry["owner_repo"],
-        DEVINT_OWNER_REPO_ROOT=str(owner_repo_root),
-        DEVINT_PROFILE_FILE=str(profile_path),
-        DEVINT_PROFILE_ID=args.profile,
-        DEVINT_PROFILE_JSON=json.dumps(profile),
-        DEVINT_PROMOTION_REPORT=str(promotion_report_path),
-        DEVINT_REPO_PATHS_JSON=json.dumps({name: str(path) for name, path in repo_paths.items()}),
-        DEVINT_REPO_STATES_JSON=json.dumps(repo_states),
-        DEVINT_SESSION_FILE=str(current_manifest_path),
-        DEVINT_SESSION_ID=session_id,
-        DEVINT_STATE_ROOT=str(paths["state_root"]),
-        DEVINT_WORKSPACE_ROOT=str(workspace_root),
-    )
+        "DEVINT_ACTION": ACTIONS[args.action],
+        "DEVINT_NAMESPACE": namespace,
+        "DEVINT_OPERATOR": operator,
+        "DEVINT_OWNER_REPO": entry["owner_repo"],
+        "DEVINT_OWNER_REPO_ROOT": str(owner_repo_root),
+        "DEVINT_PROFILE_FILE": str(profile_path),
+        "DEVINT_PROFILE_ID": args.profile,
+        "DEVINT_PROFILE_JSON": json.dumps(profile),
+        "DEVINT_PROMOTION_REPORT": str(promotion_report_path),
+        "DEVINT_REPO_PATHS_JSON": json.dumps(
+            {name: str(path) for name, path in repo_paths.items()}
+        ),
+        "DEVINT_REPO_STATES_JSON": json.dumps(repo_states),
+        "DEVINT_SESSION_FILE": str(current_manifest_path),
+        "DEVINT_SESSION_ID": session_id,
+        "DEVINT_STATE_ROOT": str(paths["state_root"]),
+        "DEVINT_WORKSPACE_ROOT": str(workspace_root),
+    }
     env["DEVINT_HOST_SERVICES_JSON"] = json.dumps(
         [
             {

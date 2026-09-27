@@ -1,0 +1,88 @@
+schema_version: 1
+projection:
+  schema_version: console-runtime-observations/v1
+  source_authority: platform-engineering
+  source_mode: live
+  maximum_age_seconds: 120
+  secret_values_allowed: false
+environment:
+  lane: dev-integration
+  profile: accepted-idea-delivery
+components:
+  - id: openproject
+    label: OpenProject
+    category: work-state
+    workload:
+      kind: deployment
+      namespace: devint-accepted-idea-delivery-{operator}
+      name: devint-accepted-idea-delivery-openproject-web
+    capabilities:
+      - delivery-art-state
+    recovery:
+      owner: platform-engineering
+      runbook_ref: products/openproject/runbooks/access-openproject.md
+  - id: oos-api
+    label: Operator Orchestration Service
+    category: workflow-authority
+    workload:
+      kind: deployment
+      namespace: devint-accepted-idea-delivery-{operator}
+      name: operator-orchestration-service
+    capabilities:
+      - workflow-read
+      - workflow-mutation
+    recovery:
+      owner: platform-engineering
+      runbook_ref: docs/components/operator-orchestration-service/operations.md
+  - id: wgcf-api
+    label: Workspace Governance Control Fabric
+    category: governance-control
+    workload:
+      kind: deployment
+      namespace: devint-governance-control-fabric-{operator}
+      name: workspace-governance-control-fabric-api
+    capabilities:
+      - governance-readiness
+    recovery:
+      owner: platform-engineering
+      runbook_ref: docs/components/workspace-governance-control-fabric/operations.md
+  - id: cgg-api
+    label: Context Governance Gateway
+    category: context-governance
+    workload:
+      kind: deployment
+      namespace: devint-context-governance-gateway-{operator}
+      name: context-governance-gateway-api
+    capabilities:
+      - context-admission
+    recovery:
+      owner: platform-engineering
+      runbook_ref: docs/components/context-governance-gateway/operations.md
+  - id: temporal-frontend
+    label: Temporal Frontend
+    category: durable-orchestration
+    workload:
+      kind: deployment
+      namespace: devint-temporal-{operator}
+      name: temporal-frontend
+    capabilities:
+      - durable-orchestration
+    recovery:
+      owner: platform-engineering
+      runbook_ref: docs/components/temporal/operations.md
+  - id: vault
+    label: Vault
+    category: secret-authority
+    workload:
+      kind: statefulset
+      namespace: vault
+      name: vault
+    capabilities:
+      - secret-custody
+    recovery:
+      owner: platform-engineering
+      runbook_ref: docs/runbooks/vault-recovery.md
+activation:
+  lane: dev-integration
+  security_approval_required: true
+  definition_is_security_approval: false

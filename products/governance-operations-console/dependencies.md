@@ -13,6 +13,8 @@
 - an operator-owned `0600` dev-integration session manifest
 - a policy-admitted active profile
 - the matching local operating-system account
+- `k3s kubectl` access to the exact runtime workloads admitted by
+  `runtime-observation-policy.yaml`
 
 The projection requires no token, browser secret, identity database, or new
 network service.

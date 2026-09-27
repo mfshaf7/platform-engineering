@@ -11,17 +11,20 @@ authority, or Security approval.
 - `dependencies.md`
 - `visibility-and-operations.md`
 - `runbooks/manage-session-projection.md`
+- `runbooks/project-runtime-observations.md`
 - `session-projection-policy.yaml`
+- `runtime-observation-policy.yaml`
 
 ## Boundary
 
 - Platform owns the admitted server-side identity/session projection.
+- Platform owns the admitted non-secret runtime observation projection.
 - `governance-operations-console` owns projection consumption and route
   enforcement.
 - `operator-orchestration-service` owns workflow authorization and mutation.
 - `security-architecture` owns trust-boundary approval.
 
-The projection contains no credential, token, cookie, or browser authority.
+The projections contain no credential, token, cookie, or browser authority.
 Do not turn this directory into an identity provider or Console backend.
 
 ## Current Maturity

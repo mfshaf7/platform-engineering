@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mfshaf7.github.io/platform-engineering/governance-operations-console/runtime-observation-policy.schema.json",
+  "title": "Governance Operations Console runtime observation policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "projection", "environment", "components", "activation"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_authority", "source_mode", "maximum_age_seconds", "secret_values_allowed"],
+      "properties": {
+        "schema_version": { "const": "console-runtime-observations/v1" },
+        "source_authority": { "const": "platform-engineering" },
+        "source_mode": { "const": "live" },
+        "maximum_age_seconds": { "type": "integer", "minimum": 30, "maximum": 900 },
+        "secret_values_allowed": { "const": false }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "profile"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "profile": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/component" }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "security_approval_required", "definition_is_security_approval"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "security_approval_required": { "const": true },
+        "definition_is_security_approval": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "category", "workload", "capabilities", "recovery"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "category": { "$ref": "#/$defs/identifier" },
+        "workload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "namespace", "name"],
+          "properties": {
+            "kind": { "enum": ["deployment", "statefulset"] },
+            "namespace": { "type": "string", "pattern": "^[a-z0-9{}][a-z0-9{}-]*$" },
+            "name": { "$ref": "#/$defs/identifier" }
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "runbook_ref"],
+          "properties": {
+            "owner": { "const": "platform-engineering" },
+            "runbook_ref": { "type": "string", "pattern": "^(docs|products)/.+\\.md$" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mfshaf7.github.io/platform-engineering/governance-operations-console/runtime-observation-projection.schema.json",
+  "title": "Governance Operations Console runtime observation projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "source", "components"],
+  "properties": {
+    "schemaVersion": { "const": "console-runtime-observations/v1" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "profile"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "mode", "observedAt", "validUntil", "reference"],
+      "properties": {
+        "authority": { "const": "platform-engineering" },
+        "mode": { "const": "live" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "reference": { "type": "string", "pattern": "^platform-runtime-observation://[a-f0-9]{64}$" }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/component" }
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "category", "runtime", "freshness", "observedAt", "sourceRef", "capabilities", "recovery"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "label": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "desiredReplicas", "readyReplicas", "reasonCode"],
+          "properties": {
+            "state": { "enum": ["available", "degraded", "unavailable"] },
+            "desiredReplicas": { "type": "integer", "minimum": 0 },
+            "readyReplicas": { "type": "integer", "minimum": 0 },
+            "reasonCode": { "type": ["string", "null"] }
+          }
+        },
+        "freshness": { "const": "current" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "sourceRef": { "type": "string", "pattern": "^kubernetes://" },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "posture"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "posture": { "enum": ["runtime-ready", "degraded", "unavailable"] }
+            }
+          }
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "runbookRef"],
+          "properties": {
+            "owner": { "const": "platform-engineering" },
+            "runbookRef": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

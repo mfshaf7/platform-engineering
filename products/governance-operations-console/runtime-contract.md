@@ -6,6 +6,10 @@ Platform projects `console-operator-identity/v1` from an active local
 `dev-integration` session. The projection is a server-side read model, not an
 authentication credential.
 
+Platform projects `console-runtime-observations/v1` from the exact admitted
+Kubernetes workloads in `runtime-observation-policy.yaml`. It is a short-lived
+runtime read model, not proof that an endpoint or workflow succeeded.
+
 ## Guarantees
 
 - operator and profile must be admitted by source policy
@@ -18,6 +22,13 @@ authentication credential.
 - a different active session cannot replace the projection without revocation
 - stale, expired, malformed, unavailable, or conflicting input fails closed
 - receipts contain hashes and references, never secret values
+- runtime observations declare source, observation time, expiry, workload
+  availability, capability posture, and recovery ownership
+- missing workloads and zero ready replicas project unavailable instead of
+  becoming synthetic success
+- partial readiness projects degraded and collector authority failures stop
+  publication
+- runtime observations expire after the policy window and must be recollected
 
 ## Limits
 
@@ -27,3 +38,7 @@ revocation, stage readiness, production readiness, or Security acceptance.
 
 Console route enforcement and OOS workflow authorization remain separate
 controls. A valid projection alone grants no domain mutation authority.
+
+Runtime workload readiness is distinct from WSL host telemetry and from the
+Console's configuration capability projection. It grants no workflow,
+deployment, release, recovery, or Security authority.

@@ -49,6 +49,7 @@ help:
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
 	@printf "  lifecycle-context Commission and prove the bounded OOS-to-CGG lifecycle context composition\n"
 	@printf "  governance-console-session Validate, issue, inspect, or revoke the Console dev-integration session projection\n"
+	@printf "  governance-console-runtime Observe or inspect the Console dev-integration runtime projection\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -197,6 +198,11 @@ devint-up:
 governance-console-session:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, issue, inspect, or revoke"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_session_projection.py $(ACTION) $(if $(ARGS),$(ARGS),)
+
+.PHONY: governance-console-runtime
+governance-console-runtime:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, project, or inspect"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_runtime_observations.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: devint-status
 devint-status:
@@ -399,6 +405,8 @@ validate:
 	python3 scripts/validate_repo_structure.py
 	python3 products/governance-operations-console/scripts/console_session_projection.py validate
 	python3 products/governance-operations-console/scripts/test_console_session_projection.py
+	python3 products/governance-operations-console/scripts/console_runtime_observations.py validate
+	python3 products/governance-operations-console/scripts/test_console_runtime_observations.py
 	python3 scripts/repository_provider_identity.py validate
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate

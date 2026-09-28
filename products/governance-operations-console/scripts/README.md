@@ -24,3 +24,16 @@ Console runtime observation projection. It supports:
 Use the top-level `make governance-console-runtime` target. The projection is
 runtime evidence only; it is not workflow success, host telemetry, or
 activation authority.
+
+`console_cross_domain_activation.py` is the product-local activation command.
+It validates pinned owner sources, installs the dedicated WGCF reader,
+manages loopback tunnels and the Console service, verifies live owner-backed
+activity, and records bounded receipts. Use:
+
+```bash
+make governance-console-cross-domain ACTION=<action>
+```
+
+Supported actions are `validate`, `activate`, `status`, `restart`, `rehearse`,
+`rollback`, and `cleanup`. Follow the product runbook; do not use this as an ad hoc owner
+state or credential-management surface.

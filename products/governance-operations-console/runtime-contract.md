@@ -42,3 +42,15 @@ controls. A valid projection alone grants no domain mutation authority.
 Runtime workload readiness is distinct from WSL host telemetry and from the
 Console's configuration capability projection. It grants no workflow,
 deployment, release, recovery, or Security authority.
+
+## Cross-Domain Activation
+
+The Platform activation command may compose only the exact reviewed Console,
+OOS, and WGCF revisions declared in `cross-domain-activation-policy.yaml`.
+Console access to OOS and WGCF is server-only and loopback-bound. The generated
+receipt proves source revisions, owner visibility, restart, or rollback without
+containing credentials or owner payloads.
+
+Rollback removes only Console-owned user services and the dedicated WGCF
+history-reader credential. It must preserve owner databases, workflow state,
+evidence stores, profile sessions, and unrelated runtimes.

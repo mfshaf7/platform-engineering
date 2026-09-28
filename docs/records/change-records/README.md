@@ -32,6 +32,11 @@ The Refinement and Temporal source activation is recorded in
 [2026-08-26-refinement-catalog-platform-activation.md](2026-08-26-refinement-catalog-platform-activation.md).
 It changes source contracts only; ART #1020 owns any merged-runtime claim.
 
+The Console cross-domain local activation is recorded in
+[2026-09-28-governance-console-cross-domain-devint-activation.md](2026-09-28-governance-console-cross-domain-devint-activation.md).
+It binds the exact Security-approved OOS, WGCF, Console, and governance sources
+to restart, negative-source, rollback, cleanup, and final activation evidence.
+
 ## Goals
 
 Each record should make it easy to answer:

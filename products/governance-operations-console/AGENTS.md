@@ -14,6 +14,8 @@ authority, or Security approval.
 - `runbooks/project-runtime-observations.md`
 - `session-projection-policy.yaml`
 - `runtime-observation-policy.yaml`
+- `cross-domain-activation-policy.yaml`
+- `runbooks/activate-cross-domain-awareness.md`
 
 ## Boundary
 
@@ -32,3 +34,8 @@ Do not turn this directory into an identity provider or Console backend.
 The integration is `platform-integrated` for local `dev-integration` only.
 It is not a stage or production identity service. Federated human identity and
 Security activation remain separate future gates.
+
+Cross-domain activation must use the product-qualified operator command. Do
+not launch ad hoc Console processes or inject owner credentials into browser
+configuration. Activation may manage only the dedicated Console services and
+WGCF history-reader binding; owner state remains outside its rollback boundary.

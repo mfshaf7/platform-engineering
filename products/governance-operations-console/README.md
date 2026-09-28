@@ -34,8 +34,17 @@ Primary operator procedure:
 
 - [Manage the Console session projection](runbooks/manage-session-projection.md)
 - [Project Console runtime observations](runbooks/project-runtime-observations.md)
+- [Activate cross-domain awareness](runbooks/activate-cross-domain-awareness.md)
 
 Machine-readable policy:
 
 - [session-projection-policy.yaml](session-projection-policy.yaml)
 - [runtime-observation-policy.yaml](runtime-observation-policy.yaml)
+- [cross-domain-activation-policy.yaml](cross-domain-activation-policy.yaml)
+
+The cross-domain activation path pins the approved OOS, WGCF, Console,
+Workspace Governance, and Security revisions. It exposes owner APIs to the
+Console server through loopback-only tunnels, keeps credentials in private
+server configuration, and proves live owner-backed activity plus restart and
+bounded rollback behavior. It remains local `dev-integration`, not stage or
+production release authority.

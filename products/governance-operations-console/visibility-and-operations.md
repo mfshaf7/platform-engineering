@@ -42,3 +42,14 @@ make governance-console-runtime ACTION=inspect ARGS="\
 The projection reports Kubernetes workload readiness only. It does not replace
 owner health endpoints, OOS readback, WSL resource telemetry, or Security
 activation. See [the runtime observation runbook](runbooks/project-runtime-observations.md).
+
+Activate the reviewed live composition with:
+
+```bash
+make governance-console-cross-domain ACTION=activate
+make governance-console-cross-domain ACTION=status
+```
+
+The status proof requires both canonical owners and rejects fixture authority.
+Use the [cross-domain activation runbook](runbooks/activate-cross-domain-awareness.md)
+for restart, rollback, cleanup, and receipt locations.

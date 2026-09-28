@@ -1,0 +1,31 @@
+schema_version: 1
+lane: dev-integration
+console:
+  repo: governance-operations-console
+  revision: a35da32c23af7e2ec530a67d0a04abd70a599cb2
+  port: 3317
+owners:
+  oos:
+    repo: operator-orchestration-service
+    revision: 530e50f12e0e059c33902a551b72f000b82cd82e
+    profile: accepted-idea-delivery
+    namespace: devint-accepted-idea-delivery-{operator}
+    service: operator-orchestration-service
+    remote_port: 8080
+    local_port: 38180
+  wgcf:
+    repo: workspace-governance-control-fabric
+    revision: 70eb1f25a56fcda5ed57f3cf79425af8025e8d4f
+    profile: governance-control-fabric
+    namespace: devint-governance-control-fabric-{operator}
+    service: workspace-governance-control-fabric-api
+    deployment: workspace-governance-control-fabric-api
+    remote_port: 8080
+    local_port: 38181
+authority:
+  workspace_governance_revision: 5f2d078ede6f67e18ba165739c748d181bd8b8d6
+  security_revision: 72ad7678099286a4476d5f91b3894f1ca6525029
+  security_review_ref: docs/reviews/components/2026-09-28-cross-domain-awareness-trust-boundary.md
+receipts:
+  directory: governance-console-cross-domain/receipts
+  maximum_age_seconds: 120

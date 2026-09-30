@@ -15,6 +15,12 @@ review, approval, merge, or default-branch writes.
 
 ## Primary Operator Path
 
+The Make target uses the cataloged WSL Vault endpoint
+`http://127.0.0.1:8220` by default. Establish the documented `vault-ui`
+port-forward first when it is not already active. Do not substitute an
+ad-hoc local Vault address. `AGENT_SOURCE_VAULT_ADDR` is reserved for an
+explicitly verified alternate environment.
+
 ```bash
 make agent-source-identity ACTION=validate
 

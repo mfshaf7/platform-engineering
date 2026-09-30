@@ -4,6 +4,7 @@ ANSIBLE_TMP_DIR := /tmp/.ansible
 ANSIBLE_EXTRA_VARS ?=
 ANSIBLE_EXTRA_VARS_ARG := $(if $(strip $(ANSIBLE_EXTRA_VARS)),--extra-vars "$(ANSIBLE_EXTRA_VARS)",)
 ANSIBLE_ENV := ANSIBLE_CONFIG=$(ANSIBLE_CONFIG) ANSIBLE_LOCAL_TEMP=$(ANSIBLE_TMP_DIR) ANSIBLE_REMOTE_TEMP=$(ANSIBLE_TMP_DIR)
+AGENT_SOURCE_VAULT_ADDR ?= http://127.0.0.1:8220
 
 .PHONY: help
 help:
@@ -293,7 +294,7 @@ prototype-closure-evidence:
 .PHONY: agent-source-identity
 agent-source-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
-	python3 scripts/agent_source_identity.py $(ACTION) $(ARGS)
+	VAULT_ADDR="$(AGENT_SOURCE_VAULT_ADDR)" python3 scripts/agent_source_identity.py $(ACTION) $(ARGS)
 
 .PHONY: lifecycle-context
 lifecycle-context:

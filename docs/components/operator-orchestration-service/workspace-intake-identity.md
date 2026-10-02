@@ -1,9 +1,9 @@
-# Workspace Intake Git Identity
+# Workspace Intake And Inventory Git Identity
 
 ## Role And State
 
-Platform defines one GitHub App identity for the OOS Workspace Intake
-workflow. Its only repository is `mfshaf7/workspace-governance`, immutable id
+Platform defines one GitHub App identity for the OOS Workspace Intake and
+Active Inventory workflows. Its only repository is `mfshaf7/workspace-governance`, immutable id
 `1212447211`, owned by user id `244414185`. This is a personal-account
 repository, not an organization repository. The existing repository
 provisioning and lifecycle Apps must not be reused: their administrative
@@ -25,10 +25,19 @@ python3 scripts/test_workspace_intake_identity.py
 account, repository id, permissions, event set, and one-repository token scope,
 then revokes its proof token. `deliver` repeats those checks before projecting
 one short-lived installation token into the admitted OOS dev-integration
-runtime. `revoke` invalidates that token and removes its projection. Use
+runtime. `status` executes authenticated, non-mutating Intake preparation and
+Inventory registry requests inside the OOS pod, verifies that both bind the
+same canonical authority revision, and proves an invalid caller is denied.
+`revoke` invalidates the token and removes its projection. Use
 `make workspace-intake-identity ACTION=<action> ARGS="..."`; the command help
 lists the required source-revision, caller, provider, session, and receipt
 arguments.
+
+The Inventory extension is currently source-defined but activation-blocked.
+`deliver` refuses a `refinement-catalog` session and `status` refuses all live
+proof until `security/workspace-intake-identity.yaml` records refreshed
+Security acceptance for the exact repaired OOS, Workspace Governance, WGCF,
+and Platform revisions. The pending source contract is not runtime authority.
 
 The activation source is ART #1082 and the exact-source Security decision is
 #1066. A runtime receipt never changes the source definition into a mutable
@@ -54,9 +63,11 @@ enforce these restrictions, activation is blocked, not silently broadened.
 See [GitHub pull request permissions](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request)
 and [ruleset restrictions](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
 
-OOS enforces the `intake/<digest>` branch namespace and the intake-register
-file boundary, invokes the committed Workspace Governance owner command, and
-verifies reviewed source and merged content. Those are application controls,
+OOS enforces the `intake/<digest>`, `inventory/<digest>`, and
+`inventory-lifecycle/<digest>` branch namespaces and restricts source writes
+to the intake register, the selected active-inventory contract, and the
+inventory history. It invokes the committed Workspace Governance owner
+commands and verifies reviewed source and merged content. Those are application controls,
 not claims that GitHub tokens have per-file permission scopes. Normal
 operator work is through the Console/OOS API, not Platform scripts or ambient
 `gh` credentials. Workspace Governance remains canonical; OOS coordination is
@@ -91,6 +102,5 @@ does not undo an already merged entrant or delete any repository.
 4. #1082 commissions the selected identity and proves delivery/revocation.
 5. #1069 proves the composed intake workflow with real owner receipts.
 
-Inventory and lifecycle source paths are not authorized by this intake-only
-definition. Their later contract and workflow work must explicitly extend the
-reviewed boundary before access is enabled. Stage and production are excluded.
+The Inventory and lifecycle paths remain inactive until the pending refreshed
+Security review is pinned in the contract. Stage and production are excluded.

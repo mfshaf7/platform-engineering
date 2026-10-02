@@ -422,6 +422,7 @@ def receipt(
         "operator": operator(),
         "activation": policy["activation"],
         "architecture": policy["architecture"],
+        "proof_scope": policy["proof_scope"],
         "source_revisions": {
             "platform-engineering": git_head(REPO_ROOT),
             policy["console"]["repo"]: policy["console"]["revision"],

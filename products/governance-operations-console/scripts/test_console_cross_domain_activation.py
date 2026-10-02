@@ -32,6 +32,10 @@ class CrossDomainActivationTests(unittest.TestCase):
             self.policy["activation"]["security_gate_id"],
             "gate:intake-inventory-controlled-activation",
         )
+        self.assertIn(
+            "workspace-intake-or-inventory-operating-readiness",
+            self.policy["proof_scope"]["excludes"],
+        )
 
     def test_policy_pins_exact_architecture_supersession(self) -> None:
         architecture = self.policy["architecture"]
@@ -141,6 +145,7 @@ class CrossDomainActivationTests(unittest.TestCase):
                 self.policy["architecture"]["current"]["digest"],
             )
             self.assertFalse(value["credential_boundary"]["credentials_embedded"])
+            self.assertEqual(value["proof_scope"], self.policy["proof_scope"])
             self.assertEqual(value["source_revisions"]["platform-engineering"], "a" * 40)
             self.assertTrue(value["runtime_boundary"]["services_active"])
             self.assertTrue(value["runtime_boundary"]["wgcf_reader_binding_present"])

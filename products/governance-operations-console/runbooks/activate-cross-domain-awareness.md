@@ -5,10 +5,12 @@ Security-approved OOS and WGCF sources in local `dev-integration`. It installs
 one dedicated read-only WGCF history credential, launches owner tunnels and the
 Console as persistent user services, and records secret-free receipts.
 
-For Workspace Intake and Active Inventory, the activation policy also binds the
-current durable architecture packet, its exact predecessor, the supersession
-relationship, Security gate, and approved owner revisions. A different packet,
-revision, or Security review fails closed.
+The activation policy binds the current durable architecture packet, its exact
+predecessor, the supersession relationship, Security gate, and approved owner
+revisions. A different packet, revision, or Security review fails closed.
+That binding selects the reviewed Console read boundary only. It does not prove
+Workspace Intake or Inventory configuration, identity projection, direct owner
+routes, or operating readiness.
 
 ## Preconditions
 
@@ -58,12 +60,11 @@ Receipts are retained under
 `~/.local/state/platform-engineering/governance-console-cross-domain/receipts/`
 without credentials.
 
-For Intake and Inventory commissioning, retain the `activate`, `status`,
-`restart`, `rehearse`, `rollback`, `cleanup`, final `activate`, and final
-`status` receipts. Together they prove exact packet and source selection,
-private credential projection, live owner health, visible dependency denial,
-restart recovery, bounded rollback, credential revocation, teardown, and final
-runtime availability. OOS owns the separate end-to-end workflow proof.
+These receipts are evidence only for Console-to-owner activity/history reads,
+visible owner unavailability, restart, and the Console read-boundary rollback.
+They must not be cited as Workspace Intake or Inventory commissioning evidence.
+Use the Platform-owned Workspace operations identity `status` action after its
+refreshed Security gate is approved.
 
 ## Rollback Boundary
 

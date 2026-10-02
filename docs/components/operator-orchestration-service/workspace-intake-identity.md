@@ -39,9 +39,9 @@ for this exact set; the Platform revision must be the clean executing checkout:
 ```text
 --source-revision workspace-governance=0acb5e4c9a833fba9b49ba0737e15b8e55d57b07
 --source-revision workspace-governance-control-fabric=e31688369a3f59c76762b8f9359bd2acc478dcb4
---source-revision operator-orchestration-service=8a401e8a44c568bf858efcf68cfb999ec0712f11
+--source-revision operator-orchestration-service=342d33bf1607c70a66531ab8143eab4bc05f7993
 --source-revision governance-operations-console=d17912691a6dd99335c327637eda98c4105d98eb
---source-revision security-architecture=b81099e9072f2fd8b0445332a392cc296f6961d1
+--source-revision security-architecture=498e14e32f126126c2f738e56649eab564c09ebf
 --source-revision platform-engineering=<current-clean-HEAD>
 ```
 

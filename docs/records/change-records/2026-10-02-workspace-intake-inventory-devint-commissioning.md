@@ -68,9 +68,7 @@ Architecture lineage:
 - Argo application revision: None
 - Local commissioning receipts: retained under the operator-private
   `governance-console-cross-domain/receipts` directory and referenced by the
-  Landing Unit runtime evidence. Each receipt records the exact executing
-  Platform commit, architecture lineage, approved owner revisions, and
-  secret-free credential boundary.
+  Landing Unit runtime evidence
 
 ## Host Or Runtime Recovery
 
@@ -82,17 +80,10 @@ Architecture lineage:
 
 ## Live Verification
 
-- App health: Console activity reported both OOS and WGCF as current through
-  the loopback-only live owner path; all three managed user services were active.
-- Credential boundary: the Console environment remained operator-private mode
-  `0600`; browser credentials remained prohibited; the dedicated WGCF reader
-  binding was present only while the composition was active.
-- Functional verification: activation, status, restart, deliberate WGCF
-  disconnection without fixture fallback, recovery, bounded rollback,
-  credential revocation, cleanup, final activation, and final status passed.
-- Rollback verification: Console services and the WGCF reader binding were
-  absent while owner profile sessions and data remained present; cleanup also
-  removed private runtime files while retaining the receipts.
+- App health: pending controlled commissioning evidence
+- Functional verification: pending activation, status, restart, deliberate
+  WGCF disconnection without fixture fallback, recovery, rollback, credential
+  revocation, cleanup, final activation, and final status
 - Residual risk: single local operating-system account remains the human trust
   root; shared, remote, stage, and production use remain unapproved.
 

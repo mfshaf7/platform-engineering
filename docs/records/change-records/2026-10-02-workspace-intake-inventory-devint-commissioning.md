@@ -58,13 +58,14 @@ registry probes, exact shared authority-revision binding, live runtime
 configuration checks, and invalid-caller denial. Activation remains blocked
 until refreshed Security acceptance is pinned.
 
-Approved input revisions:
+Security-accepted repair revisions:
 
-- Workspace Governance: `e3864940dd6961426de93fa5cdb2215a86a5aca1`
-- WGCF: `0d0b686ea78397d91f64b498d78a4aa6651e1c05`
-- OOS: `ce061b456c44f52d327908729db3b1e934f26acf`
+- Workspace Governance: `b7dbe6655b68845bc55d783e54b8f1bd4afdb7b0`
+- WGCF: `e31688369a3f59c76762b8f9359bd2acc478dcb4`
+- OOS: `4b0c3f9891e38c53412548bcbb355c7c8162fa18`
 - Console: `d17912691a6dd99335c327637eda98c4105d98eb`
-- Security: `a214817f50f8991938f2f3059da52e490c589cda`
+- Platform repair base: `b7c9151d83cbe5f51b396eff72b84f3abdd16a43`
+- Security: `0bf711dc341a80efe93ba241f17d53a354f76946`
 
 Architecture lineage:
 

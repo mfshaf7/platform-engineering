@@ -70,6 +70,7 @@ class Contract:
 class WorkspaceOperationsContract(Contract):
     inventory_extension_state: str
     inventory_extension_security_review_ref: str | None
+    approved_source_revisions: dict[str, str]
 
 
 def _load_definition(path: Path) -> tuple[bytes, dict[str, Any]]:
@@ -119,6 +120,7 @@ def load_contract(path: Path) -> WorkspaceOperationsContract:
         security_gate=definition["activation"]["security_gate"],
         inventory_extension_state=extension["state"],
         inventory_extension_security_review_ref=extension["security_review_ref"],
+        approved_source_revisions=dict(extension.get("approved_source_revisions") or {}),
     )
 
 
@@ -450,9 +452,38 @@ def assert_inventory_extension_approved(
     if (
         contract.inventory_extension_state != "approved"
         or not contract.inventory_extension_security_review_ref
+        or not contract.approved_source_revisions
     ):
         raise IdentityError(
             "Workspace Inventory identity activation awaits refreshed exact-revision Security acceptance"
+        )
+
+
+def current_platform_revision() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    revision = result.stdout.strip()
+    if not SOURCE_REVISION_PATTERN.fullmatch(revision):
+        raise IdentityError("Platform source revision is invalid")
+    return revision
+
+
+def validate_activation_source_revisions(
+    contract: WorkspaceOperationsContract,
+    source_revisions: dict[str, str],
+) -> None:
+    expected = {
+        **contract.approved_source_revisions,
+        "platform-engineering": current_platform_revision(),
+    }
+    if source_revisions != dict(sorted(expected.items())):
+        raise IdentityError(
+            "activation source revisions do not match the exact Security acceptance"
         )
 
 
@@ -596,6 +627,7 @@ def command_deliver(args: argparse.Namespace) -> int:
     source_revisions = parse_source_revisions(args.source_revision)
     if session_uses_workspace_operations_composition(args.session_manifest):
         assert_inventory_extension_approved(contract)
+        validate_activation_source_revisions(contract, source_revisions)
     verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
     target = verify_dev_integration_cluster(
         args.kubectl,
@@ -691,6 +723,7 @@ def command_status(args: argparse.Namespace) -> int:
     if args.app_id <= 0 or args.installation_id <= 0:
         raise IdentityError("app id and installation id must be positive integers")
     source_revisions = parse_source_revisions(args.source_revision)
+    validate_activation_source_revisions(contract, source_revisions)
     verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
     target = verify_dev_integration_cluster(
         args.kubectl,

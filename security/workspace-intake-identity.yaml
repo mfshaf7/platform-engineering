@@ -83,8 +83,14 @@ activation:
   authority_work_item: openproject://work_packages/1082
   security_gate: openproject://work_packages/1066
   workspace_inventory_extension:
-    state: pending-refreshed-security-acceptance
-    security_review_ref: null
+    state: approved
+    security_review_ref: github://mfshaf7/security-architecture/commit/0bf711dc341a80efe93ba241f17d53a354f76946#docs/reviews/components/2026-10-02-workspace-intake-inventory-maintenance-reacceptance.md
+    approved_source_revisions:
+      workspace-governance: b7dbe6655b68845bc55d783e54b8f1bd4afdb7b0
+      workspace-governance-control-fabric: e31688369a3f59c76762b8f9359bd2acc478dcb4
+      operator-orchestration-service: 4b0c3f9891e38c53412548bcbb355c7c8162fa18
+      governance-operations-console: d17912691a6dd99335c327637eda98c4105d98eb
+      security-architecture: 0bf711dc341a80efe93ba241f17d53a354f76946
   required_evidence:
     - exact-definition-digest-and-source-heads
     - exact-app-installation-and-repository-ids

@@ -64,6 +64,16 @@
       "timeout_seconds": 600
     },
     {
+      "id": "console-cross-domain-activation-tests",
+      "kind": "tests",
+      "name": "Governance Console cross-domain activation positive and negative tests",
+      "executable": "python3",
+      "args": ["products/governance-operations-console/scripts/test_console_cross_domain_activation.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 600
+    },
+    {
       "id": "governance-document-validation",
       "kind": "validations",
       "name": "Platform governance document validation",

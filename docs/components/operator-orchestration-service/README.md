@@ -19,7 +19,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [repository-provider-identity.md](repository-provider-identity.md)
 - [repository-provisioning-identity.md](repository-provisioning-identity.md)
 - [repository-lifecycle-identity.md](repository-lifecycle-identity.md)
-- [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed activation, delivery, and revocation procedure
+- [workspace-intake-identity.md](workspace-intake-identity.md) - reviewed Workspace Intake and Inventory activation, direct readiness proof, delivery, and revocation procedure
 - [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
 - [prototype-maturity-identity.md](prototype-maturity-identity.md) - bounded active `dev-integration` identity and projection procedure for candidate and baseline source transitions
 - [prototype-closure-identity.md](prototype-closure-identity.md) - bounded local commissioning and rollback procedure for Prototype Closure

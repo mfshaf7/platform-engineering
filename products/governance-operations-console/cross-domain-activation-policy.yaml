@@ -4,6 +4,16 @@ activation:
   delivery_id: delivery-1203
   work_item_ref: openproject://work_packages/1217
   security_gate_id: gate:intake-inventory-controlled-activation
+proof_scope:
+  includes:
+    - console-server-oos-activity-read
+    - console-server-wgcf-history-read
+    - console-owner-unavailable-projection
+  excludes:
+    - workspace-intake-runtime-configuration
+    - workspace-inventory-runtime-configuration
+    - workspace-authority-github-app-projection
+    - workspace-intake-or-inventory-operating-readiness
 architecture:
   artifact_id: architecture-packet:delivery-1203-v1
   current:

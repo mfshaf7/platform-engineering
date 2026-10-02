@@ -211,7 +211,7 @@ product-neutral.
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill`
   - `make platform-drill ACTION=<plan|snapshot|status> PROFILE=temporal-component-commissioning-proof` (permit-gated source-reviewed path; see [Temporal operations](docs/components/temporal/operations.md))
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`
-  - `make workspace-intake-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"` operates the [Workspace Intake identity](docs/components/operator-orchestration-service/workspace-intake-identity.md)
+  - `make workspace-intake-identity ACTION=<validate|commission|deliver|status|revoke> ARGS="<bounded identity arguments>"` operates the [Workspace Intake and Inventory identity](docs/components/operator-orchestration-service/workspace-intake-identity.md)
   - `make prototype-landing-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Landing identity](docs/components/operator-orchestration-service/prototype-landing-identity.md)
   - `make prototype-maturity-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Maturity identity](docs/components/operator-orchestration-service/prototype-maturity-identity.md)
   - `make prototype-closure-identity ACTION=<validate|commission|deliver|suspend|revoke> ARGS="<bounded identity arguments>"` operates the [Prototype Closure identity](docs/components/operator-orchestration-service/prototype-closure-identity.md)

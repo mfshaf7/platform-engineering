@@ -144,6 +144,34 @@ composition activates the independently reviewed
 `delivery-refinement-advisor-v1` profile. The Console still cannot call the
 gateway or Temporal directly.
 
+### Workspace Intake And Inventory Commissioning
+
+The `refinement-catalog` composition also carries the OOS Workspace Intake and
+Inventory runtime boundary. Do not use the Console cross-domain activation or
+`GET /api/governance-activity` as commissioning evidence for these workflows;
+that surface proves a separate read-only Console boundary.
+
+The primary procedure is
+[Workspace Intake and Inventory Git Identity](../components/operator-orchestration-service/workspace-intake-identity.md).
+Use this order after that identity contract pins refreshed exact-revision
+Security acceptance:
+
+1. validate the identity contract and run its focused tests;
+2. start or reconcile the `accepted-idea-delivery` profile and the
+   `refinement-catalog` composition at the approved source revisions;
+3. commission and deliver the exact Workspace Governance GitHub App identity;
+4. run `make workspace-intake-identity ACTION=status ARGS="..."` to prove the
+   authenticated Intake preparation, Inventory registry readback, shared
+   authority revision, runtime mounts and bindings, and invalid-caller denial;
+5. restart and repeat `status`, then exercise revocation and composition
+   rollback before final activation;
+6. retain only secret-free receipts and remove temporary credentials and
+   runtime state created for the proof.
+
+`deliver` and `status` fail closed while the Inventory extension is pending
+Security acceptance. A passing Console activity check cannot override that
+gate.
+
 Current active composition profile:
 
 - `temporal`

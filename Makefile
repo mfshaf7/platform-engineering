@@ -42,7 +42,7 @@ help:
 	@printf "  repository-provider-identity Validate, commission, deliver, or revoke the repository-custody GitHub App identity\n"
 	@printf "  repository-provisioning-identity Validate, commission, deliver, or revoke the repository-provisioning GitHub App identity\n"
 	@printf "  repository-lifecycle-identity Validate, commission, deliver, or revoke the repository-lifecycle GitHub App identity\n"
-	@printf "  workspace-intake-identity Validate, commission, deliver, or revoke the Workspace Intake Git identity\n"
+	@printf "  workspace-intake-identity Validate, commission, deliver, status-check, or revoke the Workspace operations Git identity\n"
 	@printf "  prototype-landing-identity Validate, commission, deliver, suspend, or revoke the Prototype Landing Git identity\n"
 	@printf "  prototype-maturity-identity Validate, commission, deliver, suspend, or revoke the Prototype Maturity Git identity\n"
 	@printf "  prototype-closure-identity Validate, commission, deliver, suspend, or revoke the Prototype Closure Git identity\n"
@@ -267,7 +267,7 @@ environment-readiness:
 
 .PHONY: workspace-intake-identity
 workspace-intake-identity:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, or revoke"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, status, or revoke"; exit 1; }
 	python3 scripts/workspace_intake_identity.py $(ACTION) $(ARGS)
 
 .PHONY: prototype-landing-identity

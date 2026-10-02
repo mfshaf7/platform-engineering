@@ -66,6 +66,12 @@ class Contract:
     security_gate: str
 
 
+@dataclass(frozen=True)
+class WorkspaceOperationsContract(Contract):
+    inventory_extension_state: str
+    inventory_extension_security_review_ref: str | None
+
+
 def _load_definition(path: Path) -> tuple[bytes, dict[str, Any]]:
     source = path.read_bytes()
     definition = yaml.safe_load(source)
@@ -83,13 +89,14 @@ def _load_definition(path: Path) -> tuple[bytes, dict[str, Any]]:
     return source, definition
 
 
-def load_contract(path: Path) -> Contract:
+def load_contract(path: Path) -> WorkspaceOperationsContract:
     source, definition = _load_definition(path)
     identity = definition["identity"]
     repository = identity["repository"]
     projection = definition["secret_custody"]["runtime_projection"]
     consumer = definition["consumer"]
-    return Contract(
+    extension = definition["activation"]["workspace_inventory_extension"]
+    return WorkspaceOperationsContract(
         identity_id=identity["id"],
         contract_digest="sha256:" + hashlib.sha256(source).hexdigest(),
         api_base_url=identity["api_base_url"].rstrip("/"),
@@ -110,6 +117,8 @@ def load_contract(path: Path) -> Contract:
         repository_id_env=consumer["repository_id_env"],
         allowed_dev_integration_profiles=tuple(consumer["allowed_profiles"]),
         security_gate=definition["activation"]["security_gate"],
+        inventory_extension_state=extension["state"],
+        inventory_extension_security_review_ref=extension["security_review_ref"],
     )
 
 
@@ -121,6 +130,7 @@ def validate_definition(path: Path) -> dict[str, Any]:
         "definition_digest": contract.contract_digest,
         "state": "selected-not-active",
         "runtime_enabled": False,
+        "workspace_inventory_extension_state": contract.inventory_extension_state,
         "provider_verified": False,
         "secret_values_embedded": False,
     }
@@ -214,7 +224,7 @@ def binding_digest(
     installation_id: int,
     repository: ProviderRepository,
 ) -> str:
-    value = {
+    value: dict[str, Any] = {
         "app_id": app_id,
         "contract_digest": contract.contract_digest,
         "identity_id": contract.identity_id,
@@ -226,6 +236,11 @@ def binding_digest(
         },
         "security_gate": contract.security_gate,
     }
+    if isinstance(contract, WorkspaceOperationsContract):
+        value["workspace_inventory_extension"] = {
+            "state": contract.inventory_extension_state,
+            "security_review_ref": contract.inventory_extension_security_review_ref,
+        }
     canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return "sha256:" + hashlib.sha256(canonical).hexdigest()
 
@@ -262,6 +277,8 @@ def receipt(
     expires_at: str | None = None,
     target: DevIntegrationTarget | None = None,
     rollback_receipt_ref: str | None = None,
+    runtime_proof: dict[str, Any] | None = None,
+    security_receipt_ref: str | None = None,
 ) -> dict[str, Any]:
     recorded_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     payload: dict[str, Any] = {
@@ -270,7 +287,7 @@ def receipt(
         "identity_id": contract.identity_id,
         "definition_digest": contract.contract_digest,
         "source_revisions": source_revisions,
-        "security_receipt_ref": contract.security_gate,
+        "security_receipt_ref": security_receipt_ref or contract.security_gate,
         "rollback_receipt_ref": rollback_receipt_ref,
         "caller_id": caller_id,
         "action": action,
@@ -297,6 +314,8 @@ def receipt(
                 "execution_ref": f"kubernetes://{target.namespace}/{BROKER_DEPLOYMENT}",
             }
         )
+    if runtime_proof is not None:
+        payload["runtime_proof"] = runtime_proof
     return payload
 
 
@@ -425,6 +444,125 @@ def deployment_revoke_patch(contract: Contract) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def assert_inventory_extension_approved(
+    contract: WorkspaceOperationsContract,
+) -> None:
+    if (
+        contract.inventory_extension_state != "approved"
+        or not contract.inventory_extension_security_review_ref
+    ):
+        raise IdentityError(
+            "Workspace Inventory identity activation awaits refreshed exact-revision Security acceptance"
+        )
+
+
+def session_uses_workspace_operations_composition(path: Path) -> bool:
+    value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return (
+        isinstance(value, dict)
+        and value.get("runtime_composition_id") == "refinement-catalog"
+    )
+
+
+def runtime_probe_program() -> str:
+    return r"""
+const fs = require("node:fs");
+const callerId = "governance-operations-console";
+const secrets = JSON.parse(process.env.CALLER_AUTH_SECRETS_JSON || "{}");
+const callerSecret = secrets[callerId];
+const required = {
+  OOS_WORKSPACE_INTAKE_ENABLED: "true",
+  OOS_WORKSPACE_INVENTORY_ENABLED: "true",
+  WGCF_WORKSPACE_INTAKE_CALLER_ID: "operator-orchestration-service",
+  WGCF_WORKSPACE_INVENTORY_CALLER_ID: "operator-orchestration-service",
+  OOS_WORKSPACE_INTAKE_STATE_ROOT: "/var/lib/oos/workspace-intake",
+  OOS_WORKSPACE_INVENTORY_STATE_ROOT: "/var/lib/oos/workspace-inventory",
+  OOS_WORKSPACE_INTAKE_AUTHORITY_ROOT: "/sources/workspace-governance",
+  OOS_WORKSPACE_INVENTORY_AUTHORITY_ROOT: "/sources/workspace-governance",
+};
+for (const [name, expected] of Object.entries(required)) {
+  if (process.env[name] !== expected) throw new Error(`runtime binding mismatch: ${name}`);
+}
+for (const name of [
+  "WGCF_WORKSPACE_INTAKE_BASE_URL",
+  "WGCF_WORKSPACE_INVENTORY_BASE_URL",
+  "WGCF_WORKSPACE_INTAKE_CALLER_SECRET",
+  "WGCF_WORKSPACE_INVENTORY_CALLER_SECRET",
+  "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF",
+  "WGCF_WORKSPACE_INTAKE_SERVICE_IDENTITY_REF",
+]) {
+  if (!process.env[name]) throw new Error(`runtime binding missing: ${name}`);
+}
+if (
+  process.env.WGCF_WORKSPACE_INTAKE_CALLER_SECRET !==
+  process.env.WGCF_WORKSPACE_INVENTORY_CALLER_SECRET
+) throw new Error("workspace operation WGCF credentials differ");
+if (!callerSecret) throw new Error("dedicated OOS probe caller is unavailable");
+if (!fs.existsSync(process.env.OOS_WORKSPACE_INTAKE_TOKEN_FILE || "")) {
+  throw new Error("workspace authority credential file is unavailable");
+}
+
+async function request(path, {method = "GET", body, secret = callerSecret} = {}) {
+  const response = await fetch(`http://127.0.0.1:8080${path}`, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "x-oos-caller-id": callerId,
+      "x-oos-caller-secret": secret,
+    },
+    ...(body ? {body: JSON.stringify(body)} : {}),
+  });
+  const value = await response.json();
+  return {status: response.status, value};
+}
+
+(async () => {
+  const inventory = await request("/v1/workspace-inventory/registry");
+  if (
+    inventory.status !== 200 ||
+    inventory.value.workflow_id !== "workspace-inventory-registry" ||
+    inventory.value.canonical_mutation !== false ||
+    !/^[0-9a-f]{40}$/.test(inventory.value.authority_revision || "")
+  ) throw new Error("authenticated Workspace Inventory registry proof failed");
+
+  const intake = await request("/v1/workspace-intake/preparations", {
+    method: "POST",
+    body: {target: {kind: "component", name: "temporal"}},
+  });
+  if (
+    intake.status !== 200 ||
+    intake.value.workflow_id !== "workspace-intake" ||
+    intake.value.canonical_mutation !== false ||
+    !/^[0-9a-f]{40}$/.test(intake.value.authority_revision || "")
+  ) throw new Error("authenticated Workspace Intake preparation proof failed");
+  if (intake.value.authority_revision !== inventory.value.authority_revision) {
+    throw new Error("workspace operation authority revisions differ");
+  }
+
+  const denied = await request("/v1/workspace-inventory/registry", {
+    secret: "invalid-commissioning-probe-secret",
+  });
+  if (denied.status !== 401 || denied.value.error !== "caller_auth_invalid") {
+    throw new Error("workspace operation caller denial proof failed");
+  }
+  process.stdout.write(JSON.stringify({
+    authority_revision: inventory.value.authority_revision,
+    intake_workflow_id: intake.value.workflow_id,
+    inventory_workflow_id: inventory.value.workflow_id,
+    canonical_mutation: false,
+    invalid_caller_status: denied.status,
+    identity_projection_ready: true,
+    source_authority_mount_ready: true,
+    state_roots_ready: true,
+  }));
+})().catch((error) => {
+  process.stderr.write(error.message);
+  process.exit(1);
+});
+""".strip()
+
+
 def command_validate(args: argparse.Namespace) -> int:
     print(json.dumps({"valid": True, **validate_definition(args.contract)}, sort_keys=True))
     return 0
@@ -456,6 +594,8 @@ def command_commission(args: argparse.Namespace) -> int:
 def command_deliver(args: argparse.Namespace) -> int:
     contract = load_contract(args.contract)
     source_revisions = parse_source_revisions(args.source_revision)
+    if session_uses_workspace_operations_composition(args.session_manifest):
+        assert_inventory_extension_approved(contract)
     verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
     target = verify_dev_integration_cluster(
         args.kubectl,
@@ -542,6 +682,105 @@ def command_deliver(args: argparse.Namespace) -> int:
         f"workspace intake identity delivered; namespace={target.namespace} "
         f"receipt={args.receipt}"
     )
+    return 0
+
+
+def command_status(args: argparse.Namespace) -> int:
+    contract = load_contract(args.contract)
+    assert_inventory_extension_approved(contract)
+    if args.app_id <= 0 or args.installation_id <= 0:
+        raise IdentityError("app id and installation id must be positive integers")
+    source_revisions = parse_source_revisions(args.source_revision)
+    verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
+    target = verify_dev_integration_cluster(
+        args.kubectl,
+        load_dev_integration_target(
+            args.session_manifest, args.workspace_root, contract, require_running=True
+        ),
+    )
+    secret_result = run_kubectl(
+        args.kubectl,
+        [
+            "-n",
+            target.namespace,
+            "get",
+            "secret",
+            contract.runtime_secret_name,
+            "-o",
+            "json",
+        ],
+    )
+    try:
+        secret = json.loads(secret_result.stdout)
+        annotations = secret["metadata"]["annotations"]
+        repository = ProviderRepository(contract.repository, contract.repository_id)
+        expected_digest = binding_digest(
+            contract, args.app_id, args.installation_id, repository
+        )
+        if (
+            contract.runtime_secret_key not in secret["data"]
+            or annotations["workspace-governance/credential-binding-digest"]
+            != expected_digest
+            or annotations["workspace-governance/dev-integration-profile"]
+            != target.profile_id
+            or annotations["workspace-governance/dev-integration-session"]
+            != target.session_id
+        ):
+            raise ValueError
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise IdentityError(
+            "runtime Workspace operations credential projection is invalid"
+        ) from None
+    probe = run_kubectl(
+        args.kubectl,
+        [
+            "-n",
+            target.namespace,
+            "exec",
+            f"deployment/{BROKER_DEPLOYMENT}",
+            "--",
+            "node",
+            "-e",
+            runtime_probe_program(),
+        ],
+    )
+    try:
+        runtime_proof = json.loads(probe.stdout)
+    except json.JSONDecodeError:
+        raise IdentityError("Workspace operations runtime proof is invalid") from None
+    expected = {
+        "intake_workflow_id": "workspace-intake",
+        "inventory_workflow_id": "workspace-inventory-registry",
+        "canonical_mutation": False,
+        "invalid_caller_status": 401,
+        "identity_projection_ready": True,
+        "source_authority_mount_ready": True,
+        "state_roots_ready": True,
+    }
+    if (
+        any(runtime_proof.get(key) != value for key, value in expected.items())
+        or not SOURCE_REVISION_PATTERN.fullmatch(
+            str(runtime_proof.get("authority_revision") or "")
+        )
+    ):
+        raise IdentityError("Workspace operations runtime proof did not satisfy the contract")
+    write_receipt(
+        args.receipt,
+        receipt(
+            contract,
+            action="status",
+            app_id=args.app_id,
+            installation_id=args.installation_id,
+            repository=repository,
+            outcome="runtime-ready",
+            source_revisions=source_revisions,
+            caller_id=args.caller_id,
+            target=target,
+            runtime_proof=runtime_proof,
+            security_receipt_ref=contract.inventory_extension_security_review_ref,
+        ),
+    )
+    print(f"workspace operations runtime ready; receipt={args.receipt}")
     return 0
 
 
@@ -683,6 +922,15 @@ def parser() -> argparse.ArgumentParser:
     deliver.add_argument("--workspace-root", type=Path, required=True)
     deliver.add_argument("--kubectl", default="k3s kubectl")
     deliver.set_defaults(handler=command_deliver)
+    status = commands.add_parser(
+        "status",
+        help="prove the exact Workspace Intake and Inventory runtime without mutation",
+    )
+    add_identity_arguments(status, private_key=False)
+    status.add_argument("--session-manifest", type=Path, required=True)
+    status.add_argument("--workspace-root", type=Path, required=True)
+    status.add_argument("--kubectl", default="k3s kubectl")
+    status.set_defaults(handler=command_status)
     revoke = commands.add_parser(
         "revoke", help="revoke the token and remove its runtime projection"
     )

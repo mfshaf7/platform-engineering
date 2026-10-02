@@ -61,9 +61,12 @@ These support shared platform operations:
     `Metadata: read` token after immutable repository-id readback
   - records value-free evidence and revokes without altering repository state
 - `workspace_intake_identity.py`
-  - validates the stable Workspace Intake identity definition, verifies the
-    exact GitHub App installation, and delivers or revokes one short-lived
-    token for the admitted OOS dev-integration runtime
+  - validates the stable Workspace Intake and Inventory identity definition,
+    verifies the exact GitHub App installation, and delivers or revokes one
+    short-lived token for the admitted OOS dev-integration runtime
+  - after exact-revision Security acceptance, directly proves authenticated
+    Intake preparation, Inventory registry readback, and invalid-caller denial
+    without canonical mutation
   - binds source revisions, caller, provider identity, runtime session, and
     rollback evidence in secret-free receipts
 - `prototype_landing_identity.py`
@@ -105,8 +108,8 @@ These support shared platform operations:
     ambient human GitHub credentials
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
-    delivery and teardown, and secret-free receipt behavior using a local fake
-    provider and runtime
+    delivery and teardown, direct Intake/Inventory readiness, identity binding,
+    and secret-free receipt behavior using a local fake provider and runtime
 - `test_prototype_landing_identity.py`
   - proves exact Prototype Studio scope, bounded runtime projection, provider
     mismatch denial, complete revocation, and secret-free receipts

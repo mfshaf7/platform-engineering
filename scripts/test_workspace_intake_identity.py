@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import copy
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
@@ -16,6 +17,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -197,6 +199,7 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
             "KUBECTL_CONFIG_JSON",
             "KUBECTL_NAMESPACE_JSON",
             "KUBECTL_SECRET_JSON",
+            "KUBECTL_PROBE_JSON",
         ):
             os.environ.pop(name, None)
         self.server.shutdown()
@@ -271,6 +274,7 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
             "if [ \"$1\" = get ] && [ \"$2\" = namespace ]; then printf '%s' \"$KUBECTL_NAMESPACE_JSON\"; exit 0; fi\n"
             "if [ \"$1\" = apply ]; then cat >\"$KUBECTL_CAPTURE\"; exit 0; fi\n"
             "if [ \"$3\" = get ]; then printf '%s' \"$KUBECTL_SECRET_JSON\"; exit 0; fi\n"
+            "if [ \"$3\" = exec ]; then printf '%s' \"$KUBECTL_PROBE_JSON\"; exit 0; fi\n"
             "if [ \"$3\" = patch ] || [ \"$3\" = rollout ] || [ \"$3\" = delete ]; then exit 0; fi\n"
             "exit 2\n"
         )
@@ -284,7 +288,101 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
         self.assertEqual("selected-not-active", result["state"])
         self.assertFalse(result["runtime_enabled"])
         self.assertFalse(result["provider_verified"])
+        self.assertEqual(
+            "pending-refreshed-security-acceptance",
+            result["workspace_inventory_extension_state"],
+        )
         self.assertEqual(original, module.DEFAULT_CONTRACT.read_bytes())
+
+    def test_source_boundary_covers_only_intake_and_inventory_authority_files(self) -> None:
+        definition = yaml.safe_load(module.DEFAULT_CONTRACT.read_text())
+        self.assertEqual(
+            "^(intake|inventory|inventory-lifecycle)/[0-9a-f]{64}$",
+            definition["source_boundary"]["allowed_branch_pattern"],
+        )
+        self.assertEqual(
+            definition["source_boundary"]["allowed_write_paths"],
+            [
+                "contracts/intake-register.yaml",
+                "contracts/repos.yaml",
+                "contracts/products.yaml",
+                "contracts/components.yaml",
+                "contracts/workspace-inventory-history.yaml",
+            ],
+        )
+
+    def test_composed_delivery_and_status_wait_for_refreshed_security_acceptance(self) -> None:
+        manifest = yaml.safe_load(self.session_manifest.read_text())
+        manifest["runtime_composition_id"] = "refinement-catalog"
+        self.session_manifest.write_text(yaml.safe_dump(manifest, sort_keys=False))
+        self.session_manifest.chmod(0o600)
+        self.assertEqual(
+            1,
+            module.main([*self.identity_args("deliver"), *self.target_args()]),
+        )
+        status_args = self.identity_args("status")
+        status_args.remove("--private-key-file")
+        status_args.remove(str(self.private_key))
+        self.assertEqual(1, module.main([*status_args, *self.target_args()]))
+        self.assertFalse((self.work / "status.json").exists())
+
+    def test_runtime_probe_is_direct_authenticated_and_non_mutating(self) -> None:
+        source = module.runtime_probe_program()
+        self.assertIn('/v1/workspace-intake/preparations', source)
+        self.assertIn('/v1/workspace-inventory/registry', source)
+        self.assertIn('invalid-commissioning-probe-secret', source)
+        self.assertIn('canonical_mutation !== false', source)
+        self.assertNotIn('console_cross_domain', source)
+
+    def test_status_binds_approved_security_identity_and_direct_runtime_proof(self) -> None:
+        base_contract = module.load_contract(module.DEFAULT_CONTRACT)
+        security_ref = "security-review://workspace-intake-inventory/" + "c" * 40
+        contract = replace(
+            base_contract,
+            inventory_extension_state="approved",
+            inventory_extension_security_review_ref=security_ref,
+        )
+        repository = module.ProviderRepository(
+            contract.repository, contract.repository_id
+        )
+        digest = module.binding_digest(
+            contract, self.state.app_id, self.state.installation_id, repository
+        )
+        os.environ["KUBECTL_SECRET_JSON"] = json.dumps(
+            {
+                "metadata": {
+                    "annotations": {
+                        "workspace-governance/credential-binding-digest": digest,
+                        "workspace-governance/dev-integration-profile": "accepted-idea-delivery",
+                        "workspace-governance/dev-integration-session": (
+                            "accepted-idea-delivery-test-operator-20260905T000000Z"
+                        ),
+                    }
+                },
+                "data": {contract.runtime_secret_key: base64.b64encode(b"token").decode()},
+            }
+        )
+        os.environ["KUBECTL_PROBE_JSON"] = json.dumps(
+            {
+                "authority_revision": "d" * 40,
+                "intake_workflow_id": "workspace-intake",
+                "inventory_workflow_id": "workspace-inventory-registry",
+                "canonical_mutation": False,
+                "invalid_caller_status": 401,
+                "identity_projection_ready": True,
+                "source_authority_mount_ready": True,
+                "state_roots_ready": True,
+            }
+        )
+        status_args = self.identity_args("status")
+        status_args.remove("--private-key-file")
+        status_args.remove(str(self.private_key))
+        with patch.object(module, "load_contract", return_value=contract):
+            self.assertEqual(0, module.main([*status_args, *self.target_args()]))
+        receipt = json.loads((self.work / "status.json").read_text())
+        self.assertEqual("runtime-ready", receipt["outcome"])
+        self.assertEqual(security_ref, receipt["security_receipt_ref"])
+        self.assertEqual(digest, receipt["credential_binding_digest"])
 
     def test_definition_denials_do_not_leak_rejected_values(self) -> None:
         source = yaml.safe_load(module.DEFAULT_CONTRACT.read_text())

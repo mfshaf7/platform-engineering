@@ -1,18 +1,22 @@
 # Workspace Intake And Active Inventory Dev-Integration Commissioning
 
+> Correction: this commissioning claim is invalidated. The recorded Console
+> activity checks proved only the Console's OOS/WGCF read boundary; they did
+> not configure or directly probe Workspace Intake or Inventory. This record is
+> retained as audit history and must not be used as operating evidence.
+
 ## Summary
 
 - Date: 2026-10-02
 - Short title: Commission the reviewed Intake and Inventory composition
 - Environment: local `dev-integration`
-- Severity: planned activation
+- Severity: invalidated activation evidence
 
 ## Classification
 
 - Type: product integration and runtime composition
-- User-facing impact: the Governance Operations Console can use the exact
-  reviewed OOS and WGCF owner paths for the Intake and Active Inventory
-  operating proof owned by ART `#1210`.
+- User-facing impact: none was proven for Workspace Intake or Active Inventory.
+  The Console read boundary remained a separate capability.
 
 ## Ownership
 
@@ -25,25 +29,34 @@
 
 ## Root Cause
 
-- Immediate gap: the existing Console composition pinned the earlier
-  cross-domain visibility revisions and did not bind the Intake and Inventory
-  architecture-packet lineage or controlled-activation Security gate.
-- Actual root cause: source acceptance and Security acceptance intentionally
-  preceded Platform commissioning.
-- Why it escaped earlier controls: it did not escape; ART `#1217` was the
-  planned activation gate after the owner implementations and Security review.
+- Immediate gap: OOS was launched without the Intake/Inventory enable flags,
+  WGCF endpoints and caller bindings, authority/state mounts, or dedicated
+  Workspace Governance identity projection.
+- Actual root cause: commissioning reused the Console cross-domain activity
+  script and treated generic `/api/governance-activity` success as capability
+  proof. That script never inspected the required OOS/WGCF configuration or
+  called the Intake and Inventory routes.
+- Why it escaped earlier controls: the completion evidence asserted the target
+  capability without a capability-specific authenticated probe.
 
 ## Source Changes
 
 - Repo: `platform-engineering`
 - Commit(s): the `delivery-1203-intake-inventory-platform` Landing Unit and its
   finalized Review Packet
-- Guardrails added:
+- The original guardrails were insufficient:
   - exact current and predecessor architecture-packet binding
   - exact Security review and owner-revision binding
   - explicit clean-worktree source selection without disturbing preserved local state
   - secret-free architecture and credential-boundary receipts
-  - updated commissioning, denial, restart, rollback, revocation, and teardown procedure
+  - the claimed commissioning, denial, restart, rollback, revocation, and
+    teardown procedure exercised only the Console read boundary
+
+Corrective maintenance adds a fail-closed Workspace operations identity
+`status` action with authenticated direct Intake preparation and Inventory
+registry probes, exact shared authority-revision binding, live runtime
+configuration checks, and invalid-caller denial. Activation remains blocked
+until refreshed Security acceptance is pinned.
 
 Approved input revisions:
 
@@ -66,11 +79,11 @@ Architecture lineage:
 - Published digest: not applicable to the local Console process
 - Recorded prod revision: None
 - Argo application revision: None
-- Local commissioning receipts: retained under the operator-private
+- Invalidated Console read-boundary receipts: retained under the operator-private
   `governance-console-cross-domain/receipts` directory and referenced by the
   Landing Unit runtime evidence. Each receipt records the exact executing
   Platform commit, architecture lineage, approved owner revisions, and
-  secret-free credential boundary.
+  secret-free credential boundary. They are not Workspace operations receipts.
 
 ## Host Or Runtime Recovery
 
@@ -83,13 +96,14 @@ Architecture lineage:
 ## Live Verification
 
 - App health: Console activity reported both OOS and WGCF as current through
-  the loopback-only live owner path; all three managed user services were active.
+  the loopback-only live owner path; this did not prove Intake or Inventory.
 - Credential boundary: the Console environment remained operator-private mode
   `0600`; browser credentials remained prohibited; the dedicated WGCF reader
   binding was present only while the composition was active.
-- Functional verification: activation, status, restart, deliberate WGCF
+- Functional verification: Console activation, status, restart, deliberate WGCF
   disconnection without fixture fallback, recovery, bounded rollback,
-  credential revocation, cleanup, final activation, and final status passed.
+  credential revocation, cleanup, final activation, and final status passed for
+  the Console read boundary only. Workspace operations verification did not.
 - Rollback verification: Console services and the WGCF reader binding were
   absent while owner profile sessions and data remained present; cleanup also
   removed private runtime files while retaining the receipts.
@@ -98,6 +112,8 @@ Architecture lineage:
 
 ## Follow-Up
 
-- Required follow-up: OOS ART `#1210` must prove the composed positive, stale,
-  unauthorized, replayed, interrupted, owner-unavailable, rollback, and cleanup paths.
-- Owner: `operator-orchestration-service`
+- Required follow-up: land the source repair under owner-repo maintenance,
+  obtain refreshed exact-revision Security acceptance, then run the bounded
+  composition, identity delivery, direct authenticated status, denial,
+  revocation, rollback, and cleanup proof. No replacement ART item is required.
+- Owner: `platform-engineering`

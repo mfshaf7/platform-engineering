@@ -37,6 +37,14 @@ The Console cross-domain local activation is recorded in
 It binds the exact Security-approved OOS, WGCF, Console, and governance sources
 to restart, negative-source, rollback, cleanup, and final activation evidence.
 
+The earlier Workspace Intake and Inventory commissioning claim is explicitly
+invalidated in
+[2026-10-02-workspace-intake-inventory-devint-commissioning.md](2026-10-02-workspace-intake-inventory-devint-commissioning.md).
+Its Console activity receipts prove only the Console read boundary and must not
+be reused as Workspace operations evidence. The same record identifies the
+maintenance repair and the direct proof required before commissioning can be
+claimed again.
+
 ## Goals
 
 Each record should make it easy to answer:

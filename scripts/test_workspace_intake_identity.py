@@ -289,7 +289,7 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
         self.assertFalse(result["runtime_enabled"])
         self.assertFalse(result["provider_verified"])
         self.assertEqual(
-            "pending-refreshed-security-acceptance",
+            "approved",
             result["workspace_inventory_extension_state"],
         )
         self.assertEqual(original, module.DEFAULT_CONTRACT.read_bytes())
@@ -311,20 +311,41 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
             ],
         )
 
-    def test_composed_delivery_and_status_wait_for_refreshed_security_acceptance(self) -> None:
+    def test_unapproved_composed_delivery_and_status_fail_closed(self) -> None:
         manifest = yaml.safe_load(self.session_manifest.read_text())
         manifest["runtime_composition_id"] = "refinement-catalog"
         self.session_manifest.write_text(yaml.safe_dump(manifest, sort_keys=False))
         self.session_manifest.chmod(0o600)
-        self.assertEqual(
-            1,
-            module.main([*self.identity_args("deliver"), *self.target_args()]),
+        pending = replace(
+            module.load_contract(module.DEFAULT_CONTRACT),
+            inventory_extension_state="pending-refreshed-security-acceptance",
+            inventory_extension_security_review_ref=None,
+            approved_source_revisions={},
         )
-        status_args = self.identity_args("status")
-        status_args.remove("--private-key-file")
-        status_args.remove(str(self.private_key))
-        self.assertEqual(1, module.main([*status_args, *self.target_args()]))
+        with patch.object(module, "load_contract", return_value=pending):
+            self.assertEqual(
+                1,
+                module.main([*self.identity_args("deliver"), *self.target_args()]),
+            )
+            status_args = self.identity_args("status")
+            status_args.remove("--private-key-file")
+            status_args.remove(str(self.private_key))
+            self.assertEqual(1, module.main([*status_args, *self.target_args()]))
         self.assertFalse((self.work / "status.json").exists())
+
+    def test_approved_composed_delivery_rejects_incomplete_source_binding(self) -> None:
+        manifest = yaml.safe_load(self.session_manifest.read_text())
+        manifest["runtime_composition_id"] = "refinement-catalog"
+        self.session_manifest.write_text(yaml.safe_dump(manifest, sort_keys=False))
+        self.session_manifest.chmod(0o600)
+        with patch.object(
+            module, "current_platform_revision", return_value=self.SOURCE_REVISION
+        ):
+            self.assertEqual(
+                1,
+                module.main([*self.identity_args("deliver"), *self.target_args()]),
+            )
+        self.assertFalse((self.work / "deliver.json").exists())
 
     def test_runtime_probe_is_direct_authenticated_and_non_mutating(self) -> None:
         source = module.runtime_probe_program()
@@ -377,7 +398,12 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
         status_args = self.identity_args("status")
         status_args.remove("--private-key-file")
         status_args.remove(str(self.private_key))
-        with patch.object(module, "load_contract", return_value=contract):
+        for repository_name, revision in contract.approved_source_revisions.items():
+            status_args.extend(["--source-revision", f"{repository_name}={revision}"])
+        with (
+            patch.object(module, "load_contract", return_value=contract),
+            patch.object(module, "current_platform_revision", return_value=self.SOURCE_REVISION),
+        ):
             self.assertEqual(0, module.main([*status_args, *self.target_args()]))
         receipt = json.loads((self.work / "status.json").read_text())
         self.assertEqual("runtime-ready", receipt["outcome"])

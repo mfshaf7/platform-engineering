@@ -33,11 +33,25 @@ same canonical authority revision, and proves an invalid caller is denied.
 lists the required source-revision, caller, provider, session, and receipt
 arguments.
 
-The Inventory extension is currently source-defined but activation-blocked.
-`deliver` refuses a `refinement-catalog` session and `status` refuses all live
-proof until `security/workspace-intake-identity.yaml` records refreshed
-Security acceptance for the exact repaired OOS, Workspace Governance, WGCF,
-and Platform revisions. The pending source contract is not runtime authority.
+For the approved Workspace operations composition, repeat the source argument
+for this exact set; the Platform revision must be the clean executing checkout:
+
+```text
+--source-revision workspace-governance=b7dbe6655b68845bc55d783e54b8f1bd4afdb7b0
+--source-revision workspace-governance-control-fabric=e31688369a3f59c76762b8f9359bd2acc478dcb4
+--source-revision operator-orchestration-service=4b0c3f9891e38c53412548bcbb355c7c8162fa18
+--source-revision governance-operations-console=d17912691a6dd99335c327637eda98c4105d98eb
+--source-revision security-architecture=0bf711dc341a80efe93ba241f17d53a354f76946
+--source-revision platform-engineering=<current-clean-HEAD>
+```
+
+The Inventory extension is approved only for the exact repaired OOS, Workspace
+Governance, WGCF, Console, and Security revisions pinned in
+`security/workspace-intake-identity.yaml`. For a `refinement-catalog` session,
+`deliver` and `status` also require the executing Platform `HEAD` and the exact
+accepted owner revisions in their source-revision arguments. A different or
+partial set fails closed. The approved source contract is still not operating
+evidence; only a successful direct runtime proof produces that evidence.
 
 The activation source is ART #1082 and the exact-source Security decision is
 #1066. A runtime receipt never changes the source definition into a mutable
@@ -102,5 +116,6 @@ does not undo an already merged entrant or delete any repository.
 4. #1082 commissions the selected identity and proves delivery/revocation.
 5. #1069 proves the composed intake workflow with real owner receipts.
 
-The Inventory and lifecycle paths remain inactive until the pending refreshed
-Security review is pinned in the contract. Stage and production are excluded.
+The Inventory and lifecycle source paths are accepted for the exact local
+composition and remain subject to direct runtime proof. Stage and production
+are excluded.

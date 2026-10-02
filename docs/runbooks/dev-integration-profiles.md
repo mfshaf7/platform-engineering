@@ -168,9 +168,9 @@ Security acceptance:
 6. retain only secret-free receipts and remove temporary credentials and
    runtime state created for the proof.
 
-`deliver` and `status` fail closed while the Inventory extension is pending
-Security acceptance. A passing Console activity check cannot override that
-gate.
+`deliver` and `status` fail closed unless the source arguments exactly match
+the Security-accepted owner revisions and the executing Platform `HEAD`. A
+passing Console activity check cannot override that gate.
 
 Current active composition profile:
 

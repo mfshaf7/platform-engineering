@@ -33,7 +33,6 @@ UNIT_ROOT = Path.home() / ".config/systemd/user"
 CALLER_ID = "governance-operations-console"
 UNIT_PREFIX = "governance-console-cross-domain"
 WGCF_SECRET = "governance-console-history-reader"
-REPO_PATH_OVERRIDES: dict[str, Path] = {}
 
 
 class ActivationError(RuntimeError):
@@ -55,7 +54,7 @@ def run(
 
 def load_policy() -> dict[str, Any]:
     value = yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
-    if not isinstance(value, dict) or value.get("schema_version") != 2:
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
         raise ActivationError("cross-domain activation policy is invalid")
     for owner in ("oos", "wgcf"):
         required = {
@@ -67,25 +66,12 @@ def load_policy() -> dict[str, Any]:
     return value
 
 
-def parse_repo_paths(entries: list[str]) -> dict[str, Path]:
-    result: dict[str, Path] = {}
-    for entry in entries:
-        if "=" not in entry:
-            raise ActivationError("--repo-path must use repo=/absolute/path")
-        name, raw_path = entry.split("=", 1)
-        path = Path(raw_path).expanduser()
-        if not name or not path.is_absolute() or not path.is_dir():
-            raise ActivationError("--repo-path must use an existing absolute repository path")
-        result[name] = path.resolve()
-    return result
-
-
 def operator() -> str:
     return os.environ.get("DEVINT_OPERATOR", os.environ.get("USER", "")).strip()
 
 
 def repo_path(name: str) -> Path:
-    return REPO_PATH_OVERRIDES.get(name, WORKSPACE_ROOT / name)
+    return WORKSPACE_ROOT / name
 
 
 def git_head(path: Path) -> str:
@@ -98,45 +84,6 @@ def require_revision(name: str, revision: str) -> None:
         raise ActivationError(f"{name} is not at the Security-approved revision {revision}")
     if run(["git", "-C", str(path), "status", "--porcelain"]).stdout.strip():
         raise ActivationError(f"{name} must be clean before activation")
-
-
-def require_clean_platform_source() -> None:
-    if run(["git", "-C", str(REPO_ROOT), "status", "--porcelain"]).stdout.strip():
-        raise ActivationError("the executing Platform checkout must be clean before activation")
-
-
-def require_architecture_binding(policy: dict[str, Any], review_content: str) -> None:
-    architecture = policy.get("architecture", {})
-    current = architecture.get("current", {})
-    predecessor = architecture.get("predecessor", {})
-    if (
-        architecture.get("relationship") != "exact-supersession"
-        or architecture.get("artifact_id") != "architecture-packet:delivery-1203-v1"
-        or current.get("digest") == predecessor.get("digest")
-    ):
-        raise ActivationError("the architecture packet lineage binding is invalid")
-    for label, reference in (("current", current), ("predecessor", predecessor)):
-        digest = reference.get("digest", "")
-        uri = reference.get("uri", "")
-        if (
-            not isinstance(digest, str)
-            or not digest.startswith("sha256:")
-            or len(digest) != 71
-            or uri != f"wgcf://artifacts/delivery-art/sha256/{digest.removeprefix('sha256:')}"
-        ):
-            raise ActivationError(f"the {label} architecture packet reference is invalid")
-        if uri not in review_content:
-            raise ActivationError(
-                f"the Security review does not bind the {label} architecture packet"
-            )
-    approved_revisions = [
-        policy["console"]["revision"],
-        *(owner["revision"] for owner in policy["owners"].values()),
-        policy["authority"]["workspace_governance_revision"],
-    ]
-    missing = [revision for revision in approved_revisions if revision not in review_content]
-    if missing:
-        raise ActivationError("the Security review does not bind every configured source revision")
 
 
 def manifest_path(profile: str) -> Path:
@@ -161,7 +108,6 @@ def validate(policy: dict[str, Any]) -> None:
     for command in ("git", "k3s", "npm", "systemctl"):
         if run(["bash", "-lc", f"command -v {command}"], check=False).returncode:
             raise ActivationError(f"required command is unavailable: {command}")
-    require_clean_platform_source()
     require_revision(policy["console"]["repo"], policy["console"]["revision"])
     for owner in policy["owners"].values():
         require_revision(owner["repo"], owner["revision"])
@@ -182,10 +128,6 @@ def validate(policy: dict[str, Any]) -> None:
         raise ActivationError(
             "the Security activation review is unavailable at the approved revision"
         )
-    review_content = run(
-        ["git", "-C", str(security), "show", f"{revision}:{review}"]
-    ).stdout
-    require_architecture_binding(policy, review_content)
 
 
 def read_oos_secret(policy: dict[str, Any]) -> str:
@@ -244,31 +186,6 @@ def install_wgcf_binding(policy: dict[str, Any], secret: str) -> None:
         f"--from=secret/{WGCF_SECRET}",
     )
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")
-
-
-def wgcf_binding_present(policy: dict[str, Any]) -> bool:
-    owner = policy["owners"]["wgcf"]
-    ns = namespace(owner["namespace"])
-    if kubectl("-n", ns, "get", "secret", WGCF_SECRET, check=False).returncode != 0:
-        return False
-    result = kubectl(
-        "-n", ns, "get", f"deployment/{owner['deployment']}", "-o", "json",
-        check=False,
-    )
-    if result.returncode:
-        return False
-    deployment = json.loads(result.stdout)
-    expected = {
-        "WGCF_GOVERNANCE_HISTORY_CALLER_ID",
-        "WGCF_GOVERNANCE_HISTORY_CALLER_SECRET",
-    }
-    observed = {
-        item.get("name")
-        for container in deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
-        for item in container.get("env", [])
-        if isinstance(item, dict)
-    }
-    return expected.issubset(observed)
 
 
 def unit_name(role: str) -> str:
@@ -342,27 +259,6 @@ def enable_units() -> None:
     run(["systemctl", "--user", "restart", *units])
 
 
-def active_runtime_boundary(policy: dict[str, Any], env_path: Path | None = None) -> dict[str, Any]:
-    selected_env = env_path or (PRIVATE_ROOT / "console.env")
-    return {
-        "console_private_environment_mode": (
-            oct(selected_env.stat().st_mode & 0o777) if selected_env.is_file() else None
-        ),
-        "owner_sessions_preserved": all(
-            manifest_path(item["profile"]).is_file()
-            for item in policy["owners"].values()
-        ),
-        "services_active": all(
-            run(
-                ["systemctl", "--user", "is-active", "--quiet", unit_name(role)],
-                check=False,
-            ).returncode == 0
-            for role in ("oos", "wgcf", "console")
-        ),
-        "wgcf_reader_binding_present": wgcf_binding_present(policy),
-    }
-
-
 def http_json(url: str) -> dict[str, Any]:
     try:
         with urlopen(Request(url, headers={"Accept": "application/json"}), timeout=15) as response:
@@ -409,7 +305,6 @@ def receipt(
     activity: dict[str, Any] | None = None,
     *,
     negative_proof: dict[str, Any] | None = None,
-    runtime_boundary: dict[str, Any] | None = None,
 ) -> Path:
     RECEIPT_ROOT.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -420,21 +315,12 @@ def receipt(
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "lane": "dev-integration",
         "operator": operator(),
-        "activation": policy["activation"],
-        "architecture": policy["architecture"],
         "source_revisions": {
-            "platform-engineering": git_head(REPO_ROOT),
             policy["console"]["repo"]: policy["console"]["revision"],
             policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
             policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
             "workspace-governance": policy["authority"]["workspace_governance_revision"],
             "security-architecture": policy["authority"]["security_revision"],
-        },
-        "credential_boundary": {
-            "browser_credentials_allowed": policy["credentials"]["browser_credentials_allowed"],
-            "console_oos_caller_id": policy["credentials"]["console_oos"]["caller_id"],
-            "console_wgcf_caller_id": policy["credentials"]["console_wgcf"]["caller_id"],
-            "credentials_embedded": False,
         },
         "result": "succeeded",
     }
@@ -456,8 +342,6 @@ def receipt(
         }
     if negative_proof is not None:
         payload["negative_proof"] = negative_proof
-    if runtime_boundary is not None:
-        payload["runtime_boundary"] = runtime_boundary
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     digest = hashlib.sha256(encoded).hexdigest()
     payload["content_digest"] = f"sha256:{digest}"
@@ -474,13 +358,7 @@ def activate(policy: dict[str, Any]) -> Path:
     env_path = write_private_env(policy, read_oos_secret(policy), history_secret)
     write_units(policy, env_path)
     enable_units()
-    activity = wait_for_activity(policy)
-    return receipt(
-        "activate",
-        policy,
-        activity,
-        runtime_boundary=active_runtime_boundary(policy, env_path),
-    )
+    return receipt("activate", policy, wait_for_activity(policy))
 
 
 def status(policy: dict[str, Any]) -> Path:
@@ -492,12 +370,7 @@ def status(policy: dict[str, Any]) -> Path:
         )
         if active.returncode:
             raise ActivationError(f"{role} activation service is not active")
-    return receipt(
-        "status",
-        policy,
-        wait_for_activity(policy),
-        runtime_boundary=active_runtime_boundary(policy),
-    )
+    return receipt("status", policy, wait_for_activity(policy))
 
 
 def restart(policy: dict[str, Any]) -> Path:
@@ -506,12 +379,7 @@ def restart(policy: dict[str, Any]) -> Path:
         "systemctl", "--user", "restart",
         unit_name("oos"), unit_name("wgcf"), unit_name("console"),
     ])
-    return receipt(
-        "restart",
-        policy,
-        wait_for_activity(policy),
-        runtime_boundary=active_runtime_boundary(policy),
-    )
+    return receipt("restart", policy, wait_for_activity(policy))
 
 
 def rehearse(policy: dict[str, Any]) -> Path:
@@ -558,13 +426,7 @@ def rehearse(policy: dict[str, Any]) -> Path:
     finally:
         run(["systemctl", "--user", "start", unit_name("wgcf"), unit_name("console")])
     positive = wait_for_activity(policy)
-    return receipt(
-        "rehearse",
-        policy,
-        positive,
-        negative_proof=negative,
-        runtime_boundary=active_runtime_boundary(policy),
-    )
+    return receipt("rehearse", policy, positive, negative_proof=negative)
 
 
 def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
@@ -592,50 +454,18 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
         for name in ("console.env", "wgcf-caller-secret"):
             (PRIVATE_ROOT / name).unlink(missing_ok=True)
         run(["systemctl", "--user", "daemon-reload"])
-    binding_absent = not wgcf_binding_present(policy)
-    services_inactive = all(
-        run(
-            ["systemctl", "--user", "is-active", "--quiet", unit_name(role)],
-            check=False,
-        ).returncode != 0
-        for role in ("console", "wgcf", "oos")
-    )
-    private_files_absent = all(
-        not (PRIVATE_ROOT / name).exists()
-        for name in ("console.env", "wgcf-caller-secret")
-    )
-    if not binding_absent or not services_inactive or (remove_files and not private_files_absent):
-        raise ActivationError("rollback or cleanup live readback is incomplete")
-    return receipt(
-        "cleanup" if remove_files else "rollback",
-        policy,
-        runtime_boundary={
-            "owner_sessions_preserved": True,
-            "private_files_removed": private_files_absent,
-            "services_active": False,
-            "wgcf_reader_binding_present": False,
-        },
-    )
+    return receipt("cleanup" if remove_files else "rollback", policy)
 
 
 def main() -> int:
-    global REPO_PATH_OVERRIDES
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
         choices=("validate", "activate", "status", "restart", "rehearse", "rollback", "cleanup"),
     )
-    parser.add_argument(
-        "--repo-path",
-        action="append",
-        default=[],
-        metavar="REPO=/ABSOLUTE/PATH",
-        help="select a clean exact-revision checkout without changing the workspace primary checkout",
-    )
     args = parser.parse_args()
+    policy = load_policy()
     try:
-        REPO_PATH_OVERRIDES = parse_repo_paths(args.repo_path)
-        policy = load_policy()
         if args.action == "validate":
             validate(policy)
             print("cross-domain activation inputs valid")

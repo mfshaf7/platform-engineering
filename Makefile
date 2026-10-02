@@ -209,7 +209,7 @@ governance-console-runtime:
 .PHONY: governance-console-cross-domain
 governance-console-cross-domain:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, rollback, or cleanup"; exit 1; }
-	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py $(ACTION) $(if $(ARGS),$(ARGS),)
+	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py $(ACTION)
 
 .PHONY: devint-status
 devint-status:

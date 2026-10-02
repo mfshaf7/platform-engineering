@@ -30,7 +30,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 4b0c3f9891e38c53412548bcbb355c7c8162fa18
+    revision: 8a401e8a44c568bf858efcf68cfb999ec0712f11
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -47,9 +47,9 @@ owners:
     remote_port: 8080
     local_port: 38181
 authority:
-  workspace_governance_revision: b7dbe6655b68845bc55d783e54b8f1bd4afdb7b0
-  security_revision: 0bf711dc341a80efe93ba241f17d53a354f76946
-  security_review_ref: docs/reviews/components/2026-10-02-workspace-intake-inventory-maintenance-reacceptance.md
+  workspace_governance_revision: 0acb5e4c9a833fba9b49ba0737e15b8e55d57b07
+  security_revision: b81099e9072f2fd8b0445332a392cc296f6961d1
+  security_review_ref: docs/reviews/components/2026-10-02-workspace-intake-inventory-post-maintenance-reacceptance.md
 credentials:
   console_oos:
     caller_id: governance-operations-console

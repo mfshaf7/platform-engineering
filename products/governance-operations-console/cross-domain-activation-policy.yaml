@@ -1,21 +1,35 @@
-schema_version: 1
+schema_version: 2
 lane: dev-integration
+activation:
+  delivery_id: delivery-1203
+  work_item_ref: openproject://work_packages/1217
+  security_gate_id: gate:intake-inventory-controlled-activation
+architecture:
+  artifact_id: architecture-packet:delivery-1203-v1
+  current:
+    uri: wgcf://artifacts/delivery-art/sha256/e31fd8cc44410fe88f1ee58f68944fe7a460c637e1d9396dc66290387a4af1fe
+    digest: sha256:e31fd8cc44410fe88f1ee58f68944fe7a460c637e1d9396dc66290387a4af1fe
+  predecessor:
+    uri: wgcf://artifacts/delivery-art/sha256/34022576c3cbcff6e3bf09d2ac0f5689e1b2255e82cc02a1233970b7fdc03bbe
+    digest: sha256:34022576c3cbcff6e3bf09d2ac0f5689e1b2255e82cc02a1233970b7fdc03bbe
+  relationship: exact-supersession
 console:
   repo: governance-operations-console
-  revision: a35da32c23af7e2ec530a67d0a04abd70a599cb2
+  revision: d17912691a6dd99335c327637eda98c4105d98eb
   port: 3317
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 530e50f12e0e059c33902a551b72f000b82cd82e
+    revision: ce061b456c44f52d327908729db3b1e934f26acf
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
+    deployment: operator-orchestration-service
     remote_port: 8080
     local_port: 38180
   wgcf:
     repo: workspace-governance-control-fabric
-    revision: 70eb1f25a56fcda5ed57f3cf79425af8025e8d4f
+    revision: 0d0b686ea78397d91f64b498d78a4aa6651e1c05
     profile: governance-control-fabric
     namespace: devint-governance-control-fabric-{operator}
     service: workspace-governance-control-fabric-api
@@ -23,9 +37,18 @@ owners:
     remote_port: 8080
     local_port: 38181
 authority:
-  workspace_governance_revision: 5f2d078ede6f67e18ba165739c748d181bd8b8d6
-  security_revision: 72ad7678099286a4476d5f91b3894f1ca6525029
-  security_review_ref: docs/reviews/components/2026-09-28-cross-domain-awareness-trust-boundary.md
+  workspace_governance_revision: e3864940dd6961426de93fa5cdb2215a86a5aca1
+  security_revision: a214817f50f8991938f2f3059da52e490c589cda
+  security_review_ref: docs/reviews/components/2026-10-02-workspace-intake-inventory-controlled-activation.md
+credentials:
+  console_oos:
+    caller_id: governance-operations-console
+    custody: accepted-idea-delivery-private-runtime
+  console_wgcf:
+    caller_id: governance-operations-console
+    custody: platform-operator-private-state
+    binding: governance-console-history-reader
+  browser_credentials_allowed: false
 receipts:
   directory: governance-console-cross-domain/receipts
   maximum_age_seconds: 120

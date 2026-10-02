@@ -27,6 +27,56 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertNotEqual(owners["oos"]["local_port"], owners["wgcf"]["local_port"])
         self.assertEqual(len(owners["oos"]["revision"]), 40)
         self.assertEqual(len(owners["wgcf"]["revision"]), 40)
+        self.assertEqual(self.policy["schema_version"], 2)
+        self.assertEqual(
+            self.policy["activation"]["security_gate_id"],
+            "gate:intake-inventory-controlled-activation",
+        )
+
+    def test_policy_pins_exact_architecture_supersession(self) -> None:
+        architecture = self.policy["architecture"]
+        review = "\n".join([
+            architecture["current"]["uri"],
+            architecture["predecessor"]["uri"],
+            self.policy["console"]["revision"],
+            self.policy["owners"]["oos"]["revision"],
+            self.policy["owners"]["wgcf"]["revision"],
+            self.policy["authority"]["workspace_governance_revision"],
+        ])
+        activation.require_architecture_binding(self.policy, review)
+        with self.assertRaisesRegex(activation.ActivationError, "predecessor"):
+            activation.require_architecture_binding(
+                self.policy,
+                review.replace(architecture["predecessor"]["uri"], "missing"),
+            )
+
+    def test_validation_reads_security_review_text(self) -> None:
+        architecture = self.policy["architecture"]
+        review = "\n".join([
+            architecture["current"]["uri"],
+            architecture["predecessor"]["uri"],
+            self.policy["console"]["revision"],
+            self.policy["owners"]["oos"]["revision"],
+            self.policy["owners"]["wgcf"]["revision"],
+            self.policy["authority"]["workspace_governance_revision"],
+        ])
+        completed = activation.subprocess.CompletedProcess([], 0, stdout=review, stderr="")
+        with (
+            patch.object(activation, "operator", return_value="operator"),
+            patch.object(activation, "require_revision"),
+            patch.object(activation, "require_manifest"),
+            patch.object(activation, "require_clean_platform_source"),
+            patch.object(activation, "repo_path", return_value=Path("/security")),
+            patch.object(activation, "run", return_value=completed),
+        ):
+            activation.validate(self.policy)
+
+    def test_repo_path_override_is_explicit_and_absolute(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            resolved = activation.parse_repo_paths([f"workspace-governance={temp_dir}"])
+            self.assertEqual(resolved["workspace-governance"], Path(temp_dir).resolve())
+        with self.assertRaisesRegex(activation.ActivationError, "absolute repository path"):
+            activation.parse_repo_paths(["workspace-governance=relative"])
 
     def test_units_keep_credentials_in_private_environment_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -71,12 +121,29 @@ class CrossDomainActivationTests(unittest.TestCase):
             with (
                 patch.object(activation, "RECEIPT_ROOT", Path(temp_dir)),
                 patch.object(activation, "operator", return_value="operator"),
+                patch.object(activation, "git_head", return_value="a" * 40),
             ):
-                path = activation.receipt("status", self.policy, activity)
+                path = activation.receipt(
+                    "status",
+                    self.policy,
+                    activity,
+                    runtime_boundary={
+                        "services_active": True,
+                        "wgcf_reader_binding_present": True,
+                    },
+                )
             value = json.loads(path.read_text(encoding="utf-8"))
             serialized = json.dumps(value).casefold()
             self.assertEqual(value["result"], "succeeded")
             self.assertEqual(value["live_proof"]["event_count"], 1)
+            self.assertEqual(
+                value["architecture"]["current"]["digest"],
+                self.policy["architecture"]["current"]["digest"],
+            )
+            self.assertFalse(value["credential_boundary"]["credentials_embedded"])
+            self.assertEqual(value["source_revisions"]["platform-engineering"], "a" * 40)
+            self.assertTrue(value["runtime_boundary"]["services_active"])
+            self.assertTrue(value["runtime_boundary"]["wgcf_reader_binding_present"])
             self.assertNotIn("caller_secret", serialized)
             self.assertNotIn("token_urlsafe", serialized)
 

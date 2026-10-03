@@ -174,6 +174,26 @@ def _private_directory(path: Path) -> None:
     path.chmod(0o700)
 
 
+def _validate_private_directory(path: Path) -> None:
+    try:
+        path_stat = path.lstat()
+    except FileNotFoundError as exc:
+        raise CompositionError(
+            "composition-state-invalid",
+            f"composition state directory is missing: {path}",
+        ) from exc
+    if (
+        path.is_symlink()
+        or not stat.S_ISDIR(path_stat.st_mode)
+        or stat.S_IMODE(path_stat.st_mode) != 0o700
+        or path_stat.st_uid != os.getuid()
+    ):
+        raise CompositionError(
+            "composition-state-invalid",
+            f"composition state path is not an operator-private directory: {path}",
+        )
+
+
 def _write_private_yaml(path: Path, payload: dict[str, Any]) -> None:
     _private_directory(path.parent)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -532,6 +552,23 @@ def bounded_child_environment(
     return bounded
 
 
+def bounded_standalone_environment(
+    registry: Mapping[str, Any],
+    *,
+    base_environment: Mapping[str, str],
+) -> dict[str, str]:
+    bounded = dict(base_environment)
+    for composition in (registry.get("runtime_compositions") or {}).values():
+        bounded = bounded_child_environment(
+            composition,
+            base_environment=bounded,
+            profile_environment={},
+        )
+    bounded.pop("DEVINT_COMPOSITION_ID", None)
+    bounded.pop("DEVINT_COMPOSITION_ROOT_PROFILE_ID", None)
+    return bounded
+
+
 def load_or_create_credentials(
     composition: Mapping[str, Any],
     *,
@@ -543,7 +580,10 @@ def load_or_create_credentials(
     values: dict[str, str] = {}
     created_any = False
     if bindings:
-        _private_directory(credentials_root)
+        if create:
+            _private_directory(credentials_root)
+        else:
+            _validate_private_directory(credentials_root)
     for binding_id in sorted(bindings):
         path = credentials_root / f"{_slugify(binding_id)}.secret"
         if path.is_symlink():
@@ -583,6 +623,124 @@ def load_or_create_credentials(
             )
         values[binding_id] = value
     return values, created_any
+
+
+def resolve_active_profile_composition_context(
+    registry: Mapping[str, Any],
+    *,
+    profile_id: str,
+    operator: str,
+    workspace_root: Path,
+    namespaces: Mapping[str, Mapping[str, str]],
+    requested_composition_id: str | None = None,
+) -> dict[str, Any] | None:
+    compositions = registry.get("runtime_compositions") or {}
+    if requested_composition_id is not None:
+        candidate_ids = [requested_composition_id]
+    else:
+        candidate_ids = sorted(
+            composition_id
+            for composition_id, composition in compositions.items()
+            if profile_id in ((composition or {}).get("profiles") or {})
+        )
+
+    active: list[dict[str, Any]] = []
+    degraded: list[str] = []
+    for composition_id in candidate_ids:
+        composition, profile_order = resolve_runtime_composition(
+            registry,
+            composition_id,
+        )
+        if profile_id not in (composition.get("profiles") or {}):
+            raise CompositionError(
+                "composition-profile-context-mismatch",
+                f"composition {composition_id!r} does not contain profile {profile_id!r}",
+            )
+        state_root = composition_state_root(workspace_root, composition_id, operator)
+        state = _load_private_yaml(state_root / "current-composition.yaml")
+        if not state:
+            if requested_composition_id is not None:
+                raise CompositionError(
+                    "composition-state-missing",
+                    f"composition {composition_id!r} has no owned runtime state",
+                )
+            continue
+        if (
+            state.get("composition_id") != composition_id
+            or state.get("operator") != operator
+        ):
+            raise CompositionError(
+                "composition-state-owner-mismatch",
+                "composition state is owned by a different composition or operator",
+            )
+        lifecycle = state.get("lifecycle")
+        if lifecycle == "degraded":
+            degraded.append(composition_id)
+            continue
+        if lifecycle != "active":
+            if requested_composition_id is not None:
+                raise CompositionError(
+                    "composition-context-inactive",
+                    f"composition {composition_id!r} is {lifecycle!r}, not active",
+                )
+            continue
+        completed = set(state.get("completed_profile_ids") or [])
+        failed = set(state.get("failed_profile_ids") or [])
+        if profile_id not in completed or failed:
+            raise CompositionError(
+                "composition-context-incomplete",
+                f"composition {composition_id!r} does not have a complete active profile set",
+            )
+        try:
+            composition_namespaces = namespaces[composition_id]
+        except KeyError as exc:
+            raise CompositionError(
+                "composition-context-namespace-missing",
+                f"namespace projection is missing for composition {composition_id!r}",
+            ) from exc
+        credentials, _ = load_or_create_credentials(
+            composition,
+            state_root=state_root,
+            create=False,
+        )
+        environments = build_profile_environments(
+            composition,
+            namespaces=composition_namespaces,
+            credential_values=credentials,
+            operator=operator,
+        )
+        active.append(
+            {
+                "composition_id": composition_id,
+                "root_profile_id": composition["root_profile_id"],
+                "profile_order": profile_order,
+                "composition": composition,
+                "profile_environment": environments[profile_id],
+                "state_root": state_root,
+            }
+        )
+
+    if degraded:
+        raise CompositionError(
+            "composition-context-degraded",
+            "profile smoke cannot ignore degraded composition state: "
+            + ", ".join(degraded),
+        )
+    if len(active) > 1:
+        raise CompositionError(
+            "composition-context-ambiguous",
+            "profile smoke matches more than one active composition; select one with "
+            "--composition-context: "
+            + ", ".join(item["composition_id"] for item in active),
+        )
+    if not active:
+        if requested_composition_id is not None:
+            raise CompositionError(
+                "composition-context-inactive",
+                f"composition {requested_composition_id!r} is not active",
+            )
+        return None
+    return active[0]
 
 
 def remove_credentials(composition: Mapping[str, Any], *, state_root: Path) -> None:

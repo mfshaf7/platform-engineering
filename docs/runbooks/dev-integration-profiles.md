@@ -292,6 +292,31 @@ limited to `up`, `status`, and `down`; run profile-specific access, smoke,
 backup, restore, reset, and promote-check actions against the relevant profile
 after the composition is healthy.
 
+Before composition `up` creates or reuses credentials or invokes the first
+profile mutation, the shared runner performs one non-mutating preflight across
+the full participant set. It resolves every selected source checkout, verifies
+installed production dependencies for host-service owners, proves that the
+operator runtime directory is private and operator-owned, checks user-systemd
+and the auto-resume configuration path for every `operator-login` profile, and
+requires Helm to report no pending operation in the local cluster. A failed
+preflight stops the composition before any child `up`; repair the reported
+prerequisite and rerun the same command.
+
+Profile smoke automatically discovers an active, operator-owned composition
+that contains the selected profile. The runner reads the existing private
+credential projection without creating, rotating, or rewriting it and supplies
+the exact declared composition bindings to the profile smoke. Degraded context
+fails closed, and multiple active matches require an explicit selection:
+
+```bash
+make devint-smoke PROFILE=accepted-idea-delivery \
+  COMPOSITION_CONTEXT=refinement-catalog
+```
+
+When no matching composition is active, profile smoke keeps its documented
+standalone behavior. It must not claim composed dependency coverage in that
+case.
+
 The shared runner validates every participant and required lifecycle, starts
 providers before consumers, derives cluster-local service endpoints, and
 projects only contract-declared environment variables. Endpoint projections

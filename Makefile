@@ -31,7 +31,7 @@ help:
 	@printf "  devint-up Launch or converge a local dev-integration profile or runtime composition\n"
 	@printf "  devint-status Show the current local dev-integration profile or runtime composition state\n"
 	@printf "  devint-access Hold open the primary inspection surface for a local dev-integration profile\n"
-	@printf "  devint-smoke Run the smoke checks for a local dev-integration profile\n"
+	@printf "  devint-smoke Run profile smoke with active composition context when present\n"
 	@printf "  devint-backup Capture an operator-local backup for a persistent profile that implements it\n"
 	@printf "  devint-restore Restore an operator-local backup for a persistent profile that implements it\n"
 	@printf "  devint-down Stop a local dev-integration profile or runtime composition while keeping product state\n"
@@ -225,7 +225,7 @@ devint-access:
 .PHONY: devint-smoke
 devint-smoke:
 	@test -n "$(PROFILE)" || { echo "PROFILE is required, for example: make devint-smoke PROFILE=idea-workflow"; exit 1; }
-	python3 scripts/dev_integration.py smoke --profile $(PROFILE) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
+	python3 scripts/dev_integration.py smoke --profile $(PROFILE) $(if $(COMPOSITION_CONTEXT),--composition-context $(COMPOSITION_CONTEXT),) $(if $(OPERATOR),--operator $(OPERATOR),) $(if $(EXTRA_ARGS),$(EXTRA_ARGS),)
 
 .PHONY: devint-backup
 devint-backup:
@@ -434,6 +434,7 @@ validate:
 	python3 scripts/test_agent_source_identity.py
 	python3 scripts/test_dev_integration.py
 	python3 scripts/test_dev_integration_compositions.py
+	python3 scripts/test_dev_integration_preflight.py
 	python3 dev-integration/compositions/lifecycle-context/test_lifecycle.py
 	python3 scripts/test_dev_integration_auto_resume.py
 	python3 products/openproject/catalog-control/test_validate_catalog_control.py

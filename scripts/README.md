@@ -25,7 +25,12 @@ These support shared platform operations:
     the existing single-profile runner
   - owns dependency ordering, reverse teardown, private runtime-generated
     credential custody, URL or host-port endpoint projection, declared caller
-    and profile bindings, replay, and redacted composition state
+    and profile bindings, replay, redacted composition state, and read-only
+    active-context projection for profile smoke
+- `dev_integration_preflight.py`
+  - proves source dependencies, the operator-private runtime directory,
+    user-systemd and auto-resume readiness, and zero pending Helm operations
+    before a runtime composition creates credentials or starts its first profile
 - `dev_integration_host_services.py`
   - validates product-neutral persistent host-service declarations
   - supervises source-bound process identity, readiness, logs, status, and

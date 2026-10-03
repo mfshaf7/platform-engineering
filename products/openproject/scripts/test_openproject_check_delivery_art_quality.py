@@ -96,6 +96,21 @@ class DeliveryArtQualityProjectionTest(unittest.TestCase):
             "operator-orchestration-service",
         )
 
+    def test_broker_read_pairs_identity_bound_callers_with_their_exact_secret(self) -> None:
+        source = SCRIPT_PATH.read_text()
+
+        self.assertIn("callerSecrets[candidate]", source)
+        self.assertIn("const boundCallerId = callerAllowedIds.find", source)
+        self.assertIn("callerSecrets[boundCallerId]", source)
+        self.assertNotIn("callerAllowedIds[0]", source)
+
+    def test_broker_read_uses_shared_secret_only_for_an_unbound_allowed_caller(self) -> None:
+        source = SCRIPT_PATH.read_text()
+
+        self.assertIn("!Object.hasOwn(callerSecrets, candidate)", source)
+        self.assertIn("CALLER_AUTH_SHARED_SECRET", source)
+        self.assertIn("No broker credential is configured", source)
+
     def test_normalize_delivery_id_accepts_numeric_and_canonical_values(self) -> None:
         self.assertEqual(MODULE.normalize_delivery_id("698"), "delivery-698")
         self.assertEqual(

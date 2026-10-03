@@ -99,8 +99,25 @@ const callerAllowedIds = (process.env.CALLER_ALLOWED_IDS || "")
   .split(",")
   .map((entry) => entry.trim())
   .filter(Boolean);
-const callerId = callerAllowedIds[0] || "openproject-check-delivery-art-quality";
-const callerSecret = process.env.CALLER_AUTH_SHARED_SECRET || "";
+let callerSecrets = {};
+try {
+  callerSecrets = JSON.parse(process.env.CALLER_AUTH_SECRETS_JSON || "{}");
+} catch {
+  throw new Error("CALLER_AUTH_SECRETS_JSON is not valid JSON");
+}
+const boundCallerId = callerAllowedIds.find(
+  (candidate) => typeof callerSecrets[candidate] === "string" && callerSecrets[candidate],
+);
+const sharedCallerId = callerAllowedIds.find(
+  (candidate) => !Object.hasOwn(callerSecrets, candidate),
+);
+const callerId = boundCallerId || sharedCallerId || "openproject-check-delivery-art-quality";
+const callerSecret = boundCallerId
+  ? callerSecrets[boundCallerId]
+  : (process.env.CALLER_AUTH_SHARED_SECRET || "");
+if (!callerSecret) {
+  throw new Error(`No broker credential is configured for ${callerId}`);
+}
 
 async function requestJson(url, { method = "GET", headers = {} } = {}) {
   const response = await fetch(url, { method, headers });

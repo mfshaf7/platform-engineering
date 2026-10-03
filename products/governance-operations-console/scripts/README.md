@@ -35,5 +35,9 @@ make governance-console-cross-domain ACTION=<action>
 ```
 
 Supported actions are `validate`, `activate`, `status`, `restart`, `rehearse`,
-`rollback`, and `cleanup`. Follow the product runbook; do not use this as an ad hoc owner
-state or credential-management surface.
+`catalog-rehearse`, `rollback`, and `cleanup`. The
+`governance-console-repository-catalog` target selects the separately pinned
+Repository/Catalog commissioning policy and adds the server-only session
+projection plus capability-specific operating proof. Follow the matching
+product runbook; do not use this as an ad hoc owner state or credential-
+management surface.

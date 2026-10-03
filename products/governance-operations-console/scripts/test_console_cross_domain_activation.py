@@ -19,6 +19,9 @@ SPEC.loader.exec_module(activation)
 class CrossDomainActivationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.policy = activation.load_policy()
+        self.catalog_policy = activation.load_policy(
+            activation.PRODUCT_ROOT / "repository-catalog-commissioning-policy.yaml"
+        )
 
     def test_policy_pins_two_distinct_owner_sources(self) -> None:
         owners = self.policy["owners"]
@@ -169,6 +172,92 @@ class CrossDomainActivationTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(activation.ActivationError, "fixture authority"):
                 activation.wait_for_activity(self.policy)
+
+    def test_repository_catalog_policy_binds_exact_security_approved_sources(self) -> None:
+        policy = self.catalog_policy
+        self.assertEqual(
+            policy["activation"]["security_gate_id"],
+            "gate:repository-catalog-controlled-activation",
+        )
+        self.assertEqual(policy["architecture"]["relationship"], "exact-security-binding")
+        self.assertEqual(
+            policy["owners"]["oos"]["revision"],
+            "92f0967242f535b46aad9e585c72694c6ff1863b",
+        )
+        self.assertEqual(
+            policy["console"]["revision"],
+            "9347794a138f3649bb6ef5b7db057524d1c1e26d",
+        )
+        self.assertFalse(policy["credentials"]["browser_credentials_allowed"])
+        self.assertIn("first-use-repository-readiness-issuance", policy["proof_scope"]["includes"])
+
+    def test_exact_security_binding_requires_current_packet_and_revisions(self) -> None:
+        policy = self.catalog_policy
+        review = "\n".join([
+            policy["architecture"]["current"]["uri"],
+            policy["console"]["revision"],
+            policy["owners"]["oos"]["revision"],
+            policy["owners"]["wgcf"]["revision"],
+            policy["authority"]["workspace_governance_revision"],
+        ])
+        activation.require_architecture_binding(policy, review)
+        with self.assertRaisesRegex(activation.ActivationError, "current"):
+            activation.require_architecture_binding(
+                policy,
+                review.replace(policy["architecture"]["current"]["uri"], "missing"),
+            )
+
+    def test_catalog_environment_adds_server_only_session_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            with (
+                patch.object(activation, "PRIVATE_ROOT", root / "private"),
+                patch.object(activation, "STATE_ROOT", root),
+            ):
+                path = activation.write_private_env(
+                    self.catalog_policy,
+                    "o" * 40,
+                    "w" * 40,
+                )
+            value = path.read_text(encoding="utf-8")
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertIn("GOVERNANCE_CONSOLE_OPERATOR_ID=operator:workspace-owner", value)
+            self.assertIn("GOVERNANCE_CONSOLE_SESSION_PROJECTION_PATH=", value)
+            self.assertNotIn("BROWSER", value)
+
+    def test_catalog_command_separates_first_use_from_existing_reference(self) -> None:
+        record = {
+            "id": "workspace-registry-record:repo:context-governance-gateway",
+            "lineage": {"source_ref": "git://workspace-governance/contracts/repos.yaml"},
+        }
+        first = activation.catalog_command(
+            "context-governance-gateway",
+            record,
+            mode="add",
+            target_value_id=None,
+            prefix="first-use",
+        )
+        self.assertNotIn("repositoryReadiness", first)
+        readiness = {
+            "catalog_value_key": "context-governance-gateway",
+            "repo_name": "context-governance-gateway",
+            "repo_ref": "repo://context-governance-gateway",
+            "receipt": {"digest": "sha256:" + "1" * 64},
+        }
+        existing = activation.catalog_command(
+            "context-governance-gateway",
+            record,
+            mode="edit",
+            target_value_id="catalog-value:one",
+            readiness=readiness,
+            prefix="existing-reference",
+        )
+        self.assertEqual(existing["repositoryReadiness"], readiness)
+        self.assertEqual(existing["targetValueId"], "catalog-value:one")
+
+    def test_denial_proof_cannot_accept_success(self) -> None:
+        with self.assertRaisesRegex(activation.ActivationError, "did not fail closed"):
+            activation.require_denied(200, {"status": "applied"}, "false success")
 
 
 if __name__ == "__main__":

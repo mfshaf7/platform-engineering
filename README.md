@@ -221,6 +221,7 @@ product-neutral.
   - `make governance-console-session ACTION=<validate|issue|inspect|revoke> ARGS="<bounded session arguments>"` operates the [Console dev-integration identity/session projection](products/governance-operations-console/runbooks/manage-session-projection.md)
   - `make governance-console-runtime ACTION=<validate|project|inspect> ARGS="<bounded projection arguments>"` operates the [Console dev-integration runtime observation projection](products/governance-operations-console/runbooks/project-runtime-observations.md)
   - `make governance-console-cross-domain ACTION=<validate|activate|status|restart|rehearse|rollback|cleanup>` operates the [Console cross-domain dev-integration activation](products/governance-operations-console/runbooks/activate-cross-domain-awareness.md)
+  - `make governance-console-repository-catalog ACTION=<validate|activate|status|catalog-rehearse|restart|rollback|cleanup>` operates the [Repository and Catalog dev-integration commissioning path](products/governance-operations-console/runbooks/commission-repository-catalog.md)
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

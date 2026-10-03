@@ -1,0 +1,85 @@
+schema_version: 2
+lane: dev-integration
+activation:
+  delivery_id: delivery-1203
+  work_item_ref: openproject://work_packages/1231
+  security_gate_id: gate:repository-catalog-controlled-activation
+proof_scope:
+  includes:
+    - console-server-oos-activity-read
+    - console-server-wgcf-history-read
+    - workspace-inventory-active-repository-read
+    - first-use-repository-readiness-issuance
+    - existing-readiness-revalidation
+    - catalog-mutation-and-canonical-readback
+    - authorization-and-owner-failure-denial
+    - restart-rollback-and-cleanup
+  excludes:
+    - browser-owner-credentials
+    - direct-console-wgcf-or-openproject-authority
+    - stage-or-production-readiness
+    - shared-or-multi-user-identity
+architecture:
+  artifact_id: architecture-packet:delivery-1203-v1
+  current:
+    uri: wgcf://artifacts/delivery-art/sha256/8bdc926a0ec2f591110480edda9516074fd9610906de7b9ca03c03b60b4d7d80
+    digest: sha256:8bdc926a0ec2f591110480edda9516074fd9610906de7b9ca03c03b60b4d7d80
+  relationship: exact-security-binding
+console:
+  repo: governance-operations-console
+  revision: 9347794a138f3649bb6ef5b7db057524d1c1e26d
+  port: 3317
+owners:
+  oos:
+    repo: operator-orchestration-service
+    revision: 92f0967242f535b46aad9e585c72694c6ff1863b
+    profile: accepted-idea-delivery
+    namespace: devint-accepted-idea-delivery-{operator}
+    service: operator-orchestration-service
+    deployment: operator-orchestration-service
+    remote_port: 8080
+    local_port: 38180
+  wgcf:
+    repo: workspace-governance-control-fabric
+    revision: f296a8bf91bcc22272f0079cf2b0aec6fe431fdf
+    profile: governance-control-fabric
+    namespace: devint-governance-control-fabric-{operator}
+    service: workspace-governance-control-fabric-api
+    deployment: workspace-governance-control-fabric-api
+    remote_port: 8080
+    local_port: 38181
+authority:
+  workspace_governance_revision: 9718ce9eea04049541a1fb44f0b7cdc0ac823687
+  security_revision: 55c6a7e667fa0172fbf6a9943ba3c620108dc74f
+  security_review_ref: docs/reviews/components/2026-10-04-repository-catalog-controlled-activation.md
+credentials:
+  console_oos:
+    caller_id: governance-operations-console
+    custody: accepted-idea-delivery-private-runtime
+  console_wgcf:
+    caller_id: governance-operations-console
+    custody: platform-operator-private-state
+    binding: governance-console-history-reader
+  browser_credentials_allowed: false
+session:
+  policy: session-projection-policy.yaml
+  operator_id: operator:workspace-owner
+  profile: accepted-idea-delivery
+  projection: private/operator-identity.json
+  issue_receipt: receipts/operator-identity-issue.json
+  revoke_receipt: receipts/operator-identity-revoke.json
+catalog_proof:
+  catalog_item_id: catalog-owner-repo
+  repository_candidates:
+    - context-governance-gateway
+    - workspace-governance-control-fabric
+    - operator-orchestration-service
+    - governance-operations-console
+    - platform-engineering
+  unavailable_readiness_repository: openclaw-host-bridge
+  backend:
+    namespace: devint-accepted-idea-delivery-{operator}
+    deployment: devint-accepted-idea-delivery-openproject-web
+receipts:
+  directory: governance-console-cross-domain/receipts
+  maximum_age_seconds: 120

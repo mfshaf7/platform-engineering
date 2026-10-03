@@ -22,6 +22,12 @@ fails when that projection contains findings. The unscoped mode reports the
 OOS-owned roadmap and PM2 projection-health result unchanged and follows its
 `healthy` decision.
 
+The adapter runs inside the OOS pod and pairs one allowed caller id with its
+exact entry from `CALLER_AUTH_SECRETS_JSON` when identity-bound credentials are
+configured. It uses the compatibility shared secret only with an allowed id
+that is not identity-bound. It fails closed when neither pairing exists; it
+never combines an identity-bound caller id with the shared secret.
+
 Platform remains responsible for OpenProject runtime, compatible views, and
 projection repair. OOS remains responsible for ART workflow meaning and
 semantic validation.

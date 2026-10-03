@@ -29,10 +29,12 @@ shared_paths:
       - dev_integration.py
       - dev_integration_auto_resume.py
       - dev_integration_compositions.py
+      - dev_integration_preflight.py
       - dev_integration_host_services.py
       - test_dev_integration.py
       - test_dev_integration_auto_resume.py
       - test_dev_integration_compositions.py
+      - test_dev_integration_preflight.py
       - test_dev_integration_host_services.py
       - test_ai_model_profiles.py
       - test_governed_ai_gateway_policy.py

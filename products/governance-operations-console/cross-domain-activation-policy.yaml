@@ -30,7 +30,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 342d33bf1607c70a66531ab8143eab4bc05f7993
+    revision: e71de03fa851c94246cc9b8e739cebfd102c8dec
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -39,7 +39,7 @@ owners:
     local_port: 38180
   wgcf:
     repo: workspace-governance-control-fabric
-    revision: e31688369a3f59c76762b8f9359bd2acc478dcb4
+    revision: f296a8bf91bcc22272f0079cf2b0aec6fe431fdf
     profile: governance-control-fabric
     namespace: devint-governance-control-fabric-{operator}
     service: workspace-governance-control-fabric-api
@@ -47,9 +47,9 @@ owners:
     remote_port: 8080
     local_port: 38181
 authority:
-  workspace_governance_revision: 0acb5e4c9a833fba9b49ba0737e15b8e55d57b07
-  security_revision: 498e14e32f126126c2f738e56649eab564c09ebf
-  security_review_ref: docs/reviews/components/2026-10-03-workspace-intake-inventory-runtime-helper-reacceptance.md
+  workspace_governance_revision: c41724986ca1290029555010d9a252f869434c6c
+  security_revision: 4f45509aa2b14ed9f610e81b8f9b974891745a32
+  security_review_ref: docs/reviews/components/2026-10-03-workspace-operations-post-repair-pin-refresh.md
 credentials:
   console_oos:
     caller_id: governance-operations-console

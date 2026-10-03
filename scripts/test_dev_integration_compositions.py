@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
 import importlib.util
 import os
 from pathlib import Path
@@ -8,6 +9,8 @@ import tempfile
 import unittest
 
 import yaml
+
+from test_dev_integration_preflight import CompositionPreflightTests
 
 
 MODULE_PATH = Path(__file__).with_name("dev_integration_compositions.py")
@@ -212,6 +215,23 @@ class RuntimeCompositionTests(unittest.TestCase):
         )
         self.assertEqual(gateway_environment, {"PATH": "/usr/bin"})
 
+    def test_standalone_environment_removes_all_composition_bindings(self) -> None:
+        bounded = COMPOSITIONS.bounded_standalone_environment(
+            registry(),
+            base_environment={
+                "PATH": "/usr/bin",
+                "CONTEXT_URL": "stale",
+                "CALLER_SECRET": "stale",
+                "DEVINT_COMPOSITION_ID": "stale",
+                "DEVINT_COMPOSITION_ROOT_PROFILE_ID": "root",
+                "UNRELATED": "preserved",
+            },
+        )
+        self.assertEqual(
+            bounded,
+            {"PATH": "/usr/bin", "UNRELATED": "preserved"},
+        )
+
     def test_host_port_projection_omits_scheme(self) -> None:
         payload = registry()
         projection = payload["runtime_compositions"]["example"]["dependencies"][1][
@@ -358,6 +378,101 @@ class RuntimeCompositionTests(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertEqual(credential_path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(credential_path.stat().st_uid, os.getuid())
+
+    def test_profile_smoke_context_reuses_active_composition_without_writing(self) -> None:
+        payload = registry()
+        composition, order = COMPOSITIONS.resolve_runtime_composition(payload, "example")
+        namespaces = {profile_id: f"{profile_id}-ns" for profile_id in order}
+        with tempfile.TemporaryDirectory(prefix="devint-composition-") as temp_dir:
+            workspace_root = Path(temp_dir)
+            state_root = COMPOSITIONS.composition_state_root(
+                workspace_root,
+                "example",
+                "operator",
+            )
+            self.assertEqual(
+                COMPOSITIONS.execute_composition(
+                    action="up",
+                    composition_id="example",
+                    composition=composition,
+                    profile_order=order,
+                    namespaces=namespaces,
+                    operator="operator",
+                    state_root=state_root,
+                    dispatch=lambda *_: 0,
+                ),
+                0,
+            )
+            state_path = state_root / "current-composition.yaml"
+            credential_path = state_root / "credentials/caller.secret"
+            state_before = state_path.read_bytes()
+            credential_before = credential_path.read_bytes()
+            state_mtime = state_path.stat().st_mtime_ns
+            credential_mtime = credential_path.stat().st_mtime_ns
+
+            context = COMPOSITIONS.resolve_active_profile_composition_context(
+                payload,
+                profile_id="root",
+                operator="operator",
+                workspace_root=workspace_root,
+                namespaces={"example": namespaces},
+            )
+
+            self.assertIsNotNone(context)
+            self.assertEqual(context["composition_id"], "example")
+            self.assertEqual(context["profile_environment"]["FEATURE_ENABLED"], "true")
+            self.assertEqual(
+                context["profile_environment"]["CALLER_SECRET"],
+                credential_before.decode().strip(),
+            )
+            self.assertEqual(state_path.read_bytes(), state_before)
+            self.assertEqual(credential_path.read_bytes(), credential_before)
+            self.assertEqual(state_path.stat().st_mtime_ns, state_mtime)
+            self.assertEqual(credential_path.stat().st_mtime_ns, credential_mtime)
+
+    def test_profile_smoke_context_fails_on_ambiguous_active_compositions(self) -> None:
+        payload = registry()
+        payload["runtime_compositions"]["another"] = copy.deepcopy(
+            payload["runtime_compositions"]["example"]
+        )
+        with tempfile.TemporaryDirectory(prefix="devint-composition-") as temp_dir:
+            workspace_root = Path(temp_dir)
+            all_namespaces = {}
+            for composition_id in ("example", "another"):
+                composition, order = COMPOSITIONS.resolve_runtime_composition(
+                    payload,
+                    composition_id,
+                )
+                namespaces = {profile_id: f"{profile_id}-ns" for profile_id in order}
+                all_namespaces[composition_id] = namespaces
+                self.assertEqual(
+                    COMPOSITIONS.execute_composition(
+                        action="up",
+                        composition_id=composition_id,
+                        composition=composition,
+                        profile_order=order,
+                        namespaces=namespaces,
+                        operator="operator",
+                        state_root=COMPOSITIONS.composition_state_root(
+                            workspace_root,
+                            composition_id,
+                            "operator",
+                        ),
+                        dispatch=lambda *_: 0,
+                    ),
+                    0,
+                )
+            with self.assertRaisesRegex(
+                COMPOSITIONS.CompositionError,
+                "more than one active composition",
+            ):
+                COMPOSITIONS.resolve_active_profile_composition_context(
+                    payload,
+                    profile_id="root",
+                    operator="operator",
+                    workspace_root=workspace_root,
+                    namespaces=all_namespaces,
+                )
 
     def test_unsafe_credential_permissions_fail_closed(self) -> None:
         composition, _ = self.composition()

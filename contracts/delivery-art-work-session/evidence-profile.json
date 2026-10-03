@@ -34,6 +34,16 @@
       "timeout_seconds": 600
     },
     {
+      "id": "dev-integration-composition-preflight-tests",
+      "kind": "tests",
+      "name": "Platform dev-integration composition preflight tests",
+      "executable": "python3",
+      "args": ["scripts/test_dev_integration_preflight.py"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 600
+    },
+    {
       "id": "dev-integration-host-service-tests",
       "kind": "tests",
       "name": "Platform dev-integration host service tests",

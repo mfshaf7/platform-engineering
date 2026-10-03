@@ -38,10 +38,17 @@ from dev_integration_host_services import (
 )
 from dev_integration_compositions import (
     bounded_child_environment,
+    bounded_standalone_environment,
     CompositionError,
     composition_state_root,
     execute_composition,
+    resolve_active_profile_composition_context,
     resolve_runtime_composition,
+)
+from dev_integration_preflight import (
+    CompositionPreflightError,
+    CompositionPreflightProfile,
+    run_composition_preflight,
 )
 
 
@@ -451,6 +458,7 @@ def build_manifest(
     session_started_at: str,
     state_root: Path,
     workspace_root: Path,
+    composition_context: Mapping[str, object] | None = None,
 ) -> dict:
     execution_id = (
         f"{session_id}-{slugify(action)}-"
@@ -480,11 +488,17 @@ def build_manifest(
         "stage_handoff": profile["stage_handoff"],
         "source_repos": repo_states,
     }
-    composition_id = os.environ.get("DEVINT_COMPOSITION_ID")
+    composition_id = (
+        composition_context.get("composition_id")
+        if composition_context is not None
+        else os.environ.get("DEVINT_COMPOSITION_ID")
+    )
     if composition_id:
         manifest["runtime_composition_id"] = composition_id
-        manifest["runtime_composition_root_profile_id"] = os.environ.get(
-            "DEVINT_COMPOSITION_ROOT_PROFILE_ID"
+        manifest["runtime_composition_root_profile_id"] = (
+            composition_context.get("root_profile_id")
+            if composition_context is not None
+            else os.environ.get("DEVINT_COMPOSITION_ROOT_PROFILE_ID")
         )
     return manifest
 
@@ -693,19 +707,53 @@ def run_runtime_composition(
         )
 
     namespaces: dict[str, str] = {}
+    preflight_profiles: list[CompositionPreflightProfile] = []
     for profile_id in profile_order:
-        entry = registry["profiles"][profile_id]
-        owner_root = repo_overrides.get(
-            entry["owner_repo"],
-            workspace_root / entry["owner_repo"],
-        ).resolve()
-        profile_path = resolve_owner_file(
-            owner_root,
-            entry["profile_path"],
-            description=f"Composition profile {profile_id!r}",
-        )
-        profile = load_yaml(profile_path)
+        if action == "up":
+            entry, profile, owner_root, _, repo_paths, _ = resolve_profile(
+                action=action,
+                workspace_root=workspace_root,
+                profile_id=profile_id,
+                repo_overrides=repo_overrides,
+            )
+            try:
+                auto_resume_spec = build_auto_resume_spec(
+                    operator=operator,
+                    platform_runner=Path(__file__).resolve(),
+                    profile=profile,
+                    profile_id=profile_id,
+                    repo_paths=repo_paths,
+                    workspace_root=workspace_root,
+                )
+            except AutoResumeError as exc:
+                raise SystemExit(f"{exc.code}: {exc}") from exc
+            preflight_profiles.append(
+                CompositionPreflightProfile(
+                    profile_id=profile_id,
+                    profile=profile,
+                    owner_repo_root=owner_root,
+                    auto_resume_unit_path=auto_resume_spec.unit_path,
+                )
+            )
+        else:
+            entry = registry["profiles"][profile_id]
+            owner_root = repo_overrides.get(
+                entry["owner_repo"],
+                workspace_root / entry["owner_repo"],
+            ).resolve()
+            profile_path = resolve_owner_file(
+                owner_root,
+                entry["profile_path"],
+                description=f"Composition profile {profile_id!r}",
+            )
+            profile = load_yaml(profile_path)
         namespaces[profile_id] = compute_namespace(profile, profile_id, operator)
+
+    if action == "up":
+        try:
+            run_composition_preflight(preflight_profiles)
+        except CompositionPreflightError as exc:
+            raise SystemExit(f"{exc.code}: {exc}") from exc
 
     forwarded_repo_paths: list[str] = []
     for repo_name, repo_path in sorted(repo_overrides.items()):
@@ -758,6 +806,61 @@ def run_runtime_composition(
         raise SystemExit(f"{exc.code}: {exc}") from exc
 
 
+def resolve_smoke_composition_context(
+    *,
+    operator: str,
+    profile_id: str,
+    repo_overrides: dict[str, Path],
+    requested_composition_id: str | None,
+    workspace_root: Path,
+) -> dict | None:
+    _, registry = load_registry(workspace_root, repo_overrides)
+    compositions = registry.get("runtime_compositions") or {}
+    if requested_composition_id is not None:
+        composition_ids = [requested_composition_id]
+    else:
+        composition_ids = sorted(
+            composition_id
+            for composition_id, composition in compositions.items()
+            if profile_id in ((composition or {}).get("profiles") or {})
+        )
+    namespaces: dict[str, dict[str, str]] = {}
+    for composition_id in composition_ids:
+        try:
+            _, profile_order = resolve_runtime_composition(registry, composition_id)
+        except CompositionError as exc:
+            raise SystemExit(f"{exc.code}: {exc}") from exc
+        namespaces[composition_id] = {}
+        for participant_id in profile_order:
+            entry = registry["profiles"][participant_id]
+            owner_root = repo_overrides.get(
+                entry["owner_repo"],
+                workspace_root / entry["owner_repo"],
+            ).resolve()
+            profile_path = resolve_owner_file(
+                owner_root,
+                entry["profile_path"],
+                description=f"Composition profile {participant_id!r}",
+            )
+            participant_profile = load_yaml(profile_path)
+            namespaces[composition_id][participant_id] = compute_namespace(
+                participant_profile,
+                participant_id,
+                operator,
+            )
+    try:
+        return resolve_active_profile_composition_context(
+            registry,
+            profile_id=profile_id,
+            operator=operator,
+            workspace_root=workspace_root,
+            namespaces=namespaces,
+            requested_composition_id=requested_composition_id,
+        )
+    except CompositionError as exc:
+        raise SystemExit(f"{exc.code}: {exc}") from exc
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a shared dev-integration profile action.")
     parser.add_argument("action", choices=sorted(ACTIONS))
@@ -784,6 +887,11 @@ def main() -> int:
         default=[],
         help="override one source repo root with repo=/abs/path, useful for git worktrees",
     )
+    parser.add_argument(
+        "--composition-context",
+        default=None,
+        help="active runtime composition context to bind to a profile smoke action",
+    )
     args = parser.parse_args()
 
     workspace_root = args.workspace_root.resolve()
@@ -793,6 +901,9 @@ def main() -> int:
         repo_overrides,
         workspace_root=workspace_root,
     )
+
+    if args.composition_context and (args.composition or args.action != "smoke"):
+        raise SystemExit("--composition-context is supported only with --profile smoke")
 
     if args.composition:
         return run_runtime_composition(
@@ -834,6 +945,39 @@ def main() -> int:
             )
     paths = session_paths(workspace_root, args.profile, operator)
     namespace = compute_namespace(profile, args.profile, operator)
+    smoke_composition_context = None
+    action_environment: Mapping[str, str] = os.environ
+    if ACTIONS[args.action] == "smoke":
+        _, smoke_registry = load_registry(workspace_root, repo_overrides)
+        action_environment = bounded_standalone_environment(
+            smoke_registry,
+            base_environment=os.environ,
+        )
+        smoke_composition_context = resolve_smoke_composition_context(
+            operator=operator,
+            profile_id=args.profile,
+            repo_overrides=repo_overrides,
+            requested_composition_id=args.composition_context,
+            workspace_root=workspace_root,
+        )
+        if smoke_composition_context:
+            action_environment = bounded_child_environment(
+                smoke_composition_context["composition"],
+                base_environment=action_environment,
+                profile_environment={
+                    **smoke_composition_context["profile_environment"],
+                    "DEVINT_COMPOSITION_ID": smoke_composition_context["composition_id"],
+                    "DEVINT_COMPOSITION_ROOT_PROFILE_ID": smoke_composition_context[
+                        "root_profile_id"
+                    ],
+                },
+            )
+            print(
+                "dev-integration smoke composition context: "
+                f"profile={args.profile} "
+                f"composition={smoke_composition_context['composition_id']} "
+                "state=active"
+            )
     try:
         auto_resume_spec = build_auto_resume_spec(
             operator=operator,
@@ -882,6 +1026,11 @@ def main() -> int:
         session_started_at=session_started_at,
         state_root=paths["state_root"],
         workspace_root=workspace_root,
+        composition_context=(
+            smoke_composition_context
+            if ACTIONS[args.action] == "smoke" and smoke_composition_context
+            else ({} if ACTIONS[args.action] == "smoke" else None)
+        ),
     )
     manifest["host_services"] = []
     action_files = prepare_action_session_files(
@@ -900,7 +1049,7 @@ def main() -> int:
         render_promotion_report(manifest=manifest, report_path=promotion_report_path)
 
     env = {
-        **os.environ,
+        **action_environment,
         "DEVINT_ACTION": ACTIONS[args.action],
         "DEVINT_NAMESPACE": namespace,
         "DEVINT_OPERATOR": operator,

@@ -53,8 +53,8 @@ def run(
     return result
 
 
-def load_policy() -> dict[str, Any]:
-    value = yaml.safe_load(POLICY_PATH.read_text(encoding="utf-8"))
+def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
+    value = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict) or value.get("schema_version") != 2:
         raise ActivationError("cross-domain activation policy is invalid")
     for owner in ("oos", "wgcf"):
@@ -109,13 +109,18 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
     architecture = policy.get("architecture", {})
     current = architecture.get("current", {})
     predecessor = architecture.get("predecessor", {})
-    if (
-        architecture.get("relationship") != "exact-supersession"
-        or architecture.get("artifact_id") != "architecture-packet:delivery-1203-v1"
-        or current.get("digest") == predecessor.get("digest")
-    ):
+    relationship = architecture.get("relationship")
+    if architecture.get("artifact_id") != "architecture-packet:delivery-1203-v1":
         raise ActivationError("the architecture packet lineage binding is invalid")
-    for label, reference in (("current", current), ("predecessor", predecessor)):
+    if relationship == "exact-supersession":
+        if current.get("digest") == predecessor.get("digest"):
+            raise ActivationError("the architecture packet lineage binding is invalid")
+        references = (("current", current), ("predecessor", predecessor))
+    elif relationship == "exact-security-binding":
+        references = (("current", current),)
+    else:
+        raise ActivationError("the architecture packet lineage binding is invalid")
+    for label, reference in references:
         digest = reference.get("digest", "")
         uri = reference.get("uri", "")
         if (
@@ -143,6 +148,53 @@ def manifest_path(profile: str) -> Path:
     return WORKSPACE_ROOT / ".dev-integration" / profile / operator() / "current-session.yaml"
 
 
+def session_projection_path(policy: dict[str, Any]) -> Path:
+    return STATE_ROOT / policy["session"]["projection"]
+
+
+def session_receipt_path(policy: dict[str, Any], action: str) -> Path:
+    key = "issue_receipt" if action == "issue" else "revoke_receipt"
+    return STATE_ROOT / policy["session"][key]
+
+
+def session_projection_command(
+    policy: dict[str, Any],
+    action: str,
+) -> list[str]:
+    script = PRODUCT_ROOT / "scripts" / "console_session_projection.py"
+    command = [
+        sys.executable,
+        str(script),
+        "--policy",
+        str(PRODUCT_ROOT / policy["session"]["policy"]),
+        action,
+        "--projection",
+        str(session_projection_path(policy)),
+        "--receipt",
+        str(session_receipt_path(policy, action)),
+    ]
+    if action == "issue":
+        command.extend([
+            "--session-manifest",
+            str(manifest_path(policy["session"]["profile"])),
+        ])
+    return command
+
+
+def issue_session_projection(policy: dict[str, Any]) -> None:
+    if not policy.get("session"):
+        return
+    projection = session_projection_path(policy)
+    if projection.exists():
+        run(session_projection_command(policy, "revoke"), check=False)
+    run(session_projection_command(policy, "issue"))
+
+
+def revoke_session_projection(policy: dict[str, Any]) -> None:
+    if policy.get("session") and session_projection_path(policy).exists():
+        run(session_projection_command(policy, "revoke"))
+
+
 def require_manifest(owner: dict[str, Any]) -> None:
     path = manifest_path(owner["profile"])
     if not path.is_file():
@@ -167,6 +219,18 @@ def validate(policy: dict[str, Any]) -> None:
         require_revision(owner["repo"], owner["revision"])
         require_manifest(owner)
     require_revision("workspace-governance", policy["authority"]["workspace_governance_revision"])
+    if policy.get("session"):
+        required_session = {
+            "policy", "operator_id", "profile", "projection",
+            "issue_receipt", "revoke_receipt",
+        }
+        if not required_session.issubset(policy["session"]):
+            raise ActivationError("the Console session projection policy binding is incomplete")
+        if policy["session"]["profile"] != policy["owners"]["oos"]["profile"]:
+            raise ActivationError("the Console session projection profile does not match OOS")
+        session_policy = PRODUCT_ROOT / policy["session"]["policy"]
+        if not session_policy.is_file():
+            raise ActivationError("the Console session projection policy is unavailable")
     security = repo_path("security-architecture")
     revision = policy["authority"]["security_revision"]
     review = policy["authority"]["security_review_ref"]
@@ -278,15 +342,21 @@ def unit_name(role: str) -> str:
 def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: str) -> Path:
     PRIVATE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = PRIVATE_ROOT / "console.env"
-    path.write_text(
-        "\n".join([
+    values = [
             f"OOS_BASE_URL=http://127.0.0.1:{policy['owners']['oos']['local_port']}",
             f"OOS_CALLER_ID={CALLER_ID}",
             f"OOS_CALLER_SECRET={oos_secret}",
             f"WGCF_BASE_URL=http://127.0.0.1:{policy['owners']['wgcf']['local_port']}",
             f"WGCF_CALLER_ID={CALLER_ID}",
             f"WGCF_CALLER_SECRET={history_secret}",
-        ]) + "\n",
+    ]
+    if policy.get("session"):
+        values.extend([
+            f"GOVERNANCE_CONSOLE_OPERATOR_ID={policy['session']['operator_id']}",
+            f"GOVERNANCE_CONSOLE_SESSION_PROJECTION_PATH={session_projection_path(policy)}",
+        ])
+    path.write_text(
+        "\n".join(values) + "\n",
         encoding="utf-8",
     )
     path.chmod(0o600)
@@ -374,6 +444,51 @@ def http_json(url: str) -> dict[str, Any]:
     return value
 
 
+def http_request_json(
+    url: str,
+    *,
+    method: str = "GET",
+    body: dict[str, Any] | None = None,
+    timeout: int = 20,
+) -> tuple[int, dict[str, Any]]:
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    request = Request(
+        url,
+        data=data,
+        method=method,
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            status = response.status
+            raw = response.read().decode("utf-8")
+    except HTTPError as exc:
+        status = exc.code
+        raw = exc.read().decode("utf-8")
+    except (URLError, TimeoutError) as exc:
+        raise ActivationError(f"live Console request failed: {type(exc).__name__}") from None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ActivationError("live Console request returned malformed JSON") from None
+    if not isinstance(value, dict):
+        raise ActivationError("live Console request returned an invalid payload")
+    return status, value
+
+
+def require_http_success(
+    url: str,
+    *,
+    method: str = "GET",
+    body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    status, value = http_request_json(url, method=method, body=body)
+    if status < 200 or status >= 300:
+        code = value.get("code") or value.get("error") or "unknown"
+        raise ActivationError(f"live Console request was rejected: {status} {code}")
+    return value
+
+
 def wait_for_activity(policy: dict[str, Any]) -> dict[str, Any]:
     url = f"http://127.0.0.1:{policy['console']['port']}/api/governance-activity"
     deadline = time.monotonic() + 180
@@ -403,6 +518,219 @@ def wait_for_activity(policy: dict[str, Any]) -> dict[str, Any]:
     raise ActivationError(last)
 
 
+def console_url(policy: dict[str, Any], path: str) -> str:
+    return f"http://127.0.0.1:{policy['console']['port']}{path}"
+
+
+def wait_for_catalog(policy: dict[str, Any]) -> dict[str, Any]:
+    deadline = time.monotonic() + 180
+    last = "Catalog did not become ready"
+    while time.monotonic() < deadline:
+        try:
+            value = require_http_success(
+                console_url(policy, "/api/delivery/catalog/projection")
+            )
+            projection = value.get("projection")
+            if (
+                value.get("mode") == "live"
+                and value.get("status") == "current"
+                and isinstance(projection, dict)
+                and projection.get("projection_status") == "ready"
+            ):
+                raw = json.dumps(value).casefold()
+                if "synthetic-scenario" in raw or "prototype-local" in raw:
+                    raise ActivationError("live Catalog proof included fixture authority")
+                return value
+            last = "Catalog projection was not live, current, and ready"
+        except ActivationError as exc:
+            last = str(exc)
+        time.sleep(2)
+    raise ActivationError(last)
+
+
+def workspace_registry(policy: dict[str, Any]) -> dict[str, Any]:
+    value = require_http_success(console_url(policy, "/api/workspace-registry"))
+    if (
+        value.get("canonical_mutation") is not False
+        or value.get("canonical_authority", {}).get("repo") != "workspace-governance"
+        or value.get("authority_revision") != policy["authority"]["workspace_governance_revision"]
+    ):
+        raise ActivationError("Workspace Registry did not return exact canonical authority")
+    return value
+
+
+def active_repository(registry: dict[str, Any], repo_name: str) -> dict[str, Any]:
+    matches = [
+        item for item in registry.get("records", [])
+        if isinstance(item, dict)
+        and item.get("kind") == "repo"
+        and item.get("name") == repo_name
+        and item.get("posture") == "active"
+    ]
+    if len(matches) != 1:
+        raise ActivationError(f"Repository {repo_name} is not one exact active Registry record")
+    return matches[0]
+
+
+def catalog_projection(snapshot: dict[str, Any]) -> dict[str, Any]:
+    value = snapshot.get("projection")
+    if not isinstance(value, dict):
+        raise ActivationError("Catalog projection is unavailable")
+    return value
+
+
+def catalog_value(
+    projection: dict[str, Any],
+    catalog_item_id: str,
+    value_key: str,
+) -> dict[str, Any] | None:
+    matches = [
+        item for item in projection.get("values", [])
+        if isinstance(item, dict)
+        and item.get("catalog_item_id") == catalog_item_id
+        and item.get("value_key") == value_key
+        and item.get("lifecycle_state") != "retired"
+    ]
+    if len(matches) > 1:
+        raise ActivationError("Catalog contains duplicate active repository values")
+    return matches[0] if matches else None
+
+
+def repository_option(repo_name: str, record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "admissionState": "admitted",
+        "description": f"Active Workspace Inventory repository {repo_name}.",
+        "id": record["id"],
+        "label": repo_name,
+        "owner": "workspace-governance",
+        "repoRef": f"repo://{repo_name}",
+        "routeSource": record["lineage"]["source_ref"],
+        "valueKey": repo_name,
+    }
+
+
+def acceptance_id(prefix: str, repo_name: str) -> str:
+    seed = f"{prefix}:{repo_name}:{datetime.now(UTC).isoformat()}:{secrets.token_hex(8)}"
+    return f"platform-{prefix}:{hashlib.sha256(seed.encode()).hexdigest()[:32]}"
+
+
+def catalog_command(
+    repo_name: str,
+    record: dict[str, Any],
+    *,
+    mode: str,
+    target_value_id: str | None,
+    readiness: dict[str, Any] | None = None,
+    prefix: str,
+) -> dict[str, Any]:
+    command: dict[str, Any] = {
+        "acceptanceId": acceptance_id(prefix, repo_name),
+        "acceptedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "draft": {
+            "description": f"Active Workspace Inventory owner repository {repo_name}.",
+            "label": repo_name,
+            "linkedRepository": repository_option(repo_name, record),
+            "parentCatalogValueKey": None,
+            "planningWindowEndDate": "",
+            "planningWindowStartDate": "",
+            "valueKey": repo_name,
+        },
+        "mode": mode,
+        "targetValueId": target_value_id,
+    }
+    if readiness is not None:
+        command["repositoryReadiness"] = readiness
+    return command
+
+
+def mutate_catalog(
+    policy: dict[str, Any],
+    command: dict[str, Any],
+) -> tuple[int, dict[str, Any]]:
+    item_id = policy["catalog_proof"]["catalog_item_id"]
+    return http_request_json(
+        console_url(policy, f"/api/delivery/catalog/{item_id}/mutations"),
+        method="POST",
+        body=command,
+    )
+
+
+def require_applied(status: int, value: dict[str, Any], label: str) -> dict[str, Any]:
+    if (
+        status < 200 or status >= 300
+        or value.get("status") != "applied"
+        or value.get("readback_complete") is not True
+        or not isinstance(value.get("value"), dict)
+        or not isinstance(value.get("receipt"), dict)
+    ):
+        raise ActivationError(f"{label} did not return complete canonical readback")
+    return value
+
+
+def require_denied(
+    status: int,
+    value: dict[str, Any],
+    label: str,
+    *,
+    expected_statuses: set[int] | None = None,
+) -> dict[str, Any]:
+    allowed = expected_statuses or {400, 401, 403, 409, 502, 503, 504}
+    if status not in allowed or not (value.get("code") or value.get("error")):
+        raise ActivationError(f"{label} did not fail closed")
+    return {
+        "code": value.get("code"),
+        "http_status": status,
+        "outcome": value.get("outcome") or value.get("status") or "denied",
+    }
+
+
+def deployment_replicas(namespace_name: str, deployment: str) -> int:
+    value = json.loads(kubectl(
+        "-n", namespace_name, "get", f"deployment/{deployment}", "-o", "json"
+    ).stdout)
+    replicas = value.get("spec", {}).get("replicas")
+    if not isinstance(replicas, int) or replicas < 1:
+        raise ActivationError(f"deployment {deployment} has no active replica to rehearse")
+    return replicas
+
+
+def set_deployment_replicas(
+    namespace_name: str,
+    deployment: str,
+    replicas: int,
+) -> None:
+    kubectl(
+        "-n", namespace_name, "scale", f"deployment/{deployment}",
+        f"--replicas={replicas}",
+    )
+    if replicas > 0:
+        kubectl(
+            "-n", namespace_name, "rollout", "status", f"deployment/{deployment}",
+            "--timeout=240s",
+        )
+
+
+def repository_catalog_status(policy: dict[str, Any]) -> dict[str, Any]:
+    registry = workspace_registry(policy)
+    snapshot = wait_for_catalog(policy)
+    projection = catalog_projection(snapshot)
+    item_id = policy["catalog_proof"]["catalog_item_id"]
+    if not any(
+        isinstance(item, dict)
+        and item.get("catalog_item_id") == item_id
+        and item.get("lifecycle_state") == "active"
+        for item in projection.get("items", [])
+    ):
+        raise ActivationError("the Owner Repo Catalog item is not active")
+    return {
+        "authority_revision": registry["authority_revision"],
+        "catalog_item_id": item_id,
+        "catalog_projection_status": projection["projection_status"],
+        "catalog_source_revision": projection["source_revision"],
+        "registry_projection_digest": registry["projection_digest"],
+    }
+
+
 def receipt(
     action: str,
     policy: dict[str, Any],
@@ -410,6 +738,7 @@ def receipt(
     *,
     negative_proof: dict[str, Any] | None = None,
     runtime_boundary: dict[str, Any] | None = None,
+    repository_catalog_proof: dict[str, Any] | None = None,
 ) -> Path:
     RECEIPT_ROOT.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -459,6 +788,8 @@ def receipt(
         payload["negative_proof"] = negative_proof
     if runtime_boundary is not None:
         payload["runtime_boundary"] = runtime_boundary
+    if repository_catalog_proof is not None:
+        payload["repository_catalog_proof"] = repository_catalog_proof
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     digest = hashlib.sha256(encoded).hexdigest()
     payload["content_digest"] = f"sha256:{digest}"
@@ -472,15 +803,18 @@ def activate(policy: dict[str, Any]) -> Path:
     validate(policy)
     history_secret = wgcf_secret()
     install_wgcf_binding(policy, history_secret)
+    issue_session_projection(policy)
     env_path = write_private_env(policy, read_oos_secret(policy), history_secret)
     write_units(policy, env_path)
     enable_units()
     activity = wait_for_activity(policy)
+    catalog = repository_catalog_status(policy) if policy.get("catalog_proof") else None
     return receipt(
         "activate",
         policy,
         activity,
         runtime_boundary=active_runtime_boundary(policy, env_path),
+        repository_catalog_proof=catalog,
     )
 
 
@@ -493,25 +827,39 @@ def status(policy: dict[str, Any]) -> Path:
         )
         if active.returncode:
             raise ActivationError(f"{role} activation service is not active")
+    catalog = repository_catalog_status(policy) if policy.get("catalog_proof") else None
     return receipt(
         "status",
         policy,
         wait_for_activity(policy),
         runtime_boundary=active_runtime_boundary(policy),
+        repository_catalog_proof=catalog,
     )
 
 
 def restart(policy: dict[str, Any]) -> Path:
     validate(policy)
+    if policy.get("catalog_proof"):
+        oos = policy["owners"]["oos"]
+        oos_namespace = namespace(oos["namespace"])
+        kubectl(
+            "-n", oos_namespace, "rollout", "restart", f"deployment/{oos['deployment']}"
+        )
+        kubectl(
+            "-n", oos_namespace, "rollout", "status", f"deployment/{oos['deployment']}",
+            "--timeout=240s",
+        )
     run([
         "systemctl", "--user", "restart",
         unit_name("oos"), unit_name("wgcf"), unit_name("console"),
     ])
+    catalog = repository_catalog_status(policy) if policy.get("catalog_proof") else None
     return receipt(
         "restart",
         policy,
         wait_for_activity(policy),
         runtime_boundary=active_runtime_boundary(policy),
+        repository_catalog_proof=catalog,
     )
 
 
@@ -568,9 +916,226 @@ def rehearse(policy: dict[str, Any]) -> Path:
     )
 
 
+def catalog_rehearse(policy: dict[str, Any]) -> Path:
+    validate(policy)
+    if not policy.get("catalog_proof") or not policy.get("session"):
+        raise ActivationError("Repository and Catalog commissioning policy is required")
+    for role in ("oos", "wgcf", "console"):
+        if run(
+            ["systemctl", "--user", "is-active", "--quiet", unit_name(role)],
+            check=False,
+        ).returncode:
+            raise ActivationError(f"{role} activation service is not active")
+
+    registry = workspace_registry(policy)
+    before = catalog_projection(wait_for_catalog(policy))
+    item_id = policy["catalog_proof"]["catalog_item_id"]
+    selected_repo: str | None = None
+    selected_record: dict[str, Any] | None = None
+    for candidate in policy["catalog_proof"]["repository_candidates"]:
+        try:
+            record = active_repository(registry, candidate)
+        except ActivationError:
+            continue
+        if catalog_value(before, item_id, candidate) is None:
+            selected_repo = candidate
+            selected_record = record
+            break
+    if selected_repo is None or selected_record is None:
+        raise ActivationError(
+            "no active Repository remains for a genuine first-use Catalog proof"
+        )
+
+    add_status, add_value = mutate_catalog(
+        policy,
+        catalog_command(
+            selected_repo,
+            selected_record,
+            mode="add",
+            target_value_id=None,
+            prefix="first-use",
+        ),
+    )
+    added = require_applied(add_status, add_value, "first-use Catalog mutation")
+    added_value = added["value"]
+    binding = added_value.get("repository_binding")
+    if (
+        not isinstance(binding, dict)
+        or binding.get("repo_name") != selected_repo
+        or binding.get("repo_ref") != f"repo://{selected_repo}"
+        or binding.get("catalog_value_key") != selected_repo
+        or binding.get("receipt", {}).get("issuer") != "workspace-governance-control-fabric"
+        or binding.get("receipt", {}).get("outcome") != "ready"
+    ):
+        raise ActivationError("first-use mutation did not preserve exact readiness evidence")
+
+    first_readback = catalog_projection(wait_for_catalog(policy))
+    current = catalog_value(first_readback, item_id, selected_repo)
+    if current != added_value:
+        raise ActivationError("first-use Catalog mutation is absent from canonical readback")
+
+    existing_status, existing_value = mutate_catalog(
+        policy,
+        catalog_command(
+            selected_repo,
+            selected_record,
+            mode="edit",
+            target_value_id=added_value["catalog_value_id"],
+            readiness=binding,
+            prefix="existing-reference",
+        ),
+    )
+    existing = require_applied(
+        existing_status,
+        existing_value,
+        "existing-reference Catalog mutation",
+    )
+    stable_value = existing["value"]
+
+    stale_binding = json.loads(json.dumps(binding))
+    stale_binding["receipt"]["digest"] = "sha256:" + "0" * 64
+    stale_status, stale_value = mutate_catalog(
+        policy,
+        catalog_command(
+            selected_repo,
+            selected_record,
+            mode="edit",
+            target_value_id=stable_value["catalog_value_id"],
+            readiness=stale_binding,
+            prefix="stale-readiness",
+        ),
+    )
+    negatives: dict[str, Any] = {
+        "stale_or_false_readiness": require_denied(
+            stale_status, stale_value, "stale or false readiness"
+        )
+    }
+
+    revoke_session_projection(policy)
+    try:
+        unauthorized_status, unauthorized_value = mutate_catalog(
+            policy,
+            catalog_command(
+                selected_repo,
+                selected_record,
+                mode="edit",
+                target_value_id=stable_value["catalog_value_id"],
+                readiness=binding,
+                prefix="unauthorized",
+            ),
+        )
+        negatives["unauthorized_session"] = require_denied(
+            unauthorized_status,
+            unauthorized_value,
+            "unauthorized session",
+            expected_statuses={401, 403},
+        )
+    finally:
+        issue_session_projection(policy)
+
+    run(["systemctl", "--user", "stop", unit_name("oos")])
+    try:
+        owner_status, owner_value = http_request_json(
+            console_url(policy, "/api/delivery/catalog/projection")
+        )
+        negatives["oos_unavailable"] = require_denied(
+            owner_status, owner_value, "OOS unavailability", expected_statuses={502, 503, 504}
+        )
+    finally:
+        run(["systemctl", "--user", "start", unit_name("oos")])
+        wait_for_catalog(policy)
+
+    unavailable_repo = policy["catalog_proof"]["unavailable_readiness_repository"]
+    unavailable_record = active_repository(registry, unavailable_repo)
+    unavailable_target = catalog_value(before, item_id, unavailable_repo)
+    wgcf_owner = policy["owners"]["wgcf"]
+    wgcf_namespace = namespace(wgcf_owner["namespace"])
+    wgcf_deployment = wgcf_owner["deployment"]
+    wgcf_replicas = deployment_replicas(wgcf_namespace, wgcf_deployment)
+    set_deployment_replicas(wgcf_namespace, wgcf_deployment, 0)
+    try:
+        wgcf_status, wgcf_value = mutate_catalog(
+            policy,
+            catalog_command(
+                unavailable_repo,
+                unavailable_record,
+                mode="edit" if unavailable_target else "add",
+                target_value_id=(
+                    unavailable_target.get("catalog_value_id")
+                    if unavailable_target else None
+                ),
+                prefix="wgcf-unavailable",
+            ),
+        )
+        negatives["wgcf_unavailable"] = require_denied(
+            wgcf_status,
+            wgcf_value,
+            "WGCF unavailability",
+            expected_statuses={502, 503, 504},
+        )
+    finally:
+        set_deployment_replicas(wgcf_namespace, wgcf_deployment, wgcf_replicas)
+
+    backend = policy["catalog_proof"]["backend"]
+    backend_namespace = namespace(backend["namespace"])
+    backend_deployment = backend["deployment"]
+    backend_replicas = deployment_replicas(backend_namespace, backend_deployment)
+    set_deployment_replicas(backend_namespace, backend_deployment, 0)
+    try:
+        backend_status, backend_value = mutate_catalog(
+            policy,
+            catalog_command(
+                selected_repo,
+                selected_record,
+                mode="edit",
+                target_value_id=stable_value["catalog_value_id"],
+                readiness=binding,
+                prefix="backend-unavailable",
+            ),
+        )
+        negatives["catalog_backend_unavailable"] = require_denied(
+            backend_status,
+            backend_value,
+            "Catalog backend unavailability",
+            expected_statuses={502, 503, 504},
+        )
+    finally:
+        set_deployment_replicas(
+            backend_namespace, backend_deployment, backend_replicas
+        )
+
+    final_projection = catalog_projection(wait_for_catalog(policy))
+    if catalog_value(final_projection, item_id, selected_repo) != stable_value:
+        raise ActivationError("a denied path changed canonical Catalog state")
+
+    proof = {
+        **repository_catalog_status(policy),
+        "canonical_readback": True,
+        "existing_reference_revalidated": True,
+        "first_use_repository": selected_repo,
+        "first_use_readiness_receipt": {
+            "digest": binding["receipt"]["digest"],
+            "generation": binding["receipt"]["generation"],
+            "receipt_id": binding["receipt"]["receipt_id"],
+            "uri": binding["receipt"]["uri"],
+        },
+        "mutation_receipts": [added["receipt"], existing["receipt"]],
+        "negative_proof": negatives,
+    }
+    return receipt(
+        "catalog-rehearse",
+        policy,
+        wait_for_activity(policy),
+        negative_proof=negatives,
+        runtime_boundary=active_runtime_boundary(policy),
+        repository_catalog_proof=proof,
+    )
+
+
 def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
     for role in ("console", "wgcf", "oos"):
         run(["systemctl", "--user", "disable", "--now", unit_name(role)], check=False)
+    revoke_session_projection(policy)
     owner = policy["owners"]["wgcf"]
     ns = namespace(owner["namespace"])
     kubectl(
@@ -592,6 +1157,10 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
             (UNIT_ROOT / unit_name(role)).unlink(missing_ok=True)
         for name in ("console.env", "wgcf-caller-secret"):
             (PRIVATE_ROOT / name).unlink(missing_ok=True)
+        if policy.get("session"):
+            projection = session_projection_path(policy)
+            projection.unlink(missing_ok=True)
+            projection.with_suffix(projection.suffix + ".lock").unlink(missing_ok=True)
         run(["systemctl", "--user", "daemon-reload"])
     binding_absent = not wgcf_binding_present(policy)
     services_inactive = all(
@@ -605,6 +1174,10 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
         not (PRIVATE_ROOT / name).exists()
         for name in ("console.env", "wgcf-caller-secret")
     )
+    if remove_files and policy.get("session"):
+        private_files_absent = (
+            private_files_absent and not session_projection_path(policy).exists()
+        )
     if not binding_absent or not services_inactive or (remove_files and not private_files_absent):
         raise ActivationError("rollback or cleanup live readback is incomplete")
     return receipt(
@@ -622,9 +1195,13 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
 def main() -> int:
     global REPO_PATH_OVERRIDES
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rehearse", "rollback", "cleanup"),
+        choices=(
+            "validate", "activate", "status", "restart", "rehearse",
+            "catalog-rehearse", "rollback", "cleanup",
+        ),
     )
     parser.add_argument(
         "--repo-path",
@@ -636,7 +1213,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         REPO_PATH_OVERRIDES = parse_repo_paths(args.repo_path)
-        policy = load_policy()
+        policy = load_policy(args.policy)
         if args.action == "validate":
             validate(policy)
             print("cross-domain activation inputs valid")
@@ -646,6 +1223,7 @@ def main() -> int:
             "status": status,
             "restart": restart,
             "rehearse": rehearse,
+            "catalog-rehearse": catalog_rehearse,
             "rollback": lambda value: rollback(value),
             "cleanup": lambda value: rollback(value, remove_files=True),
         }[args.action](policy)

@@ -52,6 +52,7 @@ help:
 	@printf "  governance-console-session Validate, issue, inspect, or revoke the Console dev-integration session projection\n"
 	@printf "  governance-console-runtime Observe or inspect the Console dev-integration runtime projection\n"
 	@printf "  governance-console-cross-domain Activate or inspect Console cross-domain dev-integration\n"
+	@printf "  governance-console-repository-catalog Commission the exact Repository-to-Catalog operating path\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -208,8 +209,13 @@ governance-console-runtime:
 
 .PHONY: governance-console-cross-domain
 governance-console-cross-domain:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, rollback, or cleanup"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, catalog-rehearse, rollback, or cleanup"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py $(ACTION) $(if $(ARGS),$(ARGS),)
+
+.PHONY: governance-console-repository-catalog
+governance-console-repository-catalog:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, catalog-rehearse, rollback, or cleanup"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py --policy products/governance-operations-console/repository-catalog-commissioning-policy.yaml $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: devint-status
 devint-status:

@@ -16,6 +16,7 @@ authority, or Security approval.
 - `runtime-observation-policy.yaml`
 - `cross-domain-activation-policy.yaml`
 - `runbooks/activate-cross-domain-awareness.md`
+- `runbooks/commission-repository-catalog.md`
 
 ## Boundary
 
@@ -39,3 +40,8 @@ Cross-domain activation must use the product-qualified operator command. Do
 not launch ad hoc Console processes or inject owner credentials into browser
 configuration. Activation may manage only the dedicated Console services and
 WGCF history-reader binding; owner state remains outside its rollback boundary.
+
+Repository/Catalog commissioning must use
+`make governance-console-repository-catalog`. Generic Console activity is not
+evidence for Repository readiness, Catalog mutation, canonical readback, or
+denied-path behavior.

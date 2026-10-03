@@ -45,6 +45,11 @@ be reused as Workspace operations evidence. The same record identifies the
 maintenance repair and the direct proof required before commissioning can be
 claimed again.
 
+The capability-specific Repository and Catalog commissioning is recorded in
+[2026-10-04-repository-catalog-devint-commissioning.md](2026-10-04-repository-catalog-devint-commissioning.md).
+It extends the existing Console activation and session controls and explicitly
+rejects generic activity health as Repository/Catalog operating evidence.
+
 ## Goals
 
 Each record should make it easy to answer:

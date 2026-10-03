@@ -25,7 +25,10 @@ PRODUCT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_POLICY = PRODUCT_ROOT / "session-projection-policy.yaml"
 DEFAULT_POLICY_SCHEMA = PRODUCT_ROOT / "schemas/session-projection-policy.schema.json"
 MAX_FILE_BYTES = 65536
-SESSION_ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,126}[a-z0-9]$")
+# Platform session ids end with the canonical basic UTC timestamp
+# (for example, 20261003T203112Z), so the bounded identifier accepts ASCII
+# uppercase characters as well as the lowercase profile/operator prefix.
+SESSION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{7,126}[A-Za-z0-9]$")
 REFERENCE = re.compile(r"^[a-z][a-z0-9+.-]*:(?://)?[A-Za-z0-9][A-Za-z0-9._:/-]*$")
 
 

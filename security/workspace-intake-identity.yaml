@@ -84,13 +84,13 @@ activation:
   security_gate: openproject://work_packages/1066
   workspace_inventory_extension:
     state: approved
-    security_review_ref: github://mfshaf7/security-architecture/commit/4f45509aa2b14ed9f610e81b8f9b974891745a32#docs/reviews/components/2026-10-03-workspace-operations-post-repair-pin-refresh.md
+    security_review_ref: github://mfshaf7/security-architecture/commit/fd3e58aed30664b4986a0bc22072d3200027298a#docs/reviews/components/2026-10-04-repository-catalog-authority-digest-reacceptance.md
     approved_source_revisions:
-      workspace-governance: c41724986ca1290029555010d9a252f869434c6c
+      workspace-governance: 9718ce9eea04049541a1fb44f0b7cdc0ac823687
       workspace-governance-control-fabric: f296a8bf91bcc22272f0079cf2b0aec6fe431fdf
-      operator-orchestration-service: e71de03fa851c94246cc9b8e739cebfd102c8dec
-      governance-operations-console: d17912691a6dd99335c327637eda98c4105d98eb
-      security-architecture: 4f45509aa2b14ed9f610e81b8f9b974891745a32
+      operator-orchestration-service: 968643ad3dca86366ae417ebe77a23ba7c2c2cb6
+      governance-operations-console: 9347794a138f3649bb6ef5b7db057524d1c1e26d
+      security-architecture: fd3e58aed30664b4986a0bc22072d3200027298a
   required_evidence:
     - exact-definition-digest-and-source-heads
     - exact-app-installation-and-repository-ids

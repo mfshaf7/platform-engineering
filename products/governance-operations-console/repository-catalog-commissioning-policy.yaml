@@ -22,8 +22,8 @@ proof_scope:
 architecture:
   artifact_id: architecture-packet:delivery-1203-v1
   current:
-    uri: wgcf://artifacts/delivery-art/sha256/8bdc926a0ec2f591110480edda9516074fd9610906de7b9ca03c03b60b4d7d80
-    digest: sha256:8bdc926a0ec2f591110480edda9516074fd9610906de7b9ca03c03b60b4d7d80
+    uri: wgcf://artifacts/delivery-art/sha256/115056ba9f888c8ee08de78a17bcea5dd8df40c4a3624eeecbdc7b79148deb17
+    digest: sha256:115056ba9f888c8ee08de78a17bcea5dd8df40c4a3624eeecbdc7b79148deb17
   relationship: exact-security-binding
 console:
   repo: governance-operations-console
@@ -32,7 +32,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 92f0967242f535b46aad9e585c72694c6ff1863b
+    revision: 968643ad3dca86366ae417ebe77a23ba7c2c2cb6
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -50,8 +50,8 @@ owners:
     local_port: 38181
 authority:
   workspace_governance_revision: 9718ce9eea04049541a1fb44f0b7cdc0ac823687
-  security_revision: 55c6a7e667fa0172fbf6a9943ba3c620108dc74f
-  security_review_ref: docs/reviews/components/2026-10-04-repository-catalog-controlled-activation.md
+  security_revision: fd3e58aed30664b4986a0bc22072d3200027298a
+  security_review_ref: docs/reviews/components/2026-10-04-repository-catalog-authority-digest-reacceptance.md
 credentials:
   console_oos:
     caller_id: governance-operations-console
@@ -70,12 +70,15 @@ session:
   revoke_receipt: receipts/operator-identity-revoke.json
 catalog_proof:
   catalog_item_id: catalog-owner-repo
+  wgcf_contract_root: /app/contracts/repository-readiness
   repository_candidates:
     - context-governance-gateway
     - workspace-governance-control-fabric
     - operator-orchestration-service
     - governance-operations-console
     - platform-engineering
+    - openclaw-runtime-distribution
+    - openclaw-telegram-enhanced
   unavailable_readiness_repository: openclaw-host-bridge
   backend:
     namespace: devint-accepted-idea-delivery-{operator}

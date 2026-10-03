@@ -48,7 +48,7 @@ class ConsoleSessionProjectionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def manifest(self, *, session_id: str = "accepted-idea-delivery-operator-20260927t080000z") -> Path:
+    def manifest(self, *, session_id: str = "accepted-idea-delivery-operator-20260927T080000Z") -> Path:
         path = self.root / "current-session.yaml"
         path.write_text(
             yaml.safe_dump(
@@ -107,7 +107,7 @@ class ConsoleSessionProjectionTests(unittest.TestCase):
         self.assertEqual(first, projection.read_bytes())
 
         conflicting = self.manifest(
-            session_id="accepted-idea-delivery-operator-20260927t090000z"
+            session_id="accepted-idea-delivery-operator-20260927T090000Z"
         )
         conflicting.write_text(
             conflicting.read_text().replace(
@@ -146,7 +146,7 @@ class ConsoleSessionProjectionTests(unittest.TestCase):
         self.assertIsNone(result["session_reference"])
 
         replacement = self.manifest(
-            session_id="accepted-idea-delivery-operator-20260927t090000z"
+            session_id="accepted-idea-delivery-operator-20260927T090000Z"
         )
         replacement.write_text(
             replacement.read_text().replace(

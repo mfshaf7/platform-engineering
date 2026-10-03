@@ -34,16 +34,25 @@
   exercised first-use Repository readiness through the Console server,
   Catalog mutation, canonical readback, restart, denial, rollback, and cleanup.
 - Actual cause: earlier generic Console activity receipts proved only owner
-  read health. They could not establish a different Repository/Catalog
-  capability.
+  read health, and the first real cross-repo request then exposed that OOS sent
+  its semantic Inventory digest where WGCF required the exact `repos.yaml`
+  source-content digest. The isolated owner tests had not exercised that exact
+  producer/consumer handoff.
 - Why it escaped earlier controls: capability-specific runtime acceptance was
-  correctly retained for Platform item `#1231`; earlier invalid claims came
-  from treating generic read evidence as interchangeable with workflow proof.
+  correctly retained for Platform item `#1231`, but the evidence profile first
+  omitted the live command and the owner suites independently used locally
+  consistent digest fixtures. The full composition was the first surface to
+  exercise both controls together.
 
 ## Source Changes
 
 - Repo: `platform-engineering`
-- Landing Unit: `delivery-1203-repository-catalog-platform`
+- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-2`
+- Preserved predecessor Landing Unit:
+  `delivery-1203-repository-catalog-platform`, whose merged source and
+  merge-ready Review Packet remain historical inputs, plus unpublished
+  `delivery-1203-repository-catalog-platform-recovery`, whose clean local
+  commit was transferred through an evidence-free recovery receipt
 - Commit(s): recorded by the finalized ART Review Packet
 - Guardrails added:
   - exact architecture, Security, OOS, Console, WGCF, and Workspace Governance
@@ -56,6 +65,30 @@
   - OOS replacement, managed-service restart, rollback, cleanup, and final
     activation checks; and
   - secret-free capability-specific receipts.
+  - an explicit `runtime_and_live` / `live-backend` owner evidence-profile
+    command that runs the complete bounded commissioning sequence.
+  - session projection validation aligned to Platform's canonical uppercase
+    `T`/`Z` UTC session identifier format, with the production-format fixture
+    covered by unit tests.
+  - owner-checked `0700` state, private, and receipt directories so the state
+    creator and session-projection consumer enforce one storage contract.
+  - the existing Workspace Intake/Inventory identity activation pins refreshed
+    to the exact OOS, Console, Workspace Governance, WGCF, and Security
+    revisions accepted by the Repository/Catalog delta review.
+  - first-use candidates that include active Inventory repositories absent
+    from the canonical Owner Repo Catalog, while reserving a different active
+    repository for the WGCF-unavailable denial case.
+  - explicit selection and rollback of the reviewed repository-readiness
+    contract bundle shipped in the exact WGCF image.
+  - the exact OOS content-digest repair, Security re-acceptance, and durable
+    architecture v11 binding required before runtime recommissioning.
+
+The initial source landing omitted that evidence-profile command even though
+the architecture required live-backend proof. OOS correctly refused
+post-merge evidence acquisition. The first real request then failed closed on
+the digest-definition mismatch before Catalog mutation. This successor retains
+the merged and unpublished source history, binds the landed OOS repair and
+Security decision, and does not invent manual evidence or a new ART defect.
 
 ## Artifact And Deployment Evidence
 
@@ -66,9 +99,9 @@
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/8bdc926a0ec2f591110480edda9516074fd9610906de7b9ca03c03b60b4d7d80`
+  `wgcf://artifacts/delivery-art/sha256/115056ba9f888c8ee08de78a17bcea5dd8df40c4a3624eeecbdc7b79148deb17`
 - Security review:
-  `security-architecture@55c6a7e667fa0172fbf6a9943ba3c620108dc74f`
+  `security-architecture@fd3e58aed30664b4986a0bc22072d3200027298a`
 - Runtime receipt digests: recorded after the reviewed candidate completes its
   bounded live rehearsal
 

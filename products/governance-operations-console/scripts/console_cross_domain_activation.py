@@ -40,6 +40,16 @@ class ActivationError(RuntimeError):
     pass
 
 
+def ensure_private_directory(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.is_symlink():
+        raise ActivationError(f"private state directory must not be a symlink: {path}")
+    info = path.stat()
+    if info.st_uid != os.geteuid():
+        raise ActivationError(f"private state directory has the wrong owner: {path}")
+    path.chmod(0o700)
+
+
 def run(
     args: list[str],
     *,
@@ -184,6 +194,9 @@ def session_projection_command(
 def issue_session_projection(policy: dict[str, Any]) -> None:
     if not policy.get("session"):
         return
+    ensure_private_directory(STATE_ROOT)
+    ensure_private_directory(PRIVATE_ROOT)
+    ensure_private_directory(RECEIPT_ROOT)
     projection = session_projection_path(policy)
     if projection.exists():
         run(session_projection_command(policy, "revoke"), check=False)
@@ -271,7 +284,7 @@ def wgcf_secret() -> str:
     if path.exists():
         secret = path.read_text(encoding="utf-8").strip()
     else:
-        PRIVATE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
+        ensure_private_directory(PRIVATE_ROOT)
         secret = secrets.token_urlsafe(36)
         path.write_text(secret + "\n", encoding="utf-8")
         path.chmod(0o600)
@@ -303,10 +316,16 @@ def install_wgcf_binding(policy: dict[str, Any], secret: str) -> None:
     )
     if applied.returncode:
         raise ActivationError("WGCF reader credential installation failed")
-    kubectl(
+    set_env = [
         "-n", ns, "set", "env", f"deployment/{owner['deployment']}",
         f"--from=secret/{WGCF_SECRET}",
-    )
+    ]
+    if policy.get("catalog_proof"):
+        contract_root = policy["catalog_proof"].get("wgcf_contract_root")
+        if contract_root != "/app/contracts/repository-readiness":
+            raise ActivationError("WGCF repository-readiness contract root is invalid")
+        set_env.append(f"WGCF_REPOSITORY_READINESS_CONTRACT_ROOT={contract_root}")
+    kubectl(*set_env)
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")
 
 
@@ -326,6 +345,8 @@ def wgcf_binding_present(policy: dict[str, Any]) -> bool:
         "WGCF_GOVERNANCE_HISTORY_CALLER_ID",
         "WGCF_GOVERNANCE_HISTORY_CALLER_SECRET",
     }
+    if policy.get("catalog_proof"):
+        expected.add("WGCF_REPOSITORY_READINESS_CONTRACT_ROOT")
     observed = {
         item.get("name")
         for container in deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
@@ -340,7 +361,7 @@ def unit_name(role: str) -> str:
 
 
 def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: str) -> Path:
-    PRIVATE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
+    ensure_private_directory(PRIVATE_ROOT)
     path = PRIVATE_ROOT / "console.env"
     values = [
             f"OOS_BASE_URL=http://127.0.0.1:{policy['owners']['oos']['local_port']}",
@@ -708,6 +729,18 @@ def set_deployment_replicas(
             "-n", namespace_name, "rollout", "status", f"deployment/{deployment}",
             "--timeout=240s",
         )
+        return
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        value = json.loads(kubectl(
+            "-n", namespace_name, "get", f"deployment/{deployment}", "-o", "json"
+        ).stdout)
+        ready = value.get("status", {}).get("readyReplicas", 0)
+        available = value.get("status", {}).get("availableReplicas", 0)
+        if ready in (None, 0) and available in (None, 0):
+            return
+        time.sleep(1)
+    raise ActivationError(f"deployment {deployment} did not scale down completely")
 
 
 def repository_catalog_status(policy: dict[str, Any]) -> dict[str, Any]:
@@ -740,7 +773,7 @@ def receipt(
     runtime_boundary: dict[str, Any] | None = None,
     repository_catalog_proof: dict[str, Any] | None = None,
 ) -> Path:
-    RECEIPT_ROOT.mkdir(parents=True, exist_ok=True)
+    ensure_private_directory(RECEIPT_ROOT)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     payload: dict[str, Any] = {
         "schema_version": 1,
@@ -932,32 +965,49 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
     item_id = policy["catalog_proof"]["catalog_item_id"]
     selected_repo: str | None = None
     selected_record: dict[str, Any] | None = None
+    selected_existing: dict[str, Any] | None = None
+    fallback: tuple[str, dict[str, Any], dict[str, Any]] | None = None
     for candidate in policy["catalog_proof"]["repository_candidates"]:
         try:
             record = active_repository(registry, candidate)
         except ActivationError:
             continue
-        if catalog_value(before, item_id, candidate) is None:
+        existing_candidate = catalog_value(before, item_id, candidate)
+        if existing_candidate is None:
             selected_repo = candidate
             selected_record = record
             break
+        if (
+            fallback is None
+            and isinstance(existing_candidate.get("repository_binding"), dict)
+        ):
+            fallback = (candidate, record, existing_candidate)
+    first_use_created = selected_repo is not None
+    added: dict[str, Any] | None = None
     if selected_repo is None or selected_record is None:
-        raise ActivationError(
-            "no active Repository remains for a genuine first-use Catalog proof"
-        )
+        if fallback is None:
+            raise ActivationError(
+                "no active Repository has a current or creatable readiness binding"
+            )
+        selected_repo, selected_record, selected_existing = fallback
 
-    add_status, add_value = mutate_catalog(
-        policy,
-        catalog_command(
-            selected_repo,
-            selected_record,
-            mode="add",
-            target_value_id=None,
-            prefix="first-use",
-        ),
-    )
-    added = require_applied(add_status, add_value, "first-use Catalog mutation")
-    added_value = added["value"]
+    if first_use_created:
+        add_status, add_value = mutate_catalog(
+            policy,
+            catalog_command(
+                selected_repo,
+                selected_record,
+                mode="add",
+                target_value_id=None,
+                prefix="first-use",
+            ),
+        )
+        added = require_applied(add_status, add_value, "first-use Catalog mutation")
+        added_value = added["value"]
+    else:
+        added_value = selected_existing
+        if not isinstance(added_value, dict):
+            raise ActivationError("the replayed first-use Catalog value is invalid")
     binding = added_value.get("repository_binding")
     if (
         not isinstance(binding, dict)
@@ -969,10 +1019,11 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
     ):
         raise ActivationError("first-use mutation did not preserve exact readiness evidence")
 
-    first_readback = catalog_projection(wait_for_catalog(policy))
-    current = catalog_value(first_readback, item_id, selected_repo)
-    if current != added_value:
-        raise ActivationError("first-use Catalog mutation is absent from canonical readback")
+    if first_use_created:
+        first_readback = catalog_projection(wait_for_catalog(policy))
+        current = catalog_value(first_readback, item_id, selected_repo)
+        if current != added_value:
+            raise ActivationError("first-use Catalog mutation is absent from canonical readback")
 
     existing_status, existing_value = mutate_catalog(
         policy,
@@ -1112,6 +1163,8 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
         **repository_catalog_status(policy),
         "canonical_readback": True,
         "existing_reference_revalidated": True,
+        "first_use_created": first_use_created,
+        "first_use_replayed_from_canonical_binding": not first_use_created,
         "first_use_repository": selected_repo,
         "first_use_readiness_receipt": {
             "digest": binding["receipt"]["digest"],
@@ -1119,7 +1172,10 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
             "receipt_id": binding["receipt"]["receipt_id"],
             "uri": binding["receipt"]["uri"],
         },
-        "mutation_receipts": [added["receipt"], existing["receipt"]],
+        "mutation_receipts": [
+            *([added["receipt"]] if added is not None else []),
+            existing["receipt"],
+        ],
         "negative_proof": negatives,
     }
     return receipt(
@@ -1141,6 +1197,7 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
     kubectl(
         "-n", ns, "set", "env", f"deployment/{owner['deployment']}",
         "WGCF_GOVERNANCE_HISTORY_CALLER_ID-", "WGCF_GOVERNANCE_HISTORY_CALLER_SECRET-",
+        "WGCF_REPOSITORY_READINESS_CONTRACT_ROOT-",
     )
     kubectl("-n", ns, "delete", "secret", WGCF_SECRET, "--ignore-not-found=true")
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")
@@ -1192,6 +1249,72 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
     )
 
 
+def receipt_reference(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    action = value.get("action")
+    digest = value.get("content_digest")
+    if (
+        not isinstance(action, str)
+        or not isinstance(digest, str)
+        or not digest.startswith("sha256:")
+        or len(digest) != 71
+    ):
+        raise ActivationError(f"child receipt is invalid: {path.name}")
+    return {"action": action, "content_digest": digest}
+
+
+def commission(policy: dict[str, Any]) -> Path:
+    """Run the complete bounded commissioning sequence and restore availability."""
+    validate(policy)
+    children: list[Path] = []
+    restored = False
+    try:
+        children.append(activate(policy))
+        children.append(status(policy))
+        children.append(catalog_rehearse(policy))
+        children.append(restart(policy))
+        children.append(status(policy))
+        children.append(rollback(policy))
+        children.append(rollback(policy, remove_files=True))
+        children.append(activate(policy))
+        final_status = status(policy)
+        children.append(final_status)
+        restored = True
+    except Exception as exc:
+        restoration_error: Exception | None = None
+        try:
+            activate(policy)
+            status(policy)
+            restored = True
+        except Exception as restore_exc:
+            restoration_error = restore_exc
+        if restoration_error is not None:
+            raise ActivationError(
+                f"commissioning failed ({exc}); final availability restoration also failed "
+                f"({restoration_error})"
+            ) from exc
+        raise
+
+    final_payload = json.loads(final_status.read_text(encoding="utf-8"))
+    final_catalog = final_payload.get("repository_catalog_proof")
+    if not isinstance(final_catalog, dict):
+        raise ActivationError("final commissioning status lacks Repository/Catalog proof")
+    return receipt(
+        "commission",
+        policy,
+        wait_for_activity(policy),
+        runtime_boundary={
+            **active_runtime_boundary(policy),
+            "final_availability_restored": restored,
+        },
+        repository_catalog_proof={
+            **final_catalog,
+            "commissioning_sequence_complete": True,
+            "child_receipts": [receipt_reference(path) for path in children],
+        },
+    )
+
+
 def main() -> int:
     global REPO_PATH_OVERRIDES
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1200,7 +1323,7 @@ def main() -> int:
         "action",
         choices=(
             "validate", "activate", "status", "restart", "rehearse",
-            "catalog-rehearse", "rollback", "cleanup",
+            "catalog-rehearse", "commission", "rollback", "cleanup",
         ),
     )
     parser.add_argument(
@@ -1224,6 +1347,7 @@ def main() -> int:
             "restart": restart,
             "rehearse": rehearse,
             "catalog-rehearse": catalog_rehearse,
+            "commission": commission,
             "rollback": lambda value: rollback(value),
             "cleanup": lambda value: rollback(value, remove_files=True),
         }[args.action](policy)

@@ -35,7 +35,9 @@ make governance-console-cross-domain ACTION=<action>
 ```
 
 Supported actions are `validate`, `activate`, `status`, `restart`, `rehearse`,
-`catalog-rehearse`, `rollback`, and `cleanup`. The
+`catalog-rehearse`, `commission`, `rollback`, and `cleanup`. `commission` is
+the evidence-profile entry point that runs the complete Repository/Catalog
+sequence and restores normal availability. The
 `governance-console-repository-catalog` target selects the separately pinned
 Repository/Catalog commissioning policy and adds the server-only session
 projection plus capability-specific operating proof. Follow the matching

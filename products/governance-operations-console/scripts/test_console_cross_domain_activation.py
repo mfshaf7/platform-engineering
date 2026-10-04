@@ -284,6 +284,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         verified = Path("commission-verification.json")
         with (
             patch.dict(activation.os.environ, environment, clear=True),
+            patch.object(activation.sys, "argv", [str(activation.__file__)]),
             patch.object(
                 activation, "verify_commissioning", return_value=verified
             ) as verify,
@@ -294,6 +295,19 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(result, verified)
         verify.assert_called_once_with(self.catalog_policy)
         activate.assert_not_called()
+
+    def test_test_process_does_not_impersonate_oos_evidence_execution(self) -> None:
+        environment = {
+            "CI": "true",
+            "NO_COLOR": "1",
+            "OOS_DELIVERY_ART_MUTATION_ENABLED": "true",
+            "OOS_DELIVERY_ART_WRITER_TOPOLOGY": "single-writer",
+        }
+        with (
+            patch.dict(activation.os.environ, environment, clear=True),
+            patch.object(activation.sys, "argv", [str(Path(__file__).resolve())]),
+        ):
+            self.assertFalse(activation.source_evidence_execution())
 
     def test_evidence_profile_uses_non_disruptive_commissioning_verifier(self) -> None:
         profile = json.loads(

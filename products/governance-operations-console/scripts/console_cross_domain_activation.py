@@ -1300,7 +1300,8 @@ def receipt_content_digest(value: dict[str, Any]) -> str:
 
 def source_evidence_execution() -> bool:
     return (
-        os.environ.get("CI") == "true"
+        Path(sys.argv[0]).resolve() == Path(__file__).resolve()
+        and os.environ.get("CI") == "true"
         and os.environ.get("NO_COLOR") == "1"
         and os.environ.get("OOS_DELIVERY_ART_MUTATION_ENABLED") == "true"
         and os.environ.get("OOS_DELIVERY_ART_WRITER_TOPOLOGY") == "single-writer"

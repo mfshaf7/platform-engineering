@@ -1298,16 +1298,6 @@ def receipt_content_digest(value: dict[str, Any]) -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def source_evidence_execution() -> bool:
-    return (
-        Path(sys.argv[0]).resolve() == Path(__file__).resolve()
-        and os.environ.get("CI") == "true"
-        and os.environ.get("NO_COLOR") == "1"
-        and os.environ.get("OOS_DELIVERY_ART_MUTATION_ENABLED") == "true"
-        and os.environ.get("OOS_DELIVERY_ART_WRITER_TOPOLOGY") == "single-writer"
-    )
-
-
 def verify_commissioning(policy: dict[str, Any]) -> Path:
     """Verify durable commissioning and current availability without restarting OOS."""
     validate(policy)
@@ -1391,8 +1381,6 @@ def verify_commissioning(policy: dict[str, Any]) -> Path:
 
 def commission(policy: dict[str, Any]) -> Path:
     """Run the complete bounded commissioning sequence and restore availability."""
-    if source_evidence_execution():
-        return verify_commissioning(policy)
     validate(policy)
     children: list[Path] = []
     restored = False

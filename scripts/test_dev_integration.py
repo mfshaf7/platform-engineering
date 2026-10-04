@@ -143,6 +143,155 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             self.assertIsNone(action_files)
             self.assertEqual(list(root.iterdir()), [])
 
+    def test_composition_owned_profile_mutation_requires_composition_context(self) -> None:
+        manifest = {
+            "runtime_composition_id": "refinement-catalog",
+            "runtime_composition_root_profile_id": "accepted-idea-delivery",
+        }
+        for action in ("up", "down", "reset", "restore"):
+            with self.subTest(action=action), self.assertRaisesRegex(
+                SystemExit,
+                "composition-owned-profile-action-refused",
+            ):
+                DEV_INTEGRATION.guard_composition_owned_profile_action(
+                    action=action,
+                    existing_manifest=manifest,
+                    environment={},
+                    composition_lifecycle="active",
+                )
+
+        DEV_INTEGRATION.guard_composition_owned_profile_action(
+            action="up",
+            existing_manifest=manifest,
+            environment={
+                "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                "DEVINT_COMPOSITION_ROOT_PROFILE_ID": "accepted-idea-delivery",
+            },
+            composition_lifecycle="active",
+        )
+        DEV_INTEGRATION.guard_composition_owned_profile_action(
+            action="status",
+            existing_manifest=manifest,
+            environment={},
+            composition_lifecycle="active",
+        )
+
+    def test_suspended_composition_allows_profile_reset_but_not_profile_up(self) -> None:
+        manifest = {"runtime_composition_id": "refinement-catalog"}
+        for action in ("down", "reset", "restore"):
+            DEV_INTEGRATION.guard_composition_owned_profile_action(
+                action=action,
+                existing_manifest=manifest,
+                environment={},
+                composition_lifecycle="suspended",
+            )
+        with self.assertRaisesRegex(SystemExit, "make devint-up COMPOSITION"):
+            DEV_INTEGRATION.guard_composition_owned_profile_action(
+                action="up",
+                existing_manifest=manifest,
+                environment={},
+                composition_lifecycle="suspended",
+            )
+
+    def test_main_blocks_direct_up_before_profile_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-composition-guard-") as temp_dir:
+            workspace_root = Path(temp_dir) / "workspace"
+            owner_root = workspace_root / "owner-repo"
+            owner_root.mkdir(parents=True)
+            command_path = owner_root / "up.sh"
+            command_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            command_path.chmod(0o700)
+            profile_path = owner_root / "profile.yaml"
+            profile = {
+                "summary": "composition guard integration test",
+                "runtime": {
+                    "namespace_pattern": "devint-{profile}-{operator}",
+                    "state_model": "persistent",
+                },
+                "source_repos": [{"repo": "owner-repo"}],
+                "stage_handoff": {"required_checks": []},
+                "commands": {"up": "up.sh"},
+            }
+            profile_path.write_text(
+                yaml.safe_dump(profile, sort_keys=False),
+                encoding="utf-8",
+            )
+            current_manifest = (
+                workspace_root
+                / ".dev-integration/test-profile/test-operator/current-session.yaml"
+            )
+            current_manifest.parent.mkdir(parents=True)
+            current_manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "profile_id": "test-profile",
+                        "operator": "test-operator",
+                        "session_id": "existing-session",
+                        "runtime_composition_id": "refinement-catalog",
+                        "runtime_composition_root_profile_id": "test-profile",
+                    },
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            composition_manifest = (
+                DEV_INTEGRATION.composition_state_root(
+                    workspace_root,
+                    "refinement-catalog",
+                    "test-operator",
+                )
+                / "current-composition.yaml"
+            )
+            composition_manifest.parent.mkdir(parents=True)
+            composition_manifest.write_text(
+                yaml.safe_dump({"lifecycle": "active"}),
+                encoding="utf-8",
+            )
+            resolved = (
+                {
+                    "lifecycle": "active",
+                    "owner_repo": "owner-repo",
+                    "runtime_owner": "platform-engineering",
+                    "security_owner": "security-architecture",
+                },
+                profile,
+                owner_root,
+                profile_path,
+                {"owner-repo": owner_root},
+                {
+                    "owner-repo": {
+                        "branch": "test",
+                        "dirty": False,
+                        "head_sha": "a" * 40,
+                        "path": str(owner_root),
+                        "upstream": None,
+                    }
+                },
+            )
+            with (
+                patch.object(DEV_INTEGRATION, "resolve_profile", return_value=resolved),
+                patch.object(
+                    DEV_INTEGRATION.sys,
+                    "argv",
+                    [
+                        "dev_integration.py",
+                        "up",
+                        "--profile",
+                        "test-profile",
+                        "--operator",
+                        "test-operator",
+                        "--workspace-root",
+                        str(workspace_root),
+                    ],
+                ),
+                patch.object(DEV_INTEGRATION, "dispatch_command") as dispatch,
+            ):
+                with self.assertRaisesRegex(
+                    SystemExit,
+                    "composition-owned-profile-action-refused",
+                ):
+                    DEV_INTEGRATION.main()
+            dispatch.assert_not_called()
     def test_manifest_keeps_session_start_separate_from_action_time(self) -> None:
         manifest = DEV_INTEGRATION.build_manifest(
             action="smoke",

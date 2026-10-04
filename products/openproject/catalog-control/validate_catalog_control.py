@@ -144,6 +144,7 @@ def validate_contract(contract: dict[str, object], catalog_dir: Path = CATALOG_D
         "ActiveSupport::SecurityUtils.secure_compare",
         "source_revision_stale",
         "idempotency_key",
+        "OpenprojectDeliveryCatalogControl.detached(state)",
         "readback_complete",
     }
     for marker in sorted(required_extension_markers):

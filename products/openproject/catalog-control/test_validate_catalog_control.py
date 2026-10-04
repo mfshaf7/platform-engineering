@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from validate_catalog_control import load_contract, validate_contract
+from validate_catalog_control import EXTENSION_PATH, load_contract, validate_contract
 
 
 class CatalogControlContractTest(unittest.TestCase):
@@ -33,6 +33,11 @@ class CatalogControlContractTest(unittest.TestCase):
         contract["items"].pop()
         errors = validate_contract(contract)
         self.assertTrue(any("Catalog vocabulary mismatch" in error for error in errors))
+
+    def test_runtime_detaches_shared_references_before_setting_persistence(self) -> None:
+        extension = EXTENSION_PATH.read_text(encoding="utf-8")
+        self.assertIn("OpenprojectDeliveryCatalogControl.detached(state)", extension)
+        self.assertIn("JSON.parse(JSON.generate(value))", extension)
 
 
 if __name__ == "__main__":

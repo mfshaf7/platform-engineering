@@ -94,6 +94,15 @@ This successor retains the merged and unpublished source history, binds the
 landed OOS and WGCF repairs plus the exact Security decision, and does not
 invent manual evidence or a new ART defect.
 
+The first mutation after those repairs exposed an OpenProject 17.2/Ruby 3.4
+serialization compatibility gap: the Catalog setting persisted shared Ruby
+object references as YAML anchors, while the current safe Setting loader
+rejects aliases with `Psych::AliasesNotEnabled`. The Platform control now
+detaches state through JSON before every Setting read/write boundary so the
+stored YAML remains alias-free. The single already-written alias-bearing row
+is normalized in place before commissioning resumes; no Catalog record is
+discarded.
+
 ## Artifact And Deployment Evidence
 
 - Build workflow run: owner-repository CI-equivalent validation in the

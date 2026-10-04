@@ -49,12 +49,12 @@
 ## Source Changes
 
 - Repo: `platform-engineering`
-- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-3`
+- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-4`
 - Preserved predecessor Landing Unit:
   `delivery-1203-repository-catalog-platform`, whose merged source and
   merge-ready Review Packet remain historical inputs, plus unpublished
-  `delivery-1203-repository-catalog-platform-recovery`, whose clean local
-  commit was transferred through an evidence-free recovery receipt
+  recovery Landing Units whose clean local source was transferred through
+  exact evidence-free OOS recovery receipts
 - Commit(s): recorded by the finalized ART Review Packet
 - Guardrails added:
   - exact architecture, Security, OOS, Console, WGCF, and Workspace Governance
@@ -83,7 +83,7 @@
   - explicit selection and rollback of the reviewed repository-readiness
     contract bundle shipped in the exact WGCF image.
   - the exact OOS content-digest repair, WGCF authority-schema-v2 repair,
-    Security re-acceptance, and durable architecture v13 binding required
+    Security re-acceptance, and durable architecture v15 binding required
     before runtime recommissioning.
 
 The initial source landing omitted that evidence-profile command even though
@@ -133,13 +133,15 @@ a later deliberate acceptance of the same edit remains a distinct operation.
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591`
+  `wgcf://artifacts/delivery-art/sha256/1f17cc327aa7bbb730ab80877421f6d3d4a459b9e66d528c49e8d36bebb031ff`
 - Security review:
-  `security-architecture@e392abe55fbec947431aeba75c9daccf56cc0dee`
-- Runtime commissioning receipt:
+  `security-architecture@de4816bcae2b4ff9d8dd40285a1164e1ba0a3834`
+- Predecessor recovery-3 commissioning receipt retained as historical proof:
   `sha256:f94fd9351b98839ec9bc0df521e37227df48722cda55557636bf0193f616ce8b`;
   its child receipt set binds activation, status, Catalog rehearsal, restart,
   rollback, cleanup, reactivation, and final status.
+- Recovery-4 commissioning receipt: captured by the finalized Review Packet
+  from the exact merged source and v15 architecture binding.
 
 ## Live Verification
 

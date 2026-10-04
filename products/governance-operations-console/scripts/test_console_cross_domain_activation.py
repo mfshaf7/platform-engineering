@@ -208,7 +208,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(policy["architecture"]["relationship"], "exact-security-binding")
         self.assertEqual(
             policy["architecture"]["current"]["digest"],
-            "sha256:e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591",
+            "sha256:1f17cc327aa7bbb730ab80877421f6d3d4a459b9e66d528c49e8d36bebb031ff",
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
@@ -220,7 +220,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["authority"]["security_revision"],
-            "e392abe55fbec947431aeba75c9daccf56cc0dee",
+            "de4816bcae2b4ff9d8dd40285a1164e1ba0a3834",
         )
         self.assertEqual(
             policy["authority"]["security_review_ref"],

@@ -274,6 +274,38 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(result, denied)
         request.assert_called_once()
 
+    def test_commission_verifies_receipt_inside_oos_evidence_execution(self) -> None:
+        environment = {
+            "CI": "true",
+            "NO_COLOR": "1",
+            "OOS_DELIVERY_ART_MUTATION_ENABLED": "true",
+            "OOS_DELIVERY_ART_WRITER_TOPOLOGY": "single-writer",
+        }
+        verified = Path("commission-verification.json")
+        with (
+            patch.dict(activation.os.environ, environment, clear=True),
+            patch.object(
+                activation, "verify_commissioning", return_value=verified
+            ) as verify,
+            patch.object(activation, "activate") as activate,
+        ):
+            result = activation.commission(self.catalog_policy)
+
+        self.assertEqual(result, verified)
+        verify.assert_called_once_with(self.catalog_policy)
+        activate.assert_not_called()
+
+    def test_evidence_profile_uses_non_disruptive_commissioning_verifier(self) -> None:
+        profile = json.loads(
+            (activation.REPO_ROOT / "contracts/delivery-art-work-session/evidence-profile.json")
+            .read_text(encoding="utf-8")
+        )
+        command = next(
+            item for item in profile["commands"]
+            if item["id"] == "repository-catalog-operating-commissioning"
+        )
+        self.assertEqual(command["args"][-1], "verify-commissioning")
+
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
         completed = activation.subprocess.CompletedProcess(
             [], 0, stdout="apiVersion: v1\nkind: Secret\n", stderr=""

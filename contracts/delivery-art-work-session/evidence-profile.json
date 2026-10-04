@@ -92,7 +92,7 @@
         "products/governance-operations-console/scripts/console_cross_domain_activation.py",
         "--policy",
         "products/governance-operations-console/repository-catalog-commissioning-policy.yaml",
-        "commission"
+        "verify-commissioning"
       ],
       "fidelity": "live-backend",
       "conformance_binding": "matching-fidelity",

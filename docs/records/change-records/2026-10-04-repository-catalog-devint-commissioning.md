@@ -85,6 +85,9 @@
   - bounded retry of only transient `502`/`503`/`504` Catalog mutation
     responses using the same acceptance id, so a lost acknowledgement replays
     safely while authorization and contract denials remain terminal.
+  - separation of disruptive operator commissioning from non-disruptive OOS
+    evidence acquisition, preventing the evidence request from restarting the
+    OOS pod that is synchronously awaiting its result.
   - the exact OOS content-digest and evidence-transport repairs, WGCF
     authority-schema-v2 repair, Security re-acceptance, and durable
     architecture v16 binding required before runtime recommissioning.
@@ -105,6 +108,14 @@ The exact-source recovery-5 rehearsal also exposed a short activation-window
 returned complete canonical readback. Commissioning now retries only bounded
 transient owner responses with the original acceptance id. It does not retry
 authorization, validation, conflict, or other contract denials.
+
+The first OOS-owned evidence acquisition then proved that the original owner
+profile synchronously invoked the disruptive commissioning sequence. Its OOS
+restart correctly replaced the deployment but killed the request awaiting the
+evidence result. The profile now invokes a non-disruptive verifier that checks
+the exact aggregate and all nine child receipt digests plus current live
+availability. The operator-owned `commission` command remains the only
+producer of restart, rollback, cleanup, and restoration evidence.
 
 The first mutation after those repairs exposed an OpenProject 17.2/Ruby 3.4
 serialization compatibility gap: the Catalog setting persisted shared Ruby

@@ -337,6 +337,25 @@ class CrossDomainActivationTests(unittest.TestCase):
         with self.assertRaisesRegex(activation.ActivationError, "did not fail closed"):
             activation.require_denied(200, {"status": "applied"}, "false success")
 
+    def test_catalog_canonical_state_ignores_only_projection_timestamp(self) -> None:
+        before = {
+            "catalog_value_id": "catalog-value:one",
+            "value_key": "workspace-governance",
+            "last_projected_at": "2026-10-04T08:08:00Z",
+            "repository_binding": {"receipt": {"digest": "sha256:" + "1" * 64}},
+        }
+        after = json.loads(json.dumps(before))
+        after["last_projected_at"] = "2026-10-04T08:11:00Z"
+        self.assertEqual(
+            activation.catalog_canonical_state(before),
+            activation.catalog_canonical_state(after),
+        )
+        after["repository_binding"]["receipt"]["digest"] = "sha256:" + "2" * 64
+        self.assertNotEqual(
+            activation.catalog_canonical_state(before),
+            activation.catalog_canonical_state(after),
+        )
+
     def test_scale_down_waits_for_zero_ready_and_available_replicas(self) -> None:
         responses = [
             activation.subprocess.CompletedProcess([], 0, stdout="", stderr=""),

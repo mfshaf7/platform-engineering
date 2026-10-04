@@ -617,6 +617,15 @@ def catalog_value(
     return matches[0] if matches else None
 
 
+def catalog_canonical_state(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Remove projection-only metadata before comparing persisted Catalog state."""
+    if value is None:
+        return None
+    canonical = json.loads(json.dumps(value))
+    canonical.pop("last_projected_at", None)
+    return canonical
+
+
 def repository_option(repo_name: str, record: dict[str, Any]) -> dict[str, Any]:
     return {
         "admissionState": "admitted",
@@ -1156,7 +1165,9 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
         )
 
     final_projection = catalog_projection(wait_for_catalog(policy))
-    if catalog_value(final_projection, item_id, selected_repo) != stable_value:
+    if catalog_canonical_state(
+        catalog_value(final_projection, item_id, selected_repo)
+    ) != catalog_canonical_state(stable_value):
         raise ActivationError("a denied path changed canonical Catalog state")
 
     proof = {

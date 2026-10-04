@@ -103,6 +103,13 @@ stored YAML remains alias-free. The single already-written alias-bearing row
 is normalized in place before commissioning resumes; no Catalog record is
 discarded.
 
+The resumed denial rehearsal also proved that `last_projected_at` is
+projection metadata, not persisted Catalog state: it advances whenever OOS
+rebuilds the projection after dependency recovery. The commissioning
+comparison now excludes only that timestamp while continuing to compare the
+complete Catalog value and repository-readiness binding. A receipt or business
+field change therefore still fails the side-effect check.
+
 ## Artifact And Deployment Evidence
 
 - Build workflow run: owner-repository CI-equivalent validation in the

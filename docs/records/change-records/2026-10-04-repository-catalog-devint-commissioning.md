@@ -136,8 +136,10 @@ a later deliberate acceptance of the same edit remains a distinct operation.
   `wgcf://artifacts/delivery-art/sha256/e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591`
 - Security review:
   `security-architecture@e392abe55fbec947431aeba75c9daccf56cc0dee`
-- Runtime receipt digests: recorded after the reviewed candidate completes its
-  bounded live rehearsal
+- Runtime commissioning receipt:
+  `sha256:f94fd9351b98839ec9bc0df521e37227df48722cda55557636bf0193f616ce8b`;
+  its child receipt set binds activation, status, Catalog rehearsal, restart,
+  rollback, cleanup, reactivation, and final status.
 
 ## Live Verification
 

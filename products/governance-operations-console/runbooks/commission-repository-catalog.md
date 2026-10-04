@@ -46,10 +46,24 @@ make governance-console-repository-catalog ACTION=status
 
 Activation upgrades the existing managed Console services. It issues the
 Platform session projection, keeps OOS and WGCF credentials in the private
-server environment, and requires live Workspace Registry, Catalog, OOS, and
-WGCF projections before writing a receipt.
+server environment, selects the reviewed repository-readiness contract bundle
+from the exact WGCF image, and requires live Workspace Registry, Catalog, OOS,
+and WGCF projections before writing a receipt.
 
 ## Capability-Specific Rehearsal
+
+The governed evidence profile runs the full sequence with one command:
+
+```bash
+make governance-console-repository-catalog ACTION=commission
+```
+
+`commission` validates and activates the reviewed sources, proves status,
+performs the Catalog rehearsal, proves restart, exercises rollback and cleanup,
+and finishes with a fresh activation and status. Its aggregate receipt binds
+the content digests of every child receipt and confirms final availability.
+The individual commands below remain available for bounded diagnosis and
+operator recovery.
 
 ```bash
 make governance-console-repository-catalog ACTION=catalog-rehearse

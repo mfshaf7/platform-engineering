@@ -66,6 +66,10 @@ module OpenprojectDeliveryCatalogControl
     "sha256:#{Digest::SHA256.hexdigest(canonical_json(value))}"
   end
 
+  def detached(value)
+    JSON.parse(JSON.generate(value))
+  end
+
   class Store
     def with_locked_state
       Setting.transaction do
@@ -73,9 +77,11 @@ module OpenprojectDeliveryCatalogControl
         record.set_value!(OpenprojectDeliveryCatalogControl.default_state, force: true) if record.new_record?
         record.save! if record.new_record?
         record.lock!
-        state = OpenprojectDeliveryCatalogControl.default_state.merge(record.value || {})
+        state = OpenprojectDeliveryCatalogControl.detached(
+          OpenprojectDeliveryCatalogControl.default_state.merge(record.value || {})
+        )
         result = yield(state)
-        record.set_value!(state, force: true)
+        record.set_value!(OpenprojectDeliveryCatalogControl.detached(state), force: true)
         record.save!
         Setting.clear_cache
         result
@@ -84,7 +90,9 @@ module OpenprojectDeliveryCatalogControl
 
     def read
       record = Setting.find_by(name: SETTING_NAME)
-      OpenprojectDeliveryCatalogControl.default_state.merge(record&.value || {})
+      OpenprojectDeliveryCatalogControl.detached(
+        OpenprojectDeliveryCatalogControl.default_state.merge(record&.value || {})
+      )
     end
   end
 

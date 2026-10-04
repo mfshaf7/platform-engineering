@@ -37,11 +37,11 @@ For the approved Workspace operations composition, repeat the source argument
 for this exact set; the Platform revision must be the clean executing checkout:
 
 ```text
---source-revision workspace-governance=c41724986ca1290029555010d9a252f869434c6c
---source-revision workspace-governance-control-fabric=f296a8bf91bcc22272f0079cf2b0aec6fe431fdf
---source-revision operator-orchestration-service=e71de03fa851c94246cc9b8e739cebfd102c8dec
---source-revision governance-operations-console=d17912691a6dd99335c327637eda98c4105d98eb
---source-revision security-architecture=4f45509aa2b14ed9f610e81b8f9b974891745a32
+--source-revision workspace-governance=9718ce9eea04049541a1fb44f0b7cdc0ac823687
+--source-revision workspace-governance-control-fabric=3d04ccaa8a751dfcb743c06b253299ee028c8f46
+--source-revision operator-orchestration-service=968643ad3dca86366ae417ebe77a23ba7c2c2cb6
+--source-revision governance-operations-console=9347794a138f3649bb6ef5b7db057524d1c1e26d
+--source-revision security-architecture=3cb26a024fce1d01ff8eb80899d8f50299982c9a
 --source-revision platform-engineering=<current-clean-HEAD>
 ```
 

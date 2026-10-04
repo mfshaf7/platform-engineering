@@ -84,6 +84,21 @@
       "timeout_seconds": 600
     },
     {
+      "id": "repository-catalog-operating-commissioning",
+      "kind": "runtime_and_live",
+      "name": "Repository and Catalog operating commissioning",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_cross_domain_activation.py",
+        "--policy",
+        "products/governance-operations-console/repository-catalog-commissioning-policy.yaml",
+        "commission"
+      ],
+      "fidelity": "live-backend",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 1800
+    },
+    {
       "id": "governance-document-validation",
       "kind": "validations",
       "name": "Platform governance document validation",

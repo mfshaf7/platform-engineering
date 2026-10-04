@@ -208,19 +208,23 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(policy["architecture"]["relationship"], "exact-security-binding")
         self.assertEqual(
             policy["architecture"]["current"]["digest"],
-            "sha256:115056ba9f888c8ee08de78a17bcea5dd8df40c4a3624eeecbdc7b79148deb17",
+            "sha256:c36e5a8d99ca5b196c87e3c5def23e4d9fd7f3dbc8550fd842fa6cde26d1ca27",
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
             "968643ad3dca86366ae417ebe77a23ba7c2c2cb6",
         )
         self.assertEqual(
+            policy["owners"]["wgcf"]["revision"],
+            "3d04ccaa8a751dfcb743c06b253299ee028c8f46",
+        )
+        self.assertEqual(
             policy["authority"]["security_revision"],
-            "fd3e58aed30664b4986a0bc22072d3200027298a",
+            "cbb78d6e67097e3375ad983fca8408b491ac892a",
         )
         self.assertEqual(
             policy["authority"]["security_review_ref"],
-            "docs/reviews/components/2026-10-04-repository-catalog-authority-digest-reacceptance.md",
+            "docs/reviews/components/2026-10-04-repository-catalog-authority-schema-v2-reacceptance.md",
         )
         self.assertEqual(
             policy["console"]["revision"],

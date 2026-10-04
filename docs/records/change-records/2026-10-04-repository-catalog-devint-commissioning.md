@@ -36,8 +36,10 @@
 - Actual cause: earlier generic Console activity receipts proved only owner
   read health, and the first real cross-repo request then exposed that OOS sent
   its semantic Inventory digest where WGCF required the exact `repos.yaml`
-  source-content digest. The isolated owner tests had not exercised that exact
-  producer/consumer handoff.
+  source-content digest. After that repair, the same live path proved WGCF
+  still accepted only a synthetic schema-v1 authority fixture while canonical
+  `repos.yaml` is schema v2. The isolated owner tests had not exercised the
+  complete current authority contract across the producer/consumer handoff.
 - Why it escaped earlier controls: capability-specific runtime acceptance was
   correctly retained for Platform item `#1231`, but the evidence profile first
   omitted the live command and the owner suites independently used locally
@@ -80,15 +82,17 @@
     repository for the WGCF-unavailable denial case.
   - explicit selection and rollback of the reviewed repository-readiness
     contract bundle shipped in the exact WGCF image.
-  - the exact OOS content-digest repair, Security re-acceptance, and durable
-    architecture v11 binding required before runtime recommissioning.
+  - the exact OOS content-digest repair, WGCF authority-schema-v2 repair,
+    Security re-acceptance, and durable architecture v12 binding required
+    before runtime recommissioning.
 
 The initial source landing omitted that evidence-profile command even though
 the architecture required live-backend proof. OOS correctly refused
-post-merge evidence acquisition. The first real request then failed closed on
-the digest-definition mismatch before Catalog mutation. This successor retains
-the merged and unpublished source history, binds the landed OOS repair and
-Security decision, and does not invent manual evidence or a new ART defect.
+post-merge evidence acquisition. The first real requests then failed closed on
+the digest-definition and authority-schema mismatches before Catalog mutation.
+This successor retains the merged and unpublished source history, binds the
+landed OOS and WGCF repairs plus the exact Security decision, and does not
+invent manual evidence or a new ART defect.
 
 ## Artifact And Deployment Evidence
 
@@ -99,9 +103,9 @@ Security decision, and does not invent manual evidence or a new ART defect.
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/115056ba9f888c8ee08de78a17bcea5dd8df40c4a3624eeecbdc7b79148deb17`
+  `wgcf://artifacts/delivery-art/sha256/c36e5a8d99ca5b196c87e3c5def23e4d9fd7f3dbc8550fd842fa6cde26d1ca27`
 - Security review:
-  `security-architecture@fd3e58aed30664b4986a0bc22072d3200027298a`
+  `security-architecture@cbb78d6e67097e3375ad983fca8408b491ac892a`
 - Runtime receipt digests: recorded after the reviewed candidate completes its
   bounded live rehearsal
 

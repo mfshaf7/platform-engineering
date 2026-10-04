@@ -49,7 +49,7 @@
 ## Source Changes
 
 - Repo: `platform-engineering`
-- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-2`
+- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-3`
 - Preserved predecessor Landing Unit:
   `delivery-1203-repository-catalog-platform`, whose merged source and
   merge-ready Review Packet remain historical inputs, plus unpublished
@@ -83,7 +83,7 @@
   - explicit selection and rollback of the reviewed repository-readiness
     contract bundle shipped in the exact WGCF image.
   - the exact OOS content-digest repair, WGCF authority-schema-v2 repair,
-    Security re-acceptance, and durable architecture v12 binding required
+    Security re-acceptance, and durable architecture v13 binding required
     before runtime recommissioning.
 
 The initial source landing omitted that evidence-profile command even though
@@ -103,9 +103,9 @@ invent manual evidence or a new ART defect.
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/c36e5a8d99ca5b196c87e3c5def23e4d9fd7f3dbc8550fd842fa6cde26d1ca27`
+  `wgcf://artifacts/delivery-art/sha256/ef13022a4fb930086617781eda0727217d3cae0d17e23cde7c82276e0da10db7`
 - Security review:
-  `security-architecture@cbb78d6e67097e3375ad983fca8408b491ac892a`
+  `security-architecture@3cb26a024fce1d01ff8eb80899d8f50299982c9a`
 - Runtime receipt digests: recorded after the reviewed candidate completes its
   bounded live rehearsal
 

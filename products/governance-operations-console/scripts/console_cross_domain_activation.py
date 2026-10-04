@@ -895,11 +895,12 @@ def restart(policy: dict[str, Any]) -> Path:
         "systemctl", "--user", "restart",
         unit_name("oos"), unit_name("wgcf"), unit_name("console"),
     ])
+    activity = wait_for_activity(policy)
     catalog = repository_catalog_status(policy) if policy.get("catalog_proof") else None
     return receipt(
         "restart",
         policy,
-        wait_for_activity(policy),
+        activity,
         runtime_boundary=active_runtime_boundary(policy),
         repository_catalog_proof=catalog,
     )

@@ -374,6 +374,30 @@ class CrossDomainActivationTests(unittest.TestCase):
             activation.set_deployment_replicas("owner", "catalog", 0)
         self.assertEqual(command.call_count, 3)
 
+    def test_restart_waits_for_console_before_catalog_readback(self) -> None:
+        events = []
+
+        def ready(_policy):
+            events.append("ready")
+            return {"mode": "live", "status": "current"}
+
+        def catalog(_policy):
+            events.append("catalog")
+            return {"catalog_projection_status": "ready"}
+
+        with (
+            patch.object(activation, "validate"),
+            patch.object(activation, "kubectl"),
+            patch.object(activation, "run"),
+            patch.object(activation, "wait_for_activity", side_effect=ready),
+            patch.object(activation, "repository_catalog_status", side_effect=catalog),
+            patch.object(activation, "active_runtime_boundary", return_value={}),
+            patch.object(activation, "receipt", return_value=Path("restart.json")),
+        ):
+            activation.restart(self.catalog_policy)
+
+        self.assertEqual(events, ["ready", "catalog"])
+
     def test_commission_binds_child_receipts_and_restores_availability(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

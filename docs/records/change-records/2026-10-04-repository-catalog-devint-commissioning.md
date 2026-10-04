@@ -110,6 +110,11 @@ comparison now excludes only that timestamp while continuing to compare the
 complete Catalog value and repository-readiness binding. A receipt or business
 field change therefore still fails the side-effect check.
 
+The commissioning restart now waits for the live Console activity endpoint
+before requesting capability-specific Catalog readback. Starting the systemd
+process is not treated as application readiness, so a normal Next.js startup
+window can no longer produce a false `URLError` during the lifecycle proof.
+
 ## Artifact And Deployment Evidence
 
 - Build workflow run: owner-repository CI-equivalent validation in the

@@ -208,11 +208,11 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(policy["architecture"]["relationship"], "exact-security-binding")
         self.assertEqual(
             policy["architecture"]["current"]["digest"],
-            "sha256:1f17cc327aa7bbb730ab80877421f6d3d4a459b9e66d528c49e8d36bebb031ff",
+            "sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0",
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
-            "968643ad3dca86366ae417ebe77a23ba7c2c2cb6",
+            "7ea390c28ac95d64a8fee285f212585bf7863cf6",
         )
         self.assertEqual(
             policy["owners"]["wgcf"]["revision"],
@@ -220,7 +220,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["authority"]["security_revision"],
-            "de4816bcae2b4ff9d8dd40285a1164e1ba0a3834",
+            "2e4fc1472c3f6d38bbfb68b6676c7e3cd520bece",
         )
         self.assertEqual(
             policy["authority"]["security_review_ref"],
@@ -244,6 +244,81 @@ class CrossDomainActivationTests(unittest.TestCase):
             policy["catalog_proof"]["unavailable_readiness_repository"],
             policy["catalog_proof"]["repository_candidates"],
         )
+
+    def test_catalog_mutation_retries_transient_response_with_same_command(self) -> None:
+        command = {"acceptanceId": "stable-acceptance", "mode": "edit"}
+        responses = [
+            (502, {"error": "owner_temporarily_unavailable"}),
+            (200, {"status": "applied", "readback_complete": True}),
+        ]
+        with (
+            patch.object(activation, "http_request_json", side_effect=responses) as request,
+            patch.object(activation.time, "sleep") as sleep,
+        ):
+            result = activation.mutate_catalog(self.catalog_policy, command)
+
+        self.assertEqual(result, responses[-1])
+        self.assertEqual(request.call_count, 2)
+        self.assertIs(request.call_args_list[0].kwargs["body"], command)
+        self.assertIs(request.call_args_list[1].kwargs["body"], command)
+        sleep.assert_called_once_with(1)
+
+    def test_catalog_mutation_does_not_retry_contract_denial(self) -> None:
+        command = {"acceptanceId": "denied-acceptance", "mode": "edit"}
+        denied = (409, {"error": "catalog_mutation_denied"})
+        with patch.object(
+            activation, "http_request_json", return_value=denied
+        ) as request:
+            result = activation.mutate_catalog(self.catalog_policy, command)
+
+        self.assertEqual(result, denied)
+        request.assert_called_once()
+
+    def test_commission_verifies_receipt_inside_oos_evidence_execution(self) -> None:
+        environment = {
+            "CI": "true",
+            "NO_COLOR": "1",
+            "OOS_DELIVERY_ART_MUTATION_ENABLED": "true",
+            "OOS_DELIVERY_ART_WRITER_TOPOLOGY": "single-writer",
+        }
+        verified = Path("commission-verification.json")
+        with (
+            patch.dict(activation.os.environ, environment, clear=True),
+            patch.object(activation.sys, "argv", [str(activation.__file__)]),
+            patch.object(
+                activation, "verify_commissioning", return_value=verified
+            ) as verify,
+            patch.object(activation, "activate") as activate,
+        ):
+            result = activation.commission(self.catalog_policy)
+
+        self.assertEqual(result, verified)
+        verify.assert_called_once_with(self.catalog_policy)
+        activate.assert_not_called()
+
+    def test_test_process_does_not_impersonate_oos_evidence_execution(self) -> None:
+        environment = {
+            "CI": "true",
+            "NO_COLOR": "1",
+            "OOS_DELIVERY_ART_MUTATION_ENABLED": "true",
+            "OOS_DELIVERY_ART_WRITER_TOPOLOGY": "single-writer",
+        }
+        with (
+            patch.dict(activation.os.environ, environment, clear=True),
+            patch.object(activation.sys, "argv", [str(Path(__file__).resolve())]),
+        ):
+            self.assertFalse(activation.source_evidence_execution())
+
+    def test_evidence_profile_uses_non_disruptive_commissioning_verifier(self) -> None:
+        profile = json.loads(
+            (activation.REPO_ROOT / "contracts/delivery-art-work-session/evidence-profile.json")
+            .read_text(encoding="utf-8")
+        )
+        command = next(
+            item for item in profile["commands"]
+            if item["id"] == "repository-catalog-operating-commissioning"
+        )
+        self.assertEqual(command["args"][-1], "verify-commissioning")
 
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
         completed = activation.subprocess.CompletedProcess(

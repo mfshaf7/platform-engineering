@@ -65,6 +65,18 @@ the content digests of every child receipt and confirms final availability.
 The individual commands below remain available for bounded diagnosis and
 operator recovery.
 
+OOS evidence acquisition uses the non-disruptive verifier after the operator
+commissioning sequence has completed:
+
+```bash
+make governance-console-repository-catalog ACTION=verify-commissioning
+```
+
+The verifier checks the exact-source aggregate and all nine content-addressed
+child receipts, then performs current live activity, Catalog, service, and
+WGCF-binding readback. It never restarts OOS from inside the OOS request that
+is collecting the evidence.
+
 ```bash
 make governance-console-repository-catalog ACTION=catalog-rehearse
 make governance-console-repository-catalog ACTION=restart

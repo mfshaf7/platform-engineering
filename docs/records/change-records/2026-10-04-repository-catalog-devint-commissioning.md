@@ -49,7 +49,7 @@
 ## Source Changes
 
 - Repo: `platform-engineering`
-- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-4`
+- Landing Unit: `delivery-1203-repository-catalog-platform-recovery-5`
 - Preserved predecessor Landing Unit:
   `delivery-1203-repository-catalog-platform`, whose merged source and
   merge-ready Review Packet remain historical inputs, plus unpublished
@@ -82,17 +82,40 @@
     repository for the WGCF-unavailable denial case.
   - explicit selection and rollback of the reviewed repository-readiness
     contract bundle shipped in the exact WGCF image.
-  - the exact OOS content-digest repair, WGCF authority-schema-v2 repair,
-    Security re-acceptance, and durable architecture v15 binding required
-    before runtime recommissioning.
+  - bounded retry of only transient `502`/`503`/`504` Catalog mutation
+    responses using the same acceptance id, so a lost acknowledgement replays
+    safely while authorization and contract denials remain terminal.
+  - separation of disruptive operator commissioning from non-disruptive OOS
+    evidence acquisition, preventing the evidence request from restarting the
+    OOS pod that is synchronously awaiting its result.
+  - the exact OOS content-digest and evidence-transport repairs, WGCF
+    authority-schema-v2 repair, Security re-acceptance, and durable
+    architecture v16 binding required before runtime recommissioning.
 
 The initial source landing omitted that evidence-profile command even though
 the architecture required live-backend proof. OOS correctly refused
 post-merge evidence acquisition. The first real requests then failed closed on
 the digest-definition and authority-schema mismatches before Catalog mutation.
-This successor retains the merged and unpublished source history, binds the
-landed OOS and WGCF repairs plus the exact Security decision, and does not
-invent manual evidence or a new ART defect.
+Recovery 4 subsequently merged the complete owner profile, but an OOS source
+executor transport defect dropped the configured-path evidence requirements
+during work start, so the missing base-owned runtime class was detected only
+after merge. Recovery 5 starts from the merged complete profile and the landed
+transport repair, binds the exact Security decision, and does not invent
+manual evidence or a new ART defect.
+
+The exact-source recovery-5 rehearsal also exposed a short activation-window
+`502` on the first Catalog mutation even though an identical idempotent retry
+returned complete canonical readback. Commissioning now retries only bounded
+transient owner responses with the original acceptance id. It does not retry
+authorization, validation, conflict, or other contract denials.
+
+The first OOS-owned evidence acquisition then proved that the original owner
+profile synchronously invoked the disruptive commissioning sequence. Its OOS
+restart correctly replaced the deployment but killed the request awaiting the
+evidence result. The profile now invokes a non-disruptive verifier that checks
+the exact aggregate and all nine child receipt digests plus current live
+availability. The operator-owned `commission` command remains the only
+producer of restart, rollback, cleanup, and restoration evidence.
 
 The first mutation after those repairs exposed an OpenProject 17.2/Ruby 3.4
 serialization compatibility gap: the Catalog setting persisted shared Ruby
@@ -133,15 +156,20 @@ a later deliberate acceptance of the same edit remains a distinct operation.
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/1f17cc327aa7bbb730ab80877421f6d3d4a459b9e66d528c49e8d36bebb031ff`
+  `wgcf://artifacts/delivery-art/sha256/3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0`
 - Security review:
-  `security-architecture@de4816bcae2b4ff9d8dd40285a1164e1ba0a3834`
+  `security-architecture@2e4fc1472c3f6d38bbfb68b6676c7e3cd520bece`
 - Predecessor recovery-3 commissioning receipt retained as historical proof:
   `sha256:f94fd9351b98839ec9bc0df521e37227df48722cda55557636bf0193f616ce8b`;
   its child receipt set binds activation, status, Catalog rehearsal, restart,
   rollback, cleanup, reactivation, and final status.
-- Recovery-4 commissioning receipt: captured by the finalized Review Packet
-  from the exact merged source and v15 architecture binding.
+- Recovery-4 commissioning receipt: retained as operating proof from the exact
+  merged source and v15 architecture binding; its Review Packet was not
+  finalized because post-merge evidence acquisition exposed the OOS transport
+  defect.
+- Recovery-5 commissioning receipt: captured by the finalized Review Packet
+  from the exact merged source, corrected OOS transport, and v16 architecture
+  binding.
 
 ## Live Verification
 

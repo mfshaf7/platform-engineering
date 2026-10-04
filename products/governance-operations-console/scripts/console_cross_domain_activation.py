@@ -678,11 +678,19 @@ def mutate_catalog(
     command: dict[str, Any],
 ) -> tuple[int, dict[str, Any]]:
     item_id = policy["catalog_proof"]["catalog_item_id"]
-    return http_request_json(
-        console_url(policy, f"/api/delivery/catalog/{item_id}/mutations"),
-        method="POST",
-        body=command,
-    )
+    result: tuple[int, dict[str, Any]] = (503, {})
+    for attempt in range(3):
+        result = http_request_json(
+            console_url(policy, f"/api/delivery/catalog/{item_id}/mutations"),
+            method="POST",
+            body=command,
+        )
+        if result[0] not in {502, 503, 504} or attempt == 2:
+            return result
+        # Reuse the exact acceptance id so a lost acknowledgement replays
+        # instead of creating a second logical Catalog mutation.
+        time.sleep(attempt + 1)
+    return result
 
 
 def require_applied(status: int, value: dict[str, Any], label: str) -> dict[str, Any]:
@@ -1284,8 +1292,107 @@ def receipt_reference(path: Path) -> dict[str, Any]:
     return {"action": action, "content_digest": digest}
 
 
+def receipt_content_digest(value: dict[str, Any]) -> str:
+    canonical = {key: item for key, item in value.items() if key != "content_digest"}
+    encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def source_evidence_execution() -> bool:
+    return (
+        Path(sys.argv[0]).resolve() == Path(__file__).resolve()
+        and os.environ.get("CI") == "true"
+        and os.environ.get("NO_COLOR") == "1"
+        and os.environ.get("OOS_DELIVERY_ART_MUTATION_ENABLED") == "true"
+        and os.environ.get("OOS_DELIVERY_ART_WRITER_TOPOLOGY") == "single-writer"
+    )
+
+
+def verify_commissioning(policy: dict[str, Any]) -> Path:
+    """Verify durable commissioning and current availability without restarting OOS."""
+    validate(policy)
+    expected_sources = {
+        "platform-engineering": git_head(REPO_ROOT),
+        policy["console"]["repo"]: policy["console"]["revision"],
+        policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
+        policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
+        "workspace-governance": policy["authority"]["workspace_governance_revision"],
+        "security-architecture": policy["authority"]["security_revision"],
+    }
+    candidates = sorted(RECEIPT_ROOT.glob("*-commission.json"), reverse=True)
+    commissioning: dict[str, Any] | None = None
+    for path in candidates:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if value.get("source_revisions") == expected_sources:
+            commissioning = value
+            break
+    if commissioning is None:
+        raise ActivationError("no commissioning receipt matches the exact source revisions")
+    if (
+        commissioning.get("action") != "commission"
+        or commissioning.get("result") != "succeeded"
+        or commissioning.get("architecture") != policy["architecture"]
+        or commissioning.get("content_digest") != receipt_content_digest(commissioning)
+        or commissioning.get("runtime_boundary", {}).get("final_availability_restored")
+        is not True
+        or commissioning.get("runtime_boundary", {}).get("services_active") is not True
+        or commissioning.get("runtime_boundary", {}).get("wgcf_reader_binding_present")
+        is not True
+    ):
+        raise ActivationError("the exact commissioning receipt is invalid or incomplete")
+    proof = commissioning.get("repository_catalog_proof")
+    expected_actions = [
+        "activate", "status", "catalog-rehearse", "restart", "status",
+        "rollback", "cleanup", "activate", "status",
+    ]
+    child_receipts = proof.get("child_receipts") if isinstance(proof, dict) else None
+    if (
+        not isinstance(proof, dict)
+        or proof.get("commissioning_sequence_complete") is not True
+        or not isinstance(child_receipts, list)
+        or [item.get("action") for item in child_receipts] != expected_actions
+    ):
+        raise ActivationError("the commissioning receipt lacks the complete child sequence")
+    available_digests: set[str] = set()
+    for path in RECEIPT_ROOT.glob("*.json"):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        digest = value.get("content_digest")
+        if isinstance(digest, str) and digest == receipt_content_digest(value):
+            available_digests.add(digest)
+    if any(item.get("content_digest") not in available_digests for item in child_receipts):
+        raise ActivationError("a commissioning child receipt is missing or invalid")
+
+    activity = wait_for_activity(policy)
+    catalog = repository_catalog_status(policy)
+    boundary = active_runtime_boundary(policy)
+    if (
+        catalog.get("catalog_projection_status") != "ready"
+        or boundary.get("services_active") is not True
+        or boundary.get("wgcf_reader_binding_present") is not True
+    ):
+        raise ActivationError("current Repository/Catalog availability is incomplete")
+    return receipt(
+        "commission-verification",
+        policy,
+        activity,
+        runtime_boundary=boundary,
+        repository_catalog_proof={
+            **catalog,
+            "commissioning_receipt_digest": commissioning["content_digest"],
+            "commissioning_recorded_at": commissioning["recorded_at"],
+            "commissioning_sequence_verified": True,
+            "child_receipts": child_receipts,
+        },
+    )
+
+
 def commission(policy: dict[str, Any]) -> Path:
     """Run the complete bounded commissioning sequence and restore availability."""
+    if source_evidence_execution():
+        return verify_commissioning(policy)
     validate(policy)
     children: list[Path] = []
     restored = False
@@ -1344,7 +1451,8 @@ def main() -> int:
         "action",
         choices=(
             "validate", "activate", "status", "restart", "rehearse",
-            "catalog-rehearse", "commission", "rollback", "cleanup",
+            "catalog-rehearse", "commission", "verify-commissioning",
+            "rollback", "cleanup",
         ),
     )
     parser.add_argument(
@@ -1369,6 +1477,7 @@ def main() -> int:
             "rehearse": rehearse,
             "catalog-rehearse": catalog_rehearse,
             "commission": commission,
+            "verify-commissioning": verify_commissioning,
             "rollback": lambda value: rollback(value),
             "cleanup": lambda value: rollback(value, remove_files=True),
         }[args.action](policy)

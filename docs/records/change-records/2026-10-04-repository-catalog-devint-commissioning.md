@@ -82,6 +82,9 @@
     repository for the WGCF-unavailable denial case.
   - explicit selection and rollback of the reviewed repository-readiness
     contract bundle shipped in the exact WGCF image.
+  - bounded retry of only transient `502`/`503`/`504` Catalog mutation
+    responses using the same acceptance id, so a lost acknowledgement replays
+    safely while authorization and contract denials remain terminal.
   - the exact OOS content-digest and evidence-transport repairs, WGCF
     authority-schema-v2 repair, Security re-acceptance, and durable
     architecture v16 binding required before runtime recommissioning.
@@ -96,6 +99,12 @@ during work start, so the missing base-owned runtime class was detected only
 after merge. Recovery 5 starts from the merged complete profile and the landed
 transport repair, binds the exact Security decision, and does not invent
 manual evidence or a new ART defect.
+
+The exact-source recovery-5 rehearsal also exposed a short activation-window
+`502` on the first Catalog mutation even though an identical idempotent retry
+returned complete canonical readback. Commissioning now retries only bounded
+transient owner responses with the original acceptance id. It does not retry
+authorization, validation, conflict, or other contract denials.
 
 The first mutation after those repairs exposed an OpenProject 17.2/Ruby 3.4
 serialization compatibility gap: the Catalog setting persisted shared Ruby

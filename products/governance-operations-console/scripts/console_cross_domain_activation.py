@@ -678,11 +678,19 @@ def mutate_catalog(
     command: dict[str, Any],
 ) -> tuple[int, dict[str, Any]]:
     item_id = policy["catalog_proof"]["catalog_item_id"]
-    return http_request_json(
-        console_url(policy, f"/api/delivery/catalog/{item_id}/mutations"),
-        method="POST",
-        body=command,
-    )
+    result: tuple[int, dict[str, Any]] = (503, {})
+    for attempt in range(3):
+        result = http_request_json(
+            console_url(policy, f"/api/delivery/catalog/{item_id}/mutations"),
+            method="POST",
+            body=command,
+        )
+        if result[0] not in {502, 503, 504} or attempt == 2:
+            return result
+        # Reuse the exact acceptance id so a lost acknowledgement replays
+        # instead of creating a second logical Catalog mutation.
+        time.sleep(attempt + 1)
+    return result
 
 
 def require_applied(status: int, value: dict[str, Any], label: str) -> dict[str, Any]:

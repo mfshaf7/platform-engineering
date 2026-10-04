@@ -245,6 +245,35 @@ class CrossDomainActivationTests(unittest.TestCase):
             policy["catalog_proof"]["repository_candidates"],
         )
 
+    def test_catalog_mutation_retries_transient_response_with_same_command(self) -> None:
+        command = {"acceptanceId": "stable-acceptance", "mode": "edit"}
+        responses = [
+            (502, {"error": "owner_temporarily_unavailable"}),
+            (200, {"status": "applied", "readback_complete": True}),
+        ]
+        with (
+            patch.object(activation, "http_request_json", side_effect=responses) as request,
+            patch.object(activation.time, "sleep") as sleep,
+        ):
+            result = activation.mutate_catalog(self.catalog_policy, command)
+
+        self.assertEqual(result, responses[-1])
+        self.assertEqual(request.call_count, 2)
+        self.assertIs(request.call_args_list[0].kwargs["body"], command)
+        self.assertIs(request.call_args_list[1].kwargs["body"], command)
+        sleep.assert_called_once_with(1)
+
+    def test_catalog_mutation_does_not_retry_contract_denial(self) -> None:
+        command = {"acceptanceId": "denied-acceptance", "mode": "edit"}
+        denied = (409, {"error": "catalog_mutation_denied"})
+        with patch.object(
+            activation, "http_request_json", return_value=denied
+        ) as request:
+            result = activation.mutate_catalog(self.catalog_policy, command)
+
+        self.assertEqual(result, denied)
+        request.assert_called_once()
+
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
         completed = activation.subprocess.CompletedProcess(
             [], 0, stdout="apiVersion: v1\nkind: Secret\n", stderr=""

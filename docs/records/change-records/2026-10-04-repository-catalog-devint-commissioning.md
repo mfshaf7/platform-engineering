@@ -120,6 +120,9 @@ repositories already have bindings, it uses the normal server-side readiness
 preparation path to replace a superseded WGCF receipt before editing. A value
 created in the current run still exercises strict verification of its
 just-issued receipt, and all later denial checks use the refreshed binding.
+The Console now scopes mutation idempotency to the stable operator acceptance
+at `f7e1db75739e5fbeb8d7a5ad0d9a7858f2289aac`, so an exact retry replays while
+a later deliberate acceptance of the same edit remains a distinct operation.
 
 ## Artifact And Deployment Evidence
 
@@ -130,9 +133,9 @@ just-issued receipt, and all later denial checks use the refreshed binding.
 - Recorded prod revision: None
 - Argo application revision: None
 - Architecture packet:
-  `wgcf://artifacts/delivery-art/sha256/ef13022a4fb930086617781eda0727217d3cae0d17e23cde7c82276e0da10db7`
+  `wgcf://artifacts/delivery-art/sha256/e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591`
 - Security review:
-  `security-architecture@3cb26a024fce1d01ff8eb80899d8f50299982c9a`
+  `security-architecture@e392abe55fbec947431aeba75c9daccf56cc0dee`
 - Runtime receipt digests: recorded after the reviewed candidate completes its
   bounded live rehearsal
 

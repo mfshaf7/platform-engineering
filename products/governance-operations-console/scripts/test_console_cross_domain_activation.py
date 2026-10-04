@@ -208,7 +208,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(policy["architecture"]["relationship"], "exact-security-binding")
         self.assertEqual(
             policy["architecture"]["current"]["digest"],
-            "sha256:ef13022a4fb930086617781eda0727217d3cae0d17e23cde7c82276e0da10db7",
+            "sha256:e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591",
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
@@ -220,7 +220,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["authority"]["security_revision"],
-            "3cb26a024fce1d01ff8eb80899d8f50299982c9a",
+            "e392abe55fbec947431aeba75c9daccf56cc0dee",
         )
         self.assertEqual(
             policy["authority"]["security_review_ref"],
@@ -228,7 +228,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["console"]["revision"],
-            "9347794a138f3649bb6ef5b7db057524d1c1e26d",
+            "f7e1db75739e5fbeb8d7a5ad0d9a7858f2289aac",
         )
         self.assertFalse(policy["credentials"]["browser_credentials_allowed"])
         self.assertIn("first-use-repository-readiness-issuance", policy["proof_scope"]["includes"])

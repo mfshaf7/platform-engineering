@@ -22,12 +22,12 @@ proof_scope:
 architecture:
   artifact_id: architecture-packet:delivery-1203-v1
   current:
-    uri: wgcf://artifacts/delivery-art/sha256/ef13022a4fb930086617781eda0727217d3cae0d17e23cde7c82276e0da10db7
-    digest: sha256:ef13022a4fb930086617781eda0727217d3cae0d17e23cde7c82276e0da10db7
+    uri: wgcf://artifacts/delivery-art/sha256/e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591
+    digest: sha256:e834d9b9823ce1e0db357e0fbbbbf5b287e9e95c6e4aab18beb5e255fc556591
   relationship: exact-security-binding
 console:
   repo: governance-operations-console
-  revision: 9347794a138f3649bb6ef5b7db057524d1c1e26d
+  revision: f7e1db75739e5fbeb8d7a5ad0d9a7858f2289aac
   port: 3317
 owners:
   oos:
@@ -50,7 +50,7 @@ owners:
     local_port: 38181
 authority:
   workspace_governance_revision: 9718ce9eea04049541a1fb44f0b7cdc0ac823687
-  security_revision: 3cb26a024fce1d01ff8eb80899d8f50299982c9a
+  security_revision: e392abe55fbec947431aeba75c9daccf56cc0dee
   security_review_ref: docs/reviews/components/2026-10-04-repository-catalog-authority-schema-v2-reacceptance.md
 credentials:
   console_oos:

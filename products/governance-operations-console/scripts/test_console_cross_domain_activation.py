@@ -333,6 +333,16 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.assertEqual(existing["repositoryReadiness"], readiness)
         self.assertEqual(existing["targetValueId"], "catalog-value:one")
 
+        refreshed = activation.catalog_command(
+            "context-governance-gateway",
+            record,
+            mode="edit",
+            target_value_id="catalog-value:one",
+            prefix="existing-reference-refresh",
+        )
+        self.assertNotIn("repositoryReadiness", refreshed)
+        self.assertEqual(refreshed["targetValueId"], "catalog-value:one")
+
     def test_denial_proof_cannot_accept_success(self) -> None:
         with self.assertRaisesRegex(activation.ActivationError, "did not fail closed"):
             activation.require_denied(200, {"status": "applied"}, "false success")

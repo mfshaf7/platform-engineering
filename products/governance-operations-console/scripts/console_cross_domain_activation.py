@@ -1042,7 +1042,7 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
             selected_record,
             mode="edit",
             target_value_id=added_value["catalog_value_id"],
-            readiness=binding,
+            readiness=binding if first_use_created else None,
             prefix="existing-reference",
         ),
     )
@@ -1052,6 +1052,15 @@ def catalog_rehearse(policy: dict[str, Any]) -> Path:
         "existing-reference Catalog mutation",
     )
     stable_value = existing["value"]
+    binding = stable_value.get("repository_binding")
+    if (
+        not isinstance(binding, dict)
+        or binding.get("repo_name") != selected_repo
+        or binding.get("receipt", {}).get("issuer")
+        != "workspace-governance-control-fabric"
+        or binding.get("receipt", {}).get("outcome") != "ready"
+    ):
+        raise ActivationError("existing-reference mutation did not refresh readiness evidence")
 
     stale_binding = json.loads(json.dumps(binding))
     stale_binding["receipt"]["digest"] = "sha256:" + "0" * 64

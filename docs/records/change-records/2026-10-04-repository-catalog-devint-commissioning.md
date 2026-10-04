@@ -115,6 +115,12 @@ before requesting capability-specific Catalog readback. Starting the systemd
 process is not treated as application readiness, so a normal Next.js startup
 window can no longer produce a false `URLError` during the lifecycle proof.
 
+Commissioning is also repeatable after a prior partial run. When all candidate
+repositories already have bindings, it uses the normal server-side readiness
+preparation path to replace a superseded WGCF receipt before editing. A value
+created in the current run still exercises strict verification of its
+just-issued receipt, and all later denial checks use the refreshed binding.
+
 ## Artifact And Deployment Evidence
 
 - Build workflow run: owner-repository CI-equivalent validation in the

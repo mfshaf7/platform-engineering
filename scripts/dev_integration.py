@@ -66,6 +66,7 @@ ACTIONS = {
 
 ACTIVE_ONLY_ACTIONS = {"access", "backup", "restore", "up", "smoke"}
 READ_ONLY_ACTIONS = {"status"}
+COMPOSITION_MUTATING_PROFILE_ACTIONS = {"up", "down", "reset", "restore"}
 
 
 class DigestWriter(Protocol):
@@ -442,6 +443,48 @@ def session_paths(workspace_root: Path, profile_id: str, operator: str) -> dict[
         "current_manifest": state_root / "current-session.yaml",
         "sessions_root": sessions_root,
     }
+
+
+def guard_composition_owned_profile_action(
+    *,
+    action: str,
+    existing_manifest: Mapping[str, object],
+    environment: Mapping[str, str],
+    composition_lifecycle: str | None,
+) -> None:
+    """Keep direct profile mutation from discarding composition bindings."""
+
+    if action not in COMPOSITION_MUTATING_PROFILE_ACTIONS:
+        return
+    composition_id = existing_manifest.get("runtime_composition_id")
+    if not isinstance(composition_id, str) or not composition_id:
+        return
+    expected_root = existing_manifest.get("runtime_composition_root_profile_id")
+    composition_child = environment.get("DEVINT_COMPOSITION_ID") == composition_id
+    if isinstance(expected_root, str) and expected_root:
+        composition_child = composition_child and (
+            environment.get("DEVINT_COMPOSITION_ROOT_PROFILE_ID") == expected_root
+        )
+    if composition_child:
+        return
+
+    lifecycle = composition_lifecycle or "unknown"
+    if lifecycle == "suspended" and action in {"down", "reset", "restore"}:
+        return
+    if action == "up":
+        guidance = f"Use make devint-up COMPOSITION={composition_id}."
+    elif action == "down":
+        guidance = f"Use make devint-down COMPOSITION={composition_id}."
+    else:
+        guidance = (
+            f"First use make devint-down COMPOSITION={composition_id}, then rerun the "
+            f"profile {action} action after the composition is suspended."
+        )
+    raise SystemExit(
+        "composition-owned-profile-action-refused: "
+        f"direct profile action {action!r} would discard bindings owned by runtime "
+        f"composition {composition_id!r} (lifecycle={lifecycle}). {guidance}"
+    )
 
 
 def build_manifest(
@@ -1004,6 +1047,21 @@ def main() -> int:
             "Refusing dev-integration profile slug collision: "
             f"{args.profile!r} maps to state already owned by {existing_profile_id!r}"
         )
+    composition_id = existing_manifest.get("runtime_composition_id")
+    composition_state: dict = {}
+    if isinstance(composition_id, str) and composition_id:
+        composition_manifest = (
+            composition_state_root(workspace_root, composition_id, operator)
+            / "current-composition.yaml"
+        )
+        if composition_manifest.exists():
+            composition_state = load_yaml(composition_manifest)
+    guard_composition_owned_profile_action(
+        action=ACTIONS[args.action],
+        existing_manifest=existing_manifest,
+        environment=os.environ,
+        composition_lifecycle=composition_state.get("lifecycle"),
+    )
     if existing_manifest.get("session_id") and args.action != "up":
         session_id = existing_manifest["session_id"]
         session_started_at = existing_manifest.get("session_started_at")

@@ -288,9 +288,14 @@ make devint-down COMPOSITION=work-design-advice
 ```
 
 `PROFILE` and `COMPOSITION` are mutually exclusive. Runtime compositions are
-limited to `up`, `status`, and `down`; run profile-specific access, smoke,
-backup, restore, reset, and promote-check actions against the relevant profile
-after the composition is healthy.
+limited to `up`, `status`, and `down`. A profile whose current session belongs
+to an active or degraded composition rejects direct `up`, `down`, `reset`, and
+`restore`, because those actions would omit or discard composition-owned
+bindings. Use the composition lifecycle for `up` and `down`. Before a
+profile-specific `reset` or `restore`, first suspend the complete composition
+with `make devint-down COMPOSITION=<id>`. Profile-specific access, smoke,
+backup, and promote-check remain available against the relevant healthy
+profile.
 
 Before composition `up` creates or reuses credentials or invokes the first
 profile mutation, the shared runner performs one non-mutating preflight across

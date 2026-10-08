@@ -277,7 +277,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         activation.require_architecture_binding(policy, review)
 
-    def test_receipt_includes_optional_target_source_authority(self) -> None:
+    def test_receipt_keeps_activation_source_after_target_authority_advances(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
                 patch.object(activation, "RECEIPT_ROOT", Path(temp_dir)),
@@ -288,8 +288,11 @@ class CrossDomainActivationTests(unittest.TestCase):
             value = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(
                 value["source_revisions"]["workspace-prototype-studio"],
-                "a" * 40,
+                self.proposal_target_policy["source_authorities"]["prototype_studio"][
+                    "minimum_revision"
+                ],
             )
+            self.assertEqual(value["source_revisions"]["platform-engineering"], "a" * 40)
 
     def test_catalog_mutation_retries_transient_response_with_same_command(self) -> None:
         command = {"acceptanceId": "stable-acceptance", "mode": "edit"}

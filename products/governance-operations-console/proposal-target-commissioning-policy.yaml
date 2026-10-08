@@ -27,7 +27,7 @@ architecture:
   security_review_revisions:
     - d66411f128c3fd2f21ac274f620352977966fecd
     - 4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f
-    - 7263aae5b4eac17376a84b96f8f533b39a7e1500
+    - 0e935029327c3195f7ad1026c6f450f4b32c52dd
 console:
   repo: governance-operations-console
   revision: d66411f128c3fd2f21ac274f620352977966fecd
@@ -35,7 +35,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 7263aae5b4eac17376a84b96f8f533b39a7e1500
+    revision: 0e935029327c3195f7ad1026c6f450f4b32c52dd
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -57,7 +57,7 @@ source_authorities:
     minimum_revision: 4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f
 authority:
   workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
-  security_revision: 58bac2bfe57865d437d1d6c49f80ee0005294a1b
+  security_revision: 678c4873b7e715a6e457c1a13266c03e62655864
   security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
 credentials:
   console_oos:

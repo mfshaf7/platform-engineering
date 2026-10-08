@@ -80,6 +80,16 @@ and made the exact Prototype binding part of conformance coverage; Security
 Architecture pull request `#206` re-accepted the narrower submission at its
 merged revision.
 
+The repaired request then reached Studio and exposed an older synthetic
+handoff-reference contract: the target path accepted `proposal-packet:<id>`
+but the canonical accepted-Proposal workflow emits
+`proposal-handoff:idea-<id>:version-<version>`. Prototype Studio pull request
+`#24` admitted both bounded forms while preserving exact Proposal, Prototype,
+and handoff identity checks. OOS pull request `#288` synchronized that contract,
+Console pull request `#57` synchronized its conformance fixture, and Security
+Architecture pull request `#207` re-accepted the exact repaired chain. This is
+an owner-maintenance repair within `#1236`, not a new ART work item.
+
 The Platform evidence profile now binds Repository/Catalog and Proposal Target
 live checks to their exact operating conformance cases. Its Proposal Target
 verifier is non-mutating: a separate commissioning command first validates the

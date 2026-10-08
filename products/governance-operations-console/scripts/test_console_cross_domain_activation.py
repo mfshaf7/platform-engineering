@@ -256,13 +256,13 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
-            "60d6d8915fa4694b8ff75806541390999604d1c0",
+            "7263aae5b4eac17376a84b96f8f533b39a7e1500",
         )
         self.assertEqual(
             policy["source_authorities"]["prototype_studio"],
             {
                 "repo": "workspace-prototype-studio",
-                "minimum_revision": "eab7af0c44de2e76eb381bf06447105ce3a28863",
+                "minimum_revision": "4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f",
             },
         )
         self.assertEqual(

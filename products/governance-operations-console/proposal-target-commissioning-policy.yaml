@@ -25,17 +25,17 @@ architecture:
     digest: sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0
   relationship: exact-security-binding
   security_review_revisions:
-    - b7dda700e1a6f12f445a42391737e20d5310b09e
-    - eab7af0c44de2e76eb381bf06447105ce3a28863
-    - 875696096adae15cf2e068054a5fa8d6e28d8524
+    - d66411f128c3fd2f21ac274f620352977966fecd
+    - 4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f
+    - 7263aae5b4eac17376a84b96f8f533b39a7e1500
 console:
   repo: governance-operations-console
-  revision: b7dda700e1a6f12f445a42391737e20d5310b09e
+  revision: d66411f128c3fd2f21ac274f620352977966fecd
   port: 3317
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 60d6d8915fa4694b8ff75806541390999604d1c0
+    revision: 7263aae5b4eac17376a84b96f8f533b39a7e1500
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -54,10 +54,10 @@ owners:
 source_authorities:
   prototype_studio:
     repo: workspace-prototype-studio
-    minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
+    minimum_revision: 4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f
 authority:
   workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
-  security_revision: 4250df0b8e045d21ba1fc634ef3de41a6d346120
+  security_revision: 58bac2bfe57865d437d1d6c49f80ee0005294a1b
   security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
 credentials:
   console_oos:

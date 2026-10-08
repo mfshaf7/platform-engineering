@@ -24,9 +24,9 @@
     "selection": {"const": {"state": "selected-not-active", "app_id": null, "installation_id": null, "runtime_enabled": false}},
     "security_authority": {
       "const": {
-        "review": {"ref": "openproject://work_packages/1235", "repository": "security-architecture", "revision": "4250df0b8e045d21ba1fc634ef3de41a6d346120", "path": "docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md", "decision": "approved"},
+        "review": {"ref": "openproject://work_packages/1235", "repository": "security-architecture", "revision": "58bac2bfe57865d437d1d6c49f80ee0005294a1b", "path": "docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md", "decision": "approved"},
         "final_normal_availability_gate": "openproject://work_packages/1236",
-        "normal_availability_review": {"ref": "openproject://work_packages/1235", "repository": "security-architecture", "revision": "4250df0b8e045d21ba1fc634ef3de41a6d346120", "path": "docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md", "decision": "approved"}
+        "normal_availability_review": {"ref": "openproject://work_packages/1235", "repository": "security-architecture", "revision": "58bac2bfe57865d437d1d6c49f80ee0005294a1b", "path": "docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md", "decision": "approved"}
       }
     },
     "source_boundary": {
@@ -73,13 +73,13 @@
       "const": {
         "authority_work_item": "openproject://work_packages/1236",
         "security_gate": "openproject://work_packages/1235",
-        "source_authority_minimum_revision": "eab7af0c44de2e76eb381bf06447105ce3a28863",
-        "orchestration_minimum_revision": "287e840ddbda584f2b85556952e0179dd7543748",
+        "source_authority_minimum_revision": "4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f",
+        "orchestration_minimum_revision": "7263aae5b4eac17376a84b96f8f533b39a7e1500",
         "approved_source_revisions": {
-          "governance-operations-console": "b7dda700e1a6f12f445a42391737e20d5310b09e",
-          "operator-orchestration-service": "287e840ddbda584f2b85556952e0179dd7543748",
-          "security-architecture": "4250df0b8e045d21ba1fc634ef3de41a6d346120",
-          "workspace-prototype-studio": "eab7af0c44de2e76eb381bf06447105ce3a28863"
+          "governance-operations-console": "d66411f128c3fd2f21ac274f620352977966fecd",
+          "operator-orchestration-service": "7263aae5b4eac17376a84b96f8f533b39a7e1500",
+          "security-architecture": "58bac2bfe57865d437d1d6c49f80ee0005294a1b",
+          "workspace-prototype-studio": "4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f"
         },
         "required_evidence": ["exact-definition-digest-and-source-heads", "exact-app-installation-and-repository-ids", "provider-enforced-main-and-merge-denial", "exact-permissions-and-no-bypass", "authenticated-oos-profile-session-projection", "read-only-source-and-persistent-state-mounts", "short-lived-token-projection-and-rotation", "human-reviewed-target-merge-and-canonical-readback", "positive-and-negative-loopback-proof", "suspension-revocation-and-rollback", "secret-free-owner-receipt"],
         "definition_is_activation": false,

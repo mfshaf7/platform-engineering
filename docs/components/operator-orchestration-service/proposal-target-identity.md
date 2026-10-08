@@ -41,10 +41,10 @@ make proposal-target-identity ACTION=commission ARGS="\
   --installation-id <installation-id> \
   --private-key-file <private-0600-pem> \
   --caller-id platform-engineering \
-  --source-revision governance-operations-console=b7dda700e1a6f12f445a42391737e20d5310b09e \
-  --source-revision operator-orchestration-service=287e840ddbda584f2b85556952e0179dd7543748 \
-  --source-revision security-architecture=4250df0b8e045d21ba1fc634ef3de41a6d346120 \
-  --source-revision workspace-prototype-studio=eab7af0c44de2e76eb381bf06447105ce3a28863 \
+  --source-revision governance-operations-console=d66411f128c3fd2f21ac274f620352977966fecd \
+  --source-revision operator-orchestration-service=7263aae5b4eac17376a84b96f8f533b39a7e1500 \
+  --source-revision security-architecture=58bac2bfe57865d437d1d6c49f80ee0005294a1b \
+  --source-revision workspace-prototype-studio=4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f \
   --receipt <private-receipt-path>"
 
 make proposal-target-identity ACTION=deliver ARGS="\
@@ -52,10 +52,10 @@ make proposal-target-identity ACTION=deliver ARGS="\
   --installation-id <installation-id> \
   --private-key-file <private-0600-pem> \
   --caller-id platform-engineering \
-  --source-revision governance-operations-console=b7dda700e1a6f12f445a42391737e20d5310b09e \
-  --source-revision operator-orchestration-service=287e840ddbda584f2b85556952e0179dd7543748 \
-  --source-revision security-architecture=4250df0b8e045d21ba1fc634ef3de41a6d346120 \
-  --source-revision workspace-prototype-studio=eab7af0c44de2e76eb381bf06447105ce3a28863 \
+  --source-revision governance-operations-console=d66411f128c3fd2f21ac274f620352977966fecd \
+  --source-revision operator-orchestration-service=7263aae5b4eac17376a84b96f8f533b39a7e1500 \
+  --source-revision security-architecture=58bac2bfe57865d437d1d6c49f80ee0005294a1b \
+  --source-revision workspace-prototype-studio=4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f \
   --session-manifest <workspace>/.dev-integration/accepted-idea-delivery/<operator>/current-session.yaml \
   --workspace-root <workspace> \
   --receipt <private-receipt-path>"

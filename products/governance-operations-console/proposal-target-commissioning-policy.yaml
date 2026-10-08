@@ -57,7 +57,7 @@ source_authorities:
     minimum_revision: 4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f
 authority:
   workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
-  security_revision: 678c4873b7e715a6e457c1a13266c03e62655864
+  security_revision: add3b405cffe87d158c65edec1d24cf33ea2def8
   security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
 credentials:
   console_oos:

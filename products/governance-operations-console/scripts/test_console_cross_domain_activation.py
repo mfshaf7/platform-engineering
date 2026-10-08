@@ -259,6 +259,10 @@ class CrossDomainActivationTests(unittest.TestCase):
             "0e935029327c3195f7ad1026c6f450f4b32c52dd",
         )
         self.assertEqual(
+            policy["authority"]["security_revision"],
+            "add3b405cffe87d158c65edec1d24cf33ea2def8",
+        )
+        self.assertEqual(
             policy["source_authorities"]["prototype_studio"],
             {
                 "repo": "workspace-prototype-studio",

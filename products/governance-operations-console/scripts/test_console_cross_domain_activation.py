@@ -22,6 +22,9 @@ class CrossDomainActivationTests(unittest.TestCase):
         self.catalog_policy = activation.load_policy(
             activation.PRODUCT_ROOT / "repository-catalog-commissioning-policy.yaml"
         )
+        self.proposal_target_policy = activation.load_policy(
+            activation.PRODUCT_ROOT / "proposal-target-commissioning-policy.yaml"
+        )
 
     def test_policy_pins_two_distinct_owner_sources(self) -> None:
         owners = self.policy["owners"]
@@ -244,6 +247,49 @@ class CrossDomainActivationTests(unittest.TestCase):
             policy["catalog_proof"]["unavailable_readiness_repository"],
             policy["catalog_proof"]["repository_candidates"],
         )
+
+    def test_proposal_target_policy_binds_activation_and_target_owner(self) -> None:
+        policy = self.proposal_target_policy
+        self.assertEqual(
+            policy["activation"]["security_gate_id"],
+            "gate:proposal-target-controlled-activation",
+        )
+        self.assertEqual(
+            policy["owners"]["oos"]["revision"],
+            "287e840ddbda584f2b85556952e0179dd7543748",
+        )
+        self.assertEqual(
+            policy["source_authorities"]["prototype_studio"],
+            {
+                "repo": "workspace-prototype-studio",
+                "minimum_revision": "eab7af0c44de2e76eb381bf06447105ce3a28863",
+            },
+        )
+        self.assertEqual(
+            policy["proposal_target_proof"]["repository_id"],
+            1231020532,
+        )
+        review = "\n".join(
+            [
+                policy["architecture"]["current"]["uri"],
+                *policy["architecture"]["security_review_revisions"],
+            ]
+        )
+        activation.require_architecture_binding(policy, review)
+
+    def test_receipt_includes_optional_target_source_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with (
+                patch.object(activation, "RECEIPT_ROOT", Path(temp_dir)),
+                patch.object(activation, "operator", return_value="operator"),
+                patch.object(activation, "git_head", return_value="a" * 40),
+            ):
+                path = activation.receipt("status", self.proposal_target_policy)
+            value = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                value["source_revisions"]["workspace-prototype-studio"],
+                "a" * 40,
+            )
 
     def test_catalog_mutation_retries_transient_response_with_same_command(self) -> None:
         command = {"acceptanceId": "stable-acceptance", "mode": "edit"}

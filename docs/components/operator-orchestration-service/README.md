@@ -23,6 +23,7 @@ adapter behind OOS; it is not part of the current live footprint.
 - [prototype-landing-identity.md](prototype-landing-identity.md) - bounded Prototype Studio source identity and projection procedure
 - [prototype-maturity-identity.md](prototype-maturity-identity.md) - bounded active `dev-integration` identity and projection procedure for candidate and baseline source transitions
 - [prototype-closure-identity.md](prototype-closure-identity.md) - bounded local commissioning and rollback procedure for Prototype Closure
+- [proposal-target-identity.md](proposal-target-identity.md) - dedicated Proposal Target source identity, projection, and rollback procedure
 - [agent-source-identity.md](agent-source-identity.md) - Platform custody and exact-repository runtime projection for Agent source implementation
 - [Lifecycle Context Composition](../../../dev-integration/compositions/lifecycle-context/README.md) - bounded local OOS-to-CGG context projection, proof, and rollback
 

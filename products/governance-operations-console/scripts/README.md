@@ -43,3 +43,16 @@ Repository/Catalog commissioning policy and adds the server-only session
 projection plus capability-specific operating proof. Follow the matching
 product runbook; do not use this as an ad hoc owner state or credential-
 management surface.
+
+The `governance-console-proposal-target` target selects the exact Proposal
+Target commissioning policy. It reuses the same managed loopback services and
+server-only Console caller boundary while pinning the activated OOS revision,
+Prototype Studio source authority, Security decision, and architecture packet.
+The dedicated provider identity is delivered separately through
+`proposal-target-identity`; it is never placed in the Console environment.
+
+`proposal_target_identity.py` commissions that dedicated exact-repository
+GitHub App and projects only its short-lived token, read-only Prototype Studio
+authority, and persistent Proposal Target state into OOS. It never reuses
+Prototype Landing, Maturity, Closure, Agent Gary, or ambient human credentials;
+suspension and revocation leave source and review evidence intact.

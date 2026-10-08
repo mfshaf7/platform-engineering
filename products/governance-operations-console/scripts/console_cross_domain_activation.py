@@ -110,6 +110,29 @@ def require_revision(name: str, revision: str) -> None:
         raise ActivationError(f"{name} must be clean before activation")
 
 
+def require_source_authority(source: dict[str, Any]) -> None:
+    name = source["repo"]
+    if "revision" in source:
+        require_revision(name, source["revision"])
+        return
+    minimum = source.get("minimum_revision")
+    path = repo_path(name)
+    if not isinstance(minimum, str) or len(minimum) != 40 or not path.is_dir():
+        raise ActivationError(f"{name} source authority policy is invalid")
+    head = git_head(path)
+    if run(
+        ["git", "-C", str(path), "merge-base", "--is-ancestor", minimum, head],
+        check=False,
+    ).returncode:
+        raise ActivationError(f"{name} does not contain the approved source minimum")
+    remote = run(["git", "-C", str(path), "rev-parse", "refs/remotes/origin/main"]).stdout.strip()
+    branch = run(["git", "-C", str(path), "symbolic-ref", "--short", "HEAD"], check=False)
+    if head != remote or branch.returncode or branch.stdout.strip() != "main":
+        raise ActivationError(f"{name} source authority must be current clean main")
+    if run(["git", "-C", str(path), "status", "--porcelain"]).stdout.strip():
+        raise ActivationError(f"{name} must be clean before activation")
+
+
 def require_clean_platform_source() -> None:
     if run(["git", "-C", str(REPO_ROOT), "status", "--porcelain"]).stdout.strip():
         raise ActivationError("the executing Platform checkout must be clean before activation")
@@ -144,11 +167,16 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
             raise ActivationError(
                 f"the Security review does not bind the {label} architecture packet"
             )
-    approved_revisions = [
+    approved_revisions = architecture.get("security_review_revisions") or [
         policy["console"]["revision"],
         *(owner["revision"] for owner in policy["owners"].values()),
         policy["authority"]["workspace_governance_revision"],
     ]
+    if not isinstance(approved_revisions, list) or not all(
+        isinstance(revision, str) and len(revision) == 40
+        for revision in approved_revisions
+    ):
+        raise ActivationError("the Security review revision binding is invalid")
     missing = [revision for revision in approved_revisions if revision not in review_content]
     if missing:
         raise ActivationError("the Security review does not bind every configured source revision")
@@ -232,6 +260,8 @@ def validate(policy: dict[str, Any]) -> None:
         require_revision(owner["repo"], owner["revision"])
         require_manifest(owner)
     require_revision("workspace-governance", policy["authority"]["workspace_governance_revision"])
+    for source in policy.get("source_authorities", {}).values():
+        require_source_authority(source)
     if policy.get("session"):
         required_session = {
             "policy", "operator_id", "profile", "projection",
@@ -809,6 +839,10 @@ def receipt(
             policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
             "workspace-governance": policy["authority"]["workspace_governance_revision"],
             "security-architecture": policy["authority"]["security_revision"],
+            **{
+                source["repo"]: git_head(repo_path(source["repo"]))
+                for source in policy.get("source_authorities", {}).values()
+            },
         },
         "credential_boundary": {
             "browser_credentials_allowed": policy["credentials"]["browser_credentials_allowed"],
@@ -889,7 +923,7 @@ def status(policy: dict[str, Any]) -> Path:
 
 def restart(policy: dict[str, Any]) -> Path:
     validate(policy)
-    if policy.get("catalog_proof"):
+    if policy.get("catalog_proof") or policy.get("proposal_target_proof"):
         oos = policy["owners"]["oos"]
         oos_namespace = namespace(oos["namespace"])
         kubectl(

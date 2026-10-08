@@ -51,6 +51,10 @@ IDENTITY_PROFILES = {
     "prototype-landing-github-app-v1": ("prototype-landing", "Prototype Landing"),
     "prototype-maturity-github-app-v1": ("prototype-maturity", "Prototype Maturity"),
     "prototype-closure-github-app-v1": ("prototype-closure", "Prototype Closure"),
+    "proposal-target-github-app-v1": (
+        "proposal-target-application",
+        "Proposal Target Application",
+    ),
 }
 
 
@@ -60,7 +64,7 @@ class Contract(ExactRepositoryContract):
     workflow_name: str
     broker_deployment: str
     runtime_profile: str
-    wgcf_secret_key: str
+    wgcf_secret_key: str | None
     state_root_env: str
     state_mount_path: str
     authority_root_env: str
@@ -68,14 +72,14 @@ class Contract(ExactRepositoryContract):
     python_env: str
     python_command: str
     runtime_profile_env: str
-    wgcf_base_url_env: str
-    wgcf_caller_id_env: str
-    wgcf_caller_id: str
-    wgcf_caller_secret_env: str
-    wgcf_implementation_ref_env: str
-    wgcf_implementation_ref: str
-    wgcf_service_identity_ref_env: str
-    wgcf_service_identity_ref: str
+    wgcf_base_url_env: str | None
+    wgcf_caller_id_env: str | None
+    wgcf_caller_id: str | None
+    wgcf_caller_secret_env: str | None
+    wgcf_implementation_ref_env: str | None
+    wgcf_implementation_ref: str | None
+    wgcf_service_identity_ref_env: str | None
+    wgcf_service_identity_ref: str | None
     source_authority_minimum_revision: str
     orchestration_minimum_revision: str | None
     normal_availability_review_revision: str | None
@@ -92,14 +96,15 @@ class Contract(ExactRepositoryContract):
     readiness_oos_secret_key: str | None
     readiness_oos_secret_filename: str | None
     readiness_oos_credential_directory: str | None
+    approved_source_revisions: dict[str, str]
 
 
 @dataclass(frozen=True)
 class RuntimeInputs:
     authority_root: Path
     state_root: Path
-    wgcf_base_url: str
-    wgcf_caller_secret: str
+    wgcf_base_url: str | None = None
+    wgcf_caller_secret: str | None = None
     oos_reader_secret: str | None = None
 
 
@@ -164,7 +169,7 @@ def load_contract(path: Path) -> Contract:
         workflow_name=workflow_name,
         broker_deployment=consumer["broker_deployment"],
         runtime_profile=consumer["runtime_profile"],
-        wgcf_secret_key=projection["wgcf_caller_secret_key"],
+        wgcf_secret_key=projection.get("wgcf_caller_secret_key"),
         state_root_env=consumer["state_root_env"],
         state_mount_path=consumer["state_mount_path"],
         authority_root_env=consumer["authority_root_env"],
@@ -172,14 +177,14 @@ def load_contract(path: Path) -> Contract:
         python_env=consumer["python_env"],
         python_command=consumer["python_command"],
         runtime_profile_env=consumer["runtime_profile_env"],
-        wgcf_base_url_env=consumer["wgcf_base_url_env"],
-        wgcf_caller_id_env=consumer["wgcf_caller_id_env"],
-        wgcf_caller_id=consumer["wgcf_caller_id"],
-        wgcf_caller_secret_env=consumer["wgcf_caller_secret_env"],
-        wgcf_implementation_ref_env=consumer["wgcf_implementation_ref_env"],
-        wgcf_implementation_ref=consumer["wgcf_implementation_ref"],
-        wgcf_service_identity_ref_env=consumer["wgcf_service_identity_ref_env"],
-        wgcf_service_identity_ref=consumer["wgcf_service_identity_ref"],
+        wgcf_base_url_env=consumer.get("wgcf_base_url_env"),
+        wgcf_caller_id_env=consumer.get("wgcf_caller_id_env"),
+        wgcf_caller_id=consumer.get("wgcf_caller_id"),
+        wgcf_caller_secret_env=consumer.get("wgcf_caller_secret_env"),
+        wgcf_implementation_ref_env=consumer.get("wgcf_implementation_ref_env"),
+        wgcf_implementation_ref=consumer.get("wgcf_implementation_ref"),
+        wgcf_service_identity_ref_env=consumer.get("wgcf_service_identity_ref_env"),
+        wgcf_service_identity_ref=consumer.get("wgcf_service_identity_ref"),
         source_authority_minimum_revision=activation[
             "source_authority_minimum_revision"
         ],
@@ -209,6 +214,9 @@ def load_contract(path: Path) -> Contract:
         ),
         readiness_oos_credential_directory=readiness_runtime.get(
             "oos_credential_directory"
+        ),
+        approved_source_revisions=dict(
+            activation.get("approved_source_revisions") or {}
         ),
     )
 
@@ -242,6 +250,13 @@ def _read_secret(path: Path, label: str) -> str:
 def validate_activation_source_revisions(
     contract: Contract, source_revisions: dict[str, str]
 ) -> None:
+    if contract.approved_source_revisions:
+        if source_revisions != dict(sorted(contract.approved_source_revisions.items())):
+            raise IdentityError(
+                f"{contract.workflow_name} activation source revisions do not match "
+                "the exact approved source set"
+            )
+        return
     if contract.orchestration_minimum_revision is None:
         return
     required = {
@@ -330,23 +345,31 @@ def _runtime_inputs(args: argparse.Namespace, contract: Contract) -> RuntimeInpu
                 json.dump({"schema_version": 1, "records": []}, stream, separators=(",", ":"))
                 stream.write("\n")
 
-    endpoint = parse.urlparse(args.wgcf_base_url)
-    allowed_cluster_host = (
-        endpoint.hostname is not None
-        and endpoint.hostname.startswith("workspace-governance-control-fabric-api.")
-        and endpoint.hostname.endswith(".svc.cluster.local")
-    )
-    allowed_sandbox_host = args.sandbox and endpoint.hostname in {
-        "127.0.0.1",
-        "localhost",
-        "::1",
-    }
-    if endpoint.scheme != "http" or endpoint.query or endpoint.fragment or not (
-        allowed_cluster_host or allowed_sandbox_host
-    ):
-        raise IdentityError(
-            f"WGCF {contract.workflow_name} destination is not admitted"
+    uses_wgcf = contract.wgcf_base_url_env is not None
+    if uses_wgcf != (contract.wgcf_secret_key is not None):
+        raise IdentityError(f"{contract.workflow_name} WGCF binding is incomplete")
+    if uses_wgcf:
+        if not args.wgcf_base_url or args.wgcf_caller_secret_file is None:
+            raise IdentityError(
+                f"WGCF {contract.workflow_name} runtime inputs are required"
+            )
+        endpoint = parse.urlparse(args.wgcf_base_url)
+        allowed_cluster_host = (
+            endpoint.hostname is not None
+            and endpoint.hostname.startswith("workspace-governance-control-fabric-api.")
+            and endpoint.hostname.endswith(".svc.cluster.local")
         )
+        allowed_sandbox_host = args.sandbox and endpoint.hostname in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        }
+        if endpoint.scheme != "http" or endpoint.query or endpoint.fragment or not (
+            allowed_cluster_host or allowed_sandbox_host
+        ):
+            raise IdentityError(
+                f"WGCF {contract.workflow_name} destination is not admitted"
+            )
 
     if (
         contract.readiness_oos_secret_name is not None
@@ -357,9 +380,11 @@ def _runtime_inputs(args: argparse.Namespace, contract: Contract) -> RuntimeInpu
     return RuntimeInputs(
         authority_root=authority_root,
         state_root=state_root,
-        wgcf_base_url=args.wgcf_base_url.rstrip("/"),
-        wgcf_caller_secret=_read_secret(
-            args.wgcf_caller_secret_file, "WGCF caller secret"
+        wgcf_base_url=(args.wgcf_base_url.rstrip("/") if uses_wgcf else None),
+        wgcf_caller_secret=(
+            _read_secret(args.wgcf_caller_secret_file, "WGCF caller secret")
+            if uses_wgcf
+            else None
         ),
         oos_reader_secret=(
             _read_secret(args.oos_reader_secret_file, "OOS reader secret")
@@ -381,10 +406,15 @@ def runtime_binding_digest(
         "authority_revision": _git(
             runtime.authority_root, "rev-parse", "refs/remotes/origin/main"
         ),
-        "wgcf_base_url": runtime.wgcf_base_url,
-        "wgcf_implementation_ref": contract.wgcf_implementation_ref,
-        "wgcf_service_identity_ref": contract.wgcf_service_identity_ref,
     }
+    if contract.wgcf_base_url_env is not None:
+        value.update(
+            {
+                "wgcf_base_url": runtime.wgcf_base_url,
+                "wgcf_implementation_ref": contract.wgcf_implementation_ref,
+                "wgcf_service_identity_ref": contract.wgcf_service_identity_ref,
+            }
+        )
     if contract.platform_evidence_file_env is not None:
         value["platform_evidence_file"] = (
             f"{contract.state_mount_path}/{contract.platform_evidence_filename}"
@@ -463,7 +493,7 @@ def secret_manifest(
     credential_digest: str,
     runtime_digest: str,
     target: DevIntegrationTarget,
-    wgcf_caller_secret: str,
+    wgcf_caller_secret: str | None,
 ) -> str:
     value = {
         "apiVersion": "v1",
@@ -485,11 +515,12 @@ def secret_manifest(
             },
         },
         "type": "Opaque",
-        "stringData": {
-            contract.runtime_secret_key: token.token,
-            contract.wgcf_secret_key: wgcf_caller_secret,
-        },
+        "stringData": {contract.runtime_secret_key: token.token},
     }
+    if contract.wgcf_secret_key is not None:
+        if not wgcf_caller_secret:
+            raise IdentityError(f"{contract.workflow_name} WGCF credential is unavailable")
+        value["stringData"][contract.wgcf_secret_key] = wgcf_caller_secret
     return yaml.safe_dump(value, sort_keys=False)
 
 
@@ -516,25 +547,45 @@ def deployment_patch(contract: Contract, runtime: RuntimeInputs) -> str:
         _env(contract.state_root_env, contract.state_mount_path),
         _env(contract.authority_root_env, contract.authority_mount_path),
         _env(contract.python_env, contract.python_command),
-        _env(contract.wgcf_base_url_env, runtime.wgcf_base_url),
-        _env(contract.wgcf_caller_id_env, contract.wgcf_caller_id),
-        {
-            "name": contract.wgcf_caller_secret_env,
-            "valueFrom": {
-                "secretKeyRef": {
-                    "name": contract.runtime_secret_name,
-                    "key": contract.wgcf_secret_key,
-                }
-            },
-        },
-        _env(
-            contract.wgcf_implementation_ref_env, contract.wgcf_implementation_ref
-        ),
-        _env(
-            contract.wgcf_service_identity_ref_env,
-            contract.wgcf_service_identity_ref,
-        ),
     ]
+    if contract.wgcf_base_url_env is not None:
+        if not all(
+            (
+                runtime.wgcf_base_url,
+                contract.wgcf_secret_key,
+                contract.wgcf_caller_id_env,
+                contract.wgcf_caller_id,
+                contract.wgcf_caller_secret_env,
+                contract.wgcf_implementation_ref_env,
+                contract.wgcf_implementation_ref,
+                contract.wgcf_service_identity_ref_env,
+                contract.wgcf_service_identity_ref,
+            )
+        ):
+            raise IdentityError(f"{contract.workflow_name} WGCF binding is incomplete")
+        env.extend(
+            [
+                _env(contract.wgcf_base_url_env, runtime.wgcf_base_url),
+                _env(contract.wgcf_caller_id_env, contract.wgcf_caller_id),
+                {
+                    "name": contract.wgcf_caller_secret_env,
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": contract.runtime_secret_name,
+                            "key": contract.wgcf_secret_key,
+                        }
+                    },
+                },
+                _env(
+                    contract.wgcf_implementation_ref_env,
+                    contract.wgcf_implementation_ref,
+                ),
+                _env(
+                    contract.wgcf_service_identity_ref_env,
+                    contract.wgcf_service_identity_ref,
+                ),
+            ]
+        )
     if contract.platform_evidence_file_env is not None:
         if not contract.platform_evidence_filename:
             raise IdentityError("Platform evidence file configuration is incomplete")
@@ -614,12 +665,18 @@ def deployment_revoke_patch(contract: Contract) -> str:
         contract.state_root_env,
         contract.authority_root_env,
         contract.python_env,
-        contract.wgcf_base_url_env,
-        contract.wgcf_caller_id_env,
-        contract.wgcf_caller_secret_env,
-        contract.wgcf_implementation_ref_env,
-        contract.wgcf_service_identity_ref_env,
     ]
+    env_names.extend(
+        name
+        for name in (
+            contract.wgcf_base_url_env,
+            contract.wgcf_caller_id_env,
+            contract.wgcf_caller_secret_env,
+            contract.wgcf_implementation_ref_env,
+            contract.wgcf_service_identity_ref_env,
+        )
+        if name is not None
+    )
     if contract.platform_evidence_file_env is not None:
         env_names.append(contract.platform_evidence_file_env)
     volume_names = [
@@ -1477,8 +1534,8 @@ def parser(default_contract: Path = DEFAULT_CONTRACT) -> argparse.ArgumentParser
     )
     add_identity_arguments(deliver)
     add_runtime_arguments(deliver)
-    deliver.add_argument("--wgcf-base-url", required=True)
-    deliver.add_argument("--wgcf-caller-secret-file", type=Path, required=True)
+    deliver.add_argument("--wgcf-base-url")
+    deliver.add_argument("--wgcf-caller-secret-file", type=Path)
     deliver.add_argument("--oos-reader-secret-file", type=Path)
     deliver.set_defaults(handler=command_deliver)
     suspend = commands.add_parser(

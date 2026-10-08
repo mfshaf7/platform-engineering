@@ -43,7 +43,7 @@ make proposal-target-identity ACTION=commission ARGS="\
   --caller-id platform-engineering \
   --source-revision governance-operations-console=d66411f128c3fd2f21ac274f620352977966fecd \
   --source-revision operator-orchestration-service=0e935029327c3195f7ad1026c6f450f4b32c52dd \
-  --source-revision security-architecture=678c4873b7e715a6e457c1a13266c03e62655864 \
+  --source-revision security-architecture=add3b405cffe87d158c65edec1d24cf33ea2def8 \
   --source-revision workspace-prototype-studio=4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f \
   --receipt <private-receipt-path>"
 
@@ -54,7 +54,7 @@ make proposal-target-identity ACTION=deliver ARGS="\
   --caller-id platform-engineering \
   --source-revision governance-operations-console=d66411f128c3fd2f21ac274f620352977966fecd \
   --source-revision operator-orchestration-service=0e935029327c3195f7ad1026c6f450f4b32c52dd \
-  --source-revision security-architecture=678c4873b7e715a6e457c1a13266c03e62655864 \
+  --source-revision security-architecture=add3b405cffe87d158c65edec1d24cf33ea2def8 \
   --source-revision workspace-prototype-studio=4066ea5ba5a68ab7ab12acc7fc395897e1ae6c3f \
   --session-manifest <workspace>/.dev-integration/accepted-idea-delivery/<operator>/current-session.yaml \
   --workspace-root <workspace> \

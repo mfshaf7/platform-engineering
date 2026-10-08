@@ -117,8 +117,8 @@ canonical target proof responsible for the current post-merge Studio revision.
 This preserves both facts without weakening ancestry, exact-file, reviewed
 merge, or current-authority validation.
 Security Architecture pull request `#209` re-accepted that exact verifier
-boundary. The commissioning policy now pins its merged decision before the
-final lifecycle proof is regenerated.
+boundary. The commissioning policy, identity contract, and operator examples
+now pin its merged decision before the final lifecycle proof is regenerated.
 
 ## Required Operating Evidence
 

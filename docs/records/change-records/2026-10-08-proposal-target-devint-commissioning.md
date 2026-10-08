@@ -132,6 +132,16 @@ index. The recovered `#1236` Landing Unit records the final receipts below
 against current Platform source; it does not rewrite or discard the original
 review evidence.
 
+That recovery advanced OOS `main` to
+`c0ef285a39938050b6a7ae976f315245269ea58b`. The commissioning verifier then
+correctly rejected the older exact OOS pin even though pull request `#290`
+changed no Proposal Target implementation surface. Security Architecture pull
+request `#211` reviewed the exact OOS delta and re-accepted the unchanged
+Proposal Target trust boundary at merge
+`e6cb227f6cadceed6a4c741ecabf243de0b6bf51`. This Platform refresh updates the
+commissioning policy, identity contract, generated schema example, ADR,
+operator commands, and tests together before current-source proof is rerun.
+
 ## Required Operating Evidence
 
 The final value-free evidence must prove the exact App, installation,
@@ -162,6 +172,8 @@ The source and review chain is merged and provider-confirmed:
   `add3b405cffe87d158c65edec1d24cf33ea2def8`; generated-index
   synchronization pull request `#210`: merge
   `24fc2a6db32d2ba04ade9c3bdea7cc022153ddbc`.
+- Security OOS-recovery reacceptance pull request `#211`: merge
+  `e6cb227f6cadceed6a4c741ecabf243de0b6bf51`.
 - OOS evidence-recovery pull request `#290`: head
   `f483ba6f7d4cc43bde49daf3ad8b136e2a21ec13`, merge
   `c0ef285a39938050b6a7ae976f315245269ea58b`.
@@ -175,6 +187,9 @@ Both report successful `dev-integration` operation, active managed services,
 private `0600` Console environment state, preserved owner sessions, no browser
 credential exposure, and the current architecture digest
 `sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0`.
+They remain immutable evidence for the earlier OOS and Security pins; they do
+not by themselves claim current-source availability after the `#211` pin
+refresh.
 
 ## Live Verification
 
@@ -197,6 +212,8 @@ conflicting replay, stale Proposal version, changed Studio authority,
 unreviewed or wrong-head source, and provider loss without changing canonical
 state. The final target receipt is
 `proposal-prototype-target-receipt:proposal-218:8470621ff1d0f4008959ea813d80e3b9b3a8cb6fc2d0539b74617a5f52fa2b79`.
+The governed post-merge evidence path must rerun this non-mutating verification
+with fresh lifecycle receipts after the current OOS and Security pins land.
 
 ## Rollback
 
@@ -211,7 +228,8 @@ status receipts above prove clean redelivery.
 
 ## Follow-Up Actions
 
-Merge this recovered Platform evidence consolidation and bind its final Review
+Merge the current OOS and Security pin refresh, regenerate the bounded
+activation and commissioning receipts, and bind the final recovered Review
 Packet to `#1236`. Feature `#1212` and Epic `#1203` may close only after that
-packet, post-merge operating evidence, and their completion evidence are
-accepted.
+packet, current post-merge operating evidence, and their completion evidence
+are accepted.

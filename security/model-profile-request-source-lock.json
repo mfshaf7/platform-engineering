@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "contract_id": "oos.model-profile-request.v1",
+  "owner_repo": "operator-orchestration-service",
+  "git_commit": "147e50191a747bad3c0d8129a6f2817d4551d345",
+  "root": "contracts/model-profile-request",
+  "files": {
+    "request.schema.json": "52035334552b4cd9d7beef170d9692765487ee2516a96321ddb77512f1d1a37d",
+    "command.schema.json": "a869c4fcf4d9b72a54038dc5b1731e31041cd7855c79cbc79ef65d864382542f",
+    "fulfillment.schema.json": "aee78b4d451571768b606680c63d9ea311924b1517b64c05138afd967f3f06d6",
+    "receipt.schema.json": "640e340c12cf5ccf6f6075ec9bd44194a3836212022550d5b0261c50c800542b",
+    "projection.schema.json": "63593dfd774a496b44a3141da6abc9015ccef0fb403ac2a1ef8682582a61429a",
+    "manifest.json": "24fd9938bf46569510b65c4e300450f64ae1ab938a8d6ae58d38e6f29343def1"
+  }
+}

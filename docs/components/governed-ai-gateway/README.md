@@ -68,6 +68,14 @@ retains its untyped default-task compatibility request; Work Design does not
 have a default task and fails closed when task identity is omitted. An invalid
 or inactive selected binding never falls back to another binding.
 
+Model-profile lifecycle requests enter through the OOS-owned reviewed request
+workflow. Platform consumes only the exact approved, `implementing` projection
+and applies the requested lifecycle change through the source-backed procedure
+in [operations.md](operations.md). Request approval never selects a provider or
+model and never activates a profile by itself. Platform owns those source
+decisions; Security acceptance remains independently required for activation
+and exception states.
+
 ## Owner Boundaries
 
 - `platform-engineering` owns the gateway runtime profile, platform-side

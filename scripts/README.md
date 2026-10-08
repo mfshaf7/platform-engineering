@@ -151,6 +151,8 @@ The default shared drill profile and evidence template live under:
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `test_ai_model_profiles.py`
+- `model_profile_lifecycle.py`
+- `test_model_profile_lifecycle.py`
 - `test_governed_ai_gateway_policy.py`
 - `test_governed_ai_gateway_runtime.py`
 - `validate_environment_readiness.py`
@@ -170,6 +172,19 @@ profile registry, runtime-assist activation contract, access-plane source
 contract, and devint egress policy under `../security/`, including cross-repo
 references to `security-architecture` review artifacts and
 `workspace-governance` output-schema contracts.
+
+`model_profile_lifecycle.py` consumes the exact OOS model-profile request
+contract pinned by `security/model-profile-request-source-lock.json`. It
+projects current Platform source, applies an approved `implementing` request to
+the registry/access-plane/runtime-assist contracts, emits a lifecycle receipt
+and exact rollback bundle, and generates the OOS `applied` fulfillment only
+after clean merged-source readback. Its tests prove positive application,
+projection, readback, restore, and cleanup plus stale, unauthorized, malformed,
+out-of-order, false-receipt, replay-conflicting, prohibited-activation, dirty,
+and drifted rollback denials. Its `verify-operating` action is a read-only ART
+evidence command that re-reads the exact live OOS and Console projections and
+the private Platform artifact chain after downstream commissioning; it cannot
+perform or repair commissioning.
 
 `test_governed_ai_gateway_policy.py` and
 `test_governed_ai_gateway_runtime.py` prove exact caller, profile, task, schema,

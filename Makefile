@@ -55,6 +55,7 @@ help:
 	@printf "  governance-console-cross-domain Activate or inspect Console cross-domain dev-integration\n"
 	@printf "  governance-console-repository-catalog Commission the exact Repository-to-Catalog operating path\n"
 	@printf "  governance-console-proposal-target Operate the exact Proposal Target loopback path\n"
+	@printf "  model-profile-lifecycle Validate, project, apply, read back, or restore reviewed model-profile lifecycle source\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -425,6 +426,10 @@ render-windows-bootstrap:
 
 OOS_REPO_ROOT ?= ../operator-orchestration-service
 
+.PHONY: model-profile-lifecycle
+model-profile-lifecycle:
+	python3 scripts/model_profile_lifecycle.py --oos-repo-root "$(OOS_REPO_ROOT)" $(ACTION) $(ARGS)
+
 .PHONY: validate
 validate:
 	python3 scripts/validate_repo_structure.py
@@ -462,6 +467,8 @@ validate:
 	python3 scripts/validate_governance_docs.py
 	python3 scripts/validate_ai_model_profiles.py
 	python3 scripts/test_ai_model_profiles.py
+	python3 scripts/model_profile_lifecycle.py --oos-repo-root "$(OOS_REPO_ROOT)" validate
+	OOS_REPO_ROOT="$(OOS_REPO_ROOT)" python3 scripts/test_model_profile_lifecycle.py
 	python3 scripts/test_governed_ai_gateway_policy.py
 	python3 scripts/test_governed_ai_gateway_runtime.py
 	python3 scripts/test_governed_ai_ollama_adapter.py

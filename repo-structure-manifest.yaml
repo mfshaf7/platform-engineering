@@ -37,6 +37,8 @@ shared_paths:
       - test_dev_integration_preflight.py
       - test_dev_integration_host_services.py
       - test_ai_model_profiles.py
+      - model_profile_lifecycle.py
+      - test_model_profile_lifecycle.py
       - test_governed_ai_gateway_policy.py
       - test_governed_ai_gateway_runtime.py
       - test_governed_ai_ollama_adapter.py

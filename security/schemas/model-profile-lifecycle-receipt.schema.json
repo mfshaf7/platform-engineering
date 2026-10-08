@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/model-profile-lifecycle-receipt.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_type", "receipt_id", "request_id",
+    "request_revision", "request_receipt_digest", "decision_id",
+    "decision_digest", "intent", "profile_id", "actor_id", "recorded_at",
+    "outcome", "lifecycle_before", "lifecycle_after", "base_source",
+    "result_source", "rollback_bundle_ref", "oos_fulfillment", "digest"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "artifact_type": { "const": "platform-model-profile-lifecycle-receipt" },
+    "receipt_id": { "type": "string", "pattern": "^platform-model-profile-receipt:[0-9a-f]{24}$" },
+    "request_id": { "type": "string" },
+    "request_revision": { "type": "integer", "minimum": 1 },
+    "request_receipt_digest": { "$ref": "#/$defs/digest" },
+    "decision_id": { "type": "string" },
+    "decision_digest": { "$ref": "#/$defs/digest" },
+    "intent": { "type": "string" },
+    "profile_id": { "type": "string" },
+    "actor_id": { "const": "platform-engineering/model-profile-lifecycle" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "outcome": { "enum": ["applied", "restored"] },
+    "lifecycle_before": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "lifecycle_after": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "base_source": { "$ref": "#/$defs/source" },
+    "result_source": { "$ref": "#/$defs/source" },
+    "rollback_bundle_ref": { "$ref": "#/$defs/artifactRef" },
+    "oos_fulfillment": { "type": "object" },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifactRef": {
+      "type": "object", "required": ["uri", "digest"],
+      "properties": { "uri": { "type": "string" }, "digest": { "$ref": "#/$defs/digest" } },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["source_version", "registry_digest", "access_plane_digest", "runtime_assist_digest"],
+      "properties": {
+        "source_version": { "type": "string" },
+        "registry_digest": { "$ref": "#/$defs/digest" },
+        "access_plane_digest": { "$ref": "#/$defs/digest" },
+        "runtime_assist_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

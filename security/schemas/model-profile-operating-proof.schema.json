@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/model-profile-operating-proof.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_type", "proof_scope", "recorded_at", "expires_at",
+    "source_revisions", "oos", "console", "platform_artifacts",
+    "negative_outcomes", "cleanup", "secret_values_embedded"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "artifact_type": { "const": "model-profile-lifecycle-operating-proof" },
+    "proof_scope": { "const": "disposable-dev-integration" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "source_revisions": {
+      "type": "object",
+      "required": ["platform-engineering", "operator-orchestration-service", "governance-operations-console", "security-architecture"],
+      "properties": {
+        "platform-engineering": { "$ref": "#/$defs/commit" },
+        "operator-orchestration-service": { "$ref": "#/$defs/commit" },
+        "governance-operations-console": { "$ref": "#/$defs/commit" },
+        "security-architecture": { "$ref": "#/$defs/commit" }
+      },
+      "additionalProperties": false
+    },
+    "oos": { "$ref": "#/$defs/liveProjection" },
+    "console": { "$ref": "#/$defs/liveProjection" },
+    "platform_artifacts": {
+      "type": "object",
+      "required": ["lifecycle_receipt", "merged_readback", "restore_receipt"],
+      "properties": {
+        "lifecycle_receipt": { "type": "string", "minLength": 1 },
+        "merged_readback": { "type": "string", "minLength": 1 },
+        "restore_receipt": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "negative_outcomes": {
+      "type": "object",
+      "required": ["stale_authority_denied", "unsafe_input_denied", "failed_handoff_denied", "false_receipt_denied", "prohibited_maturity_denied"],
+      "properties": {
+        "stale_authority_denied": { "const": true },
+        "unsafe_input_denied": { "const": true },
+        "failed_handoff_denied": { "const": true },
+        "false_receipt_denied": { "const": true },
+        "prohibited_maturity_denied": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "cleanup": {
+      "type": "object",
+      "required": ["temporary_source_removed", "temporary_runtime_stopped", "operator_secrets_removed"],
+      "properties": {
+        "temporary_source_removed": { "const": true },
+        "temporary_runtime_stopped": { "const": true },
+        "operator_secrets_removed": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "secret_values_embedded": { "const": false }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "liveProjection": {
+      "type": "object",
+      "required": ["url", "expected_digest"],
+      "properties": {
+        "url": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|localhost):[1-9][0-9]{0,4}/" },
+        "expected_digest": { "$ref": "#/$defs/digest" },
+        "caller_id": { "type": "string", "minLength": 1 },
+        "secret_file": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -208,6 +208,8 @@ product-neutral.
   - `make devint-reset PROFILE=<profile> CONFIRM=<profile-confirmation>`
   - `make devint-promote-check PROFILE=<profile>`
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=active-stack-runtime-drill`
+  - `make model-profile-lifecycle ACTION=<validate|project|apply|readback|restore|verify-operating> ARGS="..."`
+    - primary procedure: [governed AI gateway operations](docs/components/governed-ai-gateway/operations.md#model-profile-lifecycle)
   - `make platform-drill ACTION=<plan|snapshot|attest-baseline|activate|verify|record|restore|status> PROFILE=environment-complete-runtime-drill`
   - `make platform-drill ACTION=<plan|snapshot|status> PROFILE=temporal-component-commissioning-proof` (permit-gated source-reviewed path; see [Temporal operations](docs/components/temporal/operations.md))
   - `make environment-readiness ACTION=<status|validate> ENVIRONMENT=<stage|prod>`

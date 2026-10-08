@@ -1,0 +1,87 @@
+schema_version: 2
+lane: dev-integration
+activation:
+  delivery_id: delivery-1203
+  work_item_ref: openproject://work_packages/1236
+  security_gate_id: gate:proposal-target-controlled-activation
+proof_scope:
+  includes:
+    - console-server-proposal-target-application
+    - dedicated-exact-repository-credential-delivery
+    - human-reviewed-prototype-studio-merge
+    - canonical-target-and-proposal-readback
+    - stale-authority-and-invalid-caller-denial
+    - restart-rollback-and-clean-redelivery
+  excludes:
+    - browser-owner-credentials
+    - direct-console-github-or-openproject-authority
+    - prototype-landing-or-maturity-claim
+    - stage-or-production-readiness
+    - shared-or-multi-user-identity
+architecture:
+  artifact_id: architecture-packet:delivery-1203-v1
+  current:
+    uri: wgcf://artifacts/delivery-art/sha256/3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0
+    digest: sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0
+  relationship: exact-security-binding
+  security_review_revisions:
+    - e993e9a55b80a24dcab4b96b8291ece822c8dd0f
+    - eab7af0c44de2e76eb381bf06447105ce3a28863
+    - 875696096adae15cf2e068054a5fa8d6e28d8524
+console:
+  repo: governance-operations-console
+  revision: e993e9a55b80a24dcab4b96b8291ece822c8dd0f
+  port: 3317
+owners:
+  oos:
+    repo: operator-orchestration-service
+    revision: 60d6d8915fa4694b8ff75806541390999604d1c0
+    profile: accepted-idea-delivery
+    namespace: devint-accepted-idea-delivery-{operator}
+    service: operator-orchestration-service
+    deployment: operator-orchestration-service
+    remote_port: 8080
+    local_port: 38180
+  wgcf:
+    repo: workspace-governance-control-fabric
+    revision: ce316fce4f525b1b3cce1cef40fea20622ae2482
+    profile: governance-control-fabric
+    namespace: devint-governance-control-fabric-{operator}
+    service: workspace-governance-control-fabric-api
+    deployment: workspace-governance-control-fabric-api
+    remote_port: 8080
+    local_port: 38181
+source_authorities:
+  prototype_studio:
+    repo: workspace-prototype-studio
+    minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
+authority:
+  workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
+  security_revision: a602d4d56820779efe4aa9f8cf02254e7b8243c6
+  security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
+credentials:
+  console_oos:
+    caller_id: governance-operations-console
+    custody: accepted-idea-delivery-private-runtime
+  console_wgcf:
+    caller_id: governance-operations-console
+    custody: platform-operator-private-state
+    binding: governance-console-history-reader
+  browser_credentials_allowed: false
+session:
+  policy: session-projection-policy.yaml
+  operator_id: operator:workspace-owner
+  profile: accepted-idea-delivery
+  projection: private/operator-identity.json
+  issue_receipt: receipts/operator-identity-issue.json
+  revoke_receipt: receipts/operator-identity-revoke.json
+proposal_target_proof:
+  repository: mfshaf7/workspace-prototype-studio
+  repository_id: 1231020532
+  branch_pattern: '^proposal-target/[0-9a-f]{64}$'
+  record_root: records/prototype-captures
+  identity_contract: security/proposal-target-identity.yaml
+  oos_manifest: contracts/proposal-target-application/manifest.json
+receipts:
+  directory: governance-console-cross-domain/receipts
+  maximum_age_seconds: 120

@@ -96,6 +96,29 @@
       ],
       "fidelity": "live-backend",
       "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:repository-catalog-operating-positive",
+        "case:repository-catalog-operating-negative"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "proposal-target-operating-commissioning",
+      "kind": "runtime_and_live",
+      "name": "Proposal Target operating commissioning",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_cross_domain_activation.py",
+        "--policy",
+        "products/governance-operations-console/proposal-target-commissioning-policy.yaml",
+        "verify-proposal-target-commissioning"
+      ],
+      "fidelity": "live-backend",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:proposal-target-operating-positive",
+        "case:proposal-target-operating-negative"
+      ],
       "timeout_seconds": 1800
     },
     {

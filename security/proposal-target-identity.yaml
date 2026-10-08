@@ -1,0 +1,157 @@
+schema_version: 1
+identity:
+  id: proposal-target-github-app-v1
+  provider: github
+  credential_kind: github-app-installation
+  api_base_url: https://api.github.com
+  repository:
+    full_name: mfshaf7/workspace-prototype-studio
+    id: 1231020532
+    owner_id: 244414185
+    owner_type: User
+  repository_selection: selected
+  maximum_repository_count: 1
+  required_permissions:
+    metadata: read
+    contents: write
+    pull_requests: write
+    checks: read
+  maximum_token_lifetime_seconds: 3600
+  rotate_before_expiry_seconds: 900
+  events: []
+selection:
+  state: selected-not-active
+  app_id: null
+  installation_id: null
+  runtime_enabled: false
+security_authority:
+  review:
+    ref: openproject://work_packages/1235
+    repository: security-architecture
+    revision: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    path: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
+    decision: approved
+  final_normal_availability_gate: openproject://work_packages/1236
+  normal_availability_review:
+    ref: openproject://work_packages/1235
+    repository: security-architecture
+    revision: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    path: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
+    decision: approved
+source_boundary:
+  allowed_branch_pattern: '^proposal-target/[0-9a-f]{64}$'
+  allowed_write_paths:
+    - records/prototype-captures/**
+  canonical_branch: main
+  merge_authority: human-reviewer
+  provider_enforcement_required:
+    - restrict-main-updates-to-human-actors
+    - proposal-target-app-has-no-bypass
+    - require-exact-head-review
+    - dismiss-stale-approvals
+    - require-trusted-owner-validation
+    - deny-force-push-and-deletion
+  denied_actions:
+    - merge
+    - direct-main-write
+    - force-push
+    - repository-create
+    - repository-delete
+    - repository-administration
+    - secret-access
+    - unrelated-repository-access
+    - wildcard-repository-selection
+    - prototype-landing-write
+    - prototype-maturity-write
+    - prototype-closure-write
+    - personal-token
+    - ambient-gh-credentials
+secret_custody:
+  authority: platform-engineering
+  private_key_source:
+    backend: vault
+    path: components/operator-orchestration-service/dev-integration/proposal-target
+    property: privateKey
+  runtime_projection:
+    kind: kubernetes-secret-volume
+    name: operator-orchestration-service-proposal-target
+    token_key: installation-token
+    directory: /var/run/oos/proposal-target-application
+    token_filename: installation-token
+    mount_read_only: true
+    sub_path_allowed: false
+  values_in_source: false
+  values_in_receipts: false
+  values_in_logs: false
+  private_key_in_oos: false
+consumer:
+  component: operator-orchestration-service
+  runtime_lane: dev-integration
+  allowed_profiles:
+    - accepted-idea-delivery
+  broker_deployment: operator-orchestration-service
+  runtime_profile: dev-integration
+  token_file_env: OOS_PROPOSAL_TARGET_APPLICATION_TOKEN_FILE
+  repository_owner_env: OOS_PROPOSAL_TARGET_APPLICATION_GITHUB_OWNER
+  repository_id_env: OOS_PROPOSAL_TARGET_APPLICATION_GITHUB_REPOSITORY_ID
+  state_root_env: OOS_PROPOSAL_TARGET_APPLICATION_STATE_ROOT
+  state_mount_path: /var/lib/oos/proposal-target-application/state
+  authority_root_env: OOS_PROPOSAL_TARGET_APPLICATION_AUTHORITY_ROOT
+  authority_mount_path: /var/lib/oos/proposal-target-application/authority
+  python_env: OOS_PROPOSAL_TARGET_APPLICATION_PYTHON
+  python_command: python3
+  runtime_profile_env: OOS_RUNTIME_PROFILE
+activation:
+  authority_work_item: openproject://work_packages/1236
+  security_gate: openproject://work_packages/1235
+  source_authority_minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
+  orchestration_minimum_revision: 287e840ddbda584f2b85556952e0179dd7543748
+  approved_source_revisions:
+    governance-operations-console: e993e9a55b80a24dcab4b96b8291ece822c8dd0f
+    operator-orchestration-service: 287e840ddbda584f2b85556952e0179dd7543748
+    security-architecture: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    workspace-prototype-studio: eab7af0c44de2e76eb381bf06447105ce3a28863
+  required_evidence:
+    - exact-definition-digest-and-source-heads
+    - exact-app-installation-and-repository-ids
+    - provider-enforced-main-and-merge-denial
+    - exact-permissions-and-no-bypass
+    - authenticated-oos-profile-session-projection
+    - read-only-source-and-persistent-state-mounts
+    - short-lived-token-projection-and-rotation
+    - human-reviewed-target-merge-and-canonical-readback
+    - positive-and-negative-loopback-proof
+    - suspension-revocation-and-rollback
+    - secret-free-owner-receipt
+  definition_is_activation: false
+  workflow_runtime_enabled: true
+audit:
+  receipt_fields:
+    - definition_digest
+    - source_revisions
+    - app_id
+    - installation_id
+    - repository_id
+    - repository_owner_id
+    - permissions
+    - caller_id
+    - profile_id
+    - session_ref
+    - execution_ref
+    - action
+    - outcome
+    - issued_at
+    - expires_at
+    - recorded_at
+    - security_receipt_ref
+    - rollback_receipt_ref
+  receipt_contains_secret_values: false
+rollback:
+  suspend_new_requests: true
+  revoke_issued_token: true
+  remove_runtime_projection: true
+  retain_workflow_and_review_evidence: true
+  retain_canonical_git_history: true
+  delete_prototype: false
+  delete_repository: false
+  rewrite_main: false

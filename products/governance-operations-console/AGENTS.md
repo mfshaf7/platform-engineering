@@ -17,6 +17,8 @@ authority, or Security approval.
 - `cross-domain-activation-policy.yaml`
 - `runbooks/activate-cross-domain-awareness.md`
 - `runbooks/commission-repository-catalog.md`
+- `proposal-target-commissioning-policy.yaml`
+- `runbooks/commission-proposal-target.md`
 
 ## Boundary
 
@@ -45,3 +47,8 @@ Repository/Catalog commissioning must use
 `make governance-console-repository-catalog`. Generic Console activity is not
 evidence for Repository readiness, Catalog mutation, canonical readback, or
 denied-path behavior.
+
+Proposal Target commissioning must use the dedicated OOS identity and
+`make governance-console-proposal-target`. Do not reuse another Prototype
+workflow identity, Agent Gary, ambient human credentials, or a generic Console
+activity receipt as target-application evidence.

@@ -50,6 +50,10 @@ The capability-specific Repository and Catalog commissioning is recorded in
 It extends the existing Console activation and session controls and explicitly
 rejects generic activity health as Repository/Catalog operating evidence.
 
+Proposal Target identity, loopback composition, and operating commissioning
+are recorded in
+[2026-10-08-proposal-target-devint-commissioning.md](2026-10-08-proposal-target-devint-commissioning.md).
+
 ## Goals
 
 Each record should make it easy to answer:

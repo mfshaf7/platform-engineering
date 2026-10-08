@@ -36,6 +36,7 @@ Primary operator procedure:
 - [Project Console runtime observations](runbooks/project-runtime-observations.md)
 - [Activate cross-domain awareness](runbooks/activate-cross-domain-awareness.md)
 - [Commission Repository and Catalog operation](runbooks/commission-repository-catalog.md)
+- [Commission Proposal Target](runbooks/commission-proposal-target.md)
 
 Machine-readable policy:
 
@@ -43,6 +44,7 @@ Machine-readable policy:
 - [runtime-observation-policy.yaml](runtime-observation-policy.yaml)
 - [cross-domain-activation-policy.yaml](cross-domain-activation-policy.yaml)
 - [repository-catalog-commissioning-policy.yaml](repository-catalog-commissioning-policy.yaml)
+- [proposal-target-commissioning-policy.yaml](proposal-target-commissioning-policy.yaml)
 
 The cross-domain activation path pins the approved OOS, WGCF, Console,
 Workspace Governance, and Security revisions. It exposes owner APIs to the
@@ -55,3 +57,10 @@ Repository/Catalog commissioning extends this managed boundary with the exact
 session projection and capability-specific positive, negative, restart,
 rollback, and cleanup evidence required by the Security gate. It does not use
 generic activity health as a substitute for workflow proof.
+
+Proposal Target commissioning reuses the managed loopback boundary while
+pinning the activated OOS source and exact Prototype Studio authority. Its
+provider credential is delivered only to OOS through the dedicated Platform
+identity; Console and the browser never receive it. Positive completion still
+requires human-reviewed merge, target-owner readback, and canonical Proposal
+acknowledgement.

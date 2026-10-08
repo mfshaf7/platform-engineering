@@ -46,6 +46,7 @@ help:
 	@printf "  prototype-landing-identity Validate, commission, deliver, suspend, or revoke the Prototype Landing Git identity\n"
 	@printf "  prototype-maturity-identity Validate, commission, deliver, suspend, or revoke the Prototype Maturity Git identity\n"
 	@printf "  prototype-closure-identity Validate, commission, deliver, suspend, or revoke the Prototype Closure Git identity\n"
+	@printf "  proposal-target-identity Validate, commission, deliver, suspend, or revoke the Proposal Target Git identity\n"
 	@printf "  prototype-closure-evidence Record bounded Platform-owned Closure runtime evidence\n"
 	@printf "  agent-source-identity Validate, commission, deliver, suspend, or revoke the Agent source Git identity\n"
 	@printf "  lifecycle-context Commission and prove the bounded OOS-to-CGG lifecycle context composition\n"
@@ -53,6 +54,7 @@ help:
 	@printf "  governance-console-runtime Observe or inspect the Console dev-integration runtime projection\n"
 	@printf "  governance-console-cross-domain Activate or inspect Console cross-domain dev-integration\n"
 	@printf "  governance-console-repository-catalog Commission the exact Repository-to-Catalog operating path\n"
+	@printf "  governance-console-proposal-target Operate the exact Proposal Target loopback path\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
 	@printf "  openclaw-gateway-prepull-image Warm the current OpenClaw gateway image digest onto every node before rollout\n"
@@ -217,6 +219,11 @@ governance-console-repository-catalog:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, catalog-rehearse, commission, rollback, or cleanup"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py --policy products/governance-operations-console/repository-catalog-commissioning-policy.yaml $(ACTION) $(if $(ARGS),$(ARGS),)
 
+.PHONY: governance-console-proposal-target
+governance-console-proposal-target:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, proposal-target-commission, verify-proposal-target-commissioning, rollback, or cleanup"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py --policy products/governance-operations-console/proposal-target-commissioning-policy.yaml $(ACTION) $(if $(ARGS),$(ARGS),)
+
 .PHONY: devint-status
 devint-status:
 	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
@@ -290,6 +297,11 @@ prototype-maturity-identity:
 prototype-closure-identity:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
 	python3 scripts/prototype_closure_identity.py $(ACTION) $(ARGS)
+
+.PHONY: proposal-target-identity
+proposal-target-identity:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, commission, deliver, suspend, or revoke"; exit 1; }
+	python3 products/governance-operations-console/scripts/proposal_target_identity.py $(ACTION) $(ARGS)
 
 .PHONY: prototype-closure-evidence
 prototype-closure-evidence:
@@ -421,6 +433,8 @@ validate:
 	python3 products/governance-operations-console/scripts/console_runtime_observations.py validate
 	python3 products/governance-operations-console/scripts/test_console_runtime_observations.py
 	python3 products/governance-operations-console/scripts/test_console_cross_domain_activation.py
+	python3 products/governance-operations-console/scripts/proposal_target_identity.py validate
+	python3 products/governance-operations-console/scripts/test_proposal_target_identity.py
 	python3 scripts/repository_provider_identity.py validate
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate

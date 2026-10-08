@@ -34,6 +34,15 @@ CALLER_ID = "governance-operations-console"
 UNIT_PREFIX = "governance-console-cross-domain"
 WGCF_SECRET = "governance-console-history-reader"
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
+PROPOSAL_TARGET_NEGATIVE_SCENARIOS = {
+    "caller-selected-prototype",
+    "changed-studio-main",
+    "conflicting-replay",
+    "invalid-caller",
+    "provider-loss",
+    "stale-record-version",
+    "unreviewed-wrong-head",
+}
 
 
 class ActivationError(RuntimeError):
@@ -819,6 +828,7 @@ def receipt(
     negative_proof: dict[str, Any] | None = None,
     runtime_boundary: dict[str, Any] | None = None,
     repository_catalog_proof: dict[str, Any] | None = None,
+    proposal_target_proof: dict[str, Any] | None = None,
 ) -> Path:
     ensure_private_directory(RECEIPT_ROOT)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -874,6 +884,8 @@ def receipt(
         payload["runtime_boundary"] = runtime_boundary
     if repository_catalog_proof is not None:
         payload["repository_catalog_proof"] = repository_catalog_proof
+    if proposal_target_proof is not None:
+        payload["proposal_target_proof"] = proposal_target_proof
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     digest = hashlib.sha256(encoded).hexdigest()
     payload["content_digest"] = f"sha256:{digest}"
@@ -1332,6 +1344,295 @@ def receipt_content_digest(value: dict[str, Any]) -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def expected_source_revisions(policy: dict[str, Any]) -> dict[str, str]:
+    return {
+        "platform-engineering": git_head(REPO_ROOT),
+        policy["console"]["repo"]: policy["console"]["revision"],
+        policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
+        policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
+        "workspace-governance": policy["authority"]["workspace_governance_revision"],
+        "security-architecture": policy["authority"]["security_revision"],
+        **{
+            source["repo"]: git_head(repo_path(source["repo"]))
+            for source in policy.get("source_authorities", {}).values()
+        },
+    }
+
+
+def load_private_json(path: Path, label: str) -> dict[str, Any]:
+    if not path.is_file() or path.is_symlink():
+        raise ActivationError(f"{label} is unavailable")
+    info = path.stat()
+    if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+        raise ActivationError(f"{label} must be operator-private")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        raise ActivationError(f"{label} is malformed") from None
+    if not isinstance(value, dict):
+        raise ActivationError(f"{label} must be an object")
+    return value
+
+
+def proposal_target_application(policy: dict[str, Any], application_id: str) -> dict[str, Any]:
+    oos = policy["owners"]["oos"]
+    request = Request(
+        f"http://127.0.0.1:{oos['local_port']}/v1/proposal-target-applications/{application_id}",
+        headers={
+            "Accept": "application/json",
+            "x-oos-caller-id": policy["credentials"]["console_oos"]["caller_id"],
+            "x-oos-caller-secret": read_oos_secret(policy),
+        },
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            value = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise ActivationError(
+            f"Proposal Target application readback failed: {type(exc).__name__}"
+        ) from None
+    if not isinstance(value, dict):
+        raise ActivationError("Proposal Target application readback is invalid")
+    return value
+
+
+def validate_proposal_target_application(
+    policy: dict[str, Any],
+    application: dict[str, Any],
+    application_id: str,
+) -> dict[str, Any]:
+    review = application.get("review")
+    result = application.get("target_result")
+    acknowledgement = application.get("proposal_acknowledgement")
+    preparation = application.get("preparation")
+    acknowledgement_projection = (
+        acknowledgement.get("projection", {})
+        if isinstance(acknowledgement, dict)
+        else {}
+    )
+    acknowledgement_handoff = (
+        acknowledgement_projection.get("handoff", {})
+        if isinstance(acknowledgement_projection, dict)
+        else {}
+    )
+    if (
+        application.get("workflow_id") != "proposal-target-application"
+        or application.get("application_id") != application_id
+        or application.get("status") != "succeeded"
+        or application.get("canonical_target_mutation") is not True
+        or application.get("proposal_mutation") is not True
+        or application.get("runtime_activation") is not False
+        or not isinstance(review, dict)
+        or review.get("repository") != "workspace-prototype-studio"
+        or review.get("merged") is not True
+        or review.get("human_reviewed") is not True
+        or not isinstance(result, dict)
+        or not isinstance(acknowledgement, dict)
+        or acknowledgement_handoff.get("state") != "applied"
+        or not isinstance(preparation, dict)
+    ):
+        raise ActivationError("Proposal Target application is not canonically complete")
+    studio = repo_path(policy["source_authorities"]["prototype_studio"]["repo"])
+    revision = git_head(studio)
+    merge_commit = review.get("merge_commit")
+    changed_paths = preparation.get("changed_paths")
+    prototype_id = application.get("prototype_id")
+    if (
+        not isinstance(merge_commit, str)
+        or len(merge_commit) != 40
+        or not isinstance(prototype_id, str)
+        or not prototype_id.startswith("prototype:proposal-")
+        or not isinstance(changed_paths, list)
+        or len(changed_paths) != 2
+    ):
+        raise ActivationError("Proposal Target merged source binding is invalid")
+    slug = prototype_id.removeprefix("prototype:")
+    prefix = f"{policy['proposal_target_proof']['record_root']}/{slug}/"
+    if any(not isinstance(path, str) or not path.startswith(prefix) for path in changed_paths):
+        raise ActivationError("Proposal Target changed paths escaped the target owner root")
+    if run(
+        ["git", "-C", str(studio), "merge-base", "--is-ancestor", merge_commit, revision],
+        check=False,
+    ).returncode:
+        raise ActivationError("Proposal Target merge is not in current Studio authority")
+    for changed_path in changed_paths:
+        if run(
+            ["git", "-C", str(studio), "cat-file", "-e", f"{revision}:{changed_path}"],
+            check=False,
+        ).returncode:
+            raise ActivationError("Proposal Target merged capture file is unavailable")
+    target_receipt = result.get("receipt", {})
+    proposal_record_version = acknowledgement_projection.get("record_version")
+    if (
+        not isinstance(target_receipt, dict)
+        or not isinstance(target_receipt.get("receipt_ref"), str)
+        or not target_receipt["receipt_ref"]
+        or not isinstance(proposal_record_version, str)
+        or not proposal_record_version
+        or not isinstance(application.get("proposal_id"), str)
+        or not isinstance(application.get("revision"), int)
+        or not isinstance(review.get("number"), int)
+    ):
+        raise ActivationError("Proposal Target canonical receipt binding is invalid")
+    return {
+        "application_id": application_id,
+        "application_revision": application.get("revision"),
+        "application_status": "succeeded",
+        "canonical_proposal_acknowledged": True,
+        "canonical_target_readback": True,
+        "changed_paths": sorted(changed_paths),
+        "human_reviewed_merge": True,
+        "merge_commit": merge_commit,
+        "proposal_id": application.get("proposal_id"),
+        "proposal_record_version": proposal_record_version,
+        "prototype_id": prototype_id,
+        "review_number": review.get("number"),
+        "studio_revision": revision,
+        "target_receipt_ref": target_receipt.get("receipt_ref"),
+    }
+
+
+def validate_proposal_target_negatives(path: Path) -> dict[str, Any]:
+    value = load_private_json(path, "Proposal Target negative proof")
+    outcomes = value.get("outcomes")
+    if value.get("schema_version") != 1 or not isinstance(outcomes, dict):
+        raise ActivationError("Proposal Target negative proof is invalid")
+    if set(outcomes) != PROPOSAL_TARGET_NEGATIVE_SCENARIOS:
+        raise ActivationError("Proposal Target negative proof is incomplete")
+    for scenario, outcome in outcomes.items():
+        if (
+            not isinstance(outcome, dict)
+            or set(outcome) != {"http_status", "code", "canonical_state_changed"}
+            or not isinstance(outcome.get("http_status"), int)
+            or outcome["http_status"] < 400
+            or not isinstance(outcome.get("code"), str)
+            or not outcome["code"]
+            or outcome.get("canonical_state_changed") is not False
+        ):
+            raise ActivationError(f"Proposal Target denial is invalid: {scenario}")
+    return {key: outcomes[key] for key in sorted(outcomes)}
+
+
+def validate_child_receipts(paths: list[Path], expected_sources: dict[str, str]) -> list[dict[str, Any]]:
+    expected_actions = [
+        "activate", "status", "restart", "status",
+        "rollback", "cleanup", "activate", "status",
+    ]
+    if len(paths) != len(expected_actions):
+        raise ActivationError("Proposal Target commissioning child receipt sequence is incomplete")
+    result: list[dict[str, Any]] = []
+    for path, expected_action in zip(paths, expected_actions, strict=True):
+        value = load_private_json(path, "Proposal Target child receipt")
+        if (
+            value.get("action") != expected_action
+            or value.get("source_revisions") != expected_sources
+            or value.get("content_digest") != receipt_content_digest(value)
+        ):
+            raise ActivationError("Proposal Target commissioning child receipt is invalid")
+        result.append({
+            "action": expected_action,
+            "content_digest": value["content_digest"],
+            "receipt_file": path.name,
+        })
+    return result
+
+
+def proposal_target_commission(
+    policy: dict[str, Any],
+    application_id: str,
+    negative_proof_path: Path,
+    child_receipt_paths: list[Path],
+) -> Path:
+    validate(policy)
+    if not policy.get("proposal_target_proof"):
+        raise ActivationError("Proposal Target commissioning policy is required")
+    application = validate_proposal_target_application(
+        policy,
+        proposal_target_application(policy, application_id),
+        application_id,
+    )
+    negatives = validate_proposal_target_negatives(negative_proof_path)
+    sources = expected_source_revisions(policy)
+    children = validate_child_receipts(child_receipt_paths, sources)
+    boundary = active_runtime_boundary(policy)
+    if boundary.get("services_active") is not True:
+        raise ActivationError("Proposal Target final availability is not active")
+    return receipt(
+        "proposal-target-commission",
+        policy,
+        wait_for_activity(policy),
+        negative_proof=negatives,
+        runtime_boundary={**boundary, "final_availability_restored": True},
+        proposal_target_proof={
+            **application,
+            "child_receipts": children,
+            "final_redelivery_complete": True,
+            "negative_denials_complete": True,
+            "restart_recovery_complete": True,
+            "rollback_cleanup_complete": True,
+        },
+    )
+
+
+def verify_proposal_target_commissioning(policy: dict[str, Any]) -> Path:
+    validate(policy)
+    expected_sources = expected_source_revisions(policy)
+    for path in sorted(RECEIPT_ROOT.glob("*-proposal-target-commission.json"), reverse=True):
+        value = load_private_json(path, "Proposal Target commissioning receipt")
+        proof = value.get("proposal_target_proof")
+        if value.get("source_revisions") != expected_sources:
+            continue
+        if (
+            value.get("action") != "proposal-target-commission"
+            or value.get("result") != "succeeded"
+            or value.get("architecture") != policy["architecture"]
+            or value.get("content_digest") != receipt_content_digest(value)
+            or value.get("runtime_boundary", {}).get("final_availability_restored") is not True
+            or not isinstance(proof, dict)
+            or any(proof.get(field) is not True for field in (
+                "canonical_proposal_acknowledged",
+                "canonical_target_readback",
+                "final_redelivery_complete",
+                "human_reviewed_merge",
+                "negative_denials_complete",
+                "restart_recovery_complete",
+                "rollback_cleanup_complete",
+            ))
+        ):
+            raise ActivationError("Proposal Target commissioning receipt is invalid")
+        application = validate_proposal_target_application(
+            policy,
+            proposal_target_application(policy, proof.get("application_id", "")),
+            proof.get("application_id", ""),
+        )
+        if any(proof.get(key) != application.get(key) for key in application):
+            raise ActivationError("Proposal Target canonical readback changed after commissioning")
+        child_receipts = proof.get("child_receipts")
+        if not isinstance(child_receipts, list) or any(
+            not isinstance(item, dict) or not isinstance(item.get("receipt_file"), str)
+            or Path(item["receipt_file"]).name != item["receipt_file"]
+            for item in child_receipts
+        ):
+            raise ActivationError("Proposal Target child receipt references are invalid")
+        child_paths = [RECEIPT_ROOT / item["receipt_file"] for item in child_receipts]
+        validate_child_receipts(child_paths, expected_sources)
+        boundary = active_runtime_boundary(policy)
+        if boundary.get("services_active") is not True:
+            raise ActivationError("Proposal Target current availability is incomplete")
+        return receipt(
+            "proposal-target-commission-verification",
+            policy,
+            wait_for_activity(policy),
+            runtime_boundary=boundary,
+            proposal_target_proof={
+                **proof,
+                "commissioning_receipt_digest": value["content_digest"],
+                "commissioning_sequence_verified": True,
+            },
+        )
+    raise ActivationError("no Proposal Target commissioning receipt matches exact sources")
+
+
 def verify_commissioning(policy: dict[str, Any]) -> Path:
     """Verify durable commissioning and current availability without restarting OOS."""
     validate(policy)
@@ -1474,6 +1775,7 @@ def main() -> int:
         choices=(
             "validate", "activate", "status", "restart", "rehearse",
             "catalog-rehearse", "commission", "verify-commissioning",
+            "proposal-target-commission", "verify-proposal-target-commissioning",
             "rollback", "cleanup",
         ),
     )
@@ -1484,6 +1786,22 @@ def main() -> int:
         metavar="REPO=/ABSOLUTE/PATH",
         help="select a clean exact-revision checkout without changing the workspace primary checkout",
     )
+    parser.add_argument(
+        "--application-id",
+        help="exact completed Proposal Target application for commissioning",
+    )
+    parser.add_argument(
+        "--negative-proof",
+        type=Path,
+        help="operator-private value-free Proposal Target denial proof",
+    )
+    parser.add_argument(
+        "--child-receipt",
+        action="append",
+        default=[],
+        type=Path,
+        help="ordered operator-private activation, restart, rollback, and redelivery receipt",
+    )
     args = parser.parse_args()
     try:
         REPO_PATH_OVERRIDES = parse_repo_paths(args.repo_path)
@@ -1492,7 +1810,7 @@ def main() -> int:
             validate(policy)
             print("cross-domain activation inputs valid")
             return 0
-        path = {
+        actions = {
             "activate": activate,
             "status": status,
             "restart": restart,
@@ -1500,9 +1818,23 @@ def main() -> int:
             "catalog-rehearse": catalog_rehearse,
             "commission": commission,
             "verify-commissioning": verify_commissioning,
+            "verify-proposal-target-commissioning": verify_proposal_target_commissioning,
             "rollback": lambda value: rollback(value),
             "cleanup": lambda value: rollback(value, remove_files=True),
-        }[args.action](policy)
+        }
+        if args.action == "proposal-target-commission":
+            if not args.application_id or args.negative_proof is None:
+                raise ActivationError(
+                    "proposal-target-commission requires --application-id and --negative-proof"
+                )
+            path = proposal_target_commission(
+                policy,
+                args.application_id,
+                args.negative_proof,
+                args.child_receipt,
+            )
+        else:
+            path = actions[args.action](policy)
         print(f"cross-domain {args.action} succeeded: {path}")
         return 0
     except ActivationError as exc:

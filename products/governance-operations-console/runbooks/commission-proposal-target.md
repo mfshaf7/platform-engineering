@@ -89,6 +89,14 @@ Record only status codes, bounded error codes, source revisions, review ids,
 receipt references, and digests. Do not retain request bodies, credentials, or
 public-source-unsafe Proposal content.
 
+Store the seven outcomes in one operator-private JSON file with
+`schema_version: 1` and an `outcomes` object keyed by
+`invalid-caller`, `stale-record-version`, `changed-studio-main`,
+`caller-selected-prototype`, `unreviewed-wrong-head`, `conflicting-replay`,
+and `provider-loss`. Each value contains only `http_status`, `code`, and
+`canonical_state_changed: false`. The commissioning command rejects extra,
+missing, successful, or non-private evidence.
+
 ## Restart, Rollback, And Final Availability
 
 ```bash
@@ -106,3 +114,30 @@ redelivering a fresh token, activating the Console loopback services, and
 re-running status. Final availability means a current exact-source OOS pod,
 read-only dedicated token and Studio mounts, retained state, active loopback
 Console services, and no stale credential projection.
+
+Issue the commissioning receipt from the exact completed OOS application and
+the ordered receipts produced above:
+
+```bash
+make governance-console-proposal-target ACTION=proposal-target-commission ARGS="\
+  --application-id <proposal-target-application-id> \
+  --negative-proof <operator-private-negative-proof.json> \
+  --child-receipt <activate-receipt.json> \
+  --child-receipt <initial-status-receipt.json> \
+  --child-receipt <restart-receipt.json> \
+  --child-receipt <recovered-status-receipt.json> \
+  --child-receipt <rollback-receipt.json> \
+  --child-receipt <cleanup-receipt.json> \
+  --child-receipt <redelivery-activate-receipt.json> \
+  --child-receipt <final-status-receipt.json>"
+
+make governance-console-proposal-target \
+  ACTION=verify-proposal-target-commissioning
+```
+
+The first command rereads the OOS application with the dedicated Console
+caller, proves canonical Proposal acknowledgement, proves the human-reviewed
+Studio merge and both bounded capture files from current `main`, validates the
+negative matrix and lifecycle sequence, and records only value-free evidence.
+The second command is non-mutating and is the exact operating evidence-profile
+entry point.

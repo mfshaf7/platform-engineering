@@ -256,7 +256,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
-            "287e840ddbda584f2b85556952e0179dd7543748",
+            "60d6d8915fa4694b8ff75806541390999604d1c0",
         )
         self.assertEqual(
             policy["source_authorities"]["prototype_studio"],
@@ -330,6 +330,127 @@ class CrossDomainActivationTests(unittest.TestCase):
             if item["id"] == "repository-catalog-operating-commissioning"
         )
         self.assertEqual(command["args"][-1], "verify-commissioning")
+        self.assertEqual(
+            command["conformance_case_ids"],
+            [
+                "case:repository-catalog-operating-positive",
+                "case:repository-catalog-operating-negative",
+            ],
+        )
+        proposal = next(
+            item for item in profile["commands"]
+            if item["id"] == "proposal-target-operating-commissioning"
+        )
+        self.assertEqual(
+            proposal["args"][-1],
+            "verify-proposal-target-commissioning",
+        )
+        self.assertEqual(
+            proposal["conformance_case_ids"],
+            [
+                "case:proposal-target-operating-positive",
+                "case:proposal-target-operating-negative",
+            ],
+        )
+
+    def test_proposal_target_application_requires_canonical_merged_readback(self) -> None:
+        application = {
+            "workflow_id": "proposal-target-application",
+            "application_id": "proposal-target-application:idea-851",
+            "proposal_id": "idea-851",
+            "prototype_id": "prototype:proposal-851",
+            "status": "succeeded",
+            "revision": 5,
+            "canonical_target_mutation": True,
+            "proposal_mutation": True,
+            "runtime_activation": False,
+            "preparation": {
+                "changed_paths": [
+                    "records/prototype-captures/proposal-851/record.yaml",
+                    "records/prototype-captures/proposal-851/receipt.json",
+                ],
+            },
+            "review": {
+                "repository": "workspace-prototype-studio",
+                "number": 41,
+                "merged": True,
+                "human_reviewed": True,
+                "merge_commit": "b" * 40,
+            },
+            "target_result": {"receipt": {"receipt_ref": "receipt://target/851"}},
+            "proposal_acknowledgement": {
+                "projection": {
+                    "record_version": "version-9",
+                    "handoff": {"state": "applied"},
+                },
+            },
+        }
+        completed = activation.subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        with (
+            patch.object(activation, "repo_path", return_value=Path("/studio")),
+            patch.object(activation, "git_head", return_value="c" * 40),
+            patch.object(activation, "run", return_value=completed),
+        ):
+            proof = activation.validate_proposal_target_application(
+                self.proposal_target_policy,
+                application,
+                application["application_id"],
+            )
+        self.assertTrue(proof["canonical_proposal_acknowledged"])
+        self.assertTrue(proof["human_reviewed_merge"])
+        self.assertEqual(proof["studio_revision"], "c" * 40)
+
+        application["proposal_acknowledgement"]["projection"]["handoff"]["state"] = "ready"
+        with self.assertRaisesRegex(activation.ActivationError, "canonically complete"):
+            activation.validate_proposal_target_application(
+                self.proposal_target_policy,
+                application,
+                application["application_id"],
+            )
+
+    def test_proposal_target_negative_and_child_proofs_are_exact_and_private(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            negative = root / "negative.json"
+            negative.write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "outcomes": {
+                        scenario: {
+                            "http_status": 409,
+                            "code": f"denied_{index}",
+                            "canonical_state_changed": False,
+                        }
+                        for index, scenario in enumerate(
+                            activation.PROPOSAL_TARGET_NEGATIVE_SCENARIOS
+                        )
+                    },
+                }),
+                encoding="utf-8",
+            )
+            negative.chmod(0o600)
+            outcomes = activation.validate_proposal_target_negatives(negative)
+            self.assertEqual(set(outcomes), activation.PROPOSAL_TARGET_NEGATIVE_SCENARIOS)
+
+            sources = {"operator-orchestration-service": "a" * 40}
+            actions = [
+                "activate", "status", "restart", "status",
+                "rollback", "cleanup", "activate", "status",
+            ]
+            paths = []
+            for index, action in enumerate(actions):
+                path = root / f"{index}-{action}.json"
+                value = {"action": action, "source_revisions": sources}
+                value["content_digest"] = activation.receipt_content_digest(value)
+                path.write_text(json.dumps(value), encoding="utf-8")
+                path.chmod(0o600)
+                paths.append(path)
+            children = activation.validate_child_receipts(paths, sources)
+            self.assertEqual([item["action"] for item in children], actions)
+
+            negative.chmod(0o644)
+            with self.assertRaisesRegex(activation.ActivationError, "operator-private"):
+                activation.validate_proposal_target_negatives(negative)
 
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
         completed = activation.subprocess.CompletedProcess(

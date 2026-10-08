@@ -60,6 +60,14 @@ credential boundary. The primary runbook defines positive completion,
 negative denials, restart, rollback, cleanup, and clean redelivery without
 placing a provider token in Console or the browser.
 
+The Platform evidence profile now binds Repository/Catalog and Proposal Target
+live checks to their exact operating conformance cases. Its Proposal Target
+verifier is non-mutating: a separate commissioning command first validates the
+completed OOS application, human-reviewed Studio merge, canonical Proposal
+acknowledgement, denial matrix, and ordered restart/rollback/cleanup/redelivery
+receipts. This consumes the merged OOS case-binding maintenance control and
+prevents another same-fidelity capability from running during `#1236`.
+
 ## Required Operating Evidence
 
 The final value-free evidence must prove the exact App, installation,

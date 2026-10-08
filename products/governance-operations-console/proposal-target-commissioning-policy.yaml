@@ -35,7 +35,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 287e840ddbda584f2b85556952e0179dd7543748
+    revision: 60d6d8915fa4694b8ff75806541390999604d1c0
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -56,8 +56,8 @@ source_authorities:
     repo: workspace-prototype-studio
     minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
 authority:
-  workspace_governance_revision: 8ef83b076b8a93935ba12513836ed8dd39fb173a
-  security_revision: c2153dc4b84446ad3821b8fead952847eba7822e
+  workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
+  security_revision: a602d4d56820779efe4aa9f8cf02254e7b8243c6
   security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
 credentials:
   console_oos:

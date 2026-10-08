@@ -221,7 +221,7 @@ governance-console-repository-catalog:
 
 .PHONY: governance-console-proposal-target
 governance-console-proposal-target:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, rollback, or cleanup"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, proposal-target-commission, verify-proposal-target-commissioning, rollback, or cleanup"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py --policy products/governance-operations-console/proposal-target-commissioning-policy.yaml $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: devint-status

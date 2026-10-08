@@ -50,6 +50,12 @@ server-only Console caller boundary while pinning the activated OOS revision,
 Prototype Studio source authority, Security decision, and architecture packet.
 The dedicated provider identity is delivered separately through
 `proposal-target-identity`; it is never placed in the Console environment.
+`proposal-target-commission` validates the completed OOS application, current
+Studio merge and capture files, the exact denial matrix, and the ordered
+restart/rollback/cleanup/redelivery receipts before issuing one value-free
+commissioning receipt. `verify-proposal-target-commissioning` is the
+non-mutating evidence-profile action and fails unless that exact receipt and
+all current canonical readbacks remain valid.
 
 `proposal_target_identity.py` commissions that dedicated exact-repository
 GitHub App and projects only its short-lived token, read-only Prototype Studio

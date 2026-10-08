@@ -24,6 +24,48 @@
       "timeout_seconds": 900
     },
     {
+      "id": "model-profile-lifecycle-contract-validation",
+      "kind": "validations",
+      "name": "Model-profile lifecycle source contract validation",
+      "executable": "python3",
+      "args": ["scripts/model_profile_lifecycle.py", "validate"],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:model-operations-platform-protocol-positive",
+        "case:model-operations-platform-protocol-negative"
+      ],
+      "timeout_seconds": 300
+    },
+    {
+      "id": "model-profile-lifecycle-tests",
+      "kind": "tests",
+      "name": "Model-profile lifecycle positive and negative tests",
+      "executable": "python3",
+      "args": ["scripts/test_model_profile_lifecycle.py"],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:model-operations-platform-protocol-positive",
+        "case:model-operations-platform-protocol-negative"
+      ],
+      "timeout_seconds": 600
+    },
+    {
+      "id": "model-profile-lifecycle-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Model-profile lifecycle operating verification",
+      "executable": "python3",
+      "args": ["scripts/model_profile_lifecycle.py", "verify-operating"],
+      "fidelity": "live-backend",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:model-operations-operating-positive",
+        "case:model-operations-operating-negative"
+      ],
+      "timeout_seconds": 600
+    },
+    {
       "id": "dev-integration-composition-tests",
       "kind": "tests",
       "name": "Platform dev-integration composition tests",

@@ -37,6 +37,12 @@ Before using the gateway as activation evidence, prove:
 - independent Work Design suspension without intake regression
 - audit-ledger retention across an ordinary gateway restart
 
+Source-backed lifecycle application does not satisfy this runtime gate. A
+reviewed request, merged Platform lifecycle receipt, and Console projection are
+candidate evidence only. A new activation remains prohibited until Security
+accepts the exact source and caller path and Platform separately performs and
+records the capability-specific runtime activation.
+
 ## Stage Gate
 
 Stage remains blocked until the dev-integration shape has reviewed source
@@ -51,6 +57,10 @@ If any activation evidence fails:
 - scale down the dev-integration gateway if the failure is runtime-specific
 - preserve audit ledger evidence
 - record the blocker or security finding before adjacent activation continues
+
+Before merge, use the exact lifecycle rollback bundle only while the working
+source still matches its application receipt. After merge, use a reviewed
+source revert; never rewrite the registry around the source history.
 
 ## Non-Goals
 

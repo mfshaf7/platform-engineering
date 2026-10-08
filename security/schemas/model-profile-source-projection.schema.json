@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/model-profile-source-projection.schema.json",
+  "type": "object",
+  "required": ["schema_version", "artifact_type", "owner_repo", "source", "profiles", "digest"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "artifact_type": { "const": "platform-model-profile-source-projection" },
+    "owner_repo": { "const": "platform-engineering" },
+    "source": { "type": "object" },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["profile_id", "lifecycle", "purpose", "allowed_callers", "selected_environments", "activation", "security_review_ref"],
+        "properties": {
+          "profile_id": { "type": "string" },
+          "lifecycle": { "type": "string" },
+          "purpose": { "type": "string" },
+          "allowed_callers": { "type": "array", "items": { "type": "string" } },
+          "selected_environments": { "type": "array", "items": { "type": "string" } },
+          "activation": { "type": "object" },
+          "security_review_ref": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "additionalProperties": false
+}

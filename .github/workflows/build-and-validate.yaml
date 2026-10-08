@@ -39,12 +39,14 @@ jobs:
 
       - name: Check out locked OOS validation source
         run: |
-          source_commit="$(python -c 'import json; print(json.load(open("products/openproject/delivery-art-blocker-workflow-source-lock.json"))["source"]["git_commit"])')"
-          [[ "${source_commit}" =~ ^[0-9a-f]{40}$ ]]
+          blocker_commit="$(python -c 'import json; print(json.load(open("products/openproject/delivery-art-blocker-workflow-source-lock.json"))["source"]["git_commit"])')"
+          model_profile_commit="$(python -c 'import json; print(json.load(open("security/model-profile-request-source-lock.json"))["git_commit"])')"
+          [[ "${blocker_commit}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${model_profile_commit}" =~ ^[0-9a-f]{40}$ ]]
           git init /tmp/operator-orchestration-service
           git -C /tmp/operator-orchestration-service remote add origin https://github.com/mfshaf7/operator-orchestration-service.git
-          git -C /tmp/operator-orchestration-service fetch --depth=1 origin "${source_commit}"
-          git -C /tmp/operator-orchestration-service checkout --detach FETCH_HEAD
+          git -C /tmp/operator-orchestration-service fetch --depth=1 origin "${blocker_commit}" "${model_profile_commit}"
+          git -C /tmp/operator-orchestration-service checkout --detach "${model_profile_commit}"
 
       - name: Validate platform repo structure
         run: python scripts/validate_repo_structure.py
@@ -67,6 +69,8 @@ jobs:
         run: |
           python scripts/validate_ai_model_profiles.py
           python scripts/test_ai_model_profiles.py
+          python scripts/model_profile_lifecycle.py --oos-repo-root /tmp/operator-orchestration-service validate
+          OOS_REPO_ROOT=/tmp/operator-orchestration-service python scripts/test_model_profile_lifecycle.py
           python scripts/test_governed_ai_gateway_policy.py
           python scripts/test_governed_ai_gateway_runtime.py
           python scripts/test_governed_ai_ollama_adapter.py

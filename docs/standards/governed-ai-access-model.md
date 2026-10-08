@@ -33,6 +33,8 @@ to claim governed status.
 - the approved model-profile registry
 - platform-side audit and policy expectations for governed AI calls
 - the rollout and lifecycle contract for the access plane itself
+- source-backed application, readback, projection, receipt, and rollback for
+  reviewed model-profile lifecycle requests
 
 `security-architecture` owns:
 
@@ -41,6 +43,23 @@ to claim governed status.
 
 Owner repos such as `workspace-governance` may consume approved profiles, but
 they must not invent repo-local governed-model policy.
+
+## Lifecycle Request Boundary
+
+OOS owns the reviewed request workflow; it does not own model-profile source.
+Platform accepts only an exact OOS projection in `approved` review state and
+`implementing` fulfillment state. The Platform decision binds the request
+revision, latest receipt digest, current registry/access-plane/runtime-assist
+digests, Platform actor, and idempotency identity.
+
+Platform assigns canonical profile identity for `create`, selects the complete
+provider/model binding, and validates the resulting source as one transaction.
+`create` and `amend` become `suspended`. `activate` and `exception` require an
+exact Security decision. Merged readback, rather than an unreviewed working
+tree, produces the `applied` fulfillment payload returned to OOS.
+
+The primary procedure is the governed AI gateway
+[operations guide](../components/governed-ai-gateway/operations.md).
 
 ## Required Profile Fields
 

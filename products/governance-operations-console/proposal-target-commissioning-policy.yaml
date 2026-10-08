@@ -25,12 +25,12 @@ architecture:
     digest: sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0
   relationship: exact-security-binding
   security_review_revisions:
-    - 1c106066118c32d8db38cf34850a6560d821da66
+    - b7dda700e1a6f12f445a42391737e20d5310b09e
     - eab7af0c44de2e76eb381bf06447105ce3a28863
     - 875696096adae15cf2e068054a5fa8d6e28d8524
 console:
   repo: governance-operations-console
-  revision: 1c106066118c32d8db38cf34850a6560d821da66
+  revision: b7dda700e1a6f12f445a42391737e20d5310b09e
   port: 3317
 owners:
   oos:
@@ -57,7 +57,7 @@ source_authorities:
     minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
 authority:
   workspace_governance_revision: a6bf7d151d7465dc3d91824f81ddb89cd1f25c4d
-  security_revision: 6880a757c17f5d2bf402e69c67b7aa9fd5b31d31
+  security_revision: 4250df0b8e045d21ba1fc634ef3de41a6d346120
   security_review_ref: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
 credentials:
   console_oos:

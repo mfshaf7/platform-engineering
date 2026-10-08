@@ -73,6 +73,13 @@ Console pull request `#54` removed that extra field and added exact request-body
 coverage; Security Architecture pull request `#205` re-accepted the narrower
 request at its merged revision.
 
+The next live step exposed the matching submission-side mismatch: Console
+included free-form Prototype suggestion fields although OOS accepts only the
+derived Prototype identity. Console pull request `#56` removed those fields
+and made the exact Prototype binding part of conformance coverage; Security
+Architecture pull request `#206` re-accepted the narrower submission at its
+merged revision.
+
 The Platform evidence profile now binds Repository/Catalog and Proposal Target
 live checks to their exact operating conformance cases. Its Proposal Target
 verifier is non-mutating: a separate commissioning command first validates the

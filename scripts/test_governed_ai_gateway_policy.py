@@ -112,6 +112,36 @@ class GatewayPolicyTests(unittest.TestCase):
         self.assertIn("binding-not-active", decision.reasons)
         self.assertIn("profile-activation-not-allowed", decision.reasons)
 
+    def test_agent_console_profile_allows_only_the_reviewed_typed_request(self) -> None:
+        decision = GatewayPolicy(selections()).evaluate(self.agent_console_request())
+
+        self.assertTrue(decision.allowed)
+        self.assertFalse(decision.compatibility_mode)
+        self.assertEqual(decision.task["task_kind"], "assistant_response")
+        self.assertEqual(
+            decision.task["provider_output_schema_ref"],
+            "platform-engineering/security/schemas/agent-console-response.schema.json",
+        )
+
+    def test_agent_console_mismatched_caller_task_schema_and_session_fail_closed(self) -> None:
+        request = self.agent_console_request()
+        request["caller_identity"]["caller_id"] = (
+            "operator-orchestration-service/refinement-assist"
+        )
+        request["task"]["contract_ref"] = "oos.delivery-refinement.v1"
+        request["provider_output_schema_ref"] = (
+            "platform-engineering/security/schemas/delivery-refinement-advice.schema.json"
+        )
+        request["input"].pop("session_binding")
+
+        decision = GatewayPolicy(selections()).evaluate(request)
+
+        self.assertFalse(decision.allowed)
+        self.assertIn("caller-not-allowed", decision.reasons)
+        self.assertIn("task-contract-mismatch", decision.reasons)
+        self.assertIn("output-schema-mismatch", decision.reasons)
+        self.assertIn("input-field-required:session_binding", decision.reasons)
+
     def test_unknown_caller_task_schema_and_profile_fail_closed(self) -> None:
         request = self.work_design_request()
         request["caller_identity"]["caller_id"] = "unknown/caller"
@@ -203,6 +233,46 @@ class GatewayPolicyTests(unittest.TestCase):
                         "/v1/context/refinement/projections/refinement-1"
                     ),
                     "content": "A bounded model-safe Refinement projection.",
+                },
+            },
+        }
+
+    @staticmethod
+    def agent_console_request() -> dict:
+        profile_id = "agent-console-assistant-v1"
+        return {
+            "profile_id": profile_id,
+            "caller_identity": caller(
+                profile_id, "operator-orchestration-service/agent-console"
+            ),
+            "operator_identity": {"operator_id": "operator:test"},
+            "task": {
+                "kind": "assistant_response",
+                "contract_ref": "oos.agent-console.interaction.v1",
+                "version": "1.0",
+            },
+            "provider_output_schema_ref": (
+                "platform-engineering/security/schemas/agent-console-response.schema.json"
+            ),
+            "input": {
+                "task_instruction": (
+                    "Answer from the model-safe packet without authorizing mutations."
+                ),
+                "operator_prompt": "Summarize the current governed work state.",
+                "interaction_mode": "chat",
+                "model_safe_packet": {
+                    "packet_ref": "cgg://packets/agent-console-1",
+                    "redaction_receipt_ref": "cgg://receipts/redaction-1",
+                    "projection_receipt_ref": (
+                        "/v1/context/agent-console/projections/agent-console-1"
+                    ),
+                    "artifact_digest": "sha256:" + "a" * 64,
+                    "content": "A bounded model-safe Agent Console projection.",
+                },
+                "session_binding": {
+                    "session_ref": "oos://agent-console/sessions/session-1",
+                    "invocation_id": "invocation-1",
+                    "agent_instance_id": "agent-instance-1",
                 },
             },
         }

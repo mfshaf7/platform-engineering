@@ -66,6 +66,56 @@
       "timeout_seconds": 600
     },
     {
+      "id": "agent-console-platform-protocol-validation",
+      "kind": "validations",
+      "name": "Agent Console Platform protocol validation",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/agent_console_platform.py",
+        "validate"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:agent-console-platform-protocol-positive",
+        "case:agent-console-platform-protocol-negative"
+      ],
+      "timeout_seconds": 300
+    },
+    {
+      "id": "agent-console-platform-protocol-tests",
+      "kind": "tests",
+      "name": "Agent Console Platform positive and negative tests",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/test_agent_console_platform.py"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:agent-console-platform-protocol-positive",
+        "case:agent-console-platform-protocol-negative"
+      ],
+      "timeout_seconds": 300
+    },
+    {
+      "id": "agent-console-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Agent Console operating verification",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/agent_console_platform.py",
+        "verify-operating"
+      ],
+      "fidelity": "live-backend",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:agent-console-operating-positive",
+        "case:agent-console-operating-negative"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
       "id": "dev-integration-composition-tests",
       "kind": "tests",
       "name": "Platform dev-integration composition tests",

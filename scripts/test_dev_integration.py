@@ -487,6 +487,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "intake-classifier-v1",
                     "delivery-work-design-advisor-v1",
                     "delivery-refinement-advisor-v1",
+                    "agent-console-assistant-v1",
                 },
             )
             self.assertTrue(
@@ -496,6 +497,11 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             self.assertTrue(
                 selections["profiles"]["delivery-refinement-advisor-v1"][
+                    "activation_eligible"
+                ]
+            )
+            self.assertTrue(
+                selections["profiles"]["agent-console-assistant-v1"][
                     "activation_eligible"
                 ]
             )

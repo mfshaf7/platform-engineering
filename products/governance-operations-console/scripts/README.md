@@ -57,6 +57,12 @@ commissioning receipt. `verify-proposal-target-commissioning` is the
 non-mutating evidence-profile action and fails unless that exact receipt and
 all current canonical readbacks remain valid.
 
+Use `make governance-console-agent-console ACTION=validate` for the Platform
+source contract and `ACTION=verify-operating` only after the exact #1248
+Security gate and existing `refinement-catalog` bindings are active. The
+verifier keeps caller credentials private and emits only credential-free
+positive, negative, rollback, and source-revision evidence.
+
 `proposal_target_identity.py` commissions that dedicated exact-repository
 GitHub App and projects only its short-lived token, read-only Prototype Studio
 authority, and persistent Proposal Target state into OOS. It never reuses

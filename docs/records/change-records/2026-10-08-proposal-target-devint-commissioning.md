@@ -90,6 +90,16 @@ Console pull request `#57` synchronized its conformance fixture, and Security
 Architecture pull request `#207` re-accepted the exact repaired chain. This is
 an owner-maintenance repair within `#1236`, not a new ART work item.
 
+That repair changed Studio `main` while the retained live application was
+still bound to the earlier target revision. OOS correctly rejected both a
+conflicting resubmission and an authority-stale continuation, but cancellation
+left no bounded restart for a record that had created no files, review, target
+result, Proposal acknowledgement, or canonical mutation. OOS pull request
+`#289` added only that explicit cancel-and-restart path with independent
+service and durable-store enforcement; Security Architecture pull request
+`#208` accepted the exact merged control. All other conflicting replays remain
+denied.
+
 The Platform evidence profile now binds Repository/Catalog and Proposal Target
 live checks to their exact operating conformance cases. Its Proposal Target
 verifier is non-mutating: a separate commissioning command first validates the

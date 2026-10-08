@@ -256,7 +256,7 @@ class CrossDomainActivationTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
-            "7263aae5b4eac17376a84b96f8f533b39a7e1500",
+            "0e935029327c3195f7ad1026c6f450f4b32c52dd",
         )
         self.assertEqual(
             policy["source_authorities"]["prototype_studio"],

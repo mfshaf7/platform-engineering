@@ -33,7 +33,7 @@ proof, rollback, and clean redelivery are one existing `#1236` Landing Unit.
 They are not additional ART stories.
 
 The controlling review is the
-[Proposal Target Application Trust-Boundary Security Delta](https://github.com/mfshaf7/security-architecture/blob/e136d6f7d543e0dde78a1959fa299e989efecfe1/docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md).
+[Proposal Target Application Trust-Boundary Security Delta](https://github.com/mfshaf7/security-architecture/blob/94d165b9b62d5aa6ee362cb138ea1ea48e4dd835/docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md).
 
 ## Consequences
 

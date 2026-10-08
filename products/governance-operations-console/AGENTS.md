@@ -19,6 +19,8 @@ authority, or Security approval.
 - `runbooks/commission-repository-catalog.md`
 - `proposal-target-commissioning-policy.yaml`
 - `runbooks/commission-proposal-target.md`
+- `agent-console-commissioning-policy.yaml`
+- `runbooks/commission-agent-console.md`
 
 ## Boundary
 
@@ -52,3 +54,8 @@ Proposal Target commissioning must use the dedicated OOS identity and
 `make governance-console-proposal-target`. Do not reuse another Prototype
 workflow identity, Agent Gary, ambient human credentials, or a generic Console
 activity receipt as target-application evidence.
+
+Agent Console commissioning must reuse `refinement-catalog` and use
+`make governance-console-agent-console`. Do not enable its OOS or CGG profile
+bindings before the exact `gate:agent-console-operating-acceptance` decision,
+and do not treat gateway readiness alone as end-to-end operating evidence.

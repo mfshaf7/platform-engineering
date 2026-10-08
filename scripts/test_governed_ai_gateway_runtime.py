@@ -305,6 +305,7 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.assertEqual(
             readiness["ready_profile_ids"],
             [
+                "agent-console-assistant-v1",
                 "delivery-refinement-advisor-v1",
                 "delivery-work-design-advisor-v1",
             ],

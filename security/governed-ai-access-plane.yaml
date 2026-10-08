@@ -18,6 +18,7 @@ access_plane:
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
     - delivery-refinement-advisor-v1
+    - agent-console-assistant-v1
   provider_routes:
     - route_id: ollama-local-host
       provider: ollama
@@ -30,6 +31,7 @@ access_plane:
         - intake-classifier-v1
         - delivery-work-design-advisor-v1
         - delivery-refinement-advisor-v1
+        - agent-console-assistant-v1
       allowed_models:
         - qwen3:8b
     - route_id: openai-responses-api
@@ -72,6 +74,17 @@ access_plane:
         path: contracts/refinement/assist-result.schema.json
       allowed_task_kinds:
         - metadata_advice
+    - caller_id: operator-orchestration-service/agent-console
+      purpose: agent-console-assist
+      required_profile: agent-console-assistant-v1
+      required_provider_output_schema_ref:
+        repo: platform-engineering
+        path: security/schemas/agent-console-response.schema.json
+      accepted_record_schema_ref:
+        repo: operator-orchestration-service
+        path: contracts/agent-console/model-response.schema.json
+      allowed_task_kinds:
+        - assistant_response
   caller_identity:
     required_fields:
       - caller_id
@@ -158,6 +171,11 @@ access_plane:
         environment: dev-integration
         binding: local-ollama-qwen3-8b
         reason: reviewed-refinement-devint-activation-1012-1013
+      agent-console-assistant-v1:
+        activation_allowed: true
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: source-admitted-agent-console-profile-operating-gated-by-1248
     compatibility_projection:
       consumer: workspace-governance/intake-assist
     profile_activation_allowed: true

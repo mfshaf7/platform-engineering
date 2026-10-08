@@ -37,6 +37,7 @@ Primary operator procedure:
 - [Activate cross-domain awareness](runbooks/activate-cross-domain-awareness.md)
 - [Commission Repository and Catalog operation](runbooks/commission-repository-catalog.md)
 - [Commission Proposal Target](runbooks/commission-proposal-target.md)
+- [Commission Agent Console](runbooks/commission-agent-console.md)
 
 Machine-readable policy:
 
@@ -45,6 +46,7 @@ Machine-readable policy:
 - [cross-domain-activation-policy.yaml](cross-domain-activation-policy.yaml)
 - [repository-catalog-commissioning-policy.yaml](repository-catalog-commissioning-policy.yaml)
 - [proposal-target-commissioning-policy.yaml](proposal-target-commissioning-policy.yaml)
+- [agent-console-commissioning-policy.yaml](agent-console-commissioning-policy.yaml)
 
 The cross-domain activation path pins the approved OOS, WGCF, Console,
 Workspace Governance, and Security revisions. It exposes owner APIs to the

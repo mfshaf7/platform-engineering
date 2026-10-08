@@ -1,0 +1,39 @@
+schema_version: 1
+lane: dev-integration
+activation:
+  delivery_id: delivery-1203
+  work_item_ref: openproject://work_packages/1246
+  security_gate_id: gate:agent-console-operating-acceptance
+  composition_id: refinement-catalog
+model:
+  profile_id: agent-console-assistant-v1
+  caller_id: operator-orchestration-service/agent-console
+  task_kind: assistant_response
+  contract_ref: oos.agent-console.interaction.v1
+  contract_version: "1.0"
+  provider_output_schema_ref: platform-engineering/security/schemas/agent-console-response.schema.json
+runtime:
+  oos_profile: accepted-idea-delivery
+  oos_namespace_pattern: devint-accepted-idea-delivery-{operator}
+  oos_service: operator-orchestration-service
+  oos_local_port: 38180
+  gateway_profile: governed-ai-gateway
+  gateway_namespace_pattern: devint-governed-ai-gateway-{operator}
+  gateway_service: governed-ai-gateway
+  gateway_local_port: 38290
+  caller_id: governance-operations-console
+source_minimums:
+  context-governance-gateway: 094c10a0df39bf0733ee02e3cb567f571cdf661f
+  operator-orchestration-service: f2c8ccbff462a49c30a157a9439c4111afe3cb78
+security:
+  owner_repo: security-architecture
+  review_ref: docs/reviews/components/2026-10-09-agent-console-composed-runtime.md
+  exact_revision_repos:
+    - context-governance-gateway
+    - operator-orchestration-service
+    - platform-engineering
+    - governance-operations-console
+    - workspace-governance
+receipts:
+  directory: agent-console/receipts
+  operating_filename: operating-verification.json

@@ -16,11 +16,13 @@ contract:
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
     - delivery-refinement-advisor-v1
+    - agent-console-assistant-v1
   consumers:
     allowed_callers:
       - workspace-governance/intake-assist
       - operator-orchestration-service/work-design-assist
       - operator-orchestration-service/refinement-assist
+      - operator-orchestration-service/agent-console
     registered_not_active_callers: []
     denied_patterns:
       - direct-provider-client

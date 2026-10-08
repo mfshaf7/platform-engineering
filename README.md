@@ -226,6 +226,7 @@ product-neutral.
   - `make governance-console-cross-domain ACTION=<validate|activate|status|restart|rehearse|rollback|cleanup>` operates the [Console cross-domain dev-integration activation](products/governance-operations-console/runbooks/activate-cross-domain-awareness.md)
   - `make governance-console-repository-catalog ACTION=<validate|activate|status|catalog-rehearse|restart|commission|rollback|cleanup>` operates the [Repository and Catalog dev-integration commissioning path](products/governance-operations-console/runbooks/commission-repository-catalog.md); `commission` is the governed end-to-end evidence command
   - `make governance-console-proposal-target ACTION=<validate|activate|status|restart|rehearse|rollback|cleanup>` operates the [Proposal Target dev-integration commissioning path](products/governance-operations-console/runbooks/commission-proposal-target.md)
+  - `make governance-console-agent-console ACTION=<validate|verify-operating>` operates the [Agent Console governed runtime commissioning path](products/governance-operations-console/runbooks/commission-agent-console.md)
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

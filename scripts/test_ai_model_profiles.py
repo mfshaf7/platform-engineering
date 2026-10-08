@@ -35,6 +35,7 @@ CONTRACT_PATHS = (
     Path("security/schemas/intake-classification-result.schema.json"),
     Path("security/schemas/delivery-work-design-advice.schema.json"),
     Path("security/schemas/delivery-refinement-advice.schema.json"),
+    Path("security/schemas/agent-console-response.schema.json"),
 )
 LOCAL_REFERENCE_PATHS = (
     Path("docs/standards/governed-ai-access-model.md"),
@@ -173,6 +174,7 @@ class ModelProfileResolverTests(unittest.TestCase):
             "intake-classification-result.schema.json",
             "delivery-work-design-advice.schema.json",
             "delivery-refinement-advice.schema.json",
+            "agent-console-response.schema.json",
         ):
             schema_path = root / "security/schemas" / schema_name
             schema_path.parent.mkdir(parents=True, exist_ok=True)
@@ -384,6 +386,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "intake-classifier-v1",
                     "delivery-work-design-advisor-v1",
                     "delivery-refinement-advisor-v1",
+                    "agent-console-assistant-v1",
                 },
             )
             self.assertTrue(
@@ -396,6 +399,11 @@ class ModelProfileResolverTests(unittest.TestCase):
             )
             self.assertTrue(
                 result["profiles"]["delivery-refinement-advisor-v1"][
+                    "activation_eligible"
+                ]
+            )
+            self.assertTrue(
+                result["profiles"]["agent-console-assistant-v1"][
                     "activation_eligible"
                 ]
             )

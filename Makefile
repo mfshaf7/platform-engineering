@@ -55,6 +55,7 @@ help:
 	@printf "  governance-console-cross-domain Activate or inspect Console cross-domain dev-integration\n"
 	@printf "  governance-console-repository-catalog Commission the exact Repository-to-Catalog operating path\n"
 	@printf "  governance-console-proposal-target Operate the exact Proposal Target loopback path\n"
+	@printf "  governance-console-agent-console Validate or verify the governed Agent Console path\n"
 	@printf "  model-profile-lifecycle Validate, project, apply, read back, or restore reviewed model-profile lifecycle source\n"
 	@printf "  verify-platform-host Verify fresh WSL host and k3s bootstrap health\n"
 	@printf "  verify-restart-survival Verify full restart survival across host, Vault, and core Argo apps\n"
@@ -224,6 +225,11 @@ governance-console-repository-catalog:
 governance-console-proposal-target:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rehearse, proposal-target-commission, verify-proposal-target-commissioning, rollback, or cleanup"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_cross_domain_activation.py --policy products/governance-operations-console/proposal-target-commissioning-policy.yaml $(ACTION) $(if $(ARGS),$(ARGS),)
+
+.PHONY: governance-console-agent-console
+governance-console-agent-console:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate or verify-operating"; exit 1; }
+	python3 products/governance-operations-console/scripts/agent_console_platform.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: devint-status
 devint-status:
@@ -440,6 +446,8 @@ validate:
 	python3 products/governance-operations-console/scripts/test_console_cross_domain_activation.py
 	python3 products/governance-operations-console/scripts/proposal_target_identity.py validate
 	python3 products/governance-operations-console/scripts/test_proposal_target_identity.py
+	python3 products/governance-operations-console/scripts/agent_console_platform.py validate
+	python3 products/governance-operations-console/scripts/test_agent_console_platform.py
 	python3 scripts/repository_provider_identity.py validate
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate

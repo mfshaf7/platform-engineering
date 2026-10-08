@@ -237,10 +237,12 @@ if summary["direct_ollama_reachable_from_consumer"]:
 if not summary["provider_schema_valid"]:
     failures.append("gateway did not record valid provider schema evidence")
 if set(summary["ready_profile_ids"]) != {
+    "agent-console-assistant-v1",
     "intake-classifier-v1",
     "delivery-work-design-advisor-v1",
+    "delivery-refinement-advisor-v1",
 }:
-    failures.append("gateway readiness does not expose both independently active profiles")
+    failures.append("gateway readiness does not expose every independently active profile")
 if summary["work_design_http_status"] != 200:
     failures.append("Work Design invocation did not complete successfully")
 if summary["work_design_policy_decision"] != "allow":

@@ -67,6 +67,12 @@ Security Architecture pull request `#204` re-accepted the exact repaired
 revision. This Platform pin refresh admits only those merged revisions; it does
 not expand the Proposal Target identity or exposure model.
 
+The resumed live proof then exposed a second adapter mismatch: Console supplied
+a Prototype id that the OOS preparation contract intentionally derives itself.
+Console pull request `#54` removed that extra field and added exact request-body
+coverage; Security Architecture pull request `#205` re-accepted the narrower
+request at its merged revision.
+
 The Platform evidence profile now binds Repository/Catalog and Proposal Target
 live checks to their exact operating conformance cases. Its Proposal Target
 verifier is non-mutating: a separate commissioning command first validates the

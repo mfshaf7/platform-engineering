@@ -28,14 +28,14 @@ security_authority:
   review:
     ref: openproject://work_packages/1235
     repository: security-architecture
-    revision: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    revision: 94d165b9b62d5aa6ee362cb138ea1ea48e4dd835
     path: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
     decision: approved
   final_normal_availability_gate: openproject://work_packages/1236
   normal_availability_review:
     ref: openproject://work_packages/1235
     repository: security-architecture
-    revision: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    revision: 94d165b9b62d5aa6ee362cb138ea1ea48e4dd835
     path: docs/reviews/components/2026-10-08-proposal-target-application-trust-boundary.md
     decision: approved
 source_boundary:
@@ -107,9 +107,9 @@ activation:
   source_authority_minimum_revision: eab7af0c44de2e76eb381bf06447105ce3a28863
   orchestration_minimum_revision: 287e840ddbda584f2b85556952e0179dd7543748
   approved_source_revisions:
-    governance-operations-console: e993e9a55b80a24dcab4b96b8291ece822c8dd0f
+    governance-operations-console: f1564dcd6ef46db9cceff09a598d64265074896b
     operator-orchestration-service: 287e840ddbda584f2b85556952e0179dd7543748
-    security-architecture: e136d6f7d543e0dde78a1959fa299e989efecfe1
+    security-architecture: 94d165b9b62d5aa6ee362cb138ea1ea48e4dd835
     workspace-prototype-studio: eab7af0c44de2e76eb381bf06447105ce3a28863
   required_evidence:
     - exact-definition-digest-and-source-heads

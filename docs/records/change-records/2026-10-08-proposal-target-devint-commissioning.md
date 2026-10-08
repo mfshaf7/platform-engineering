@@ -60,6 +60,13 @@ credential boundary. The primary runbook defines positive completion,
 negative denials, restart, rollback, cleanup, and clean redelivery without
 placing a provider token in Console or the browser.
 
+The first live dispatch exposed that the Console adapter serialized the local
+human session principal where OOS requires its authenticated machine caller.
+Console pull request `#53` restored that reviewed attribution boundary, and
+Security Architecture pull request `#204` re-accepted the exact repaired
+revision. This Platform pin refresh admits only those merged revisions; it does
+not expand the Proposal Target identity or exposure model.
+
 The Platform evidence profile now binds Repository/Catalog and Proposal Target
 live checks to their exact operating conformance cases. Its Proposal Target
 verifier is non-mutating: a separate commissioning command first validates the

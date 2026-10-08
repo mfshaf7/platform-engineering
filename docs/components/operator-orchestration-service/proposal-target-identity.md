@@ -41,9 +41,9 @@ make proposal-target-identity ACTION=commission ARGS="\
   --installation-id <installation-id> \
   --private-key-file <private-0600-pem> \
   --caller-id platform-engineering \
-  --source-revision governance-operations-console=e993e9a55b80a24dcab4b96b8291ece822c8dd0f \
+  --source-revision governance-operations-console=f1564dcd6ef46db9cceff09a598d64265074896b \
   --source-revision operator-orchestration-service=287e840ddbda584f2b85556952e0179dd7543748 \
-  --source-revision security-architecture=e136d6f7d543e0dde78a1959fa299e989efecfe1 \
+  --source-revision security-architecture=94d165b9b62d5aa6ee362cb138ea1ea48e4dd835 \
   --source-revision workspace-prototype-studio=eab7af0c44de2e76eb381bf06447105ce3a28863 \
   --receipt <private-receipt-path>"
 
@@ -52,9 +52,9 @@ make proposal-target-identity ACTION=deliver ARGS="\
   --installation-id <installation-id> \
   --private-key-file <private-0600-pem> \
   --caller-id platform-engineering \
-  --source-revision governance-operations-console=e993e9a55b80a24dcab4b96b8291ece822c8dd0f \
+  --source-revision governance-operations-console=f1564dcd6ef46db9cceff09a598d64265074896b \
   --source-revision operator-orchestration-service=287e840ddbda584f2b85556952e0179dd7543748 \
-  --source-revision security-architecture=e136d6f7d543e0dde78a1959fa299e989efecfe1 \
+  --source-revision security-architecture=94d165b9b62d5aa6ee362cb138ea1ea48e4dd835 \
   --source-revision workspace-prototype-studio=eab7af0c44de2e76eb381bf06447105ce3a28863 \
   --session-manifest <workspace>/.dev-integration/accepted-idea-delivery/<operator>/current-session.yaml \
   --workspace-root <workspace> \

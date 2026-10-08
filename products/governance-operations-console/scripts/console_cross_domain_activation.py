@@ -142,6 +142,14 @@ def require_source_authority(source: dict[str, Any]) -> None:
         raise ActivationError(f"{name} must be clean before activation")
 
 
+def source_authority_activation_revision(source: dict[str, Any]) -> str:
+    revision = source.get("revision", source.get("minimum_revision"))
+    if not isinstance(revision, str) or len(revision) != 40:
+        name = source.get("repo", "source")
+        raise ActivationError(f"{name} source authority policy is invalid")
+    return revision
+
+
 def require_clean_platform_source() -> None:
     if run(["git", "-C", str(REPO_ROOT), "status", "--porcelain"]).stdout.strip():
         raise ActivationError("the executing Platform checkout must be clean before activation")
@@ -842,18 +850,7 @@ def receipt(
         "activation": policy["activation"],
         "architecture": policy["architecture"],
         "proof_scope": policy["proof_scope"],
-        "source_revisions": {
-            "platform-engineering": git_head(REPO_ROOT),
-            policy["console"]["repo"]: policy["console"]["revision"],
-            policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
-            policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
-            "workspace-governance": policy["authority"]["workspace_governance_revision"],
-            "security-architecture": policy["authority"]["security_revision"],
-            **{
-                source["repo"]: git_head(repo_path(source["repo"]))
-                for source in policy.get("source_authorities", {}).values()
-            },
-        },
+        "source_revisions": expected_source_revisions(policy),
         "credential_boundary": {
             "browser_credentials_allowed": policy["credentials"]["browser_credentials_allowed"],
             "console_oos_caller_id": policy["credentials"]["console_oos"]["caller_id"],
@@ -1353,7 +1350,7 @@ def expected_source_revisions(policy: dict[str, Any]) -> dict[str, str]:
         "workspace-governance": policy["authority"]["workspace_governance_revision"],
         "security-architecture": policy["authority"]["security_revision"],
         **{
-            source["repo"]: git_head(repo_path(source["repo"]))
+            source["repo"]: source_authority_activation_revision(source)
             for source in policy.get("source_authorities", {}).values()
         },
     }

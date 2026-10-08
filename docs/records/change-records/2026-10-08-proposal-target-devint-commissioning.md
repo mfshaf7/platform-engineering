@@ -108,6 +108,15 @@ acknowledgement, denial matrix, and ordered restart/rollback/cleanup/redelivery
 receipts. This consumes the merged OOS case-binding maintenance control and
 prevents another same-fidelity capability from running during `#1236`.
 
+Final commissioning exposed a receipt-time contradiction after the successful
+application advanced Prototype Studio `main`: lifecycle receipts had been
+issued against the policy's activation baseline, but the verifier recomputed
+their Studio source from the newer live head. The repair keeps lifecycle source
+evidence bound to the policy activation revision and leaves the existing
+canonical target proof responsible for the current post-merge Studio revision.
+This preserves both facts without weakening ancestry, exact-file, reviewed
+merge, or current-authority validation.
+
 ## Required Operating Evidence
 
 The final value-free evidence must prove the exact App, installation,

@@ -139,5 +139,10 @@ The first command rereads the OOS application with the dedicated Console
 caller, proves canonical Proposal acknowledgement, proves the human-reviewed
 Studio merge and both bounded capture files from current `main`, validates the
 negative matrix and lifecycle sequence, and records only value-free evidence.
+Lifecycle receipts retain the policy's activation revision for Prototype
+Studio even after the successful application advances Studio `main`. The
+canonical target proof separately records and validates the current post-merge
+Studio revision; commissioning must not reinterpret the earlier lifecycle
+receipts as if they were created after that authority change.
 The second command is non-mutating and is the exact operating evidence-profile
 entry point.

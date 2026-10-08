@@ -120,6 +120,18 @@ Security Architecture pull request `#209` re-accepted that exact verifier
 boundary. The commissioning policy, identity contract, and operator examples
 now pin its merged decision before the final lifecycle proof is regenerated.
 
+The original `#1236` Review Packet remained bound to Platform pull request
+`#267` at source revision `5bc83a2ba54977d137f59f81b9a67931ba19cb18`.
+The reviewed verifier and contract repairs landed afterward through Platform
+pull requests `#274`, `#275`, and `#276`, so replaying the original
+post-merge evidence against current authority correctly failed closed. OOS
+pull request `#290` added the bounded recovery that archives this obsolete
+operating evidence while preserving the immutable merge-ready packet. Security
+Architecture pull request `#210` synchronized its generated change-record
+index. The recovered `#1236` Landing Unit records the final receipts below
+against current Platform source; it does not rewrite or discard the original
+review evidence.
+
 ## Required Operating Evidence
 
 The final value-free evidence must prove the exact App, installation,
@@ -132,14 +144,59 @@ source, logs, receipts, or ART evidence.
 
 ## Artifact And Deployment Evidence
 
-Pending the reviewed Platform merge and value-free live evidence attachment for
-`#1236`. Source validation alone is not deployment or operating evidence.
+The source and review chain is merged and provider-confirmed:
+
+- Platform pull request `#267`: head
+  `5bc83a2ba54977d137f59f81b9a67931ba19cb18`, merge
+  `e2c48122858fd0fe154ca9d7a8e11e9b56a5c61f`.
+- Platform verifier repair pull request `#274`: head
+  `665c380fec91e580e86bf9dabbfbcfb7a888c0ab`, merge
+  `85d7287ddccf021637d36131a5b661e75f1fdf4c`.
+- Platform Security-pin refresh pull request `#275`: head
+  `3fcb6322ae35baa2e76ce39895ad2c403e5ad105`, merge
+  `fee8885c1b5b407b54e2b5a60b11cc762f1beda4`.
+- Platform cross-surface revision repair pull request `#276`: head
+  `b546567882a693fc37b4734d8d86f074131261c0`, merge and
+  activation revision `2c76c0df78a61ebb8cad3e64c94231ed25e157be`.
+- Security acceptance pull request `#209`: merge
+  `add3b405cffe87d158c65edec1d24cf33ea2def8`; generated-index
+  synchronization pull request `#210`: merge
+  `24fc2a6db32d2ba04ade9c3bdea7cc022153ddbc`.
+- OOS evidence-recovery pull request `#290`: head
+  `f483ba6f7d4cc43bde49daf3ad8b136e2a21ec13`, merge
+  `c0ef285a39938050b6a7ae976f315245269ea58b`.
+
+The final activation and status receipts are
+`20261008T122258Z-activate.json`
+(`sha256:557e8e95841594f1bf8d279b2f9675a9c98d1368b971290b120f46292e5e97f2`)
+and `20261008T122259Z-status.json`
+(`sha256:3099ed6674f38266f1ba0d75013ae7bfc9a7f2cc1f5f15637f1c9741cc9c3c32`).
+Both report successful `dev-integration` operation, active managed services,
+private `0600` Console environment state, preserved owner sessions, no browser
+credential exposure, and the current architecture digest
+`sha256:3a4b5edb6bc54ff47a45f610b41f75bc57dd9d1ab56e9475518100d75ff72ab0`.
 
 ## Live Verification
 
-Pending dedicated App commissioning and the positive, negative, restart,
-rollback, cleanup, and final-redelivery sequence in the primary runbook. Until
-that proof exists, this record does not claim normal availability.
+The final commissioning receipt
+`20261008T122315Z-proposal-target-commission.json`
+(`sha256:9ac3baac009633ec2e7c031891c7c5e75d2ab07b23e893d9b0f12ded82131e77`)
+and its independent verification receipt
+`20261008T122321Z-proposal-target-commission-verification.json`
+(`sha256:cbb1eb98626e7c9be5c8ee1a84f3854d400765f2ebd4bce9e4e0f83ccc9eaf32`)
+both succeeded.
+
+They prove Proposal `idea-218` reached Prototype
+`prototype:proposal-218` through application revision `8`; Studio pull request
+`#25` was human-reviewed and merged at
+`084bfe2055db8bd3d7b9dde3b06f71abe51671b3`; canonical target readback and
+Proposal acknowledgement succeeded; restart recovery, rollback, cleanup, and
+fresh final delivery completed; and the final availability state was restored.
+The negative matrix denied invalid caller, caller-selected Prototype,
+conflicting replay, stale Proposal version, changed Studio authority,
+unreviewed or wrong-head source, and provider loss without changing canonical
+state. The final target receipt is
+`proposal-prototype-target-receipt:proposal-218:8470621ff1d0f4008959ea813d80e3b9b3a8cb6fc2d0539b74617a5f52fa2b79`.
 
 ## Rollback
 
@@ -148,10 +205,13 @@ Secret, environment, and mounts, and stop the managed loopback services.
 Retain source, canonical Git history, merged target records, Proposal
 acknowledgement, durable OOS state, review history, and value-free evidence.
 Restore availability only with a new exact-repository token and current source
-readback.
+readback. Receipt `20261008T121618Z-rollback.json` proves the bounded rollback,
+`20261008T121642Z-cleanup.json` proves cleanup, and the final activation and
+status receipts above prove clean redelivery.
 
 ## Follow-Up Actions
 
-Complete the `#1236` live proof, replace these pending statements with exact
-receipt and revision references, merge the Platform Landing Unit, and bind its
-final Review Packet before Feature `#1212` or Epic `#1203` closes.
+Merge this recovered Platform evidence consolidation and bind its final Review
+Packet to `#1236`. Feature `#1212` and Epic `#1203` may close only after that
+packet, post-merge operating evidence, and their completion evidence are
+accepted.

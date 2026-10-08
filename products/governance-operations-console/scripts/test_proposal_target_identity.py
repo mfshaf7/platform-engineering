@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import unittest
 
+import yaml
+
 
 SCRIPT = Path(__file__).with_name("proposal_target_identity.py")
 SPEC = importlib.util.spec_from_file_location("proposal_target_identity", SCRIPT)
@@ -68,6 +70,16 @@ class ProposalTargetIdentityTests(unittest.TestCase):
                 self.contract,
                 dict(sorted(wrong.items())),
             )
+
+    def test_security_revision_matches_commissioning_policy(self) -> None:
+        policy_path = SCRIPT.parent.parent / "proposal-target-commissioning-policy.yaml"
+        policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+        expected = policy["authority"]["security_revision"]
+        self.assertEqual(self.contract.normal_availability_review_revision, expected)
+        self.assertEqual(
+            self.contract.approved_source_revisions["security-architecture"],
+            expected,
+        )
 
     def test_revoke_patch_removes_only_proposal_target_bindings(self) -> None:
         patch = json.loads(identity.deployment_revoke_patch(self.contract))

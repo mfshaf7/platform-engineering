@@ -1022,12 +1022,14 @@ def main() -> int:
                 "state=active"
             )
     try:
+        auto_resume_repo_paths = {**repo_paths, **repo_overrides}
         auto_resume_spec = build_auto_resume_spec(
+            composition_id=os.environ.get("DEVINT_COMPOSITION_ID"),
             operator=operator,
             platform_runner=Path(__file__).resolve(),
             profile=profile,
             profile_id=args.profile,
-            repo_paths=repo_paths,
+            repo_paths=auto_resume_repo_paths,
             workspace_root=workspace_root,
         )
     except AutoResumeError as exc:

@@ -21,7 +21,7 @@ model_profiles:
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.15
+        runtime_version: 0.40.1
         selection:
           selected_at: "2026-08-20"
           selected_by: operator:workspace-owner
@@ -107,7 +107,7 @@ model_profiles:
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.15
+        runtime_version: 0.40.1
         selection:
           selected_at: "2026-08-25"
           selected_by: operator:workspace-owner
@@ -204,7 +204,7 @@ model_profiles:
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.15
+        runtime_version: 0.40.1
         selection:
           selected_at: "2026-08-26"
           selected_by: operator:workspace-owner
@@ -284,7 +284,7 @@ model_profiles:
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
-        runtime_version: 0.32.15
+        runtime_version: 0.40.1
         selection:
           selected_at: "2026-10-09"
           selected_by: operator:workspace-owner

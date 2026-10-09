@@ -64,6 +64,21 @@ class GovernedAiModelProfileTests(unittest.TestCase):
             repo_root = self.prepare_repo(Path(temp_dir))
             self.assertEqual(validate(repo_root), [])
 
+    def test_active_local_ollama_bindings_share_reviewed_runtime_version(self) -> None:
+        registry = yaml.safe_load(
+            (REPO_ROOT / "security/governed-ai-model-profiles.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        versions = {
+            binding["runtime_version"]
+            for profile in registry["model_profiles"].values()
+            for binding in profile["bindings"].values()
+            if binding.get("status") == "active" and binding.get("provider") == "ollama"
+        }
+
+        self.assertEqual(versions, {"0.40.1"})
+
     def test_model_must_be_allowed_by_selected_provider_route(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:
             repo_root = self.prepare_repo(Path(temp_dir))

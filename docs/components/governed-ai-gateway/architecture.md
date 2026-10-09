@@ -31,7 +31,7 @@ Current denied posture:
 - no autonomous workspace truth mutation
 - no workspace consumer use until its independent activation gate is complete
 
-The active dev-integration binding is host Ollama `0.32.15` with
+The active dev-integration binding is host Ollama `0.40.1` with
 `qwen3:8b` pinned by full digest. The adapter disables thinking, supplies no
 tools, enforces a strict classification schema, and bounds input size,
 concurrency, timeout, retry, context, and output tokens. The OpenAI binding is

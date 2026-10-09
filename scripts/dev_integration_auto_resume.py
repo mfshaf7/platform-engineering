@@ -95,6 +95,7 @@ def resolve_resume_policy(profile: dict) -> str:
 
 def build_auto_resume_spec(
     *,
+    composition_id: str | None = None,
     operator: str,
     platform_runner: Path,
     profile: dict,
@@ -119,12 +120,26 @@ def build_auto_resume_spec(
             "auto-resume-runtime-unavailable",
             "python3 is required for dev-integration auto-resume",
         )
+    if composition_id is not None and (not composition_id.strip() or "\n" in composition_id):
+        raise AutoResumeError(
+            "auto-resume-contract-invalid",
+            "auto-resume composition id must be a non-empty single-line value",
+        )
+    target = (
+        ["--composition", composition_id]
+        if composition_id is not None
+        else ["--profile", profile_id]
+    )
+    target_description = (
+        f"composition {composition_id}"
+        if composition_id is not None
+        else f"profile {profile_id}"
+    )
     command = [
         python,
         str(platform_runner),
         "up",
-        "--profile",
-        profile_id,
+        *target,
         "--operator",
         operator,
         "--workspace-root",
@@ -137,8 +152,9 @@ def build_auto_resume_spec(
     unit_content = "\n".join(
         [
             "[Unit]",
-            f"Description=Resume dev-integration profile {profile_id}",
-            "StartLimitIntervalSec=0",
+            f"Description=Resume dev-integration {target_description}",
+            "StartLimitIntervalSec=10min",
+            "StartLimitBurst=3",
             "",
             "[Service]",
             "Type=oneshot",
@@ -148,7 +164,7 @@ def build_auto_resume_spec(
             f"ExecStart={exec_start}",
             "RemainAfterExit=yes",
             "Restart=on-failure",
-            "RestartSec=15s",
+            "RestartSec=60s",
             "TimeoutStartSec=15min",
             "",
             "[Install]",

@@ -891,7 +891,9 @@ class DevIntegrationRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="devint-runner-auto-resume-") as temp_dir:
             workspace_root = Path(temp_dir) / "workspace"
             owner_root = workspace_root / "owner-repo"
+            additional_composition_source = workspace_root / "additional-composition-source"
             owner_root.mkdir(parents=True)
+            additional_composition_source.mkdir()
             command_path = owner_root / "up.sh"
             command_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             command_path.chmod(0o700)
@@ -946,6 +948,8 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     os.environ,
                     {
                         "DEVINT_ACTION": "status",
+                        "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                        "DEVINT_COMPOSITION_ROOT_PROFILE_ID": "test-profile",
                         "DEVINT_PROFILE_ID": "parent-profile",
                         "DEVINT_SESSION_ID": "parent-session",
                     },
@@ -963,6 +967,8 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                         "test-operator",
                         "--workspace-root",
                         str(workspace_root),
+                        "--repo-path",
+                        f"additional-composition-source={additional_composition_source}",
                     ],
                 ),
                 patch.object(
@@ -979,6 +985,19 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 self.assertEqual(DEV_INTEGRATION.main(), 0)
 
             enable_auto_resume.assert_called_once()
+            enabled_spec = enable_auto_resume.call_args.args[0]
+            self.assertIn(
+                '"up" "--composition" "refinement-catalog"',
+                enabled_spec.unit_content,
+            )
+            self.assertNotIn(
+                '"--profile" "test-profile"',
+                enabled_spec.unit_content,
+            )
+            self.assertIn(
+                '"--repo-path" "additional-composition-source=',
+                enabled_spec.unit_content,
+            )
             manifest_path = (
                 workspace_root
                 / ".dev-integration/test-profile/test-operator/current-session.yaml"

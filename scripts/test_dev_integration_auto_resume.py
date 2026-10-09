@@ -20,13 +20,19 @@ class DevIntegrationAutoResumeTest(unittest.TestCase):
             }
         }
 
-    def build_spec(self, root: Path, profile: dict | None = None):
+    def build_spec(
+        self,
+        root: Path,
+        profile: dict | None = None,
+        composition_id: str | None = None,
+    ):
         platform_root = root / "platform-engineering"
         runner = platform_root / "scripts/dev_integration.py"
         runner.parent.mkdir(parents=True)
         runner.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
         workspace_root = root / "workspace"
         return AUTO_RESUME.build_auto_resume_spec(
+            composition_id=composition_id,
             config_home=root / "config",
             operator="Test Operator",
             platform_runner=runner,
@@ -75,6 +81,22 @@ class DevIntegrationAutoResumeTest(unittest.TestCase):
             spec.unit_content,
         )
         self.assertNotIn("SECRET", spec.unit_content)
+
+    def test_composition_owned_profile_replays_composition_with_bounded_retries(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="devint-auto-resume-") as temp_dir:
+            spec = self.build_spec(
+                Path(temp_dir),
+                composition_id="refinement-catalog",
+            )
+
+        self.assertIn(
+            '"up" "--composition" "refinement-catalog"',
+            spec.unit_content,
+        )
+        self.assertNotIn('"--profile" "accepted-idea-delivery"', spec.unit_content)
+        self.assertIn("StartLimitIntervalSec=10min", spec.unit_content)
+        self.assertIn("StartLimitBurst=3", spec.unit_content)
+        self.assertIn("RestartSec=60s", spec.unit_content)
 
     def test_relative_path_entries_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-auto-resume-") as temp_dir:

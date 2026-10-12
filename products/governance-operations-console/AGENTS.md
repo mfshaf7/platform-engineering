@@ -21,6 +21,8 @@ authority, or Security approval.
 - `runbooks/commission-proposal-target.md`
 - `agent-console-commissioning-policy.yaml`
 - `runbooks/commission-agent-console.md`
+- `product-publication-commissioning-policy.yaml`
+- `runbooks/commission-product-publication.md`
 
 ## Boundary
 
@@ -59,3 +61,9 @@ Agent Console commissioning must reuse `refinement-catalog` and use
 `make governance-console-agent-console`. Do not enable its OOS or CGG profile
 bindings before the exact `gate:agent-console-operating-acceptance` decision,
 and do not treat gateway readiness alone as end-to-end operating evidence.
+
+Product Publication commissioning must reuse the existing Console loopback,
+OOS, and WGCF composition and use
+`make governance-console-product-publication`. It may publish only the exact
+Security-approved internal Console owner manifest; broader posture, identity,
+data, exposure, or environment changes require another Security decision.

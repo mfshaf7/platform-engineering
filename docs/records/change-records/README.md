@@ -54,6 +54,9 @@ Proposal Target identity, loopback composition, and operating commissioning
 are recorded in
 [2026-10-08-proposal-target-devint-commissioning.md](2026-10-08-proposal-target-devint-commissioning.md).
 
+Product Publication composition and operating commissioning are recorded in
+[2026-10-12-product-publication-commissioning.md](2026-10-12-product-publication-commissioning.md).
+
 ## Goals
 
 Each record should make it easy to answer:

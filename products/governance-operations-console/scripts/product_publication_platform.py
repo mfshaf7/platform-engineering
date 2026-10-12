@@ -1100,7 +1100,7 @@ def rollback(policy: dict[str, Any]) -> dict[str, Any]:
 def source_revisions(policy: dict[str, Any]) -> dict[str, str]:
     return {
         "platform-engineering": base.git_head(REPO_ROOT),
-        policy["console"]["repo"]: policy["console"]["revision"],
+        policy["console"]["repo"]: base.console_source_revision(policy),
         policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
         policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
         "workspace-governance": publication(policy)["authority_revision"],

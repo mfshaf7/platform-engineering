@@ -39,7 +39,7 @@ architecture:
     - 8f10ea3feae00569e182be7649554479bea32f90
 console:
   repo: governance-operations-console
-  revision: 9c1b9117a98a59662ba570d90bce01bc0b869fb0
+  minimum_revision: 9c1b9117a98a59662ba570d90bce01bc0b869fb0
   port: 3317
 owners:
   oos:

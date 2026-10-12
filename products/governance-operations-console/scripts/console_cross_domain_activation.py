@@ -159,6 +159,7 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
     architecture = policy.get("architecture", {})
     current = architecture.get("current", {})
     predecessor = architecture.get("predecessor", {})
+    security_reviewed = architecture.get("security_reviewed", {})
     relationship = architecture.get("relationship")
     expected_artifact_id = f"architecture-packet:{policy.get('activation', {}).get('delivery_id')}-v1"
     if architecture.get("artifact_id") != expected_artifact_id:
@@ -167,8 +168,15 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
         if current.get("digest") == predecessor.get("digest"):
             raise ActivationError("the architecture packet lineage binding is invalid")
         references = (("current", current), ("predecessor", predecessor))
+        review_labels = {"current", "predecessor"}
     elif relationship == "exact-security-binding":
         references = (("current", current),)
+        review_labels = {"current"}
+    elif relationship == "exact-security-reviewed-lineage":
+        if current.get("digest") == security_reviewed.get("digest"):
+            raise ActivationError("the architecture packet lineage binding is invalid")
+        references = (("current", current), ("security-reviewed", security_reviewed))
+        review_labels = {"security-reviewed"}
     else:
         raise ActivationError("the architecture packet lineage binding is invalid")
     for label, reference in references:
@@ -181,7 +189,7 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
             or uri != f"wgcf://artifacts/delivery-art/sha256/{digest.removeprefix('sha256:')}"
         ):
             raise ActivationError(f"the {label} architecture packet reference is invalid")
-        if uri not in review_content:
+        if label in review_labels and uri not in review_content:
             raise ActivationError(
                 f"the Security review does not bind the {label} architecture packet"
             )

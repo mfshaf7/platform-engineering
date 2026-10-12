@@ -33,6 +33,11 @@ same canonical authority revision, and proves an invalid caller is denied.
 lists the required source-revision, caller, provider, session, and receipt
 arguments.
 
+Each successful `deliver`, including rotation, stamps the token expiry on the
+OOS pod template and waits for the resulting rollout. Success therefore proves
+that the running workload mounted the newly issued token; updating the Secret
+without a workload generation change is not sufficient delivery evidence.
+
 For the approved Workspace operations composition, repeat the source argument
 for this exact set; the Platform revision must be the clean executing checkout:
 

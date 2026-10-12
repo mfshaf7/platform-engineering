@@ -48,6 +48,12 @@ original version-one internal receipt. The correction supersedes that policy
 with the exact `#1273` sequence and decision while preserving the former
 receipt as the immutable starting baseline.
 
+The first commissioning revision still treated the Console checkout as one
+exact immutable commit. That contradicted the required later owner-manifest
+commits in the same repository. The corrective amendment now treats the
+Security-reviewed Console source as a minimum ancestor, requires current clean
+`main`, and records the exact selected head in every Platform receipt.
+
 ## Source Changes
 
 This Landing Unit updates the existing Platform policy, commissioning script,

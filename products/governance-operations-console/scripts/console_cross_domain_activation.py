@@ -150,6 +150,15 @@ def source_authority_activation_revision(source: dict[str, Any]) -> str:
     return revision
 
 
+def console_source_revision(policy: dict[str, Any]) -> str:
+    source = policy.get("console", {})
+    if "revision" in source:
+        return source_authority_activation_revision(source)
+    if "minimum_revision" in source:
+        return git_head(repo_path(source["repo"]))
+    raise ActivationError("Console source authority policy is invalid")
+
+
 def require_clean_platform_source() -> None:
     if run(["git", "-C", str(REPO_ROOT), "status", "--porcelain"]).stdout.strip():
         raise ActivationError("the executing Platform checkout must be clean before activation")
@@ -194,7 +203,7 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
                 f"the Security review does not bind the {label} architecture packet"
             )
     approved_revisions = architecture.get("security_review_revisions") or [
-        policy["console"]["revision"],
+        source_authority_activation_revision(policy["console"]),
         *(owner["revision"] for owner in policy["owners"].values()),
         policy["authority"]["workspace_governance_revision"],
     ]
@@ -281,7 +290,7 @@ def validate(policy: dict[str, Any]) -> None:
         if run(["bash", "-lc", f"command -v {command}"], check=False).returncode:
             raise ActivationError(f"required command is unavailable: {command}")
     require_clean_platform_source()
-    require_revision(policy["console"]["repo"], policy["console"]["revision"])
+    require_source_authority(policy["console"])
     for owner in policy["owners"].values():
         require_revision(owner["repo"], owner["revision"])
         require_manifest(owner)
@@ -1360,7 +1369,7 @@ def receipt_content_digest(value: dict[str, Any]) -> str:
 def expected_source_revisions(policy: dict[str, Any]) -> dict[str, str]:
     return {
         "platform-engineering": git_head(REPO_ROOT),
-        policy["console"]["repo"]: policy["console"]["revision"],
+        policy["console"]["repo"]: console_source_revision(policy),
         policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
         policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
         "workspace-governance": policy["authority"]["workspace_governance_revision"],
@@ -1651,7 +1660,7 @@ def verify_commissioning(policy: dict[str, Any]) -> Path:
     validate(policy)
     expected_sources = {
         "platform-engineering": git_head(REPO_ROOT),
-        policy["console"]["repo"]: policy["console"]["revision"],
+        policy["console"]["repo"]: console_source_revision(policy),
         policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
         policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
         "workspace-governance": policy["authority"]["workspace_governance_revision"],

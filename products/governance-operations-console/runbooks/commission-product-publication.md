@@ -65,6 +65,10 @@ make governance-console-product-publication ACTION=activate ARGS="\
   --repo-path platform-engineering=<reviewed-platform-checkout>"
 ```
 
+The Console checkout must be current clean `main` and descend from the
+Security-reviewed minimum. This permits each required reviewed owner-manifest
+commit while retaining exact-head evidence in the Platform receipt.
+
 If a required provider credential is absent, stop and deliver the existing
 Platform-owned identity. Do not use an ambient PAT or human browser credential.
 

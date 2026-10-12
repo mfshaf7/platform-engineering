@@ -74,12 +74,26 @@ class CrossDomainActivationTests(unittest.TestCase):
         with (
             patch.object(activation, "operator", return_value="operator"),
             patch.object(activation, "require_revision"),
+            patch.object(activation, "require_source_authority"),
             patch.object(activation, "require_manifest"),
             patch.object(activation, "require_clean_platform_source"),
             patch.object(activation, "repo_path", return_value=Path("/security")),
             patch.object(activation, "run", return_value=completed),
         ):
             activation.validate(self.policy)
+
+    def test_console_source_minimum_records_the_exact_selected_head(self) -> None:
+        policy = {
+            "console": {
+                "repo": "governance-operations-console",
+                "minimum_revision": "a" * 40,
+            }
+        }
+        with (
+            patch.object(activation, "repo_path", return_value=Path("/console")),
+            patch.object(activation, "git_head", return_value="b" * 40),
+        ):
+            self.assertEqual(activation.console_source_revision(policy), "b" * 40)
 
     def test_repo_path_override_is_explicit_and_absolute(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

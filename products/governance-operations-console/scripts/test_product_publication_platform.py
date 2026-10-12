@@ -248,6 +248,10 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             "work_item_ref": "openproject://work_packages/1273",
             "security_gate_id": "gate:product-publication-lifecycle-maintenance-activation",
         })
+        self.assertEqual(
+            policy["console"]["minimum_revision"],
+            "9c1b9117a98a59662ba570d90bce01bc0b869fb0",
+        )
         self.assertEqual(policy["product_publication"]["allowed_actions"], [
             "publish", "unpublish", "archive", "restore",
         ])

@@ -675,6 +675,8 @@ def validate_manifest(
         if value.get("schema_version") != 2:
             raise ProductPublicationError("lifecycle owner manifest is not schema v2")
         merged = lifecycle_result.get("merged_state", {})
+        merged_record = merged.get("record", {})
+        merged_record_envelope = merged_record.get("record", {})
         receipt = lifecycle_result.get("receipt", {})
         binding = value.get("inventory_lifecycle_binding", {})
         manifest_history = binding.get("history_event_ref", {})
@@ -694,9 +696,8 @@ def validate_manifest(
             or manifest_history_ref != expected_history_ref
             or not isinstance(manifest_history.get("sequence"), int)
             or manifest_history["sequence"] < 1
-            or binding.get("after", {}).get("record_version") != merged.get("record", {}).get("version")
-            or binding.get("after", {}).get("record_digest") != merged.get("record", {}).get("record_digest")
-            or binding.get("after", {}).get("posture") != merged.get("record", {}).get("posture")
+            or binding.get("after", {}).get("record_version") != merged_record_envelope.get("version")
+            or binding.get("after", {}).get("posture") != merged_record.get("posture")
         ):
             raise ProductPublicationError("owner manifest lifecycle evidence is not exact")
         if lifecycle == "active" and (
@@ -713,6 +714,7 @@ def validate_manifest(
         "publication_posture": posture,
         "history_event_ref": value.get("inventory_lifecycle_binding", {}).get("history_event_ref"),
         "previous_event_ref": value.get("inventory_lifecycle_binding", {}).get("previous_event_ref"),
+        "lifecycle_binding": value.get("inventory_lifecycle_binding"),
     }
 
 
@@ -740,8 +742,7 @@ def validate_lifecycle_result(result: dict[str, Any], action: str, posture: str)
             "id": receipt.get("receipt_id"), "digest": receipt.get("receipt_digest"),
         }, label=f"Registry {action} receipt"),
         "history_event_ref": history_event,
-        "record_version": record.get("version"),
-        "record_digest": record.get("record_digest"),
+        "record_version": record.get("record", {}).get("version"),
         "posture": record.get("posture"),
     }
 
@@ -866,10 +867,8 @@ def validate_sequence(
     archive_binding = publications["archive"].get("readiness", {}).get("readiness", {}).get("inventory_lifecycle_binding", {})
     restore_binding = publications["restore"].get("readiness", {}).get("readiness", {}).get("inventory_lifecycle_binding", {})
     if (
-        archive_binding.get("receipt_ref") != retire["receipt_ref"]
-        or archive_binding.get("history_event_ref") != retire_history
-        or restore_binding.get("receipt_ref") != restore_lifecycle["receipt_ref"]
-        or restore_binding.get("history_event_ref") != restore_history
+        archive_binding != manifests["retired-unlisted"]["lifecycle_binding"]
+        or restore_binding != manifests["active-unlisted-restored"]["lifecycle_binding"]
         or restore_binding.get("previous_event_ref") != retire["history_event_ref"]
     ):
         raise ProductPublicationError("publication sequence is not bound to exact Registry history")

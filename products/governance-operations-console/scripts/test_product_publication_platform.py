@@ -49,9 +49,8 @@ def lifecycle(action: str, posture: str, version: int, digest: str, event: dict)
             "authority_revision": str(version) * 40,
             "history_event_ref": event,
             "record": {
-                "version": version,
-                "record_digest": DIGESTS["a"] if posture == "active" else DIGESTS["b"],
                 "posture": posture,
+                "record": {"version": version},
             },
         },
     }

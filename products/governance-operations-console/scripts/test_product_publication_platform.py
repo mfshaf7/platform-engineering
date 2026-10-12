@@ -321,6 +321,11 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             ),
             patch.object(
                 module,
+                "product_health_proof",
+                side_effect=lambda: observed.append("project-product-health") or {"freshness": "current"},
+            ),
+            patch.object(
+                module,
                 "write_console_environment",
                 side_effect=lambda _policy: observed.append("write-console-environment"),
             ),
@@ -333,8 +338,48 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             "prime-security-binding",
             "base-activate",
             "configure-workloads",
+            "project-product-health",
             "write-console-environment",
         ])
+
+    def test_console_environment_activates_publication_and_maintenance_together(self) -> None:
+        policy = module.load_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            private_root = Path(directory) / "private"
+            state_root = Path(directory) / "product-publication"
+            private_root.mkdir()
+            state_root.mkdir()
+            environment = private_root / "console.env"
+            environment.write_text("OOS_BASE_URL=http://127.0.0.1:38180\n", encoding="utf-8")
+            with (
+                patch.object(module.base, "PRIVATE_ROOT", private_root),
+                patch.object(module, "STATE_ROOT", state_root),
+                patch.object(module, "workspace_authority_revision", return_value="a" * 40),
+                patch.object(module.base, "run"),
+            ):
+                module.write_console_environment(policy)
+
+            values = dict(
+                line.split("=", 1)
+                for line in environment.read_text(encoding="utf-8").splitlines()
+            )
+            self.assertEqual(values["OOS_BASE_URL"], "http://127.0.0.1:38180")
+            self.assertEqual(
+                values["GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_AUTHORITY_REVISION"],
+                "a" * 40,
+            )
+            self.assertEqual(
+                values["GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_URI"],
+                policy["product_publication"]["security_decision"]["uri"],
+            )
+            self.assertEqual(
+                values["GOVERNANCE_CONSOLE_PRODUCT_HEALTH_PROJECTION_PATH"],
+                str(state_root / "product-health.json"),
+            )
+            self.assertEqual(
+                values["GOVERNANCE_CONSOLE_PRODUCT_HEALTH_RECEIPT_PATH"],
+                str(state_root / "product-health.receipt.json"),
+            )
 
     def test_policy_binds_1273_and_exact_approved_scope(self) -> None:
         policy = module.load_policy()

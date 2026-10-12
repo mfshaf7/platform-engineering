@@ -26,6 +26,30 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DevIntegrationRunnerTests(unittest.TestCase):
+    def test_owner_evidence_profile_covers_real_git_and_sandbox_runtime(self) -> None:
+        profile = json.loads(
+            (
+                REPO_ROOT
+                / "contracts/delivery-art-work-session/evidence-profile.json"
+            ).read_text(encoding="utf-8")
+        )
+        commands = [
+            command
+            for command in profile["commands"]
+            if command["kind"] == "tests"
+            and command["args"] == ["scripts/test_dev_integration.py"]
+        ]
+        self.assertEqual(
+            ["real-git", "sandbox-runtime"],
+            sorted(command["fidelity"] for command in commands),
+        )
+        self.assertTrue(
+            all(
+                command["conformance_binding"] == "matching-fidelity"
+                for command in commands
+            )
+        )
+
     def manifest(self, execution_id: str, action: str) -> dict:
         return {
             "schema_version": 1,

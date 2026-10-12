@@ -44,7 +44,7 @@ console:
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: 2bb51556202a9f3819ca99bad3cad06256480db9
+    revision: 94534d621aa9300b51035cd05554f27b6b4e3180
     security_reviewed_revision: 786d01c8b1e144f51cc38f6a40d6d986222ac634
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}

@@ -354,7 +354,7 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             "internal", "unlisted", "archived",
         })
         self.assertEqual(policy["product_publication"]["denied_targets"], ["client", "public"])
-        self.assertEqual(policy["owners"]["oos"]["revision"], "2bb51556202a9f3819ca99bad3cad06256480db9")
+        self.assertEqual(policy["owners"]["oos"]["revision"], "94534d621aa9300b51035cd05554f27b6b4e3180")
 
     def test_case_1273_positive_validates_complete_order_and_fresh_manifests(self) -> None:
         policy = module.load_policy()

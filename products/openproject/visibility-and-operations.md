@@ -5,12 +5,19 @@
 - namespace: `openproject`
 - Argo application: `openproject`
 - secrets application: `openproject-secrets`
-- direct product UI: `http://127.0.0.1:32083` on the supported Windows
-  operator path
+- direct product UI when activated: `http://127.0.0.1:32083` on the supported
+  Windows operator path
+- current state: intentionally suspended at zero application replicas
 
 ## Health And Readiness
 
-V1 operational checks are:
+Suspended-state operational checks are:
+
+- all OpenProject deployments report desired and available replicas `0`
+- the OpenProject application PVC remains bound
+- the platform PostgreSQL service remains retained
+
+Activated-state operational checks are:
 
 - Argo sync status `Synced`
 - Argo health status `Healthy`
@@ -49,7 +56,7 @@ Operators should be able to identify:
 
 ## Functional Checks
 
-Minimum meaningful checks:
+Minimum meaningful checks after reactivation:
 
 - operator login page reachable
 - admin password sync completed

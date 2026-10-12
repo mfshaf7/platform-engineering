@@ -6,7 +6,15 @@ This runbook defines the local operator access path for OpenProject.
 
 ## Preferred Endpoint
 
-- OpenProject: `http://127.0.0.1:32083`
+- platform-integrated OpenProject when activated: `http://127.0.0.1:32083`
+
+The platform-integrated instance is currently suspended at zero application
+replicas. Its database and application PVC are retained, but the endpoint and
+shell-local port-forward are intentionally unavailable until a reviewed
+desired-state reactivation is merged and `make openproject-apply` completes.
+
+For current Delivery ART work, use the separate active dev-integration endpoint
+documented below.
 
 This follows the repo's existing operator pattern:
 
@@ -39,7 +47,7 @@ The application database is internal-only at:
 
 Do not store the password in Git-tracked docs.
 
-## Verification
+## Verification After Reactivation
 
 ```bash
 curl -I http://127.0.0.1:32083/login

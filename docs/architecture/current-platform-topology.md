@@ -14,7 +14,7 @@ Use it when you need to answer practical operator questions such as:
 - which surfaces are directly reachable
 - which things are intentionally internal-only or suspended
 
-Last validated against the live local cluster on `2026-04-19`.
+Last validated against the live local cluster on `2026-10-13`.
 
 That date applies to the governed Argo topology. The isolated WGCF
 dev-integration profile described below was validated separately on
@@ -35,12 +35,12 @@ The platform uses an app-of-apps model rooted in three Argo applications:
 | Root application | Git path | Role | Current live outcome |
 | --- | --- | --- | --- |
 | `platform-root-shared` | `environments/shared/argocd` | Shared control-plane services and shared secret-delivery assets | Deploys shared services such as Vault, External Secrets, and operator-orchestration-service |
-| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Deploys OpenProject, PostgreSQL, prod observability, and prod dashboards; OpenClaw prod is currently suspended through the governed lifecycle contract |
+| `platform-root-prod` | `environments/prod/argocd` | Production product workloads and production-only shared services | Retains the suspended OpenProject declaration and data dependencies, deploys PostgreSQL, prod observability, and prod dashboards; OpenClaw prod is currently suspended through the governed lifecycle contract |
 | `platform-root-stage` | `environments/stage/argocd` | Stage-only workloads and shared product support surfaces | Currently resumed for the OpenClaw stage gateway plus stage secrets and stage version while stage observability remains absent |
 
 ## Current Live Argo Applications
 
-As of `2026-04-19`, the cluster reports these live Argo applications:
+As of `2026-10-13`, the cluster reports these Argo applications:
 
 - `external-secrets`
 - `openclaw-gateway-stage`
@@ -67,7 +67,7 @@ product-integrated stack includes:
 - operator-orchestration-service
 - prod observability
 - OpenClaw stage
-- OpenProject
+- a retained but intentionally suspended OpenProject application
 - shared PostgreSQL
 
 OpenClaw prod is intentionally absent from the current live app set because its
@@ -84,7 +84,7 @@ governed prod lifecycle is presently `suspended`.
 | `observability-stage` | stage observability namespace | Exists but currently empty because stage observability remains suspended |
 | `openclaw` | prod OpenClaw namespace | Active but currently empty because prod OpenClaw is suspended |
 | `openclaw-stage` | stage OpenClaw namespace | Active and populated for the current gateway rehearsal window |
-| `openproject` | OpenProject web application | Active and populated |
+| `openproject` | Retained OpenProject application state | Application workloads suspended at zero replicas; PVC, services, and secrets retained |
 | `operator-orchestration-service` | shared workflow broker | Active and populated |
 | `platform-postgresql` | shared PostgreSQL service for platform products | Active and populated |
 
@@ -116,7 +116,7 @@ These are the current direct operator-facing surfaces:
 | Grafana (prod) | `observability` | `platform-observability-prod` plus `platform-dashboards-prod` | NodePort plus Windows localhost proxy | Live |
 | Prometheus (prod) | `observability` | `platform-observability-prod` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
 | Alertmanager (prod) | `observability` | `platform-observability-prod` via `platform-operator-ui-auth-proxy` | NodePort plus Windows localhost proxy | Live |
-| OpenProject | `openproject` | `openproject` | NodePort plus Windows localhost proxy | Live |
+| OpenProject | `openproject` | `openproject` | NodePort plus Windows localhost proxy when activated | Suspended at zero application replicas; data retained |
 | OpenClaw prod gateway | `openclaw` | `openclaw-gateway` | ClusterIP only; primary user surface is Telegram | Currently suspended through the governed prod lifecycle |
 | OpenClaw stage gateway | `openclaw-stage` | `openclaw-gateway-stage` | ClusterIP only; primary user surface is Telegram | Live for the current stage stabilization window |
 

@@ -57,6 +57,12 @@ are recorded in
 Product Publication composition and operating commissioning are recorded in
 [2026-10-12-product-publication-commissioning.md](2026-10-12-product-publication-commissioning.md).
 
+The unused platform-integrated OpenProject runtime suspension is recorded in
+[2026-10-13-suspend-unused-openproject.md](2026-10-13-suspend-unused-openproject.md).
+It preserves database and PVC state while keeping application replicas at zero;
+the separate accepted-idea dev-integration instance remains the active ART
+workbench.
+
 ## Goals
 
 Each record should make it easy to answer:

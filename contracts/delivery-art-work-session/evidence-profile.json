@@ -24,6 +24,16 @@
       "timeout_seconds": 900
     },
     {
+      "id": "dev-integration-sandbox-runtime-tests",
+      "kind": "tests",
+      "name": "Platform dev-integration test suite in the bounded source-executor runtime",
+      "executable": "python3",
+      "args": ["scripts/test_dev_integration.py"],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 900
+    },
+    {
       "id": "model-profile-lifecycle-contract-validation",
       "kind": "validations",
       "name": "Model-profile lifecycle source contract validation",

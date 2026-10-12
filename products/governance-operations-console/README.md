@@ -72,5 +72,10 @@ acknowledgement.
 Product Publication commissioning composes the activated OOS and WGCF source
 gates with the existing private Console session. It pins the exact Workspace
 Governance authority, owner manifest, Security decision, source revisions, and
-internal-only publication tuple; proves denial, restart, rollback, teardown,
-and restoration; and retains all credentials outside source and browser data.
+internal-only publication tuple. Reviewed capability revisions and their exact
+activated runtime descendants are recorded separately and ancestry-checked.
+The audience refresh keeps `unlisted`,
+`client`, `public`, and `archived` denied as targets, treats owner-manifest
+binding as publication evidence rather than an access route or grant, and
+proves process loss, restart, rollback, teardown, restoration, and final
+readback while retaining all credentials outside source and browser data.

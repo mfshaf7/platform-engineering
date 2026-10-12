@@ -2,8 +2,8 @@ schema_version: 2
 lane: dev-integration
 activation:
   delivery_id: delivery-894
-  work_item_ref: openproject://work_packages/1258
-  security_gate_id: gate:product-publication-controlled-activation
+  work_item_ref: openproject://work_packages/1264
+  security_gate_id: gate:product-publication-audience-activation
 proof_scope:
   includes:
     - exact-source-and-security-decision-binding
@@ -15,29 +15,34 @@ proof_scope:
   excludes:
     - browser-owner-credentials
     - product-identity-or-lifecycle-mutation
-    - client-or-public-publication
+    - unlisted-client-public-or-archived-target-transition
     - remote-shared-or-multi-user-access
     - stage-or-production-readiness
     - real-client-data
 architecture:
   artifact_id: architecture-packet:delivery-894-v1
   current:
-    uri: wgcf://artifacts/delivery-art/sha256/511401baf083e6530a294f364a4a8aedb71601e4d7e70690cb6035f2453d4a22
-    digest: sha256:511401baf083e6530a294f364a4a8aedb71601e4d7e70690cb6035f2453d4a22
-  relationship: exact-security-binding
+    uri: wgcf://artifacts/delivery-art/sha256/c04c3242a7ddb6f6b1de9b9ea3fc1bbd6c2830f68fa6665a45aaba416dcbf422
+    digest: sha256:c04c3242a7ddb6f6b1de9b9ea3fc1bbd6c2830f68fa6665a45aaba416dcbf422
+  security_reviewed:
+    uri: wgcf://artifacts/delivery-art/sha256/f31cf6c0a0d015345a0b286bf334719731e398337941591fb6c6143a2ef238ff
+    digest: sha256:f31cf6c0a0d015345a0b286bf334719731e398337941591fb6c6143a2ef238ff
+  relationship: exact-security-reviewed-lineage
   security_review_revisions:
     - 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
     - d12545242fed839df3bce65ad4dd5d6482e7854a
-    - 8d197979f3cf8035f3822ede7b809fd98e274630
+    - a5c5fd5a8adc93b79e82d93abced31b65f055cd4
+    - 79f95608c71fd4d74244e89324c6c5d45cd416f7
     - 83b0e20786bd6cd531e1043acf96df60ee5a3555
 console:
   repo: governance-operations-console
-  revision: 2a54b94f24d9c01c82050596321493913f6691e5
+  revision: 79f95608c71fd4d74244e89324c6c5d45cd416f7
   port: 3317
 owners:
   oos:
     repo: operator-orchestration-service
-    revision: e10a3265b6ca3e9ca16d74f453fe7b6285d5d5b1
+    revision: a690e25b902c248b43f055a69f1b5e6647c01d3e
+    security_reviewed_revision: a5c5fd5a8adc93b79e82d93abced31b65f055cd4
     profile: accepted-idea-delivery
     namespace: devint-accepted-idea-delivery-{operator}
     service: operator-orchestration-service
@@ -47,7 +52,8 @@ owners:
     local_port: 38180
   wgcf:
     repo: workspace-governance-control-fabric
-    revision: 556997107497ce1ae6ad8635c96591e186bca629
+    revision: 8cc666efbb4bb6c582571c438a3a8fa5c8342cdb
+    security_reviewed_revision: d12545242fed839df3bce65ad4dd5d6482e7854a
     profile: governance-control-fabric
     namespace: devint-governance-control-fabric-{operator}
     service: workspace-governance-control-fabric-api
@@ -56,10 +62,11 @@ owners:
     remote_port: 8080
     local_port: 38181
 authority:
-  workspace_governance_revision: 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
+  workspace_governance_revision: ade4549746bc6e727e97397be7b0c89758677a0c
+  workspace_governance_reviewed_revision: 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
   workspace_governance_binding: minimum-merged-main
-  security_revision: 3dc6e0f6cc2f829b4967ac73269a409e18e0de21
-  security_review_ref: docs/reviews/components/2026-10-12-product-publication-trust-boundary.md
+  security_revision: 9729514bd764fad8700a649035f860fa1e0a97d4
+  security_review_ref: docs/reviews/components/2026-10-12-product-publication-audience-access-boundary.md
 credentials:
   console_oos:
     caller_id: governance-operations-console
@@ -78,16 +85,32 @@ session:
   revoke_receipt: receipts/operator-identity-revoke.json
 product_publication:
   product_id: product:governance-operations-console
-  authority_revision: 8e91d765dcf0894507818f538f128071447b11ef
+  authority_revision: ade4549746bc6e727e97397be7b0c89758677a0c
+  security_reviewed_authority_revision: 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
   owner_repo: governance-operations-console
   owner_source_revision: 9ef4e2f370439464afb0284131446d34abf4aa6d
-  manifest_revision: 83b0e20786bd6cd531e1043acf96df60ee5a3555
+  manifest_revision: 79f95608c71fd4d74244e89324c6c5d45cd416f7
+  security_reviewed_manifest_revision: 83b0e20786bd6cd531e1043acf96df60ee5a3555
   manifest_path: product-publication/manifest.json
   manifest_digest: sha256:e042aae5afc266cf23f02de747ee773561efb9541747ca14a94c0f35c614015e
   security_decision:
-    uri: security-architecture://product-publication/decisions/console-internal-v1
-    digest: sha256:d1d120e1a081d29319394f70fc31b423f81039ccef9e2da0b87327241f5ba837
-    revision: 3dc6e0f6cc2f829b4967ac73269a409e18e0de21
+    uri: security-architecture://product-publication/decisions/audience-internal-only-v1
+    digest: sha256:9a3ca8531c686fe9c278d82e7328099517e56de4fc856f33c177d9de2ed44494
+    revision: 9729514bd764fad8700a649035f860fa1e0a97d4
+    approved_target_postures:
+      - internal
+  existing_internal_publication:
+    request_id: product-publication-request:platform:1258:129f5eb7ebce
+    idempotency_key: product-publication:platform:1258:129f5eb7ebce
+    command_digest: sha256:4643e3d084646767aab29d2580e857f1562286323d418daa71a33971055983b2
+    receipt_id: product-publication-receipt:platform:1258:129f5eb7ebce
+    receipt_digest: sha256:d01bf320a74a21389e5efd0b997e835e81c051e8c0b1a3a73104b78e70935a61
+    publication_version: 1
+    publication_posture: internal
+    security_decision:
+      uri: security-architecture://product-publication/decisions/console-internal-v1
+      digest: sha256:d1d120e1a081d29319394f70fc31b423f81039ccef9e2da0b87327241f5ba837
+      revision: 3dc6e0f6cc2f829b4967ac73269a409e18e0de21
   target:
     posture: internal
     listing_scope: workspace-portfolio

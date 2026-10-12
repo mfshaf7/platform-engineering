@@ -96,6 +96,21 @@ def publication(policy: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def existing_internal_publication(policy: dict[str, Any]) -> dict[str, Any]:
+    value = publication(policy).get("existing_internal_publication")
+    if not isinstance(value, dict):
+        raise ProductPublicationError("existing internal publication binding is missing")
+    return value
+
+
+def command_security_decision(policy: dict[str, Any]) -> dict[str, str]:
+    decision = publication(policy)["security_decision"]
+    return {
+        key: decision[key]
+        for key in ("uri", "digest", "revision")
+    }
+
+
 def validate(policy: dict[str, Any]) -> None:
     try:
         base.validate(policy)
@@ -105,9 +120,9 @@ def validate(policy: dict[str, Any]) -> None:
     binding = publication(policy)
     if (
         activation.get("delivery_id") != "delivery-894"
-        or activation.get("work_item_ref") != "openproject://work_packages/1258"
+        or activation.get("work_item_ref") != "openproject://work_packages/1264"
         or activation.get("security_gate_id")
-        != "gate:product-publication-controlled-activation"
+        != "gate:product-publication-audience-activation"
     ):
         raise ProductPublicationError("Product Publication activation binding is not exact")
     if binding.get("target") != {
@@ -117,13 +132,60 @@ def validate(policy: dict[str, Any]) -> None:
         "access_class": "workspace-authenticated",
     }:
         raise ProductPublicationError("only the approved internal publication tuple is allowed")
+    prior = existing_internal_publication(policy)
+    if prior != {
+        "request_id": "product-publication-request:platform:1258:129f5eb7ebce",
+        "idempotency_key": "product-publication:platform:1258:129f5eb7ebce",
+        "command_digest": "sha256:4643e3d084646767aab29d2580e857f1562286323d418daa71a33971055983b2",
+        "receipt_id": "product-publication-receipt:platform:1258:129f5eb7ebce",
+        "receipt_digest": "sha256:d01bf320a74a21389e5efd0b997e835e81c051e8c0b1a3a73104b78e70935a61",
+        "publication_version": 1,
+        "publication_posture": "internal",
+        "security_decision": {
+            "uri": "security-architecture://product-publication/decisions/console-internal-v1",
+            "digest": "sha256:d1d120e1a081d29319394f70fc31b423f81039ccef9e2da0b87327241f5ba837",
+            "revision": "3dc6e0f6cc2f829b4967ac73269a409e18e0de21",
+        },
+    }:
+        raise ProductPublicationError("existing internal publication binding is not exact")
     if binding.get("wgcf_contract_root") != "/app/contracts/product-publication":
         raise ProductPublicationError("Product Publication WGCF contract root is not exact")
+    workspace_repo = base.repo_path("workspace-governance")
+    reviewed_authority_revision = binding.get("security_reviewed_authority_revision")
+    if (
+        binding.get("authority_revision")
+        != policy["authority"]["workspace_governance_revision"]
+        or reviewed_authority_revision
+        != policy["authority"].get("workspace_governance_reviewed_revision")
+        or reviewed_authority_revision
+        not in policy["architecture"].get("security_review_revisions", [])
+        or base.run(
+            [
+                "git", "-C", str(workspace_repo), "merge-base", "--is-ancestor",
+                reviewed_authority_revision, binding["authority_revision"],
+            ],
+            check=False,
+        ).returncode
+        or git_file(
+            workspace_repo,
+            reviewed_authority_revision,
+            "contracts/product-publication.yaml",
+        )
+        != git_file(
+            workspace_repo,
+            binding["authority_revision"],
+            "contracts/product-publication.yaml",
+        )
+    ):
+        raise ProductPublicationError(
+            "Product Publication runtime authority does not preserve its Security-reviewed contract"
+        )
     security = binding.get("security_decision") or {}
     if (
         security.get("revision") != policy["authority"]["security_revision"]
         or security.get("uri")
-        != "security-architecture://product-publication/decisions/console-internal-v1"
+        != "security-architecture://product-publication/decisions/audience-internal-only-v1"
+        or security.get("approved_target_postures") != ["internal"]
     ):
         raise ProductPublicationError("Product Publication Security decision is not exact")
     security_repo = base.repo_path("security-architecture")
@@ -136,9 +198,27 @@ def validate(policy: dict[str, Any]) -> None:
         raise ProductPublicationError("Product Publication Security decision digest changed")
 
     owner_repo = base.repo_path(binding["owner_repo"])
+    reviewed_manifest_revision = binding.get("security_reviewed_manifest_revision")
     manifest_bytes = git_file(
         owner_repo, binding["manifest_revision"], binding["manifest_path"]
     )
+    if (
+        binding["manifest_revision"] != policy["console"]["revision"]
+        or reviewed_manifest_revision
+        not in policy["architecture"].get("security_review_revisions", [])
+        or base.run(
+            [
+                "git", "-C", str(owner_repo), "merge-base", "--is-ancestor",
+                reviewed_manifest_revision, binding["manifest_revision"],
+            ],
+            check=False,
+        ).returncode
+        or git_file(owner_repo, reviewed_manifest_revision, binding["manifest_path"])
+        != manifest_bytes
+    ):
+        raise ProductPublicationError(
+            "Product Publication runtime manifest does not preserve its Security-reviewed bytes"
+        )
     manifest = json.loads(manifest_bytes)
     if canonical_digest(manifest) != binding.get("manifest_digest"):
         raise ProductPublicationError("Product Publication owner manifest digest changed")
@@ -157,13 +237,44 @@ def validate(policy: dict[str, Any]) -> None:
         raise ProductPublicationError("owner manifest does not descend from its source snapshot")
     for role in ("oos", "wgcf"):
         owner = policy["owners"][role]
+        reviewed_revision = owner.get("security_reviewed_revision")
+        if (
+            reviewed_revision
+            not in policy["architecture"].get("security_review_revisions", [])
+            or base.run(
+                [
+                    "git", "-C", str(base.repo_path(owner["repo"])),
+                    "merge-base", "--is-ancestor",
+                    reviewed_revision, owner["revision"],
+                ],
+                check=False,
+            ).returncode
+        ):
+            raise ProductPublicationError(
+                f"{role} runtime revision does not descend from its Security-reviewed source"
+            )
         raw = git_file(
             base.repo_path(owner["repo"]),
             owner["revision"],
             "contracts/product-publication/manifest.json",
         )
-        if json.loads(raw).get("runtime_activation") is not True:
+        owner_manifest = json.loads(raw)
+        if owner_manifest.get("runtime_activation") is not True:
             raise ProductPublicationError(f"{role} Product Publication source gate is inactive")
+        if role == "oos" and (
+            owner_manifest.get("allowed_target_postures") != ["internal"]
+            or owner_manifest.get("security_authority") != {
+                "decision_uri": security["uri"],
+                "decision_digest": security["digest"],
+                "decision_revision": security["revision"],
+                "approved_target_postures": ["internal"],
+            }
+            or owner_manifest.get("activation_prerequisites") != {
+                "security_work_item": "openproject://work_packages/1262",
+                "platform_work_item": "openproject://work_packages/1264",
+            }
+        ):
+            raise ProductPublicationError("OOS Product Publication audience activation is not exact")
 
 
 def namespace(owner: dict[str, Any]) -> str:
@@ -348,8 +459,8 @@ def proof_intent(policy: dict[str, Any]) -> dict[str, Any]:
     proof_identity = hashlib.sha256(
         f"{binding['authority_revision']}:{binding['manifest_digest']}".encode("utf-8")
     ).hexdigest()[:12]
-    request_id = f"product-publication-request:platform:1258:{proof_identity}"
-    idempotency_key = f"product-publication:platform:1258:{proof_identity}"
+    request_id = f"product-publication-request:platform:1264:{proof_identity}"
+    idempotency_key = f"product-publication:platform:1264:{proof_identity}"
     if INTENT_PATH.is_file():
         value = json.loads(INTENT_PATH.read_text(encoding="utf-8"))
         if (
@@ -376,7 +487,7 @@ def proof_intent(policy: dict[str, Any]) -> dict[str, Any]:
             "repo": binding["owner_repo"],
             "source_revision": binding["owner_source_revision"],
         },
-        "operator_reason": "Apply the Security-approved internal Product Publication for Platform work item 1258.",
+        "operator_reason": "Exercise bounded Product Publication evidence for Platform work item 1264 without changing the accepted publication.",
         "previous_receipt": None,
         "request_id": request_id,
         "requested_at": now,
@@ -417,12 +528,16 @@ def direct_oos_request(policy: dict[str, Any], body: dict[str, Any], *, secret: 
         return exc.code, json.loads(exc.read().decode("utf-8"))
 
 
+def response_code(value: dict[str, Any]) -> Any:
+    return value.get("code", value.get("error"))
+
+
 def positive_proof(policy: dict[str, Any]) -> dict[str, Any]:
-    intent = proof_intent(policy)
+    prior = existing_internal_publication(policy)
     deadline = time.monotonic() + 60
     while True:
         status, created = console_request(
-            policy, f"/api/product-portfolio/publications/{intent['request_id']}"
+            policy, f"/api/product-portfolio/publications/{prior['request_id']}"
         )
         if (
             status not in {502, 503}
@@ -431,18 +546,27 @@ def positive_proof(policy: dict[str, Any]) -> dict[str, Any]:
         ):
             break
         time.sleep(2)
-    if status == 404:
-        status, created = console_request(
-            policy, "/api/product-portfolio/publications", body=intent
-        )
-    if status not in {200, 201} or created.get("state") != "applied":
+    if (
+        status != 200
+        or created.get("state") != "applied"
+        or created.get("command_digest") != prior["command_digest"]
+        or created.get("receipt_digest") != prior["receipt_digest"]
+        or created.get("receipt", {}).get("receipt_id") != prior["receipt_id"]
+        or created.get("receipt", {}).get("publication_posture")
+        != prior["publication_posture"]
+        or created.get("receipt", {}).get("publication_version")
+        != prior["publication_version"]
+        or created.get("command", {}).get("security_decision")
+        != prior["security_decision"]
+    ):
         raise ProductPublicationError(
-            f"positive Product Publication failed: {status} {created.get('code', created.get('state'))}"
+            f"existing internal Product Publication readback failed: {status} "
+            f"{created.get('code', created.get('state'))}"
         )
     grants = created.get("packet", {}).get("grants", {})
     if not grants or any(value is not False for value in grants.values()):
         raise ProductPublicationError("Product Publication result grants cross-boundary authority")
-    request_id = intent["request_id"]
+    request_id = prior["request_id"]
     read_status, readback = console_request(
         policy, f"/api/product-portfolio/publications/{request_id}"
     )
@@ -461,6 +585,8 @@ def positive_proof(policy: dict[str, Any]) -> dict[str, Any]:
         "readiness_receipt_ref": created["packet"]["authority_refs"]["readiness_receipt_ref"],
         "publication_version": 1,
         "publication_posture": "internal",
+        "publication_security_decision": prior["security_decision"],
+        "runtime_security_decision": publication(policy)["security_decision"],
         "cross_boundary_grants": grants,
         "resolution": created.get("resolution"),
         "command": created["command"],
@@ -469,57 +595,201 @@ def positive_proof(policy: dict[str, Any]) -> dict[str, Any]:
 
 def negative_proof(policy: dict[str, Any], positive: dict[str, Any]) -> dict[str, Any]:
     intent = proof_intent(policy)
+    probe_token = str(time.time_ns())
     outcomes: dict[str, Any] = {}
     status, value = direct_oos_request(policy, positive["command"], secret="invalid-caller-secret")
-    outcomes["unauthorized-caller"] = {"http_status": status, "code": value.get("code")}
+    outcomes["unauthorized-caller"] = {"http_status": status, "code": response_code(value)}
 
     contradictory = json.loads(json.dumps(positive["command"]))
-    contradictory["request_id"] = f"{intent['request_id']}:security-mismatch"
-    contradictory["idempotency_key"] = f"{intent['idempotency_key']}:security-mismatch"
+    contradictory["request_id"] = f"{intent['request_id']}:security-mismatch:{probe_token}"
+    contradictory["idempotency_key"] = f"{intent['idempotency_key']}:security-mismatch:{probe_token}"
     contradictory["security_decision"]["digest"] = "sha256:" + "0" * 64
     status, value = direct_oos_request(policy, contradictory, secret=base.read_oos_secret(policy))
-    outcomes["security-mismatch"] = {"http_status": status, "code": value.get("code")}
+    outcomes["security-mismatch"] = {"http_status": status, "code": response_code(value)}
 
     stale = json.loads(json.dumps(intent))
-    stale["request_id"] = f"{intent['request_id']}:stale-manifest"
-    stale["idempotency_key"] = f"{intent['idempotency_key']}:stale-manifest"
+    stale["request_id"] = f"{intent['request_id']}:stale-manifest:{probe_token}"
+    stale["idempotency_key"] = f"{intent['idempotency_key']}:stale-manifest:{probe_token}"
     stale["manifest_source"]["manifest_digest"] = "sha256:" + "f" * 64
     status, value = console_request(policy, "/api/product-portfolio/publications", body=stale)
-    outcomes["stale-manifest"] = {"http_status": status, "code": value.get("code"), "state": value.get("state")}
-
-    conflict = json.loads(json.dumps(intent))
-    conflict["operator_reason"] = "Conflicting replay must fail."
-    status, value = console_request(policy, "/api/product-portfolio/publications", body=conflict)
-    outcomes["replay-conflict"] = {"http_status": status, "code": value.get("code")}
-
-    broader = json.loads(json.dumps(intent))
-    broader["request_id"] = f"{intent['request_id']}:public-denied"
-    broader["idempotency_key"] = f"{intent['idempotency_key']}:public-denied"
-    broader["target_publication"] = {
-        "posture": "public",
-        "listing_scope": "public-catalog",
-        "audience": "public",
-        "access_class": "public",
+    outcomes["stale-manifest"] = {
+        "http_status": status,
+        "code": response_code(value),
+        "provider_error": value.get("error"),
+        "state": value.get("state"),
     }
-    status, value = console_request(policy, "/api/product-portfolio/publications", body=broader)
-    outcomes["broader-posture"] = {"http_status": status, "code": value.get("code")}
 
-    if outcomes["unauthorized-caller"]["http_status"] != 401:
+    conflict = json.loads(json.dumps(positive["command"]))
+    conflict["security_decision"] = command_security_decision(policy)
+    conflict["operator_decision"]["reason"] = "Conflicting replay must fail."
+    status, value = direct_oos_request(
+        policy, conflict, secret=base.read_oos_secret(policy)
+    )
+    outcomes["replay-conflict"] = {"http_status": status, "code": response_code(value)}
+
+    denied_targets = {
+        "unlisted": {
+            "action": "unpublish",
+            "current_publication_posture": "internal",
+            "target_publication": {
+                "posture": "unlisted",
+                "listing_scope": None,
+                "audience": None,
+                "access_class": None,
+            },
+        },
+        "client": {
+            "action": "publish",
+            "current_publication_posture": "unlisted",
+            "target_publication": {
+                "posture": "client",
+                "listing_scope": "client-portfolio",
+                "audience": "authorized-clients",
+                "access_class": "client-authorized",
+            },
+        },
+        "public": {
+            "action": "publish",
+            "current_publication_posture": "unlisted",
+            "target_publication": {
+                "posture": "public",
+                "listing_scope": "public-catalog",
+                "audience": "public",
+                "access_class": "public-anonymous",
+            },
+        },
+        "archived": {
+            "action": "archive",
+            "current_publication_posture": "unlisted",
+            "target_publication": {
+                "posture": "archived",
+                "listing_scope": "historical-archive",
+                "audience": "historical",
+                "access_class": "historical-read-only",
+            },
+        },
+    }
+    for posture, changes in denied_targets.items():
+        denied = json.loads(json.dumps(positive["command"]))
+        denied["request_id"] = f"{intent['request_id']}:{posture}-denied:{probe_token}"
+        denied["idempotency_key"] = f"{intent['idempotency_key']}:{posture}-denied:{probe_token}"
+        denied["security_decision"] = command_security_decision(policy)
+        denied.update(changes)
+        status, value = direct_oos_request(
+            policy, denied, secret=base.read_oos_secret(policy)
+        )
+        outcomes[f"target-{posture}"] = {
+            "http_status": status,
+            "code": response_code(value),
+        }
+
+    if (
+        outcomes["unauthorized-caller"]["http_status"] != 401
+        or outcomes["unauthorized-caller"]["code"] != "caller_auth_invalid"
+    ):
         raise ProductPublicationError("unauthorized Product Publication caller did not fail closed")
-    if outcomes["security-mismatch"]["http_status"] < 400:
+    if (
+        outcomes["security-mismatch"]["http_status"] != 403
+        or outcomes["security-mismatch"]["code"]
+        != "product_publication_security_decision_mismatch"
+    ):
         raise ProductPublicationError("contradictory Security decision did not fail closed")
-    if outcomes["stale-manifest"]["http_status"] < 400 and outcomes["stale-manifest"].get("state") != "rejected":
+    if (
+        outcomes["stale-manifest"]["http_status"] != 502
+        or outcomes["stale-manifest"]["provider_error"]
+        != "product_publication_readiness_mismatch"
+    ):
         raise ProductPublicationError("stale owner manifest did not fail closed")
-    if outcomes["replay-conflict"]["http_status"] != 409:
+    if (
+        outcomes["replay-conflict"]["http_status"] != 409
+        or outcomes["replay-conflict"]["code"]
+        != "product_publication_idempotency_conflict"
+    ):
         raise ProductPublicationError("conflicting Product Publication replay did not fail closed")
-    if outcomes["broader-posture"]["http_status"] < 400:
-        raise ProductPublicationError("broader Product Publication posture did not fail closed")
+    for posture in denied_targets:
+        outcome = outcomes[f"target-{posture}"]
+        if (
+            outcome["http_status"] < 400
+            or outcome["code"] != "product_publication_target_posture_not_approved"
+        ):
+            raise ProductPublicationError(
+                f"unapproved Product Publication target {posture} did not fail closed"
+            )
     status, readback = console_request(
         policy, f"/api/product-portfolio/publications/{positive['request_id']}"
     )
     if status != 200 or readback.get("receipt_digest") != positive["receipt_digest"]:
         raise ProductPublicationError("negative cases changed the accepted publication")
     return outcomes
+
+
+def process_loss_and_recovery(
+    policy: dict[str, Any], positive: dict[str, Any]
+) -> dict[str, Any]:
+    intent = proof_intent(policy)
+    interrupted = json.loads(json.dumps(intent))
+    probe_token = str(time.time_ns())
+    interrupted["request_id"] = f"{intent['request_id']}:process-loss:{probe_token}"
+    interrupted["idempotency_key"] = f"{intent['idempotency_key']}:process-loss:{probe_token}"
+    oos = policy["owners"]["oos"]
+    namespace_name = namespace(oos)
+    deployment = f"deployment/{oos['deployment']}"
+    failure_status = 0
+    failure_code = "transport-unavailable"
+    try:
+        base.kubectl("-n", namespace_name, "scale", deployment, "--replicas=0")
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            value = json.loads(base.kubectl(
+                "-n", namespace_name, "get", deployment, "-o", "json"
+            ).stdout)
+            if value.get("status", {}).get("readyReplicas", 0) == 0:
+                break
+            time.sleep(1)
+        else:
+            raise ProductPublicationError("OOS process loss did not reach zero ready replicas")
+        try:
+            failure_status, failure = console_request(
+                policy, "/api/product-portfolio/publications", body=interrupted
+            )
+            failure_code = failure.get("code", "missing-error-code")
+        except base.ActivationError:
+            failure_status = 0
+        if failure_status not in {0, 502, 503}:
+            raise ProductPublicationError(
+                "interrupted Product Publication operation did not fail as unavailable"
+            )
+    finally:
+        base.kubectl("-n", namespace_name, "scale", deployment, "--replicas=1")
+        base.kubectl(
+            "-n", namespace_name, "rollout", "status", deployment, "--timeout=300s"
+        )
+        base.run([
+            "systemctl", "--user", "restart", base.unit_name("oos"),
+            base.unit_name("console"),
+        ])
+        product_mode(policy)
+
+    denied_status, denied_readback = console_request(
+        policy, f"/api/product-portfolio/publications/{interrupted['request_id']}"
+    )
+    accepted_status, accepted_readback = console_request(
+        policy, f"/api/product-portfolio/publications/{positive['request_id']}"
+    )
+    if denied_status != 404:
+        raise ProductPublicationError("interrupted operation created publication state")
+    if (
+        accepted_status != 200
+        or accepted_readback.get("receipt_digest") != positive["receipt_digest"]
+    ):
+        raise ProductPublicationError("process-loss recovery changed the accepted publication")
+    return {
+        "failure_http_status": failure_status,
+        "failure_code": failure_code,
+        "interrupted_state_absent": denied_readback.get("state") != "applied",
+        "ready_replicas_restored": 1,
+        "accepted_receipt_digest": accepted_readback["receipt_digest"],
+    }
 
 
 def restart_and_replay(policy: dict[str, Any], positive: dict[str, Any]) -> dict[str, Any]:
@@ -529,16 +799,10 @@ def restart_and_replay(policy: dict[str, Any], positive: dict[str, Any]) -> dict
         base.kubectl("-n", namespace(owner), "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=300s")
     base.run(["systemctl", "--user", "restart", base.unit_name("wgcf"), base.unit_name("oos"), base.unit_name("console")])
     product_mode(policy)
-    status, replay = direct_oos_request(
-        policy, positive["command"], secret=base.read_oos_secret(policy)
-    )
-    if (
-        status not in {200, 201}
-        or replay.get("resolution") != "replayed"
-        or replay.get("receipt_digest") != positive["receipt_digest"]
-    ):
-        raise ProductPublicationError("restart replay produced a different receipt")
-    return {"receipt_digest": replay["receipt_digest"], "resolution": replay["resolution"]}
+    readback = positive_proof(policy)
+    if readback["receipt_digest"] != positive["receipt_digest"]:
+        raise ProductPublicationError("restart readback produced a different receipt")
+    return {"receipt_digest": readback["receipt_digest"], "resolution": "read"}
 
 
 def remove_console_environment() -> None:
@@ -658,6 +922,7 @@ def commission(policy: dict[str, Any]) -> Path:
     activation_receipt = activate(policy)
     positive = positive_proof(policy)
     negatives = negative_proof(policy, positive)
+    process_loss = process_loss_and_recovery(policy, positive)
     restart = restart_and_replay(policy, positive)
     rollback_result = rollback(policy)
     restored_receipt = activate(policy)
@@ -669,6 +934,7 @@ def commission(policy: dict[str, Any]) -> Path:
         "activation_receipt": str(activation_receipt),
         "positive": {key: value for key, value in positive.items() if key != "command"},
         "negative": negatives,
+        "process_loss": process_loss,
         "restart": restart,
         "rollback": rollback_result,
         "restored_activation_receipt": str(restored_receipt),
@@ -678,8 +944,7 @@ def commission(policy: dict[str, Any]) -> Path:
     })
 
 
-def verify_operating(policy: dict[str, Any]) -> Path:
-    validate(policy)
+def exact_commissioning_receipt(policy: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
     candidates = sorted(RECEIPT_ROOT.glob("*-commission.json"), reverse=True)
     for candidate in candidates:
         value = json.loads(candidate.read_text(encoding="utf-8"))
@@ -691,17 +956,50 @@ def verify_operating(policy: dict[str, Any]) -> Path:
             and value.get("evidence", {}).get("commissioning_sequence_complete") is True
             and digest == sha256(json.dumps(expected, sort_keys=True, separators=(",", ":")).encode("utf-8"))
         ):
-            runtime = runtime_status(policy)
-            positive = positive_proof(policy)
-            if positive["receipt_digest"] != value["evidence"]["positive"]["receipt_digest"]:
-                raise ProductPublicationError("current Product Publication readback changed")
-            return receipt("operating-verification", policy, {
-                "commissioning_receipt": str(candidate),
-                "commissioning_receipt_digest": value["content_digest"],
-                "runtime": runtime,
-                "receipt_digest": positive["receipt_digest"],
-            })
+            return candidate, value
     raise ProductPublicationError("no exact Product Publication commissioning receipt is available")
+
+
+def verify_operating(policy: dict[str, Any]) -> Path:
+    validate(policy)
+    candidate, value = exact_commissioning_receipt(policy)
+    runtime = runtime_status(policy)
+    positive = positive_proof(policy)
+    if positive["receipt_digest"] != value["evidence"]["positive"]["receipt_digest"]:
+        raise ProductPublicationError("current Product Publication readback changed")
+    return receipt("operating-verification", policy, {
+        "commissioning_receipt": str(candidate),
+        "commissioning_receipt_digest": value["content_digest"],
+        "runtime": runtime,
+        "receipt_digest": positive["receipt_digest"],
+    })
+
+
+def verify_process_crash(policy: dict[str, Any]) -> Path:
+    validate(policy)
+    candidate, value = exact_commissioning_receipt(policy)
+    process_loss = value.get("evidence", {}).get("process_loss", {})
+    positive = value.get("evidence", {}).get("positive", {})
+    if (
+        process_loss.get("interrupted_state_absent") is not True
+        or process_loss.get("ready_replicas_restored") != 1
+        or process_loss.get("accepted_receipt_digest") != positive.get("receipt_digest")
+        or (process_loss.get("failure_http_status") not in {0, 502, 503})
+        or process_loss.get("failure_code")
+        not in {"transport-unavailable", "product_publication_oos_unavailable"}
+    ):
+        raise ProductPublicationError("commissioning receipt lacks exact process-loss recovery proof")
+    runtime = runtime_status(policy)
+    current = positive_proof(policy)
+    if current["receipt_digest"] != positive["receipt_digest"]:
+        raise ProductPublicationError("process-loss evidence no longer matches current readback")
+    return receipt("process-crash-verification", policy, {
+        "commissioning_receipt": str(candidate),
+        "commissioning_receipt_digest": value["content_digest"],
+        "process_loss": process_loss,
+        "runtime": runtime,
+        "receipt_digest": current["receipt_digest"],
+    })
 
 
 def main() -> int:
@@ -709,7 +1007,10 @@ def main() -> int:
     global_policy.add_argument("--policy", type=Path, default=POLICY_PATH)
     global_policy.add_argument(
         "action",
-        choices=("validate", "activate", "status", "commission", "verify-operating", "rollback"),
+        choices=(
+            "validate", "activate", "status", "commission", "verify-operating",
+            "verify-process-crash", "rollback",
+        ),
     )
     global_policy.add_argument("--repo-path", action="append", default=[])
     args = global_policy.parse_args()
@@ -725,6 +1026,7 @@ def main() -> int:
             "status": status,
             "commission": commission,
             "verify-operating": verify_operating,
+            "verify-process-crash": verify_process_crash,
             "rollback": lambda value: receipt("rollback", value, rollback(value)),
         }
         path = actions[args.action](policy)

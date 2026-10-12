@@ -65,9 +65,13 @@ positive, negative, rollback, and source-revision evidence.
 
 `product_publication_platform.py` is the Platform-owned Product Publication
 commissioning command. It reuses the existing Console cross-domain services,
-projects only integrity metadata into the Console, adds the exact OOS and WGCF
-runtime bindings, records value-free receipts, and proves positive publication,
-fail-closed negatives, restart, rollback, cleanup, and final restoration.
+projects only integrity metadata into the Console, verifies the ancestry from
+Security-reviewed capability source to exact activated OOS and WGCF runtime
+bindings, records value-free receipts, and proves positive publication,
+all four inactive target denials, fail-closed negatives, process-loss recovery,
+restart, rollback, cleanup, and final restoration. Its separate
+`verify-process-crash` action validates that exact recovery evidence without
+claiming broader publication or access authority.
 
 `proposal_target_identity.py` commissions that dedicated exact-repository
 GitHub App and projects only its short-lived token, read-only Prototype Studio

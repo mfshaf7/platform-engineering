@@ -126,6 +126,22 @@
       "timeout_seconds": 1800
     },
     {
+      "id": "product-publication-platform-protocol-tests",
+      "kind": "tests",
+      "name": "Product Publication Platform positive and negative tests",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/test_product_publication_platform.py"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1264-positive",
+        "case:1264-negative"
+      ],
+      "timeout_seconds": 300
+    },
+    {
       "id": "product-publication-operating-verification",
       "kind": "runtime_and_live",
       "name": "Product Publication operating verification",
@@ -138,7 +154,24 @@
       "conformance_binding": "matching-fidelity",
       "conformance_case_ids": [
         "case:1258-positive",
-        "case:1258-negative"
+        "case:1258-negative",
+        "case:1264-operating-positive"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "product-publication-process-crash-verification",
+      "kind": "runtime_and_live",
+      "name": "Product Publication process-loss recovery verification",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/product_publication_platform.py",
+        "verify-process-crash"
+      ],
+      "fidelity": "process-crash",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1264-operating-negative"
       ],
       "timeout_seconds": 1800
     },

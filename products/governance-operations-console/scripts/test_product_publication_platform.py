@@ -21,17 +21,29 @@ class ProductPublicationPlatformTests(unittest.TestCase):
         binding = policy["product_publication"]
         self.assertEqual(policy["activation"]["delivery_id"], "delivery-894")
         self.assertEqual(
+            policy["activation"]["work_item_ref"],
+            "openproject://work_packages/1264",
+        )
+        self.assertEqual(
             policy["activation"]["security_gate_id"],
-            "gate:product-publication-controlled-activation",
+            "gate:product-publication-audience-activation",
+        )
+        self.assertEqual(
+            policy["architecture"]["relationship"],
+            "exact-security-reviewed-lineage",
         )
         self.assertEqual(binding["target"]["posture"], "internal")
         self.assertEqual(
             policy["owners"]["wgcf"]["revision"],
-            "556997107497ce1ae6ad8635c96591e186bca629",
+            "8cc666efbb4bb6c582571c438a3a8fa5c8342cdb",
+        )
+        self.assertEqual(
+            policy["owners"]["wgcf"]["security_reviewed_revision"],
+            "d12545242fed839df3bce65ad4dd5d6482e7854a",
         )
         self.assertEqual(
             policy["owners"]["oos"]["revision"],
-            "e10a3265b6ca3e9ca16d74f453fe7b6285d5d5b1",
+            "a690e25b902c248b43f055a69f1b5e6647c01d3e",
         )
         self.assertEqual(policy["owners"]["oos"]["container"], "operator-orchestration-service")
         self.assertEqual(policy["owners"]["wgcf"]["container"], "api")
@@ -40,13 +52,47 @@ class ProductPublicationPlatformTests(unittest.TestCase):
         )
         self.assertEqual(
             binding["authority_revision"],
-            "8e91d765dcf0894507818f538f128071447b11ef",
+            "ade4549746bc6e727e97397be7b0c89758677a0c",
+        )
+        self.assertEqual(
+            binding["security_reviewed_authority_revision"],
+            "213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784",
+        )
+        self.assertEqual(
+            binding["manifest_revision"],
+            "79f95608c71fd4d74244e89324c6c5d45cd416f7",
+        )
+        self.assertEqual(
+            binding["security_reviewed_manifest_revision"],
+            "83b0e20786bd6cd531e1043acf96df60ee5a3555",
         )
         self.assertEqual(
             binding["manifest_digest"],
             "sha256:e042aae5afc266cf23f02de747ee773561efb9541747ca14a94c0f35c614015e",
         )
+        self.assertEqual(
+            binding["security_decision"]["approved_target_postures"],
+            ["internal"],
+        )
+        self.assertEqual(
+            set(module.command_security_decision(policy)),
+            {"uri", "digest", "revision"},
+        )
         self.assertFalse(policy["credentials"]["browser_credentials_allowed"])
+
+    def test_architecture_binds_current_corrected_packet_to_security_reviewed_anchor(self) -> None:
+        policy = module.load_policy()
+        architecture = policy["architecture"]
+        review = "\n".join([
+            architecture["security_reviewed"]["uri"],
+            *architecture["security_review_revisions"],
+        ])
+        module.base.require_architecture_binding(policy, review)
+        with self.assertRaisesRegex(module.base.ActivationError, "security-reviewed"):
+            module.base.require_architecture_binding(
+                policy,
+                review.replace(architecture["security_reviewed"]["uri"], "missing"),
+            )
 
     def test_canonical_manifest_digest_is_independent_of_json_key_order(self) -> None:
         first = {"product": {"id": "console", "revision": 1}, "active": True}
@@ -81,7 +127,7 @@ class ProductPublicationPlatformTests(unittest.TestCase):
 
     def test_positive_proof_reads_a_durable_result_before_submitting(self) -> None:
         policy = module.load_policy()
-        intent = {"request_id": "product-publication-request:platform:1258:test"}
+        prior = policy["product_publication"]["existing_internal_publication"]
         result = {
             "state": "applied",
             "packet": {"grants": {
@@ -92,14 +138,18 @@ class ProductPublicationPlatformTests(unittest.TestCase):
                 "lifecycle_mutation": False,
             }, "authority_refs": {"readiness_receipt_ref": "wgcf://readiness"}},
             "receipt": {
-                "receipt_id": "receipt:test",
+                "receipt_id": prior["receipt_id"],
                 "owner_receipt_ref": "oos://receipt/test",
                 "publication_posture": "internal",
                 "publication_version": 1,
             },
-            "receipt_digest": "sha256:" + "1" * 64,
+            "receipt_digest": prior["receipt_digest"],
+            "command_digest": prior["command_digest"],
             "resolution": "read",
-            "command": {"request_id": intent["request_id"]},
+            "command": {
+                "request_id": prior["request_id"],
+                "security_decision": prior["security_decision"],
+            },
         }
         calls: list[tuple[str, dict | None]] = []
 
@@ -113,34 +163,154 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             return 200, result
 
         with (
-            patch.object(module, "proof_intent", return_value=intent),
             patch.object(module, "console_request", side_effect=request),
             patch.object(module.time, "sleep"),
         ):
             proof = module.positive_proof(policy)
-        self.assertEqual(proof["receipt_digest"], result["receipt_digest"])
+        self.assertEqual(proof["receipt_digest"], prior["receipt_digest"])
         self.assertEqual(len(calls), 3)
         self.assertTrue(all(body is None for _, body in calls))
 
-    def test_restart_replay_accepts_the_owner_post_replay_status(self) -> None:
+    def test_restart_reads_the_same_existing_receipt(self) -> None:
         policy = module.load_policy()
         positive = {
             "command": {"request_id": "product-publication-request:test"},
             "receipt_digest": "sha256:" + "1" * 64,
         }
-        replay = {
-            "resolution": "replayed",
+        readback = {
+            "resolution": "read",
             "receipt_digest": positive["receipt_digest"],
         }
         with (
             patch.object(module.base, "kubectl", return_value=Mock(stdout="")),
             patch.object(module.base, "run", return_value=Mock(returncode=0)),
             patch.object(module, "product_mode", return_value={"mode": "live"}),
-            patch.object(module.base, "read_oos_secret", return_value="secret"),
-            patch.object(module, "direct_oos_request", return_value=(201, replay)),
+            patch.object(module, "positive_proof", return_value=readback),
         ):
             result = module.restart_and_replay(policy, positive)
-        self.assertEqual(result, replay)
+        self.assertEqual(result, readback)
+
+    def test_negative_proof_rejects_every_inactive_target(self) -> None:
+        policy = module.load_policy()
+        intent = {
+            "request_id": "product-publication-request:platform:1264:test",
+            "idempotency_key": "product-publication:platform:1264:test",
+            "manifest_source": {"manifest_digest": "sha256:" + "a" * 64},
+        }
+        positive = {
+            "request_id": intent["request_id"],
+            "receipt_digest": "sha256:" + "1" * 64,
+            "command": {
+                **intent,
+                "action": "publish",
+                "current_publication_posture": "unlisted",
+                "security_decision": {
+                    "uri": "security",
+                    "digest": "sha256:" + "2" * 64,
+                    "revision": "3" * 40,
+                },
+                "operator_decision": {"reason": "Existing decision."},
+                "target_publication": policy["product_publication"]["target"],
+            },
+        }
+        direct_results = [
+            (401, {"error": "caller_auth_invalid"}),
+            (403, {"error": "product_publication_security_decision_mismatch"}),
+            (409, {"error": "product_publication_idempotency_conflict"}),
+            *[
+                (403, {"error": "product_publication_target_posture_not_approved"})
+                for _ in range(4)
+            ],
+        ]
+        console_results = [
+            (502, {
+                "code": "product_publication_oos_rejected",
+                "error": "product_publication_readiness_mismatch",
+            }),
+            (200, {"receipt_digest": positive["receipt_digest"]}),
+        ]
+        with (
+            patch.object(module, "proof_intent", return_value=intent),
+            patch.object(module, "direct_oos_request", side_effect=direct_results),
+            patch.object(module, "console_request", side_effect=console_results),
+            patch.object(module.base, "read_oos_secret", return_value="secret"),
+        ):
+            outcomes = module.negative_proof(policy, positive)
+        self.assertEqual(
+            {key for key in outcomes if key.startswith("target-")},
+            {"target-unlisted", "target-client", "target-public", "target-archived"},
+        )
+        self.assertEqual(
+            outcomes["replay-conflict"]["code"],
+            "product_publication_idempotency_conflict",
+        )
+
+    def test_process_loss_restores_oos_and_preserves_only_accepted_state(self) -> None:
+        policy = module.load_policy()
+        intent = {
+            "request_id": "product-publication-request:platform:1264:test",
+            "idempotency_key": "product-publication:platform:1264:test",
+        }
+        positive = {
+            "request_id": intent["request_id"],
+            "receipt_digest": "sha256:" + "1" * 64,
+        }
+
+        def kubectl(*args):
+            if "get" in args:
+                return Mock(stdout=json.dumps({"status": {"readyReplicas": 0}}))
+            return Mock(stdout="")
+
+        with (
+            patch.object(module, "proof_intent", return_value=intent),
+            patch.object(module.base, "kubectl", side_effect=kubectl) as kubectl_mock,
+            patch.object(module.base, "run", return_value=Mock(returncode=0)),
+            patch.object(module, "product_mode", return_value={"mode": "live"}),
+            patch.object(module, "console_request", side_effect=[
+                (503, {"code": "product_publication_oos_unavailable"}),
+                (404, {"code": "not_found"}),
+                (200, {"receipt_digest": positive["receipt_digest"]}),
+            ]),
+        ):
+            evidence = module.process_loss_and_recovery(policy, positive)
+        self.assertTrue(evidence["interrupted_state_absent"])
+        self.assertEqual(evidence["accepted_receipt_digest"], positive["receipt_digest"])
+        scale_calls = [call for call in kubectl_mock.call_args_list if "scale" in call.args]
+        self.assertEqual(scale_calls[0].args[-1], "--replicas=0")
+        self.assertEqual(scale_calls[-1].args[-1], "--replicas=1")
+
+    def test_process_loss_rejects_an_unexpected_server_failure(self) -> None:
+        policy = module.load_policy()
+        intent = {
+            "request_id": "product-publication-request:platform:1264:test",
+            "idempotency_key": "product-publication:platform:1264:test",
+        }
+        positive = {
+            "request_id": intent["request_id"],
+            "receipt_digest": "sha256:" + "1" * 64,
+        }
+
+        def kubectl(*args):
+            if "get" in args:
+                return Mock(stdout=json.dumps({"status": {"readyReplicas": 0}}))
+            return Mock(stdout="")
+
+        with (
+            patch.object(module, "proof_intent", return_value=intent),
+            patch.object(module.base, "kubectl", side_effect=kubectl),
+            patch.object(module.base, "run", return_value=Mock(returncode=0)),
+            patch.object(module, "product_mode", return_value={"mode": "live"}),
+            patch.object(
+                module,
+                "console_request",
+                return_value=(500, {"code": "unexpected_internal_error"}),
+            ),
+        ):
+            with self.assertRaisesRegex(
+                module.ProductPublicationError,
+                "did not fail as unavailable",
+            ):
+                module.process_loss_and_recovery(policy, positive)
 
     def test_partial_or_broader_policy_fails_closed(self) -> None:
         policy = module.load_policy()

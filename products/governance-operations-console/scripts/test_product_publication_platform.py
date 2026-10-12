@@ -102,6 +102,13 @@ def result(
         "schema_version": 2 if action in {"archive", "restore"} else 1,
         "action": action,
         "current_publication_posture": before,
+        "idempotency_key": f"product-publication:1273:{action}",
+        "request_id": f"product-publication-request:1273:{action}",
+        "requested_at": "2026-10-13T00:00:00Z",
+        "operator_decision": {
+            "decided_at": "2026-10-13T00:00:00Z",
+            "reason": f"Exercise the reviewed {action} transition.",
+        },
         "expected_publication_version": version - 1,
         "previous_receipt": {
             key: value for key, value in previous.items()
@@ -461,11 +468,9 @@ class ProductPublicationPlatformTests(unittest.TestCase):
 
     def test_process_loss_restores_oos_without_creating_state(self) -> None:
         policy = module.load_policy()
-        positive = {
-            "request_id": "product-publication-request:1273:publish",
-            "receipt_digest": DIGESTS["5"],
-            "command": {"request_id": "product-publication-request:1273:publish", "idempotency_key": "publication:1273:publish"},
-        }
+        _, publications, _, _ = fixture(policy)
+        positive = publications["publish"]
+        submitted = []
 
         def kubectl(*args):
             if "get" in args:
@@ -476,13 +481,23 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             patch.object(module.base, "kubectl", side_effect=kubectl),
             patch.object(module.base, "run", return_value=Mock(returncode=0)),
             patch.object(module, "product_mode", return_value={"mode": "live"}),
-            patch.object(module, "console_request", side_effect=[
-                (503, {"code": "product_publication_oos_unavailable"}),
-                (404, {"code": "not_found"}),
-                (200, {"receipt_digest": positive["receipt_digest"]}),
-            ]),
+            patch.object(module, "console_request", side_effect=lambda _policy, path, body=None: (
+                submitted.append(body) or (503, {"code": "product_publication_oos_unavailable"})
+                if body is not None
+                else (404, {"code": "not_found"})
+                if "process-loss" in path
+                else (200, {"receipt_digest": positive["receipt_digest"]})
+            )),
         ):
             proof = module.process_loss_and_recovery(policy, positive)
+        self.assertEqual(len(submitted), 1)
+        self.assertEqual(set(submitted[0]), {
+            "schema_version", "action", "current_publication_posture", "decided_at",
+            "expected_publication_version", "idempotency_key", "manifest_source",
+            "operator_reason", "previous_receipt", "request_id", "requested_at",
+            "target_publication",
+        })
+        self.assertNotIn("operator_decision", submitted[0])
         self.assertTrue(proof["interrupted_state_absent"])
         self.assertEqual(proof["accepted_receipt_digest"], positive["receipt_digest"])
 

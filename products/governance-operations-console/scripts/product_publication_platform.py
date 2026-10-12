@@ -1054,10 +1054,25 @@ def negative_proof(
 def process_loss_and_recovery(
     policy: dict[str, Any], positive: dict[str, Any]
 ) -> dict[str, Any]:
-    interrupted = json.loads(json.dumps(positive["command"]))
+    interrupted_command = json.loads(json.dumps(positive["command"]))
     probe_token = str(time.time_ns())
-    interrupted["request_id"] = f"product-publication-request:platform:1273:process-loss:{probe_token}"
-    interrupted["idempotency_key"] = f"product-publication:platform:1273:process-loss:{probe_token}"
+    interrupted_command["request_id"] = f"product-publication-request:platform:1273:process-loss:{probe_token}"
+    interrupted_command["idempotency_key"] = f"product-publication:platform:1273:process-loss:{probe_token}"
+    operator_decision = interrupted_command["operator_decision"]
+    interrupted = {
+        "schema_version": interrupted_command["schema_version"],
+        "action": interrupted_command["action"],
+        "current_publication_posture": interrupted_command["current_publication_posture"],
+        "decided_at": operator_decision["decided_at"],
+        "expected_publication_version": interrupted_command["expected_publication_version"],
+        "idempotency_key": interrupted_command["idempotency_key"],
+        "manifest_source": interrupted_command["manifest_source"],
+        "operator_reason": operator_decision["reason"],
+        "previous_receipt": interrupted_command["previous_receipt"],
+        "request_id": interrupted_command["request_id"],
+        "requested_at": interrupted_command["requested_at"],
+        "target_publication": interrupted_command["target_publication"],
+    }
     oos = policy["owners"]["oos"]
     namespace_name = namespace(oos)
     deployment = f"deployment/{oos['deployment']}"

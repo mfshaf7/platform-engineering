@@ -54,6 +54,12 @@ commits in the same repository. The corrective amendment now treats the
 Security-reviewed Console source as a minimum ancestor, requires current clean
 `main`, and records the exact selected head in every Platform receipt.
 
+The first live reconciliation also exposed an upgrade-order contradiction:
+the composition rolled the new fail-closed OOS source before Platform projected
+the matching Security decision. Activation now primes that exact binding before
+cross-domain runtime waits, and the operator procedure activates once before
+source rollout and once after reconciliation.
+
 ## Source Changes
 
 This Landing Unit updates the existing Platform policy, commissioning script,

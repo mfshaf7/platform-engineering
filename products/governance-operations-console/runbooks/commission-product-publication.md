@@ -47,10 +47,18 @@ from an earlier command.
 
 ## Activate Exact Sources
 
-Reconcile the existing composition with the merged OOS and WGCF heads and the
-reviewed Platform checkout:
+Prime the reviewed Product Publication binding against the currently running
+composition before rolling the merged OOS source. This ordering is mandatory:
+the new OOS source fails closed when it sees the previous Security decision,
+so source rollout must never precede binding projection.
 
 ```bash
+make governance-console-product-publication ACTION=validate ARGS="\
+  --repo-path platform-engineering=<reviewed-platform-checkout>"
+
+make governance-console-product-publication ACTION=activate ARGS="\
+  --repo-path platform-engineering=<reviewed-platform-checkout>"
+
 python3 scripts/dev_integration.py up \
   --composition refinement-catalog \
   --workspace-root /home/mfshaf7/projects \
@@ -58,12 +66,13 @@ python3 scripts/dev_integration.py up \
   --repo-path workspace-governance-control-fabric=/home/mfshaf7/projects/workspace-governance-control-fabric \
   --repo-path platform-engineering=<reviewed-platform-checkout>
 
-make governance-console-product-publication ACTION=validate ARGS="\
-  --repo-path platform-engineering=<reviewed-platform-checkout>"
-
 make governance-console-product-publication ACTION=activate ARGS="\
   --repo-path platform-engineering=<reviewed-platform-checkout>"
 ```
+
+The first activation primes the exact Security decision before source rollout.
+The second reconciles and receipts the complete runtime after the exact source
+heads are active.
 
 The Console checkout must be current clean `main` and descend from the
 Security-reviewed minimum. This permits each required reviewed owner-manifest

@@ -32,6 +32,12 @@ PRODUCT_ENV_NAMES = (
     "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_URI",
     "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST",
     "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION",
+    "GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_AUTHORITY_REVISION",
+    "GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_URI",
+    "GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_DIGEST",
+    "GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_REVISION",
+    "GOVERNANCE_CONSOLE_PRODUCT_HEALTH_PROJECTION_PATH",
+    "GOVERNANCE_CONSOLE_PRODUCT_HEALTH_RECEIPT_PATH",
 )
 OOS_ENV_NAMES = (
     "OOS_PRODUCT_PUBLICATION_ENABLED",
@@ -462,6 +468,12 @@ def write_console_environment(policy: dict[str, Any]) -> Path:
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_URI={binding['security_decision']['uri']}",
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST={binding['security_decision']['digest']}",
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION={binding['security_decision']['revision']}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_AUTHORITY_REVISION={authority_revision}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_URI={binding['security_decision']['uri']}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_DIGEST={binding['security_decision']['digest']}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_MAINTENANCE_SECURITY_DECISION_REVISION={binding['security_decision']['revision']}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_HEALTH_PROJECTION_PATH={STATE_ROOT / 'product-health.json'}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_HEALTH_RECEIPT_PATH={STATE_ROOT / 'product-health.receipt.json'}",
     ])
     path.write_text("\n".join(retained) + "\n", encoding="utf-8")
     path.chmod(0o600)
@@ -1216,8 +1228,12 @@ def activate(policy: dict[str, Any]) -> Path:
     except base.ActivationError as exc:
         raise ProductPublicationError(str(exc)) from exc
     configure_workloads(policy)
+    health = product_health_proof()
     write_console_environment(policy)
-    return receipt("activate", policy, {"runtime": runtime_status(policy)})
+    return receipt("activate", policy, {
+        "runtime": runtime_status(policy),
+        "product_health": health,
+    })
 
 
 def status(policy: dict[str, Any]) -> Path:

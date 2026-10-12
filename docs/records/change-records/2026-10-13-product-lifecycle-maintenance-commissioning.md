@@ -19,7 +19,8 @@ plane, or ART child.
 ## Exact Inputs
 
 - Workspace Governance authority: `fab38a8266512b0004081039b017904c9c55f288`
-- WGCF readiness authority: `9d3e5ef1b8fafac1bf0970a7d997021c37052535`
+- WGCF readiness implementation: `98ba2b6964f031d774d55a032c3621a1c3f93997`
+- WGCF Security-reviewed ancestor: `9d3e5ef1b8fafac1bf0970a7d997021c37052535`
 - OOS lifecycle activation: `2bb51556202a9f3819ca99bad3cad06256480db9`
 - OOS Security-reviewed ancestor: `786d01c8b1e144f51cc38f6a40d6d986222ac634`
 - Console maintenance source: `9c1b9117a98a59662ba570d90bce01bc0b869fb0`
@@ -59,6 +60,13 @@ the composition rolled the new fail-closed OOS source before Platform projected
 the matching Security decision. Activation now primes that exact binding before
 cross-domain runtime waits, and the operator procedure activates once before
 source rollout and once after reconciliation.
+
+The first lifecycle request then exposed a stale WGCF Product Publication
+bundle: the runtime implementation was still bound to the superseded
+internal-only Workspace Governance authority. WGCF now carries the repaired
+lifecycle-maintenance bundle, while this policy advances the current WGCF
+implementation revision and retains its Security-reviewed ancestor as the
+lineage gate.
 
 ## Source Changes
 

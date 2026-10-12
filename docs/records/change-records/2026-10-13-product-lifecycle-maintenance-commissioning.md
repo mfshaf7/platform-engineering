@@ -19,7 +19,7 @@ plane, or ART child.
 ## Exact Inputs
 
 - Workspace Governance authority: `fab38a8266512b0004081039b017904c9c55f288`
-- WGCF readiness implementation: `98ba2b6964f031d774d55a032c3621a1c3f93997`
+- WGCF readiness implementation: `4aee019d78e184907376753cc07e27394380a5e2`
 - WGCF Security-reviewed ancestor: `9d3e5ef1b8fafac1bf0970a7d997021c37052535`
 - OOS lifecycle activation: `2bb51556202a9f3819ca99bad3cad06256480db9`
 - OOS Security-reviewed ancestor: `786d01c8b1e144f51cc38f6a40d6d986222ac634`
@@ -75,6 +75,12 @@ matched the reviewed WGCF bundle. Activation now selects current clean `main`,
 proves every bundled authority-file digest unchanged, and projects that exact
 revision. Unrelated governance records can advance without invalidating the
 capability, while any governing contract change still fails closed.
+
+Workspace Registry lifecycle readiness also failed before evaluation because
+its shared Inventory authority reader did not admit the read-only host-mounted
+Git checkout as a safe directory. The corrected WGCF implementation applies
+the established no-hooks, no-ambient-Git, safe-directory read pattern to both
+Workspace Inventory and Workspace Intake authority readers.
 
 ## Source Changes
 

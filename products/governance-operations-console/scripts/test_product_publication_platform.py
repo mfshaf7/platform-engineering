@@ -241,6 +241,39 @@ def fixture(policy: dict) -> tuple[dict, dict, dict, dict]:
 
 
 class ProductPublicationPlatformTests(unittest.TestCase):
+    def test_activate_primes_security_binding_before_cross_domain_runtime_wait(self) -> None:
+        policy = module.load_policy()
+        observed: list[str] = []
+        with (
+            patch.object(module, "validate", side_effect=lambda _policy: observed.append("validate")),
+            patch.object(
+                module,
+                "configure_oos_security_binding",
+                side_effect=lambda _policy: observed.append("prime-security-binding"),
+            ),
+            patch.object(module.base, "activate", side_effect=lambda _policy: observed.append("base-activate")),
+            patch.object(
+                module,
+                "configure_workloads",
+                side_effect=lambda _policy: observed.append("configure-workloads"),
+            ),
+            patch.object(
+                module,
+                "write_console_environment",
+                side_effect=lambda _policy: observed.append("write-console-environment"),
+            ),
+            patch.object(module, "runtime_status", return_value={"ready": True}),
+            patch.object(module, "receipt", return_value=Path("activation-receipt.json")),
+        ):
+            self.assertEqual(module.activate(policy), Path("activation-receipt.json"))
+        self.assertEqual(observed, [
+            "validate",
+            "prime-security-binding",
+            "base-activate",
+            "configure-workloads",
+            "write-console-environment",
+        ])
+
     def test_policy_binds_1273_and_exact_approved_scope(self) -> None:
         policy = module.load_policy()
         self.assertEqual(policy["activation"], {

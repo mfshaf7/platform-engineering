@@ -305,6 +305,35 @@ def strategic_patch(namespace_name: str, deployment: str, value: dict[str, Any])
     )
 
 
+def configure_oos_security_binding(policy: dict[str, Any]) -> None:
+    """Prime the fail-closed source binding before any broader runtime wait."""
+    binding = publication(policy)
+    oos = policy["owners"]["oos"]
+    strategic_patch(namespace(oos), oos["deployment"], {
+        "spec": {"template": {"spec": {"containers": [{
+            "name": oos["container"],
+            "env": [
+                {
+                    "name": "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_URI",
+                    "value": binding["security_decision"]["uri"],
+                },
+                {
+                    "name": "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST",
+                    "value": binding["security_decision"]["digest"],
+                },
+                {
+                    "name": "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION",
+                    "value": binding["security_decision"]["revision"],
+                },
+            ],
+        }]}}},
+    })
+    base.kubectl(
+        "-n", namespace(oos), "rollout", "status",
+        f"deployment/{oos['deployment']}", "--timeout=300s",
+    )
+
+
 def configure_workloads(policy: dict[str, Any]) -> None:
     binding = publication(policy)
     state = state_directory(policy)
@@ -1144,6 +1173,7 @@ def receipt(action: str, policy: dict[str, Any], evidence: dict[str, Any]) -> Pa
 
 def activate(policy: dict[str, Any]) -> Path:
     validate(policy)
+    configure_oos_security_binding(policy)
     try:
         base.activate(policy)
     except base.ActivationError as exc:

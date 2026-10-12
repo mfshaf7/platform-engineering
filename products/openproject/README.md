@@ -49,16 +49,19 @@ that OpenProject has its own separate product-governed rollout train.
 
 OpenProject is currently:
 
-- deployed and reconciled by Argo CD
+- retained but intentionally suspended by Argo CD with application replicas at
+  zero
 - packaged through the official upstream Helm chart
 - backed by a standalone platform-managed PostgreSQL service plus local app
   storage
-- exposed through the existing Windows localhost-friendly operator access model
+- preserving its database, application PVC, secrets, services, and Windows
+  localhost-friendly access declaration for later reactivation
 
 The OOS-owned `accepted-idea-delivery` profile runs a separate local-only
 OpenProject instance for fast workflow iteration. Platform supplies its managed
 Windows localhost mapping; the profile remains the runtime-shape and credential
-authority for that instance.
+authority for that instance. That dev-integration instance is the active ART
+workbench while the separate platform-integrated instance is suspended.
 
 ## Current Workflow Maturity
 
@@ -69,8 +72,9 @@ procedures, and a real workflow model on the shared platform, but it does not
 yet have its own product-governed `source -> stage -> prod` lane with separate
 rehearsal and promotion gates.
 
-The highest implemented endpoint today is the platform-managed OpenProject
-runtime on the local cluster plus its documented operator procedures.
+The highest implemented endpoint remains the platform-managed OpenProject
+runtime contract and its documented operator procedures, but its application
+workloads are currently suspended to avoid an unused duplicate runtime.
 
 OpenProject now also has governed release-state records for that exact
 platform-owned contract. Those records fail closed when verification or

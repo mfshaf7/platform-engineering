@@ -10,7 +10,7 @@ It is an observed operator-access surface for the current live environment, not 
 This is the practical companion to
 [../architecture/current-platform-topology.md](../architecture/current-platform-topology.md).
 
-Last access verification update: `2026-04-19`.
+Last access verification update: `2026-10-13`.
 
 ## Supported Access Model
 
@@ -34,7 +34,7 @@ Important clarification:
 | Platform Grafana prod | Live | `http://127.0.0.1:32080` | `k3s kubectl -n observability port-forward svc/platform-observability-prod-grafana 3000:80` | Vault path `kv/platform/observability/prod/grafana-admin` |
 | Platform Prometheus prod | Live | `http://127.0.0.1:32090` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9090:9090` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
 | Platform Alertmanager prod | Live | `http://127.0.0.1:32093` | `k3s kubectl -n observability port-forward svc/platform-operator-ui-auth-proxy 9093:9093` | Vault path `kv/platform/observability/prod/operator-ui-auth` |
-| OpenProject | Live | `http://127.0.0.1:32083` | `k3s kubectl -n openproject port-forward svc/openproject 8080:8080` | Vault path `kv/products/openproject/prod/admin` |
+| OpenProject | Suspended at zero application replicas; data retained | unavailable while suspended | unavailable while suspended; use the separate accepted-idea dev-integration endpoint for ART work | Vault path `kv/products/openproject/prod/admin` retained |
 | OpenClaw prod | Suspended by the governed prod lifecycle | no browser UI while suspended | return prod to `live`, then use `k3s kubectl -n openclaw port-forward svc/openclaw-gateway 18789:18789` | no shared browser login; use product-specific runtime surface and Telegram |
 | Platform Grafana stage | Not currently live | `http://127.0.0.1:32081` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-observability-stage-grafana 3001:80` | Vault path `kv/platform/observability/stage/grafana-admin` |
 | Platform Prometheus stage | Not currently live | `http://127.0.0.1:32091` only when stage observability is resumed | resume stage, then use `k3s kubectl -n observability-stage port-forward svc/platform-operator-ui-auth-proxy 9091:9090` | Vault path `kv/platform/observability/stage/operator-ui-auth` |

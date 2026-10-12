@@ -12,6 +12,7 @@ spec:
     helm:
       values: |
         develop: true
+        replicaCount: 0
         ingress:
           enabled: false
         service:
@@ -34,7 +35,7 @@ spec:
             secretKeys:
               password: password
           realtime_collaboration:
-            enabled: true
+            enabled: false
             hocuspocus:
               protocol: ws
         environment:
@@ -42,6 +43,9 @@ spec:
         workers:
           default:
             maxThreads: 10
+            replicaCount: 0
+        hocuspocus:
+          enabled: false
         persistence:
           enabled: true
           accessModes:
@@ -61,6 +65,7 @@ spec:
             database: openproject
         memcached:
           bundled: true
+          replicaCount: 0
   destination:
     server: https://kubernetes.default.svc
     namespace: openproject

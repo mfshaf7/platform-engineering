@@ -16,7 +16,7 @@ use on the existing `k3s` cluster.
 
 ## Runtime Expectations
 
-The platform-managed deployment must provide:
+When activated, the platform-managed deployment must provide:
 
 - a healthy Argo CD application in namespace `argocd`
 - a reachable web UI on the cluster NodePort selected for Windows localhost use
@@ -31,15 +31,30 @@ The platform-managed deployment must provide:
 
 ## Current Runtime Profile
 
-- web deployment replica count: `1`
-- Puma worker count: `1` via `OPENPROJECT_WEB__WORKERS`
-- background worker deployment replica count: `1`
-- GoodJob worker max threads: `10`
-- no recorded scaling exemption currently exists for the OpenProject runtime
+- operating posture: intentionally suspended because the separate
+  `accepted-idea-delivery` instance is the active ART workbench
+- web deployment replica count: `0`
+- background worker deployment replica count: `0`
+- bundled Memcached replica count: `0`
+- Hocuspocus: disabled while suspended
+- cron deployment replica count: `0`
+- database, application PVC, services, and secrets remain retained
+
+Reactivation is a reviewed desired-state change: restore the prior application
+replicas and Hocuspocus setting in
+`environments/prod/argocd/openproject-app.yaml`, merge it, and run the existing
+`make openproject-apply` operator surface. Do not use a live-only scale-up that
+would contradict Argo desired state.
 
 ## Health And Readiness
 
-V1 readiness is proven through:
+While suspended, readiness is proven through:
+
+- all OpenProject application deployments remaining at zero replicas
+- the application PVC and platform PostgreSQL data remaining retained
+- no `/login` reachability claim
+
+When activated, V1 readiness is proven through:
 
 - Argo CD sync status: `Synced`
 - Argo CD health status: `Healthy`
@@ -61,12 +76,14 @@ plane, that plane must also pass the production-activation hygiene gate from:
 
 ## Access Model
 
-- primary operator path: `http://127.0.0.1:32083`
+- declared operator path when activated: `http://127.0.0.1:32083`
 - service exposure: fixed NodePort on the local `k3s` node
 - Windows localhost reachability depends on the existing
   `PlatformCoreHostStack` bootstrap path refreshing local portproxy state
 - WSL shell-local fallback should use `k3s kubectl -n openproject port-forward`
   rather than assuming the Windows localhost port is available in-shell
+- the declared endpoint is intentionally unavailable while the application is
+  suspended
 
 The persistent `accepted-idea-delivery` dev-integration instance is a separate
 local runtime owned by its OOS profile. It follows the same platform access

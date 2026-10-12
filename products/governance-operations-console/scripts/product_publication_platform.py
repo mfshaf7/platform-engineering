@@ -103,6 +103,41 @@ def existing_internal_publication(policy: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def workspace_authority_revision(policy: dict[str, Any]) -> str:
+    """Select current clean authority only when the reviewed WGCF bundle is unchanged."""
+    binding = publication(policy)
+    workspace_repo = base.repo_path("workspace-governance")
+    wgcf = policy["owners"]["wgcf"]
+    reviewed_revision = binding["security_reviewed_authority_revision"]
+    try:
+        base.require_source_authority({
+            "repo": "workspace-governance",
+            "minimum_revision": reviewed_revision,
+        })
+    except base.ActivationError as exc:
+        raise ProductPublicationError(str(exc)) from exc
+    current_revision = base.git_head(workspace_repo)
+    bundle = json.loads(git_file(
+        base.repo_path(wgcf["repo"]),
+        wgcf["revision"],
+        "contracts/product-publication/manifest.json",
+    ))
+    authority_files = bundle.get("authority_files")
+    if (
+        bundle.get("authority_repo") != "workspace-governance"
+        or bundle.get("authority_commit") != binding["authority_revision"]
+        or not isinstance(authority_files, dict)
+        or not authority_files
+    ):
+        raise ProductPublicationError("WGCF Product Publication authority bundle is invalid")
+    for relative_path, expected_digest in authority_files.items():
+        if sha256(git_file(workspace_repo, current_revision, relative_path)) != f"sha256:{expected_digest}":
+            raise ProductPublicationError(
+                "current Workspace Governance source changes the reviewed Product Publication authority bundle"
+            )
+    return current_revision
+
+
 def command_security_decision(policy: dict[str, Any]) -> dict[str, str]:
     decision = publication(policy)["security_decision"]
     return {
@@ -201,6 +236,7 @@ def validate(policy: dict[str, Any]) -> None:
         raise ProductPublicationError(
             "Product Publication runtime authority does not preserve its Security-reviewed contract"
         )
+    workspace_authority_revision(policy)
     security = binding.get("security_decision") or {}
     if (
         security.get("revision") != policy["authority"]["security_revision"]
@@ -420,8 +456,9 @@ def write_console_environment(policy: dict[str, Any]) -> Path:
         if line.split("=", 1)[0] not in PRODUCT_ENV_NAMES
     ]
     binding = publication(policy)
+    authority_revision = workspace_authority_revision(policy)
     retained.extend([
-        f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_AUTHORITY_REVISION={binding['authority_revision']}",
+        f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_AUTHORITY_REVISION={authority_revision}",
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_URI={binding['security_decision']['uri']}",
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST={binding['security_decision']['digest']}",
         f"GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION={binding['security_decision']['revision']}",
@@ -1132,7 +1169,7 @@ def source_revisions(policy: dict[str, Any]) -> dict[str, str]:
         policy["console"]["repo"]: base.console_source_revision(policy),
         policy["owners"]["oos"]["repo"]: policy["owners"]["oos"]["revision"],
         policy["owners"]["wgcf"]["repo"]: policy["owners"]["wgcf"]["revision"],
-        "workspace-governance": publication(policy)["authority_revision"],
+        "workspace-governance": workspace_authority_revision(policy),
         "security-architecture": policy["authority"]["security_revision"],
     }
 

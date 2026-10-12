@@ -68,6 +68,14 @@ lifecycle-maintenance bundle, while this policy advances the current WGCF
 implementation revision and retains its Security-reviewed ancestor as the
 lineage gate.
 
+A later governance-record-only merge exposed a separate selection flaw:
+Platform projected the reviewed Workspace Governance commit itself instead of
+the current clean descendant whose Product Publication authority files still
+matched the reviewed WGCF bundle. Activation now selects current clean `main`,
+proves every bundled authority-file digest unchanged, and projects that exact
+revision. Unrelated governance records can advance without invalidating the
+capability, while any governing contract change still fails closed.
+
 ## Source Changes
 
 This Landing Unit updates the existing Platform policy, commissioning script,

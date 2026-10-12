@@ -241,6 +241,68 @@ def fixture(policy: dict) -> tuple[dict, dict, dict, dict]:
 
 
 class ProductPublicationPlatformTests(unittest.TestCase):
+    def test_current_workspace_authority_requires_unchanged_reviewed_bundle(self) -> None:
+        policy = module.load_policy()
+        current = "f" * 40
+        authority_files = {
+            "contracts/product-publication.yaml": b"policy\n",
+            "contracts/schemas/product-publication-manifest.schema.json": b"{}\n",
+            "contracts/schemas/workspace-inventory-history.schema.json": b"history\n",
+        }
+        bundle = {
+            "authority_repo": "workspace-governance",
+            "authority_commit": policy["product_publication"]["authority_revision"],
+            "authority_files": {
+                path: module.sha256(raw).removeprefix("sha256:")
+                for path, raw in authority_files.items()
+            },
+        }
+
+        def repo_path(name: str) -> Path:
+            return Path(f"/{name}")
+
+        def git_file(repo: Path, revision: str, path: str) -> bytes:
+            if repo == Path("/workspace-governance-control-fabric"):
+                self.assertEqual(revision, policy["owners"]["wgcf"]["revision"])
+                return json.dumps(bundle).encode()
+            self.assertEqual(repo, Path("/workspace-governance"))
+            self.assertEqual(revision, current)
+            return authority_files[path]
+
+        with (
+            patch.object(module.base, "repo_path", side_effect=repo_path),
+            patch.object(module.base, "require_source_authority") as require_source,
+            patch.object(module.base, "git_head", return_value=current),
+            patch.object(module, "git_file", side_effect=git_file),
+        ):
+            self.assertEqual(module.workspace_authority_revision(policy), current)
+        require_source.assert_called_once_with({
+            "repo": "workspace-governance",
+            "minimum_revision": policy["product_publication"]["security_reviewed_authority_revision"],
+        })
+
+    def test_current_workspace_authority_rejects_contract_drift(self) -> None:
+        policy = module.load_policy()
+        bundle = {
+            "authority_repo": "workspace-governance",
+            "authority_commit": policy["product_publication"]["authority_revision"],
+            "authority_files": {"contracts/product-publication.yaml": "0" * 64},
+        }
+        with (
+            patch.object(module.base, "repo_path", side_effect=lambda name: Path(f"/{name}")),
+            patch.object(module.base, "require_source_authority"),
+            patch.object(module.base, "git_head", return_value="f" * 40),
+            patch.object(module, "git_file", side_effect=[
+                json.dumps(bundle).encode(),
+                b"changed policy\n",
+            ]),
+        ):
+            with self.assertRaisesRegex(
+                module.ProductPublicationError,
+                "changes the reviewed Product Publication authority bundle",
+            ):
+                module.workspace_authority_revision(policy)
+
     def test_activate_primes_security_binding_before_cross_domain_runtime_wait(self) -> None:
         policy = module.load_policy()
         observed: list[str] = []

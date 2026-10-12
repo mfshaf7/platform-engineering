@@ -362,10 +362,15 @@ def secret_manifest(
     return yaml.safe_dump(value, sort_keys=False)
 
 
-def deployment_patch(contract: Contract) -> str:
+def deployment_patch(contract: Contract, token: IssuedToken) -> str:
     value = {
         "spec": {
             "template": {
+                "metadata": {
+                    "annotations": {
+                        "workspace-governance/workspace-intake-token-expires-at": token.expires_at,
+                    }
+                },
                 "spec": {
                     "containers": [
                         {
@@ -661,7 +666,7 @@ def command_deliver(args: argparse.Namespace) -> int:
                 BROKER_DEPLOYMENT,
                 "--type=strategic",
                 "-p",
-                deployment_patch(contract),
+                deployment_patch(contract, token),
             ],
         )
         run_kubectl(

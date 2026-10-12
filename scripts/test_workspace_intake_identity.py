@@ -474,6 +474,34 @@ class WorkspaceIntakeIdentityTests(unittest.TestCase):
             self.commands.read_text(),
         )
         self.assertIn("patch deployment operator-orchestration-service", self.commands.read_text())
+        token = module.IssuedToken(
+            token=self.state.token,
+            expires_at=manifest["metadata"]["annotations"][
+                "workspace-governance/token-expires-at"
+            ],
+            repositories=(),
+            permissions={},
+        )
+        delivery_patch = json.loads(
+            module.deployment_patch(
+                module.load_contract(module.DEFAULT_CONTRACT), token
+            )
+        )
+        self.assertEqual(
+            token.expires_at,
+            delivery_patch["spec"]["template"]["metadata"]["annotations"][
+                "workspace-governance/workspace-intake-token-expires-at"
+            ],
+        )
+        self.assertNotEqual(
+            module.deployment_patch(
+                module.load_contract(module.DEFAULT_CONTRACT),
+                replace(token, expires_at="2026-09-05T01:00:00Z"),
+            ),
+            module.deployment_patch(
+                module.load_contract(module.DEFAULT_CONTRACT), token
+            ),
+        )
         revoke_patch = json.loads(
             module.deployment_revoke_patch(module.load_contract(module.DEFAULT_CONTRACT))
         )

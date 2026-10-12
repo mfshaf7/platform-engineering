@@ -21,7 +21,7 @@ plane, or ART child.
 - Workspace Governance authority: `fab38a8266512b0004081039b017904c9c55f288`
 - WGCF readiness implementation: `4aee019d78e184907376753cc07e27394380a5e2`
 - WGCF Security-reviewed ancestor: `9d3e5ef1b8fafac1bf0970a7d997021c37052535`
-- OOS lifecycle activation: `2bb51556202a9f3819ca99bad3cad06256480db9`
+- OOS lifecycle activation: `94534d621aa9300b51035cd05554f27b6b4e3180`
 - OOS Security-reviewed ancestor: `786d01c8b1e144f51cc38f6a40d6d986222ac634`
 - Console maintenance source: `9c1b9117a98a59662ba570d90bce01bc0b869fb0`
 - Security decision revision: `d4486a2d37729db97017c90a6a82e4fcf12f7ce6`
@@ -81,6 +81,29 @@ its shared Inventory authority reader did not admit the read-only host-mounted
 Git checkout as a safe directory. The corrected WGCF implementation applies
 the established no-hooks, no-ambient-Git, safe-directory read pattern to both
 Workspace Inventory and Workspace Intake authority readers.
+
+## Post-Merge Verifier Reconciliation
+
+The original commissioning source landed through Platform PR `#289`. Live
+commissioning then exposed four verifier and activation defects whose reviewed
+maintenance changes are part of the same logical Landing Unit evidence:
+
+- PR `#298` (`d0fea33d7cdbe905d8325837dab76a43585f6b77`) reads Registry lifecycle
+  history from its canonical result and validates ordering from the owner
+  manifest and readiness bindings.
+- PR `#299` (`9dd691373b9e0d477e7f872d100af4d1b1011470`) validates the canonical
+  lifecycle-result envelope and its WGCF-bound post-state digest.
+- PR `#300` (`a44652e3b5e9fa9528784e7217a7494ce86fa069`) submits the process-loss
+  probe through the exact public Console intent contract rather than leaking
+  the internal OOS command shape across that boundary.
+- PR `#301` (`ff711c1c48485a3366a184db1f6ba95bb2dc3ce0`) completes OOS and WGCF
+  workload rollouts before starting loopback tunnels, preventing a tunnel from
+  remaining attached to a replaced pod during final readback.
+
+The preserved merge-ready Review Packet for PR `#289` remains immutable. The
+replacement work-session generation starts from PR `#301`, records the exact
+recovery receipt, and repeats normal review plus operating-readiness evidence
+against the repaired source rather than rebinding old evidence.
 
 ## Source Changes
 

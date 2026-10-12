@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mfshaf7.github.io/platform-engineering/governance-operations-console/product-runtime-health-receipt.schema.json",
+  "title": "Portfolio product runtime health receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "action", "projection_reference", "projection_digest", "policy_digest", "freshness", "observed_at", "valid_until", "product_count", "counts", "secret_values_embedded"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "action": { "const": "project-product-health" },
+    "projection_reference": { "type": "string", "pattern": "^platform-product-health://[a-f0-9]{64}$" },
+    "projection_digest": { "$ref": "#/$defs/digest" },
+    "policy_digest": { "$ref": "#/$defs/digest" },
+    "freshness": { "enum": ["current", "stale"] },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "valid_until": { "type": "string", "format": "date-time" },
+    "product_count": { "type": "integer", "minimum": 1 },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "degraded", "unavailable", "unknown"],
+      "properties": {
+        "available": { "type": "integer", "minimum": 0 },
+        "degraded": { "type": "integer", "minimum": 0 },
+        "unavailable": { "type": "integer", "minimum": 0 },
+        "unknown": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "secret_values_embedded": { "const": false }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

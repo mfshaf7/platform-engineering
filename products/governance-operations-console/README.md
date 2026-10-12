@@ -22,6 +22,12 @@ readiness, freshness, source references, capability posture, and recovery
 ownership stay explicit. This projection does not claim endpoint semantics,
 workflow success, host telemetry, deployment approval, or Security acceptance.
 
+The runtime policy also defines the source-inactive
+`portfolio-product-runtime-health/v1` projection used by Portfolio. It binds
+runtime evidence to canonical product identity and recovery ownership while
+keeping lifecycle, publication, issue, and health axes independent. Security
+`#1271` and Platform `#1273` remain mandatory before publication is enabled.
+
 ## Ownership
 
 - Platform issues and revokes the projection.

@@ -208,7 +208,7 @@ governance-console-session:
 
 .PHONY: governance-console-runtime
 governance-console-runtime:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, project, or inspect"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, project, inspect, project-product-health, or inspect-product-health"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_runtime_observations.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: governance-console-cross-domain

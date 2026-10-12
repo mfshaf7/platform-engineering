@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mfshaf7.github.io/platform-engineering/governance-operations-console/product-runtime-health-projection.schema.json",
+  "title": "Portfolio product runtime health projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "source", "products", "grants"],
+  "properties": {
+    "schemaVersion": { "const": "portfolio-product-runtime-health/v1" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "profile"],
+      "properties": {
+        "lane": { "const": "dev-integration" },
+        "profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "observedAt", "validUntil", "reference", "runtimeObservationRef", "runtimeObservationDigest", "inventoryAuthority"],
+      "properties": {
+        "authority": { "const": "platform-engineering" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "reference": { "type": "string", "pattern": "^platform-product-health://[a-f0-9]{64}$" },
+        "runtimeObservationRef": { "type": "string", "pattern": "^platform-runtime-observation://[a-f0-9]{64}$" },
+        "runtimeObservationDigest": { "$ref": "#/$defs/digest" },
+        "inventoryAuthority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repo", "revision", "path", "digest"],
+          "properties": {
+            "repo": { "const": "workspace-governance" },
+            "revision": { "$ref": "#/$defs/revision" },
+            "path": { "const": "contracts/products.yaml" },
+            "digest": { "$ref": "#/$defs/digest" }
+          }
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/product" }
+    },
+    "grants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_mutation", "release_authority", "lifecycle_mutation", "publication_authority", "security_acceptance"],
+      "properties": {
+        "runtime_mutation": { "const": false },
+        "release_authority": { "const": false },
+        "lifecycle_mutation": { "const": false },
+        "publication_authority": { "const": false },
+        "security_acceptance": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "identifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productId", "productRecordRef", "productRecordVersion", "platformOwner", "runtimeOwner", "availability", "freshness", "observedAt", "evidence", "issues", "recovery"],
+      "properties": {
+        "productId": { "type": "string", "pattern": "^product:[a-z0-9][a-z0-9._-]*$" },
+        "productRecordRef": { "type": "string", "pattern": "^workspace-governance://products/[a-z0-9][a-z0-9._-]*/v[0-9]+$" },
+        "productRecordVersion": { "type": "integer", "minimum": 1 },
+        "platformOwner": { "$ref": "#/$defs/identifier" },
+        "runtimeOwner": { "$ref": "#/$defs/identifier" },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "reasonCode"],
+          "properties": {
+            "state": { "enum": ["available", "degraded", "unavailable", "unknown"] },
+            "reasonCode": { "type": ["string", "null"] }
+          }
+        },
+        "freshness": { "enum": ["current", "stale"] },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["componentId", "sourceRef", "state"],
+            "properties": {
+              "componentId": { "$ref": "#/$defs/identifier" },
+              "sourceRef": { "type": "string", "pattern": "^kubernetes://" },
+              "state": { "enum": ["available", "degraded", "unavailable"] }
+            }
+          }
+        },
+        "issues": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "codes"],
+          "properties": {
+            "state": { "enum": ["clear", "attention", "unknown"] },
+            "codes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "runbookRef"],
+          "properties": {
+            "owner": { "$ref": "#/$defs/identifier" },
+            "runbookRef": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

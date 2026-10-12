@@ -10,6 +10,12 @@ Platform projects `console-runtime-observations/v1` from the exact admitted
 Kubernetes workloads in `runtime-observation-policy.yaml`. It is a short-lived
 runtime read model, not proof that an endpoint or workflow succeeded.
 
+The same policy carries source-inactive
+`portfolio-product-runtime-health/v1` capability. It maps admitted workload
+observations to exact Workspace Governance product identities and owner
+recovery routes without mixing product lifecycle, publication, release, or
+Security posture into runtime availability.
+
 ## Guarantees
 
 - operator and profile must be admitted by source policy
@@ -29,6 +35,11 @@ runtime read model, not proof that an endpoint or workflow succeeded.
 - partial readiness projects degraded and collector authority failures stop
   publication
 - runtime observations expire after the policy window and must be recollected
+- product health binds the exact runtime projection URI and digest plus the
+  exact Workspace Governance product inventory revision and digest
+- product availability is one of `available`, `degraded`, `unavailable`, or
+  `unknown`; stale or unobserved products are always `unknown`
+- product-health receipts are versioned, bounded, and secret-free
 
 ## Limits
 
@@ -42,6 +53,11 @@ controls. A valid projection alone grants no domain mutation authority.
 Runtime workload readiness is distinct from WSL host telemetry and from the
 Console's configuration capability projection. It grants no workflow,
 deployment, release, recovery, or Security authority.
+
+Product-health capability support is not runtime activation. Until Security
+`#1271` and Platform `#1273` land, the policy keeps
+`product_health.runtime_activation: false`, and the publication command fails
+before writing projection or receipt files.
 
 ## Cross-Domain Activation
 

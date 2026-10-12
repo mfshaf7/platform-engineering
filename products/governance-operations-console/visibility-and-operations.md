@@ -43,6 +43,11 @@ The projection reports Kubernetes workload readiness only. It does not replace
 owner health endpoints, OOS readback, WSL resource telemetry, or Security
 activation. See [the runtime observation runbook](runbooks/project-runtime-observations.md).
 
+Product-linked health is defined by the same Platform policy but remains
+source-inactive. Do not derive product availability from publication receipts,
+lifecycle state, owner prose, or fixture data. An absent admitted runtime
+binding is `unknown`, and a stale observation is `unknown` until recollected.
+
 Activate the reviewed live composition with:
 
 ```bash

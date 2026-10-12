@@ -160,7 +160,8 @@ def require_architecture_binding(policy: dict[str, Any], review_content: str) ->
     current = architecture.get("current", {})
     predecessor = architecture.get("predecessor", {})
     relationship = architecture.get("relationship")
-    if architecture.get("artifact_id") != "architecture-packet:delivery-1203-v1":
+    expected_artifact_id = f"architecture-packet:{policy.get('activation', {}).get('delivery_id')}-v1"
+    if architecture.get("artifact_id") != expected_artifact_id:
         raise ActivationError("the architecture packet lineage binding is invalid")
     if relationship == "exact-supersession":
         if current.get("digest") == predecessor.get("digest"):
@@ -276,7 +277,14 @@ def validate(policy: dict[str, Any]) -> None:
     for owner in policy["owners"].values():
         require_revision(owner["repo"], owner["revision"])
         require_manifest(owner)
-    require_revision("workspace-governance", policy["authority"]["workspace_governance_revision"])
+    workspace_revision = policy["authority"]["workspace_governance_revision"]
+    if policy["authority"].get("workspace_governance_binding") == "minimum-merged-main":
+        require_source_authority({
+            "repo": "workspace-governance",
+            "minimum_revision": workspace_revision,
+        })
+    else:
+        require_revision("workspace-governance", workspace_revision)
     for source in policy.get("source_authorities", {}).values():
         require_source_authority(source)
     if policy.get("session"):

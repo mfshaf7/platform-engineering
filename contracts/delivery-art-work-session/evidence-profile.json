@@ -126,6 +126,23 @@
       "timeout_seconds": 1800
     },
     {
+      "id": "product-publication-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Product Publication operating verification",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/product_publication_platform.py",
+        "verify-operating"
+      ],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1258-positive",
+        "case:1258-negative"
+      ],
+      "timeout_seconds": 1800
+    },
+    {
       "id": "dev-integration-composition-tests",
       "kind": "tests",
       "name": "Platform dev-integration composition tests",

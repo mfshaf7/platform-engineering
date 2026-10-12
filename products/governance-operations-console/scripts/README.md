@@ -63,6 +63,12 @@ Security gate and existing `refinement-catalog` bindings are active. The
 verifier keeps caller credentials private and emits only credential-free
 positive, negative, rollback, and source-revision evidence.
 
+`product_publication_platform.py` is the Platform-owned Product Publication
+commissioning command. It reuses the existing Console cross-domain services,
+projects only integrity metadata into the Console, adds the exact OOS and WGCF
+runtime bindings, records value-free receipts, and proves positive publication,
+fail-closed negatives, restart, rollback, cleanup, and final restoration.
+
 `proposal_target_identity.py` commissions that dedicated exact-repository
 GitHub App and projects only its short-lived token, read-only Prototype Studio
 authority, and persistent Proposal Target state into OOS. It never reuses

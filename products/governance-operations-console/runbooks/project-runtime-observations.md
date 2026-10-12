@@ -54,9 +54,8 @@ the owning recovery route. Products without an admitted runtime observation
 remain explicitly `unknown`; they are never inferred healthy from lifecycle or
 publication state.
 
-The capability is source-inactive in this Landing Unit. The following command
-must fail with `product runtime health publication is source-inactive` and must
-not create output or a receipt:
+After the exact #1273 commissioning source is active, publish the private
+product-health projection from the current runtime observation:
 
 ```bash
 make governance-console-runtime ACTION=project-product-health ARGS="\
@@ -65,8 +64,6 @@ make governance-console-runtime ACTION=project-product-health ARGS="\
   --receipt <operator-private-product-health-receipt.json>"
 ```
 
-After Security `#1271` and Platform commissioning `#1273` activate the exact
-source revision, that same command becomes the primary publication path.
 `inspect-product-health --projection <path>` is read-only and reports only
 bounded counts and references.
 

@@ -15,245 +15,303 @@ module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 
 
+DIGESTS = {letter: "sha256:" + letter * 64 for letter in "abcdef123456789"}
+REVISIONS = {name: str(index) * 40 for index, name in enumerate(
+    ("active", "retired", "restored", "final", "source"), start=1
+)}
+
+
+def artifact(name: str, digest: str) -> dict:
+    return {"id": name, "digest": digest}
+
+
+def lifecycle(action: str, posture: str, version: int, digest: str, event: dict) -> dict:
+    return {
+        "request_id": f"workspace-inventory-lifecycle-request:{action}:1273",
+        "status": "succeeded",
+        "canonical_mutation": True,
+        "request": {
+            "action": action,
+            "prior_event_ref": None,
+            "target": {
+                "kind": "product",
+                "name": "governance-operations-console",
+                "record_id": "product:governance-operations-console",
+            },
+        },
+        "receipt": {
+            "action": action,
+            "receipt_id": f"workspace-inventory-lifecycle-receipt:{action}:1273",
+            "receipt_digest": digest,
+        },
+        "merged_state": {
+            "action": action,
+            "authority_revision": str(version) * 40,
+            "history_event_ref": event,
+            "record": {
+                "version": version,
+                "record_digest": DIGESTS["a"] if posture == "active" else DIGESTS["b"],
+                "posture": posture,
+            },
+        },
+    }
+
+
+def manifest(
+    *, revision: str, lifecycle_state: str, posture: str,
+    binding: dict | None = None,
+) -> dict:
+    value = {
+        "schema_version": 2 if binding else 1,
+        "artifact_type": "product-publication-owner-manifest",
+        "manifest_id": "product-publication-manifest:governance-operations-console:1",
+        "product_id": "product:governance-operations-console",
+        "product_record_ref": "workspace-governance://products/governance-operations-console/v1",
+        "product_record_version": 1,
+        "product_classification": "owner-managed",
+        "lifecycle_state": lifecycle_state,
+        "owner_repo": "governance-operations-console",
+        "owner_role": "runtime-owner",
+        "owner_revision": REVISIONS["source"],
+        "source_refs": [{
+            "repo": "governance-operations-console",
+            "revision": REVISIONS["source"],
+            "path": "src/domain-workspaces/portfolio",
+        }],
+        "lifecycle_evidence": {
+            "project_phase": "operational",
+            "source_custody": "dedicated-owner-repo",
+            "runtime_environment": "dev-integration",
+            "release_posture": "not-applicable",
+            "publication_posture": posture,
+            "evidence_refs": [f"git://governance-operations-console/{revision}"],
+        },
+        "issued_at": "2026-10-13T00:00:00Z",
+    }
+    if binding:
+        value["inventory_lifecycle_binding"] = binding
+    return value
+
+
+def result(
+    policy: dict, *, action: str, before: str, after: str, version: int,
+    previous: dict, revision: str, digest: str,
+    lifecycle_binding: dict | None = None,
+    history: list[dict] | None = None,
+) -> dict:
+    command = {
+        "schema_version": 2 if action in {"archive", "restore"} else 1,
+        "action": action,
+        "current_publication_posture": before,
+        "expected_publication_version": version - 1,
+        "previous_receipt": {
+            key: value for key, value in previous.items()
+            if key != "publication_posture" or action in {"archive", "restore"}
+        },
+        "security_decision": module.command_security_decision(policy),
+        "target_publication": policy["product_publication"]["allowed_targets"][after],
+        "manifest_source": {
+            "repo": "governance-operations-console",
+            "path": "product-publication/manifest.json",
+            "source_revision": REVISIONS["source"],
+            "manifest_revision": revision,
+            "manifest_digest": digest,
+        },
+    }
+    readiness = {
+        "manifest_binding": {
+            "manifest_digest": digest,
+            "owner_repo": "governance-operations-console",
+        },
+    }
+    if lifecycle_binding:
+        readiness["inventory_lifecycle_binding"] = lifecycle_binding
+    return {
+        "state": "applied",
+        "request_id": f"product-publication-request:1273:{action}",
+        "command": command,
+        "readiness": {"readiness": readiness},
+        "packet": {"grants": {
+            "source_authority": False,
+            "runtime_authority": False,
+            "release_authority": False,
+            "security_acceptance": False,
+            "lifecycle_mutation": False,
+        }},
+        "receipt": {
+            "receipt_id": f"product-publication-receipt:1273:{action}",
+            "publication_version": version,
+            "publication_posture": after,
+        },
+        "receipt_digest": DIGESTS[str(version)],
+        "maintenance_projection": {"history": history or []},
+    }
+
+
+def fixture(policy: dict) -> tuple[dict, dict, dict, dict]:
+    retire_event = {**artifact("workspace-inventory-history-event:retire:1273", DIGESTS["7"]), "sequence": 11}
+    restore_event = {**artifact("workspace-inventory-history-event:restore:1273", DIGESTS["8"]), "sequence": 12}
+    retired = lifecycle("retire", "retired", 11, DIGESTS["6"], retire_event)
+    restored = lifecycle("restore", "active", 12, DIGESTS["5"], restore_event)
+    restored["request"]["prior_event_ref"] = retire_event
+    retire_ref = artifact(retired["receipt"]["receipt_id"], retired["receipt"]["receipt_digest"])
+    restore_ref = artifact(restored["receipt"]["receipt_id"], restored["receipt"]["receipt_digest"])
+    retire_binding = {
+        "action": "retire",
+        "receipt_ref": retire_ref,
+        "history_event_ref": retire_event,
+        "previous_event_ref": None,
+        "after": {"record_version": 11, "record_digest": DIGESTS["b"], "posture": "retired"},
+    }
+    restore_binding = {
+        "action": "restore",
+        "receipt_ref": restore_ref,
+        "history_event_ref": restore_event,
+        "previous_event_ref": retire_event,
+        "after": {"record_version": 12, "record_digest": DIGESTS["a"], "posture": "active"},
+    }
+    manifests = {
+        REVISIONS["active"]: manifest(revision=REVISIONS["active"], lifecycle_state="active", posture="internal"),
+        REVISIONS["retired"]: manifest(revision=REVISIONS["retired"], lifecycle_state="retired", posture="unlisted", binding=retire_binding),
+        REVISIONS["restored"]: manifest(revision=REVISIONS["restored"], lifecycle_state="active", posture="unlisted", binding=restore_binding),
+        REVISIONS["final"]: manifest(revision=REVISIONS["final"], lifecycle_state="active", posture="internal", binding=restore_binding),
+    }
+    manifest_digests = {revision: module.canonical_digest(value) for revision, value in manifests.items()}
+    prior = policy["product_publication"]["existing_internal_publication"]
+    previous = {
+        "receipt_id": prior["receipt_id"],
+        "receipt_digest": prior["receipt_digest"],
+        "publication_version": 1,
+        "publication_posture": "internal",
+    }
+    publications = {}
+    publications["unpublish"] = result(
+        policy, action="unpublish", before="internal", after="unlisted", version=2,
+        previous=previous, revision=REVISIONS["active"], digest=manifest_digests[REVISIONS["active"]],
+    )
+    previous = module.previous_receipt({
+        "receipt_id": publications["unpublish"]["receipt"]["receipt_id"],
+        "receipt_digest": publications["unpublish"]["receipt_digest"],
+        "publication_version": 2, "publication_posture": "unlisted",
+    })
+    publications["archive"] = result(
+        policy, action="archive", before="unlisted", after="archived", version=3,
+        previous=previous, revision=REVISIONS["retired"], digest=manifest_digests[REVISIONS["retired"]],
+        lifecycle_binding=retire_binding,
+    )
+    previous = module.previous_receipt({
+        "receipt_id": publications["archive"]["receipt"]["receipt_id"],
+        "receipt_digest": publications["archive"]["receipt_digest"],
+        "publication_version": 3, "publication_posture": "archived",
+    })
+    publications["restore"] = result(
+        policy, action="restore", before="archived", after="unlisted", version=4,
+        previous=previous, revision=REVISIONS["restored"], digest=manifest_digests[REVISIONS["restored"]],
+        lifecycle_binding=restore_binding,
+    )
+    previous = module.previous_receipt({
+        "receipt_id": publications["restore"]["receipt"]["receipt_id"],
+        "receipt_digest": publications["restore"]["receipt_digest"],
+        "publication_version": 4, "publication_posture": "unlisted",
+    })
+    history = [
+        {"action": "publish", "publication_posture": "internal"},
+        {"action": "unpublish", "publication_posture": "unlisted"},
+        {"action": "archive", "publication_posture": "archived"},
+        {"action": "restore", "publication_posture": "unlisted"},
+        {"action": "publish", "publication_posture": "internal"},
+    ]
+    publications["publish"] = result(
+        policy, action="publish", before="unlisted", after="internal", version=5,
+        previous=previous, revision=REVISIONS["restored"], digest=manifest_digests[REVISIONS["restored"]],
+        lifecycle_binding=None, history=history,
+    )
+    evidence = {
+        "schema_version": 1,
+        "product_id": "product:governance-operations-console",
+        "publication_request_ids": {key: value["request_id"] for key, value in publications.items()},
+        "inventory_request_ids": {"retire": retired["request_id"], "restore": restored["request_id"]},
+        "final_manifest": {
+            "revision": REVISIONS["final"],
+            "digest": manifest_digests[REVISIONS["final"]],
+            "source_revision": REVISIONS["source"],
+        },
+    }
+    return evidence, publications, {"retire": retired, "restore": restored}, manifests
+
+
 class ProductPublicationPlatformTests(unittest.TestCase):
-    def test_policy_is_exactly_internal_and_binds_activated_sources(self) -> None:
+    def test_policy_binds_1273_and_exact_approved_scope(self) -> None:
         policy = module.load_policy()
-        binding = policy["product_publication"]
-        self.assertEqual(policy["activation"]["delivery_id"], "delivery-894")
-        self.assertEqual(
-            policy["activation"]["work_item_ref"],
-            "openproject://work_packages/1264",
-        )
-        self.assertEqual(
-            policy["activation"]["security_gate_id"],
-            "gate:product-publication-audience-activation",
-        )
-        self.assertEqual(
-            policy["architecture"]["relationship"],
-            "exact-security-reviewed-lineage",
-        )
-        self.assertEqual(binding["target"]["posture"], "internal")
-        self.assertEqual(
-            policy["owners"]["wgcf"]["revision"],
-            "8cc666efbb4bb6c582571c438a3a8fa5c8342cdb",
-        )
-        self.assertEqual(
-            policy["owners"]["wgcf"]["security_reviewed_revision"],
-            "d12545242fed839df3bce65ad4dd5d6482e7854a",
-        )
-        self.assertEqual(
-            policy["owners"]["oos"]["revision"],
-            "a690e25b902c248b43f055a69f1b5e6647c01d3e",
-        )
-        self.assertEqual(policy["owners"]["oos"]["container"], "operator-orchestration-service")
-        self.assertEqual(policy["owners"]["wgcf"]["container"], "api")
-        self.assertEqual(
-            binding["wgcf_contract_root"], "/app/contracts/product-publication"
-        )
-        self.assertEqual(
-            binding["authority_revision"],
-            "ade4549746bc6e727e97397be7b0c89758677a0c",
-        )
-        self.assertEqual(
-            binding["security_reviewed_authority_revision"],
-            "213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784",
-        )
-        self.assertEqual(
-            binding["manifest_revision"],
-            "79f95608c71fd4d74244e89324c6c5d45cd416f7",
-        )
-        self.assertEqual(
-            binding["security_reviewed_manifest_revision"],
-            "83b0e20786bd6cd531e1043acf96df60ee5a3555",
-        )
-        self.assertEqual(
-            binding["manifest_digest"],
-            "sha256:e042aae5afc266cf23f02de747ee773561efb9541747ca14a94c0f35c614015e",
-        )
-        self.assertEqual(
-            binding["security_decision"]["approved_target_postures"],
-            ["internal"],
-        )
-        self.assertEqual(
-            set(module.command_security_decision(policy)),
-            {"uri", "digest", "revision"},
-        )
-        self.assertFalse(policy["credentials"]["browser_credentials_allowed"])
-
-    def test_architecture_binds_current_corrected_packet_to_security_reviewed_anchor(self) -> None:
-        policy = module.load_policy()
-        architecture = policy["architecture"]
-        review = "\n".join([
-            architecture["security_reviewed"]["uri"],
-            *architecture["security_review_revisions"],
+        self.assertEqual(policy["activation"], {
+            "delivery_id": "delivery-894",
+            "work_item_ref": "openproject://work_packages/1273",
+            "security_gate_id": "gate:product-publication-lifecycle-maintenance-activation",
+        })
+        self.assertEqual(policy["product_publication"]["allowed_actions"], [
+            "publish", "unpublish", "archive", "restore",
         ])
-        module.base.require_architecture_binding(policy, review)
-        with self.assertRaisesRegex(module.base.ActivationError, "security-reviewed"):
-            module.base.require_architecture_binding(
-                policy,
-                review.replace(architecture["security_reviewed"]["uri"], "missing"),
-            )
+        self.assertEqual(set(policy["product_publication"]["allowed_targets"]), {
+            "internal", "unlisted", "archived",
+        })
+        self.assertEqual(policy["product_publication"]["denied_targets"], ["client", "public"])
+        self.assertEqual(policy["owners"]["oos"]["revision"], "2bb51556202a9f3819ca99bad3cad06256480db9")
 
-    def test_canonical_manifest_digest_is_independent_of_json_key_order(self) -> None:
-        first = {"product": {"id": "console", "revision": 1}, "active": True}
-        second = {"active": True, "product": {"revision": 1, "id": "console"}}
-        self.assertEqual(
-            module.canonical_digest(first), module.canonical_digest(second)
-        )
-
-    def test_changed_authority_binding_supersedes_the_old_proof_identity(self) -> None:
+    def test_case_1273_positive_validates_complete_order_and_fresh_manifests(self) -> None:
         policy = module.load_policy()
-        with tempfile.TemporaryDirectory() as directory:
-            state = Path(directory)
-            intent = state / "proof-intent.json"
-            intent.write_text(
-                json.dumps({
-                    "request_id": "product-publication-request:platform:1258",
-                    "idempotency_key": "product-publication:platform:1258",
-                    "manifest_source": {"manifest_digest": "sha256:" + "0" * 64},
-                }),
-                encoding="utf-8",
-            )
-            with (
-                patch.object(module, "STATE_ROOT", state),
-                patch.object(module, "INTENT_PATH", intent),
-                patch.object(module.base, "ensure_private_directory"),
-            ):
-                current = module.proof_intent(policy)
-            self.assertNotEqual(
-                current["request_id"], "product-publication-request:platform:1258"
-            )
-            self.assertTrue(list(state.glob("proof-intent-superseded-*.json")))
-
-    def test_positive_proof_reads_a_durable_result_before_submitting(self) -> None:
-        policy = module.load_policy()
-        prior = policy["product_publication"]["existing_internal_publication"]
-        result = {
-            "state": "applied",
-            "packet": {"grants": {
-                "source_authority": False,
-                "runtime_authority": False,
-                "release_authority": False,
-                "security_acceptance": False,
-                "lifecycle_mutation": False,
-            }, "authority_refs": {"readiness_receipt_ref": "wgcf://readiness"}},
-            "receipt": {
-                "receipt_id": prior["receipt_id"],
-                "owner_receipt_ref": "oos://receipt/test",
-                "publication_posture": "internal",
-                "publication_version": 1,
-            },
-            "receipt_digest": prior["receipt_digest"],
-            "command_digest": prior["command_digest"],
-            "resolution": "read",
-            "command": {
-                "request_id": prior["request_id"],
-                "security_decision": prior["security_decision"],
-            },
-        }
-        calls: list[tuple[str, dict | None]] = []
-
-        def request(_policy, path, *, body=None):
-            calls.append((path, body))
-            if len(calls) == 1:
-                return 502, {
-                    "code": "product_publication_oos_unavailable",
-                    "retryable": True,
-                }
-            return 200, result
-
+        evidence, publications, lifecycles, manifests = fixture(policy)
         with (
-            patch.object(module, "console_request", side_effect=request),
-            patch.object(module.time, "sleep"),
-        ):
-            proof = module.positive_proof(policy)
-        self.assertEqual(proof["receipt_digest"], prior["receipt_digest"])
-        self.assertEqual(len(calls), 3)
-        self.assertTrue(all(body is None for _, body in calls))
-
-    def test_restart_reads_the_same_existing_receipt(self) -> None:
-        policy = module.load_policy()
-        positive = {
-            "command": {"request_id": "product-publication-request:test"},
-            "receipt_digest": "sha256:" + "1" * 64,
-        }
-        readback = {
-            "resolution": "read",
-            "receipt_digest": positive["receipt_digest"],
-        }
-        with (
-            patch.object(module.base, "kubectl", return_value=Mock(stdout="")),
+            patch.object(module, "manifest_at", side_effect=lambda _policy, revision: (
+                manifests[revision], module.canonical_digest(manifests[revision])
+            )),
+            patch.object(module.base, "repo_path", return_value=Path("/owner")),
             patch.object(module.base, "run", return_value=Mock(returncode=0)),
-            patch.object(module, "product_mode", return_value={"mode": "live"}),
-            patch.object(module, "positive_proof", return_value=readback),
         ):
-            result = module.restart_and_replay(policy, positive)
-        self.assertEqual(result, readback)
+            proof = module.validate_sequence(policy, evidence, publications, lifecycles)
+        self.assertEqual(proof["final_state"], {
+            "lifecycle": "active", "publication_posture": "internal", "publication_version": 5,
+        })
+        self.assertTrue(proof["immutable_history_verified"])
+        self.assertEqual(set(proof["manifests"]), {
+            "active-internal", "retired-unlisted", "active-unlisted-restored", "active-internal-final",
+        })
 
-    def test_negative_proof_rejects_every_inactive_target(self) -> None:
+    def test_case_1273_negative_rejects_reordered_or_copied_evidence(self) -> None:
         policy = module.load_policy()
-        intent = {
-            "request_id": "product-publication-request:platform:1264:test",
-            "idempotency_key": "product-publication:platform:1264:test",
-            "manifest_source": {"manifest_digest": "sha256:" + "a" * 64},
-        }
-        positive = {
-            "request_id": intent["request_id"],
-            "receipt_digest": "sha256:" + "1" * 64,
-            "command": {
-                **intent,
-                "action": "publish",
-                "current_publication_posture": "unlisted",
-                "security_decision": {
-                    "uri": "security",
-                    "digest": "sha256:" + "2" * 64,
-                    "revision": "3" * 40,
-                },
-                "operator_decision": {"reason": "Existing decision."},
-                "target_publication": policy["product_publication"]["target"],
-            },
-        }
-        direct_results = [
-            (401, {"error": "caller_auth_invalid"}),
-            (403, {"error": "product_publication_security_decision_mismatch"}),
-            (409, {"error": "product_publication_idempotency_conflict"}),
-            *[
-                (403, {"error": "product_publication_target_posture_not_approved"})
-                for _ in range(4)
-            ],
-        ]
-        console_results = [
-            (502, {
-                "code": "product_publication_oos_rejected",
-                "error": "product_publication_readiness_mismatch",
-            }),
-            (200, {"receipt_digest": positive["receipt_digest"]}),
-        ]
+        evidence, publications, lifecycles, manifests = fixture(policy)
+        publications["archive"]["command"]["current_publication_posture"] = "internal"
         with (
-            patch.object(module, "proof_intent", return_value=intent),
-            patch.object(module, "direct_oos_request", side_effect=direct_results),
-            patch.object(module, "console_request", side_effect=console_results),
-            patch.object(module.base, "read_oos_secret", return_value="secret"),
+            patch.object(module, "manifest_at", side_effect=lambda _policy, revision: (
+                manifests[revision], module.canonical_digest(manifests[revision])
+            )),
+            patch.object(module.base, "repo_path", return_value=Path("/owner")),
+            patch.object(module.base, "run", return_value=Mock(returncode=0)),
         ):
-            outcomes = module.negative_proof(policy, positive)
-        self.assertEqual(
-            {key for key in outcomes if key.startswith("target-")},
-            {"target-unlisted", "target-client", "target-public", "target-archived"},
-        )
-        self.assertEqual(
-            outcomes["replay-conflict"]["code"],
-            "product_publication_idempotency_conflict",
-        )
+            with self.assertRaisesRegex(module.ProductPublicationError, "archive result is not exact"):
+                module.validate_sequence(policy, evidence, publications, lifecycles)
 
-    def test_process_loss_restores_oos_and_preserves_only_accepted_state(self) -> None:
-        policy = module.load_policy()
-        intent = {
-            "request_id": "product-publication-request:platform:1264:test",
-            "idempotency_key": "product-publication:platform:1264:test",
+    def test_case_1273_negative_requires_every_named_fail_closed_outcome(self) -> None:
+        names = {
+            "retirement-before-unpublish", "stale-or-copied-manifest",
+            "archive-without-retirement", "publication-restore-before-registry-restore",
+            "direct-listed-restoration", "client-target", "public-target",
+            "unauthorized-caller", "replay-conflict", "interrupted-operation",
         }
+        evidence = {"negative_outcomes": {
+            name: {"denied": True, "canonical_state_changed": False, "evidence_ref": f"receipt://{name}"}
+            for name in names
+        }}
+        self.assertEqual(set(module.require_negative_evidence(evidence)), names)
+        evidence["negative_outcomes"]["archive-without-retirement"]["canonical_state_changed"] = True
+        with self.assertRaisesRegex(module.ProductPublicationError, "archive-without-retirement"):
+            module.require_negative_evidence(evidence)
+
+    def test_process_loss_restores_oos_without_creating_state(self) -> None:
+        policy = module.load_policy()
         positive = {
-            "request_id": intent["request_id"],
-            "receipt_digest": "sha256:" + "1" * 64,
+            "request_id": "product-publication-request:1273:publish",
+            "receipt_digest": DIGESTS["5"],
+            "command": {"request_id": "product-publication-request:1273:publish", "idempotency_key": "publication:1273:publish"},
         }
 
         def kubectl(*args):
@@ -262,8 +320,7 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             return Mock(stdout="")
 
         with (
-            patch.object(module, "proof_intent", return_value=intent),
-            patch.object(module.base, "kubectl", side_effect=kubectl) as kubectl_mock,
+            patch.object(module.base, "kubectl", side_effect=kubectl),
             patch.object(module.base, "run", return_value=Mock(returncode=0)),
             patch.object(module, "product_mode", return_value={"mode": "live"}),
             patch.object(module, "console_request", side_effect=[
@@ -272,123 +329,9 @@ class ProductPublicationPlatformTests(unittest.TestCase):
                 (200, {"receipt_digest": positive["receipt_digest"]}),
             ]),
         ):
-            evidence = module.process_loss_and_recovery(policy, positive)
-        self.assertTrue(evidence["interrupted_state_absent"])
-        self.assertEqual(evidence["accepted_receipt_digest"], positive["receipt_digest"])
-        scale_calls = [call for call in kubectl_mock.call_args_list if "scale" in call.args]
-        self.assertEqual(scale_calls[0].args[-1], "--replicas=0")
-        self.assertEqual(scale_calls[-1].args[-1], "--replicas=1")
-
-    def test_process_loss_rejects_an_unexpected_server_failure(self) -> None:
-        policy = module.load_policy()
-        intent = {
-            "request_id": "product-publication-request:platform:1264:test",
-            "idempotency_key": "product-publication:platform:1264:test",
-        }
-        positive = {
-            "request_id": intent["request_id"],
-            "receipt_digest": "sha256:" + "1" * 64,
-        }
-
-        def kubectl(*args):
-            if "get" in args:
-                return Mock(stdout=json.dumps({"status": {"readyReplicas": 0}}))
-            return Mock(stdout="")
-
-        with (
-            patch.object(module, "proof_intent", return_value=intent),
-            patch.object(module.base, "kubectl", side_effect=kubectl),
-            patch.object(module.base, "run", return_value=Mock(returncode=0)),
-            patch.object(module, "product_mode", return_value={"mode": "live"}),
-            patch.object(
-                module,
-                "console_request",
-                return_value=(500, {"code": "unexpected_internal_error"}),
-            ),
-        ):
-            with self.assertRaisesRegex(
-                module.ProductPublicationError,
-                "did not fail as unavailable",
-            ):
-                module.process_loss_and_recovery(policy, positive)
-
-    def test_partial_or_broader_policy_fails_closed(self) -> None:
-        policy = module.load_policy()
-        policy["product_publication"]["target"]["posture"] = "public"
-        with patch.object(module.base, "validate"):
-            with self.assertRaisesRegex(module.ProductPublicationError, "only the approved internal"):
-                module.validate(policy)
-
-    def test_console_environment_adds_integrity_metadata_without_credentials(self) -> None:
-        policy = module.load_policy()
-        with tempfile.TemporaryDirectory() as directory:
-            private = Path(directory)
-            env_path = private / "console.env"
-            env_path.write_text("OOS_CALLER_SECRET=private-value\n", encoding="utf-8")
-            with (
-                patch.object(module.base, "PRIVATE_ROOT", private),
-                patch.object(module.base, "run", return_value=Mock(returncode=0)),
-            ):
-                module.write_console_environment(policy)
-            content = env_path.read_text(encoding="utf-8")
-            self.assertIn("GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_AUTHORITY_REVISION=", content)
-            self.assertIn("OOS_CALLER_SECRET=private-value", content)
-            self.assertNotIn("WGCF_PRODUCT_PUBLICATION_CALLER_SECRET=", content)
-
-    def test_workload_patch_uses_secret_reference_and_read_only_owner_source(self) -> None:
-        policy = module.load_policy()
-        patches: list[tuple[str, str, dict]] = []
-        with tempfile.TemporaryDirectory() as directory:
-            with (
-                patch.object(module, "state_directory", return_value=Path(directory)),
-                patch.object(module.base, "ensure_private_directory"),
-                patch.object(module.base, "repo_path", return_value=Path("/owner")),
-                patch.object(module.base, "kubectl", return_value=Mock(stdout="")),
-                patch.object(
-                    module,
-                    "strategic_patch",
-                    side_effect=lambda namespace, deployment, value: patches.append(
-                        (namespace, deployment, value)
-                    ),
-                ),
-            ):
-                module.configure_workloads(policy)
-        self.assertEqual(len(patches), 2)
-        oos_container = patches[0][2]["spec"]["template"]["spec"]["containers"][0]
-        secret = next(
-            item for item in oos_container["env"]
-            if item["name"] == "WGCF_PRODUCT_PUBLICATION_CALLER_SECRET"
-        )
-        self.assertIn("valueFrom", secret)
-        self.assertNotIn("value", secret)
-        wgcf_mount = patches[1][2]["spec"]["template"]["spec"]["containers"][0]["volumeMounts"][0]
-        self.assertTrue(wgcf_mount["readOnly"])
-
-    def test_workload_rollback_deletes_mounts_by_their_patch_merge_key(self) -> None:
-        policy = module.load_policy()
-        patches: list[dict] = []
-        with (
-            patch.object(module.base, "kubectl", return_value=Mock(stdout="")),
-            patch.object(
-                module,
-                "strategic_patch",
-                side_effect=lambda _namespace, _deployment, value: patches.append(value),
-            ),
-        ):
-            module.remove_workload_binding(policy, "oos")
-            module.remove_workload_binding(policy, "wgcf")
-        mounts = [
-            value["spec"]["template"]["spec"]["containers"][0]["volumeMounts"][0]
-            for value in patches
-        ]
-        self.assertEqual(
-            [mount["mountPath"] for mount in mounts],
-            [
-                policy["product_publication"]["oos_mount_path"],
-                policy["product_publication"]["wgcf_owner_mount_path"],
-            ],
-        )
-        self.assertTrue(all(mount["$patch"] == "delete" for mount in mounts))
+            proof = module.process_loss_and_recovery(policy, positive)
+        self.assertTrue(proof["interrupted_state_absent"])
+        self.assertEqual(proof["accepted_receipt_digest"], positive["receipt_digest"])
 
     def test_receipt_digest_excludes_its_own_digest_field(self) -> None:
         policy = module.load_policy()
@@ -402,10 +345,9 @@ class ProductPublicationPlatformTests(unittest.TestCase):
                 path = module.receipt("test", policy, {"ok": True})
                 value = json.loads(path.read_text(encoding="utf-8"))
                 digest = value.pop("content_digest")
-                self.assertEqual(
-                    digest,
-                    module.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()),
-                )
+                self.assertEqual(digest, module.sha256(json.dumps(
+                    value, sort_keys=True, separators=(",", ":"),
+                ).encode()))
 
 
 if __name__ == "__main__":

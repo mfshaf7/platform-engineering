@@ -64,6 +64,10 @@ and do not treat gateway readiness alone as end-to-end operating evidence.
 
 Product Publication commissioning must reuse the existing Console loopback,
 OOS, and WGCF composition and use
-`make governance-console-product-publication`. It may publish only the exact
-Security-approved internal Console owner manifest; broader posture, identity,
-data, exposure, or environment changes require another Security decision.
+`make governance-console-product-publication`. It may commission only the exact
+Security-approved `internal -> unlisted -> archived -> unlisted -> internal`
+publication path interleaved with Workspace Registry retire and restore. Every
+required owner manifest must be fresh, reviewed, and bound to exact owner
+receipts. Platform verifies and composes the sequence; it never mutates either
+owner directly. Client, public, broader identity, data, exposure, or environment
+changes require another Security decision.

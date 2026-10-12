@@ -5,6 +5,47 @@ projection:
   source_mode: live
   maximum_age_seconds: 120
   secret_values_allowed: false
+product_health:
+  schema_version: portfolio-product-runtime-health/v1
+  runtime_activation: false
+  maximum_age_seconds: 120
+  inventory_authority:
+    repo: workspace-governance
+    revision: 06b954b31466f9779dce8ec54f722f348b885505
+    path: contracts/products.yaml
+    sha256: bf8c30d904731c922f60fb669246c7bb3e0c4eb64e7a5f11be4e31fda77b874a
+  products:
+    - product_id: product:openproject
+      product_record_ref: workspace-governance://products/openproject/v1
+      product_record_version: 1
+      platform_owner: platform-engineering
+      runtime_owner: platform-engineering
+      component_ids:
+        - openproject
+      recovery:
+        owner: platform-engineering
+        runbook_ref: products/openproject/runbooks/access-openproject.md
+    - product_id: product:openclaw
+      product_record_ref: workspace-governance://products/openclaw/v1
+      product_record_version: 1
+      platform_owner: platform-engineering
+      runtime_owner: openclaw-runtime-distribution
+      component_ids: []
+      recovery:
+        owner: openclaw-runtime-distribution
+        runbook_ref: products/openclaw/runbooks/access-openclaw.md
+    - product_id: product:governance-operations-console
+      product_record_ref: workspace-governance://products/governance-operations-console/v1
+      product_record_version: 1
+      platform_owner: platform-engineering
+      runtime_owner: governance-operations-console
+      component_ids: []
+      recovery:
+        owner: governance-operations-console
+        runbook_ref: products/governance-operations-console/runbooks/project-runtime-observations.md
+  activation_prerequisites:
+    security_work_item: openproject://work_packages/1271
+    platform_commissioning_work_item: openproject://work_packages/1273
 environment:
   lane: dev-integration
   profile: accepted-idea-delivery

@@ -86,6 +86,138 @@ class ConsoleRuntimeObservationTests(unittest.TestCase):
         self.assertNotIn("token", serialized)
         self.assertNotIn("password", serialized)
 
+    def test_product_health_policy_is_exact_and_source_inactive(self) -> None:
+        self.assertFalse(self.policy.product_health_runtime_activation)
+        self.assertEqual(
+            self.policy.inventory_authority,
+            {
+                "repo": "workspace-governance",
+                "revision": "06b954b31466f9779dce8ec54f722f348b885505",
+                "path": "contracts/products.yaml",
+                "sha256": "bf8c30d904731c922f60fb669246c7bb3e0c4eb64e7a5f11be4e31fda77b874a",
+            },
+        )
+        self.assertEqual(
+            [product.product_id for product in self.policy.products],
+            ["product:openproject", "product:openclaw", "product:governance-operations-console"],
+        )
+
+    def test_case_1269_positive_projects_independent_product_health_and_owner_routes(self) -> None:
+        runtime = MODULE.build_projection(
+            self.policy,
+            operator="mfshaf7",
+            now=self.now,
+            runner=self.ready_runner,
+        )
+        value = MODULE.build_product_health_projection(
+            self.policy,
+            runtime,
+            now=self.now,
+        )
+        MODULE.validate_product_health_projection(value, runtime_projection=runtime, policy=self.policy)
+        by_id = {product["productId"]: product for product in value["products"]}
+        self.assertEqual(by_id["product:openproject"]["availability"]["state"], "available")
+        self.assertEqual(by_id["product:openproject"]["freshness"], "current")
+        self.assertEqual(by_id["product:openproject"]["runtimeOwner"], "platform-engineering")
+        self.assertEqual(by_id["product:openproject"]["evidence"][0]["componentId"], "openproject")
+        self.assertEqual(by_id["product:openclaw"]["availability"], {
+            "state": "unknown",
+            "reasonCode": "no_runtime_observation_admitted",
+        })
+        self.assertEqual(by_id["product:openclaw"]["recovery"]["owner"], "openclaw-runtime-distribution")
+        self.assertTrue(all(grant is False for grant in value["grants"].values()))
+        self.assertEqual(value["source"]["runtimeObservationRef"], runtime["source"]["reference"])
+        self.assertEqual(value["source"]["runtimeObservationDigest"], MODULE.digest(runtime))
+        self.assertNotIn("token", json.dumps(value).casefold())
+        receipt = MODULE.create_product_health_receipt(self.policy, value, now=self.now)
+        self.assertFalse(receipt["secret_values_embedded"])
+        self.assertEqual(receipt["freshness"], "current")
+        self.assertEqual(receipt["counts"], {
+            "available": 1,
+            "degraded": 0,
+            "unavailable": 0,
+            "unknown": 2,
+        })
+        self.assertEqual(
+            MODULE.build_product_health_projection(self.policy, runtime, now=self.now),
+            value,
+        )
+
+    def test_case_1269_negative_fails_closed_for_stale_contradictory_and_inactive_publication(self) -> None:
+        runtime = MODULE.build_projection(
+            self.policy,
+            operator="mfshaf7",
+            now=self.now,
+            runner=self.ready_runner,
+        )
+        stale = MODULE.build_product_health_projection(
+            self.policy,
+            runtime,
+            now=self.now + timedelta(seconds=self.policy.maximum_age_seconds + 1),
+        )
+        self.assertTrue(all(product["freshness"] == "stale" for product in stale["products"]))
+        self.assertTrue(all(product["availability"]["state"] == "unknown" for product in stale["products"]))
+        stale_summary = MODULE.product_health_summary(
+            MODULE.build_product_health_projection(self.policy, runtime, now=self.now),
+            now=self.now + timedelta(seconds=self.policy.maximum_age_seconds + 1),
+        )
+        self.assertEqual(stale_summary["freshness"], "stale")
+        self.assertEqual(stale_summary["counts"]["unknown"], 3)
+
+        missing = json.loads(json.dumps(runtime))
+        missing["components"] = [
+            component for component in missing["components"] if component["id"] != "openproject"
+        ]
+        missing_health = MODULE.build_product_health_projection(self.policy, missing, now=self.now)
+        self.assertEqual(missing_health["products"][0]["availability"], {
+            "state": "unknown",
+            "reasonCode": "required_observation_missing",
+        })
+
+        exact = MODULE.build_product_health_projection(self.policy, runtime, now=self.now)
+        exact["source"]["runtimeObservationDigest"] = "sha256:" + "0" * 64
+        exact["source"]["reference"] = MODULE.product_health_reference(exact)
+        with self.assertRaisesRegex(MODULE.ObservationError, "exact runtime observation"):
+            MODULE.validate_product_health_projection(
+                exact,
+                runtime_projection=runtime,
+                policy=self.policy,
+            )
+
+        runtime_path = self.root / "runtime.json"
+        runtime_path.write_text(json.dumps(runtime))
+        output = self.root / "product-health.json"
+        receipt = self.root / "product-health-receipt.json"
+        with self.assertRaisesRegex(MODULE.ObservationError, "source-inactive"):
+            MODULE.project_product_health(self.policy, runtime_path, output, receipt, now=self.now)
+        self.assertFalse(output.exists())
+        self.assertFalse(receipt.exists())
+
+    def test_product_health_maps_degraded_and_unavailable_without_workflow_claims(self) -> None:
+        degraded_runtime = MODULE.build_projection(
+            self.policy,
+            operator="mfshaf7",
+            now=self.now,
+            runner=lambda args: self.response(args, desired=2, ready=1)
+            if any("openproject-web" in argument for argument in args)
+            else self.response(args),
+        )
+        degraded = MODULE.build_product_health_projection(self.policy, degraded_runtime, now=self.now)
+        self.assertEqual(degraded["products"][0]["availability"]["state"], "degraded")
+        self.assertEqual(degraded["products"][0]["issues"]["state"], "attention")
+
+        unavailable_runtime = MODULE.build_projection(
+            self.policy,
+            operator="mfshaf7",
+            now=self.now,
+            runner=lambda args: self.response(args, desired=1, ready=0)
+            if any("openproject-web" in argument for argument in args)
+            else self.response(args),
+        )
+        unavailable = MODULE.build_product_health_projection(self.policy, unavailable_runtime, now=self.now)
+        self.assertEqual(unavailable["products"][0]["availability"]["state"], "unavailable")
+        self.assertFalse(unavailable["grants"]["runtime_mutation"])
+
     def test_runtime_state_distinguishes_degraded_missing_and_scaled_down(self) -> None:
         calls = 0
 

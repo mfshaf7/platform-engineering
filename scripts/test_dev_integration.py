@@ -26,6 +26,22 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DevIntegrationRunnerTests(unittest.TestCase):
+    def test_governance_console_runtime_and_product_health_contracts(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(
+                    REPO_ROOT
+                    / "products/governance-operations-console/scripts/test_console_runtime_observations.py"
+                ),
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        self.assertEqual(0, result.returncode, msg=f"{result.stdout}\n{result.stderr}")
+
     def test_owner_evidence_profile_covers_real_git_and_sandbox_runtime(self) -> None:
         profile = json.loads(
             (

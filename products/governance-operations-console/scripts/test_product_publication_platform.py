@@ -317,7 +317,7 @@ class ProductPublicationPlatformTests(unittest.TestCase):
             ):
                 module.workspace_authority_revision(policy)
 
-    def test_activate_primes_security_binding_before_cross_domain_runtime_wait(self) -> None:
+    def test_activate_finishes_workload_rollouts_before_starting_tunnels(self) -> None:
         policy = module.load_policy()
         observed: list[str] = []
         with (
@@ -350,8 +350,8 @@ class ProductPublicationPlatformTests(unittest.TestCase):
         self.assertEqual(observed, [
             "validate",
             "prime-security-binding",
-            "base-activate",
             "configure-workloads",
+            "base-activate",
             "project-product-health",
             "write-console-environment",
         ])

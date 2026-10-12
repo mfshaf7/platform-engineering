@@ -1253,11 +1253,14 @@ def receipt(action: str, policy: dict[str, Any], evidence: dict[str, Any]) -> Pa
 def activate(policy: dict[str, Any]) -> Path:
     validate(policy)
     configure_oos_security_binding(policy)
+    configure_workloads(policy)
     try:
+        # Start the loopback tunnels only after every workload rollout is
+        # complete. Otherwise kubectl port-forward can remain attached to the
+        # replaced pod and fail the first Console readback after activation.
         base.activate(policy)
     except base.ActivationError as exc:
         raise ProductPublicationError(str(exc)) from exc
-    configure_workloads(policy)
     health = product_health_proof()
     write_console_environment(policy)
     return receipt("activate", policy, {

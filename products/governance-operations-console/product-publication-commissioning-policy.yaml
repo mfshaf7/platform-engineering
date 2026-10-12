@@ -55,7 +55,7 @@ owners:
     local_port: 38180
   wgcf:
     repo: workspace-governance-control-fabric
-    revision: 98ba2b6964f031d774d55a032c3621a1c3f93997
+    revision: 4aee019d78e184907376753cc07e27394380a5e2
     security_reviewed_revision: 9d3e5ef1b8fafac1bf0970a7d997021c37052535
     profile: governance-control-fabric
     namespace: devint-governance-control-fabric-{operator}

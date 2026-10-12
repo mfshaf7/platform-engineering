@@ -677,15 +677,23 @@ def validate_manifest(
         merged = lifecycle_result.get("merged_state", {})
         receipt = lifecycle_result.get("receipt", {})
         binding = value.get("inventory_lifecycle_binding", {})
+        manifest_history = binding.get("history_event_ref", {})
+        manifest_history_ref = artifact_ref(
+            manifest_history, label="owner manifest lifecycle history"
+        )
+        expected_history_ref = artifact_ref(
+            merged.get("history_event_ref", {}), label="Registry lifecycle history"
+        )
         expected_receipt = {
             "id": receipt.get("receipt_id"),
             "digest": receipt.get("receipt_digest"),
         }
-        expected_history = merged.get("history_event_ref")
         if (
             binding.get("action") != lifecycle_result.get("request", {}).get("action")
             or binding.get("receipt_ref") != expected_receipt
-            or binding.get("history_event_ref") != expected_history
+            or manifest_history_ref != expected_history_ref
+            or not isinstance(manifest_history.get("sequence"), int)
+            or manifest_history["sequence"] < 1
             or binding.get("after", {}).get("record_version") != merged.get("record", {}).get("version")
             or binding.get("after", {}).get("record_digest") != merged.get("record", {}).get("record_digest")
             or binding.get("after", {}).get("posture") != merged.get("record", {}).get("posture")
@@ -703,6 +711,8 @@ def validate_manifest(
         "schema_version": value.get("schema_version"),
         "lifecycle": lifecycle,
         "publication_posture": posture,
+        "history_event_ref": value.get("inventory_lifecycle_binding", {}).get("history_event_ref"),
+        "previous_event_ref": value.get("inventory_lifecycle_binding", {}).get("previous_event_ref"),
     }
 
 
@@ -723,8 +733,6 @@ def validate_lifecycle_result(result: dict[str, Any], action: str, posture: str)
         raise ProductPublicationError(f"Workspace Registry {action} result is not canonical")
     history_event = merged.get("history_event_ref", {})
     artifact_ref(history_event, label=f"Registry {action} history")
-    if not isinstance(history_event.get("sequence"), int) or history_event["sequence"] < 1:
-        raise ProductPublicationError(f"Registry {action} history sequence is invalid")
     return {
         "request_id": result.get("request_id"),
         "authority_revision": merged.get("authority_revision"),
@@ -847,13 +855,21 @@ def validate_sequence(
     revisions = [item["revision"] for item in manifests.values()]
     if len(set(revisions)) != len(revisions):
         raise ProductPublicationError("required owner manifest boundaries are not fresh revisions")
+    retire_history = manifests["retired-unlisted"]["history_event_ref"]
+    restore_history = manifests["active-unlisted-restored"]["history_event_ref"]
+    if (
+        not isinstance(retire_history, dict)
+        or not isinstance(restore_history, dict)
+        or restore_history.get("sequence") != retire_history.get("sequence", 0) + 1
+    ):
+        raise ProductPublicationError("Registry lifecycle history sequence is invalid")
     archive_binding = publications["archive"].get("readiness", {}).get("readiness", {}).get("inventory_lifecycle_binding", {})
     restore_binding = publications["restore"].get("readiness", {}).get("readiness", {}).get("inventory_lifecycle_binding", {})
     if (
         archive_binding.get("receipt_ref") != retire["receipt_ref"]
-        or archive_binding.get("history_event_ref") != retire["history_event_ref"]
+        or archive_binding.get("history_event_ref") != retire_history
         or restore_binding.get("receipt_ref") != restore_lifecycle["receipt_ref"]
-        or restore_binding.get("history_event_ref") != restore_lifecycle["history_event_ref"]
+        or restore_binding.get("history_event_ref") != restore_history
         or restore_binding.get("previous_event_ref") != retire["history_event_ref"]
     ):
         raise ProductPublicationError("publication sequence is not bound to exact Registry history")

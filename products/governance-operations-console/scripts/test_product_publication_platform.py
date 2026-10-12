@@ -151,9 +151,17 @@ def result(
 def fixture(policy: dict) -> tuple[dict, dict, dict, dict]:
     retire_event = {**artifact("workspace-inventory-history-event:retire:1273", DIGESTS["7"]), "sequence": 11}
     restore_event = {**artifact("workspace-inventory-history-event:restore:1273", DIGESTS["8"]), "sequence": 12}
-    retired = lifecycle("retire", "retired", 11, DIGESTS["6"], retire_event)
-    restored = lifecycle("restore", "active", 12, DIGESTS["5"], restore_event)
-    restored["request"]["prior_event_ref"] = retire_event
+    retired = lifecycle(
+        "retire", "retired", 11, DIGESTS["6"],
+        artifact(retire_event["id"], retire_event["digest"]),
+    )
+    restored = lifecycle(
+        "restore", "active", 12, DIGESTS["5"],
+        artifact(restore_event["id"], restore_event["digest"]),
+    )
+    restored["request"]["prior_event_ref"] = artifact(
+        retire_event["id"], retire_event["digest"]
+    )
     retire_ref = artifact(retired["receipt"]["receipt_id"], retired["receipt"]["receipt_digest"])
     restore_ref = artifact(restored["receipt"]["receipt_id"], restored["receipt"]["receipt_digest"])
     retire_binding = {
@@ -167,7 +175,7 @@ def fixture(policy: dict) -> tuple[dict, dict, dict, dict]:
         "action": "restore",
         "receipt_ref": restore_ref,
         "history_event_ref": restore_event,
-        "previous_event_ref": retire_event,
+        "previous_event_ref": artifact(retire_event["id"], retire_event["digest"]),
         "after": {"record_version": 12, "record_digest": DIGESTS["a"], "posture": "active"},
     }
     manifests = {
@@ -404,6 +412,8 @@ class ProductPublicationPlatformTests(unittest.TestCase):
     def test_case_1273_positive_validates_complete_order_and_fresh_manifests(self) -> None:
         policy = module.load_policy()
         evidence, publications, lifecycles, manifests = fixture(policy)
+        self.assertNotIn("sequence", lifecycles["retire"]["merged_state"]["history_event_ref"])
+        self.assertNotIn("sequence", lifecycles["restore"]["merged_state"]["history_event_ref"])
         with (
             patch.object(module, "manifest_at", side_effect=lambda _policy, revision: (
                 manifests[revision], module.canonical_digest(manifests[revision])

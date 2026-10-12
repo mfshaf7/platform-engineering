@@ -1,0 +1,106 @@
+schema_version: 2
+lane: dev-integration
+activation:
+  delivery_id: delivery-894
+  work_item_ref: openproject://work_packages/1258
+  security_gate_id: gate:product-publication-controlled-activation
+proof_scope:
+  includes:
+    - exact-source-and-security-decision-binding
+    - console-server-product-publication
+    - wgcf-readiness-issue-and-readback
+    - oos-journal-and-owner-receipt
+    - authorization-mismatch-stale-and-replay-denial
+    - restart-rollback-cleanup-and-restoration
+  excludes:
+    - browser-owner-credentials
+    - product-identity-or-lifecycle-mutation
+    - client-or-public-publication
+    - remote-shared-or-multi-user-access
+    - stage-or-production-readiness
+    - real-client-data
+architecture:
+  artifact_id: architecture-packet:delivery-894-v1
+  current:
+    uri: wgcf://artifacts/delivery-art/sha256/511401baf083e6530a294f364a4a8aedb71601e4d7e70690cb6035f2453d4a22
+    digest: sha256:511401baf083e6530a294f364a4a8aedb71601e4d7e70690cb6035f2453d4a22
+  relationship: exact-security-binding
+  security_review_revisions:
+    - 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
+    - d12545242fed839df3bce65ad4dd5d6482e7854a
+    - 8d197979f3cf8035f3822ede7b809fd98e274630
+    - 83b0e20786bd6cd531e1043acf96df60ee5a3555
+console:
+  repo: governance-operations-console
+  revision: 2a54b94f24d9c01c82050596321493913f6691e5
+  port: 3317
+owners:
+  oos:
+    repo: operator-orchestration-service
+    revision: e10a3265b6ca3e9ca16d74f453fe7b6285d5d5b1
+    profile: accepted-idea-delivery
+    namespace: devint-accepted-idea-delivery-{operator}
+    service: operator-orchestration-service
+    deployment: operator-orchestration-service
+    container: operator-orchestration-service
+    remote_port: 8080
+    local_port: 38180
+  wgcf:
+    repo: workspace-governance-control-fabric
+    revision: 556997107497ce1ae6ad8635c96591e186bca629
+    profile: governance-control-fabric
+    namespace: devint-governance-control-fabric-{operator}
+    service: workspace-governance-control-fabric-api
+    deployment: workspace-governance-control-fabric-api
+    container: api
+    remote_port: 8080
+    local_port: 38181
+authority:
+  workspace_governance_revision: 213b9fed48f8bd0e6e6fd658bfeae38cfd9e3784
+  workspace_governance_binding: minimum-merged-main
+  security_revision: 3dc6e0f6cc2f829b4967ac73269a409e18e0de21
+  security_review_ref: docs/reviews/components/2026-10-12-product-publication-trust-boundary.md
+credentials:
+  console_oos:
+    caller_id: governance-operations-console
+    custody: accepted-idea-delivery-private-runtime
+  console_wgcf:
+    caller_id: governance-operations-console
+    custody: platform-operator-private-state
+    binding: governance-console-history-reader
+  browser_credentials_allowed: false
+session:
+  policy: session-projection-policy.yaml
+  operator_id: operator:workspace-owner
+  profile: accepted-idea-delivery
+  projection: private/operator-identity.json
+  issue_receipt: receipts/operator-identity-issue.json
+  revoke_receipt: receipts/operator-identity-revoke.json
+product_publication:
+  product_id: product:governance-operations-console
+  authority_revision: 8e91d765dcf0894507818f538f128071447b11ef
+  owner_repo: governance-operations-console
+  owner_source_revision: 9ef4e2f370439464afb0284131446d34abf4aa6d
+  manifest_revision: 83b0e20786bd6cd531e1043acf96df60ee5a3555
+  manifest_path: product-publication/manifest.json
+  manifest_digest: sha256:e042aae5afc266cf23f02de747ee773561efb9541747ca14a94c0f35c614015e
+  security_decision:
+    uri: security-architecture://product-publication/decisions/console-internal-v1
+    digest: sha256:d1d120e1a081d29319394f70fc31b423f81039ccef9e2da0b87327241f5ba837
+    revision: 3dc6e0f6cc2f829b4967ac73269a409e18e0de21
+  target:
+    posture: internal
+    listing_scope: workspace-portfolio
+    audience: workspace-operators
+    access_class: workspace-authenticated
+  service_identity_ref: service-identity://workspace-governance-control-fabric/dev-integration
+  state_directory: product-publication/state
+  oos_mount_path: /var/lib/oos/product-publication
+  wgcf_owner_mount_path: /sources/governance-operations-console
+  wgcf_contract_root: /app/contracts/product-publication
+  wgcf_caller_secret:
+    secret_name: operator-orchestration-service-refinement-bindings
+    secret_key: WGCF_REPOSITORY_READINESS_CALLER_SECRET
+receipts:
+  directory: product-publication/receipts
+  maximum_age_seconds: 120

@@ -38,6 +38,7 @@ Primary operator procedure:
 - [Commission Repository and Catalog operation](runbooks/commission-repository-catalog.md)
 - [Commission Proposal Target](runbooks/commission-proposal-target.md)
 - [Commission Agent Console](runbooks/commission-agent-console.md)
+- [Commission Product Publication](runbooks/commission-product-publication.md)
 
 Machine-readable policy:
 
@@ -47,6 +48,7 @@ Machine-readable policy:
 - [repository-catalog-commissioning-policy.yaml](repository-catalog-commissioning-policy.yaml)
 - [proposal-target-commissioning-policy.yaml](proposal-target-commissioning-policy.yaml)
 - [agent-console-commissioning-policy.yaml](agent-console-commissioning-policy.yaml)
+- [product-publication-commissioning-policy.yaml](product-publication-commissioning-policy.yaml)
 
 The cross-domain activation path pins the approved OOS, WGCF, Console,
 Workspace Governance, and Security revisions. It exposes owner APIs to the
@@ -66,3 +68,9 @@ provider credential is delivered only to OOS through the dedicated Platform
 identity; Console and the browser never receive it. Positive completion still
 requires human-reviewed merge, target-owner readback, and canonical Proposal
 acknowledgement.
+
+Product Publication commissioning composes the activated OOS and WGCF source
+gates with the existing private Console session. It pins the exact Workspace
+Governance authority, owner manifest, Security decision, source revisions, and
+internal-only publication tuple; proves denial, restart, rollback, teardown,
+and restoration; and retains all credentials outside source and browser data.

@@ -22,11 +22,11 @@ readiness, freshness, source references, capability posture, and recovery
 ownership stay explicit. This projection does not claim endpoint semantics,
 workflow success, host telemetry, deployment approval, or Security acceptance.
 
-The runtime policy also defines the source-inactive
+The runtime policy also defines the commissioned
 `portfolio-product-runtime-health/v1` projection used by Portfolio. It binds
 runtime evidence to canonical product identity and recovery ownership while
 keeping lifecycle, publication, issue, and health axes independent. Security
-`#1271` and Platform `#1273` remain mandatory before publication is enabled.
+`#1271` and Platform `#1273` bind its local `dev-integration` activation.
 
 ## Ownership
 
@@ -77,11 +77,11 @@ acknowledgement.
 
 Product Publication commissioning composes the activated OOS and WGCF source
 gates with the existing private Console session. It pins the exact Workspace
-Governance authority, owner manifest, Security decision, source revisions, and
-internal-only publication tuple. Reviewed capability revisions and their exact
-activated runtime descendants are recorded separately and ancestry-checked.
-The audience refresh keeps `unlisted`,
-`client`, `public`, and `archived` denied as targets, treats owner-manifest
-binding as publication evidence rather than an access route or grant, and
-proves process loss, restart, rollback, teardown, restoration, and final
-readback while retaining all credentials outside source and browser data.
+Governance authority, Security decision, reviewed source lineage, four fresh
+owner-manifest boundaries, two Workspace Registry lifecycle results, and the
+complete publication receipt chain. `client` and `public` remain denied.
+Platform accepts only the ordered active/internal, active/unlisted,
+retired/unlisted, retired/archived, active/archived, active/unlisted, and final
+active/internal states. It proves process loss, restart, rollback, restoration,
+immutable history, and final cross-owner readback while retaining all
+credentials outside source and browser data.

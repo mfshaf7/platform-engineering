@@ -7,11 +7,11 @@ projection:
   secret_values_allowed: false
 product_health:
   schema_version: portfolio-product-runtime-health/v1
-  runtime_activation: false
+  runtime_activation: true
   maximum_age_seconds: 120
   inventory_authority:
     repo: workspace-governance
-    revision: 06b954b31466f9779dce8ec54f722f348b885505
+    revision: fab38a8266512b0004081039b017904c9c55f288
     path: contracts/products.yaml
     sha256: bf8c30d904731c922f60fb669246c7bb3e0c4eb64e7a5f11be4e31fda77b874a
   products:

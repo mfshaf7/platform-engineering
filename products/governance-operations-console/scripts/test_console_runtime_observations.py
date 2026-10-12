@@ -86,13 +86,13 @@ class ConsoleRuntimeObservationTests(unittest.TestCase):
         self.assertNotIn("token", serialized)
         self.assertNotIn("password", serialized)
 
-    def test_product_health_policy_is_exact_and_source_inactive(self) -> None:
-        self.assertFalse(self.policy.product_health_runtime_activation)
+    def test_product_health_policy_is_exact_and_source_active_for_1273(self) -> None:
+        self.assertTrue(self.policy.product_health_runtime_activation)
         self.assertEqual(
             self.policy.inventory_authority,
             {
                 "repo": "workspace-governance",
-                "revision": "06b954b31466f9779dce8ec54f722f348b885505",
+                "revision": "fab38a8266512b0004081039b017904c9c55f288",
                 "path": "contracts/products.yaml",
                 "sha256": "bf8c30d904731c922f60fb669246c7bb3e0c4eb64e7a5f11be4e31fda77b874a",
             },
@@ -143,7 +143,7 @@ class ConsoleRuntimeObservationTests(unittest.TestCase):
             value,
         )
 
-    def test_case_1269_negative_fails_closed_for_stale_contradictory_and_inactive_publication(self) -> None:
+    def test_case_1273_negative_fails_closed_for_stale_and_contradictory_evidence(self) -> None:
         runtime = MODULE.build_projection(
             self.policy,
             operator="mfshaf7",
@@ -188,10 +188,14 @@ class ConsoleRuntimeObservationTests(unittest.TestCase):
         runtime_path.write_text(json.dumps(runtime))
         output = self.root / "product-health.json"
         receipt = self.root / "product-health-receipt.json"
-        with self.assertRaisesRegex(MODULE.ObservationError, "source-inactive"):
-            MODULE.project_product_health(self.policy, runtime_path, output, receipt, now=self.now)
-        self.assertFalse(output.exists())
-        self.assertFalse(receipt.exists())
+        projected_receipt = MODULE.project_product_health(
+            self.policy, runtime_path, output, receipt, now=self.now,
+        )
+        projected = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(projected["source"]["runtimeObservationDigest"], MODULE.digest(runtime))
+        self.assertEqual(projected_receipt["freshness"], "current")
+        self.assertTrue(output.is_file())
+        self.assertTrue(receipt.is_file())
 
     def test_product_health_maps_degraded_and_unavailable_without_workflow_claims(self) -> None:
         degraded_runtime = MODULE.build_projection(

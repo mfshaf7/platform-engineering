@@ -47,6 +47,19 @@
   - runbook: one complete-runtime operator surface
   - ADR: None; the accepted architecture explicitly extends existing control
     planes and the `refinement-catalog` composition.
+- Recovery correction:
+  - OOS PR
+    [#338](https://github.com/mfshaf7/operator-orchestration-service/pull/338)
+    permits the replacement work session to execute only the nearest
+    qualifying reviewed ancestor profile when the accepted base profile is
+    invalid, while candidate and accepted-head validation remain mandatory.
+  - replacement session
+    `work-session:delivery-1275:delivery-1275-platform-composition:r1`
+    corrects the complete-runtime operating-verification timeout from `3600`
+    to the schema maximum `1800` seconds.
+  - the preserved merge-ready packet and archived failed attempt remain bound
+    to Platform PR #303; they are not represented as evidence for this
+    replacement source revision.
 
 ## Artifact And Deployment Evidence
 
@@ -80,8 +93,9 @@
 
 ## Follow-Up
 
-- Required follow-up: Complete Security `#1303`, protected Platform merge, and
-  the live operating proof. Console `#1292`, WGCF `#1294`, and Console `#1295`
-  are now exact-revision inputs to that review.
+- Required follow-up: Obtain the fresh Security delta required by the repaired
+  exact Platform tree and current OOS owner revision, complete protected
+  Platform merge, and run the live operating proof. Console `#1292`, WGCF
+  `#1294`, and Console `#1295` remain exact-revision inputs to that review.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

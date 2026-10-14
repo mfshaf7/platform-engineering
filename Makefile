@@ -236,6 +236,11 @@ governance-console-product-publication:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, commission, verify-operating, or rollback"; exit 1; }
 	python3 products/governance-operations-console/scripts/product_publication_platform.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
+.PHONY: governance-console-complete-runtime
+governance-console-complete-runtime:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rollback, cleanup, teardown, or verify-operating"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_complete_runtime.py $(ACTION) $(if $(ARGS),$(ARGS),)
+
 .PHONY: devint-status
 devint-status:
 	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
@@ -454,6 +459,9 @@ validate:
 	python3 products/governance-operations-console/scripts/agent_console_platform.py validate
 	python3 products/governance-operations-console/scripts/test_agent_console_platform.py
 	python3 products/governance-operations-console/scripts/test_product_publication_platform.py
+	python3 products/governance-operations-console/scripts/console_complete_runtime.py validate
+	python3 products/governance-operations-console/scripts/test_platform_operation_provider.py
+	python3 products/governance-operations-console/scripts/test_console_complete_runtime.py
 	python3 scripts/repository_provider_identity.py validate
 	python3 scripts/test_repository_provider_identity.py
 	python3 scripts/repository_provisioning_identity.py validate

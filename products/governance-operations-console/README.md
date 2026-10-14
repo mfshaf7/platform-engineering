@@ -45,6 +45,7 @@ Primary operator procedure:
 - [Commission Proposal Target](runbooks/commission-proposal-target.md)
 - [Commission Agent Console](runbooks/commission-agent-console.md)
 - [Commission Product Publication](runbooks/commission-product-publication.md)
+- [Operate the complete Console runtime](runbooks/operate-complete-runtime.md)
 
 Machine-readable policy:
 
@@ -55,6 +56,7 @@ Machine-readable policy:
 - [proposal-target-commissioning-policy.yaml](proposal-target-commissioning-policy.yaml)
 - [agent-console-commissioning-policy.yaml](agent-console-commissioning-policy.yaml)
 - [product-publication-commissioning-policy.yaml](product-publication-commissioning-policy.yaml)
+- [complete-runtime-policy.yaml](complete-runtime-policy.yaml)
 
 The cross-domain activation path pins the approved OOS, WGCF, Console,
 Workspace Governance, and Security revisions. It exposes owner APIs to the
@@ -85,3 +87,10 @@ retired/unlisted, retired/archived, active/archived, active/unlisted, and final
 active/internal states. It proves process loss, restart, rollback, restoration,
 immutable history, and final cross-owner readback while retaining all
 credentials outside source and browser data.
+
+The complete-runtime coordinator adds the authenticated Platform owner route
+already consumed through OOS and manages the full local composition as one
+bounded lifecycle. Security binds the exact candidate Platform tree and exact
+owner revisions outside the candidate source, avoiding a post-review pin
+cycle. Generated credentials, resolved policies, service state, and receipts
+remain operator-private; only secret-free evidence may leave that custody.

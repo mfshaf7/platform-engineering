@@ -1,0 +1,42 @@
+schema_version: 1
+delivery:
+  delivery_id: delivery-1275
+  work_item_ref: openproject://work_packages/1291
+  architecture:
+    artifact_id: architecture-packet:delivery-1275-v1
+    uri: wgcf://artifacts/delivery-art/sha256/ea428f9ad9a14368aa9f789be278d3aac44def2cb2a4bc31caec7768f03335bb
+    digest: sha256:ea428f9ad9a14368aa9f789be278d3aac44def2cb2a4bc31caec7768f03335bb
+workspace_root: /home/mfshaf7/projects
+runtime_state_root: /home/mfshaf7/.local/state/platform-engineering/governance-console-complete-runtime
+runtime:
+  console_port: 3317
+  namespace_pattern: devint-accepted-idea-delivery-{operator}
+  oos_deployment: operator-orchestration-service
+  provider_port: 38491
+  provider_service: governance-console-platform-operation-provider
+  provider_unit: governance-console-platform-operation-provider.service
+  session_profile: accepted-idea-delivery
+platform_operation_provider:
+  caller_id: operator-orchestration-service
+  operator_id: operator:workspace-owner
+  profile_id: accepted-idea-delivery
+  composition_id: refinement-catalog
+  subject_ref: profile:accepted-idea-delivery
+  security_gate_id: gate:platform-operation-security
+security:
+  gate_id: gate:platform-operation-security
+  status: pending
+  owner_repo: security-architecture
+  decision_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml
+  review_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.md
+  required_reviewed_repos:
+    - governance-operations-console
+    - operator-orchestration-service
+    - platform-engineering
+    - workspace-governance
+    - workspace-governance-control-fabric
+  decision_uri: null
+  decision_digest: null
+  platform_revision: null
+  platform_tree: null
+  reviewed_revisions: {}

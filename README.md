@@ -228,6 +228,7 @@ product-neutral.
   - `make governance-console-proposal-target ACTION=<validate|activate|status|restart|rehearse|rollback|cleanup>` operates the [Proposal Target dev-integration commissioning path](products/governance-operations-console/runbooks/commission-proposal-target.md)
   - `make governance-console-agent-console ACTION=<validate|verify-operating>` operates the [Agent Console governed runtime commissioning path](products/governance-operations-console/runbooks/commission-agent-console.md)
   - `make governance-console-product-publication ACTION=<validate|activate|status|commission|verify-operating|verify-process-crash|rollback>` operates the [Product Publication dev-integration commissioning path](products/governance-operations-console/runbooks/commission-product-publication.md)
+  - `make governance-console-complete-runtime ACTION=<validate|activate|status|restart|rollback|cleanup|teardown|verify-operating>` operates the [complete Console dev-integration runtime](products/governance-operations-console/runbooks/operate-complete-runtime.md); normal product work remains Console-to-OOS and does not require browser credentials or direct Platform CLI intervention
   - `make repository-provider-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-provisioning-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`
   - `make repository-lifecycle-identity ACTION=<validate|commission|deliver|revoke> ARGS="<bounded identity arguments>"`

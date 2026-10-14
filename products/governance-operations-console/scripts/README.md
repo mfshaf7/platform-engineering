@@ -78,3 +78,12 @@ GitHub App and projects only its short-lived token, read-only Prototype Studio
 authority, and persistent Proposal Target state into OOS. It never reuses
 Prototype Landing, Maturity, Closure, Agent Gary, or ambient human credentials;
 suspension and revocation leave source and review evidence intact.
+
+`console_complete_runtime.py` is the single Platform bootstrap, health,
+recovery, rollback, and teardown command for the complete local Console
+composition. `platform_operation_provider.py` implements the authenticated
+finite owner protocol OOS already consumes. Both remain gated by the external
+exact-tree Security decision; generated policy and credential values stay in
+operator-private state. Use the top-level
+`make governance-console-complete-runtime ACTION=<action>` target and the
+complete-runtime runbook rather than calling either script directly.

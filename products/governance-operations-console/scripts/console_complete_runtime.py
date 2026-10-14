@@ -282,6 +282,7 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
                 "profile": "governance-control-fabric", "namespace": "devint-governance-control-fabric-{operator}",
                 "service": "workspace-governance-control-fabric-api", "deployment": "workspace-governance-control-fabric-api",
                 "remote_port": 8080, "local_port": 38181,
+                "workspace_continuity_projection_enabled": True,
             },
         },
         "authority": {

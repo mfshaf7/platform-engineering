@@ -29,6 +29,11 @@ bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
 required.
 
+That private activation policy enables WGCF's read-only workspace-continuity
+projection only for the exact reviewed composition. It reuses the existing
+server-side Console WGCF caller credential and removes the enablement during
+rollback; neither the browser nor Console receives a new credential.
+
 ## Commands
 
 Validate source without changing runtime:

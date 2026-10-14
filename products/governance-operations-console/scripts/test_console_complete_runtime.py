@@ -52,6 +52,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         activation = runtime.resolved_activation_policy(policy)
         self.assertEqual(activation["console"]["revision"], revisions["governance-operations-console"])
         self.assertEqual(activation["owners"]["oos"]["revision"], revisions["operator-orchestration-service"])
+        self.assertTrue(activation["owners"]["wgcf"]["workspace_continuity_projection_enabled"])
         self.assertEqual(activation["authority"]["security_revision"], "f" * 40)
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())

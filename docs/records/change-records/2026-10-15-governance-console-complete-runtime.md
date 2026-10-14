@@ -1,15 +1,3 @@
----
-security_evidence:
-  review_areas:
-    - runtime
-    - identity
-    - delivery
-  findings: []
-  risks: []
-  workstreams:
-    - WS-007
----
-
 # Governance Console Complete Runtime
 
 ## Summary
@@ -53,7 +41,8 @@ security_evidence:
 - Commit(s): Pending Agent Gary source commit and protected merge.
 - Guardrail added:
   - test: finite catalog, exact command/control binding, replay, failure,
-    process-identity recovery, stale marker, credential custody, and rollback
+    process-identity recovery, stale marker, credential custody, read-only
+    workspace-continuity enablement, and rollback
   - validator: Delivery ART evidence-profile bindings for source and live cases
   - runbook: one complete-runtime operator surface
   - ADR: None; the accepted architecture explicitly extends existing control
@@ -91,7 +80,8 @@ security_evidence:
 
 ## Follow-Up
 
-- Required follow-up: Complete Console `#1292`, WGCF `#1294`, Console `#1295`,
-  Security `#1303`, protected Platform merge, and the live operating proof.
+- Required follow-up: Complete Security `#1303`, protected Platform merge, and
+  the live operating proof. Console `#1292`, WGCF `#1294`, and Console `#1295`
+  are now exact-revision inputs to that review.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

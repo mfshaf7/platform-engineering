@@ -335,7 +335,7 @@
         "case:platform-runtime-positive",
         "case:platform-runtime-negative"
       ],
-      "timeout_seconds": 3600
+      "timeout_seconds": 1800
     },
     {
       "id": "governance-document-validation",

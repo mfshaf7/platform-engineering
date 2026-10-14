@@ -59,3 +59,16 @@ make governance-console-cross-domain ACTION=status
 The status proof requires both canonical owners and rejects fixture authority.
 Use the [cross-domain activation runbook](runbooks/activate-cross-domain-awareness.md)
 for restart, rollback, cleanup, and receipt locations.
+
+Operate the complete reviewed composition with:
+
+```bash
+make governance-console-complete-runtime ACTION=activate
+make governance-console-complete-runtime ACTION=status
+```
+
+Use [the complete-runtime runbook](runbooks/operate-complete-runtime.md) for
+Security gating, recovery, operating verification, rollback, teardown, and
+private receipt locations. This is the Platform bootstrap and recovery
+surface; normal product work remains Console to OOS, without direct CLI or
+Platform credentials in the browser.

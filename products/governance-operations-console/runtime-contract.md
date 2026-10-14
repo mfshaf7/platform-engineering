@@ -70,3 +70,23 @@ containing credentials or owner payloads.
 Rollback removes only Console-owned user services and the dedicated WGCF
 history-reader credential. It must preserve owner databases, workflow state,
 evidence stores, profile sessions, and unrelated runtimes.
+
+## Complete Runtime
+
+The complete-runtime coordinator reuses `refinement-catalog` and adds one
+authenticated cluster-local OOS-to-Platform owner route. Its catalog is a
+closed action set, every command binds current source plus exact operator
+approval, and caller input cannot select an executable, URL, header, secret,
+or arbitrary argument.
+
+Security accepts the exact candidate Platform tree rather than requiring the
+candidate to embed its own future commit. At activation, current clean
+Security `origin/main` supplies the exact decision and reviewed revision set;
+Platform materializes those bindings only in mode-`0600` private state.
+
+Worker recovery binds PID, kernel boot identity, and process start ticks.
+Missing or changed identity becomes a visible retryable blocker and is never
+used as a signal target. Stale activation state withholds effect capabilities.
+Rollback removes only the dedicated provider, OOS binding, Console services,
+and generated credentials; teardown additionally suspends the reused
+composition while preserving owner evidence.

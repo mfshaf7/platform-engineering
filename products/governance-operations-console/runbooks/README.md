@@ -6,3 +6,4 @@
 - [Commission Proposal Target](commission-proposal-target.md)
 - [Commission Agent Console](commission-agent-console.md)
 - [Commission Product Publication](commission-product-publication.md)
+- [Operate the complete Console runtime](operate-complete-runtime.md)

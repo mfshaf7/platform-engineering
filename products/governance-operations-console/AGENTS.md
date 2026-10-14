@@ -23,6 +23,8 @@ authority, or Security approval.
 - `runbooks/commission-agent-console.md`
 - `product-publication-commissioning-policy.yaml`
 - `runbooks/commission-product-publication.md`
+- `complete-runtime-policy.yaml`
+- `runbooks/operate-complete-runtime.md`
 
 ## Boundary
 
@@ -71,3 +73,11 @@ required owner manifest must be fresh, reviewed, and bound to exact owner
 receipts. Platform verifies and composes the sequence; it never mutates either
 owner directly. Client, public, broader identity, data, exposure, or environment
 changes require another Security decision.
+
+Complete-runtime operation must use
+`make governance-console-complete-runtime`. It may materialize the exact
+Security decision only into operator-private state and must reuse
+`refinement-catalog`. Do not commit post-review source pins, expose the
+OOS-to-Platform credential to Console or browser code, trust a PID without its
+boot and start-time identity, or claim availability from a stale activation
+marker.

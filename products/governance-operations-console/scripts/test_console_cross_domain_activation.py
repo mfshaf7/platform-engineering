@@ -474,6 +474,8 @@ class CrossDomainActivationTests(unittest.TestCase):
                 activation.validate_proposal_target_negatives(negative)
 
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
+        policy = json.loads(json.dumps(self.catalog_policy))
+        policy["owners"]["wgcf"]["workspace_continuity_projection_enabled"] = True
         completed = activation.subprocess.CompletedProcess(
             [], 0, stdout="apiVersion: v1\nkind: Secret\n", stderr=""
         )
@@ -482,7 +484,7 @@ class CrossDomainActivationTests(unittest.TestCase):
             patch.object(activation.subprocess, "run", return_value=completed),
             patch.object(activation, "operator", return_value="operator"),
         ):
-            activation.install_wgcf_binding(self.catalog_policy, "s" * 36)
+            activation.install_wgcf_binding(policy, "s" * 36)
         set_env = next(
             call.args for call in command.call_args_list
             if call.args[:4] == (
@@ -496,6 +498,7 @@ class CrossDomainActivationTests(unittest.TestCase):
             "WGCF_REPOSITORY_READINESS_CONTRACT_ROOT=/app/contracts/repository-readiness",
             set_env,
         )
+        self.assertIn("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED=true", set_env)
 
     def test_exact_security_binding_requires_current_packet_and_revisions(self) -> None:
         policy = self.catalog_policy

@@ -272,6 +272,72 @@
       "timeout_seconds": 1800
     },
     {
+      "id": "governance-console-complete-runtime-validation",
+      "kind": "validations",
+      "name": "Governance Console complete-runtime source validation",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_complete_runtime.py",
+        "validate"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1291-positive",
+        "case:1291-negative"
+      ],
+      "timeout_seconds": 300
+    },
+    {
+      "id": "governance-console-complete-runtime-tests",
+      "kind": "tests",
+      "name": "Governance Console complete-runtime positive and negative tests",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/test_platform_operation_provider.py"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1291-positive",
+        "case:1291-negative"
+      ],
+      "timeout_seconds": 600
+    },
+    {
+      "id": "governance-console-complete-runtime-coordinator-tests",
+      "kind": "tests",
+      "name": "Governance Console complete-runtime coordinator tests",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/test_console_complete_runtime.py"
+      ],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:1291-positive",
+        "case:1291-negative"
+      ],
+      "timeout_seconds": 600
+    },
+    {
+      "id": "governance-console-complete-runtime-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Governance Console complete-runtime operating verification",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_complete_runtime.py",
+        "verify-operating"
+      ],
+      "fidelity": "live-backend",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "case:platform-runtime-positive",
+        "case:platform-runtime-negative"
+      ],
+      "timeout_seconds": 3600
+    },
+    {
       "id": "governance-document-validation",
       "kind": "validations",
       "name": "Platform governance document validation",

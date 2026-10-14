@@ -397,6 +397,8 @@ def install_wgcf_binding(policy: dict[str, Any], secret: str) -> None:
         if contract_root != "/app/contracts/repository-readiness":
             raise ActivationError("WGCF repository-readiness contract root is invalid")
         set_env.append(f"WGCF_REPOSITORY_READINESS_CONTRACT_ROOT={contract_root}")
+    if owner.get("workspace_continuity_projection_enabled") is True:
+        set_env.append("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED=true")
     kubectl(*set_env)
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")
 
@@ -419,13 +421,21 @@ def wgcf_binding_present(policy: dict[str, Any]) -> bool:
     }
     if policy.get("catalog_proof"):
         expected.add("WGCF_REPOSITORY_READINESS_CONTRACT_ROOT")
-    observed = {
-        item.get("name")
+    if owner.get("workspace_continuity_projection_enabled") is True:
+        expected.add("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED")
+    environment = [
+        item
         for container in deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
         for item in container.get("env", [])
         if isinstance(item, dict)
-    }
-    return expected.issubset(observed)
+    ]
+    observed = {item.get("name") for item in environment}
+    continuity_enabled = owner.get("workspace_continuity_projection_enabled") is not True or any(
+        item.get("name") == "WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED"
+        and item.get("value") == "true"
+        for item in environment
+    )
+    return expected.issubset(observed) and continuity_enabled
 
 
 def unit_name(role: str) -> str:
@@ -1295,6 +1305,7 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
         "-n", ns, "set", "env", f"deployment/{owner['deployment']}",
         "WGCF_GOVERNANCE_HISTORY_CALLER_ID-", "WGCF_GOVERNANCE_HISTORY_CALLER_SECRET-",
         "WGCF_REPOSITORY_READINESS_CONTRACT_ROOT-",
+        "WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED-",
     )
     kubectl("-n", ns, "delete", "secret", WGCF_SECRET, "--ignore-not-found=true")
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")

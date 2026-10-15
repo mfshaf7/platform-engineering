@@ -14,6 +14,7 @@
     "updated_at"
   ],
   "properties": {
+    "repository_resolution": { "$ref": "#/$defs/repository_resolution" },
     "schema_version": { "const": 1 },
     "route": {
       "oneOf": [
@@ -178,6 +179,93 @@
         "packet_ref": { "$ref": "#/$defs/identifier" },
         "target_receipt_ref": { "$ref": "#/$defs/identifier" },
         "target_record_ref": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "resolution_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+\\-]{0,255}$"
+    },
+    "resolution_artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uri",
+        "digest"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "format": "uri"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "resolution_proposal_id": {
+      "type": "string",
+      "pattern": "^idea-[1-9][0-9]*$"
+    },
+    "repository_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_ref",
+        "source_version",
+        "proposal_id",
+        "repository_request_ref",
+        "resolved_owner",
+        "resolved_repo_ref",
+        "recorded_at",
+        "notes",
+        "custody_receipt_ref",
+        "resolution_id",
+        "custody_request_id"
+      ],
+      "properties": {
+        "receipt_ref": {
+          "$ref": "#/$defs/resolution_identifier"
+        },
+        "source_version": {
+          "type": "string",
+          "pattern": "^version-[0-9]+$"
+        },
+        "proposal_id": {
+          "$ref": "#/$defs/resolution_proposal_id"
+        },
+        "repository_request_ref": {
+          "type": "string",
+          "pattern": "^repo-request://proposal/idea-[1-9][0-9]*$"
+        },
+        "resolved_owner": {
+          "$ref": "#/$defs/resolution_identifier"
+        },
+        "resolved_repo_ref": {
+          "$ref": "#/$defs/resolution_identifier"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "custody_receipt_ref": {
+          "$ref": "#/$defs/resolution_artifact_ref"
+        },
+        "resolution_id": {
+          "$ref": "#/$defs/resolution_identifier"
+        },
+        "custody_request_id": {
+          "$ref": "#/$defs/resolution_identifier"
+        }
       }
     }
   }

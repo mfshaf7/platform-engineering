@@ -205,3 +205,78 @@ as unattended readiness.
   `#1294`, and Console `#1295` remain exact-revision inputs to that proof.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`
+
+
+## Canonical Repository Gate Maintenance — 2026-10-16
+
+### Summary
+
+- Date: 2026-10-16
+- Short title: Bounded Proposal Repository resolution recovery
+- Environment: dev-integration contract only
+- Severity: acceptance-blocking maintenance for #1275 / #1298
+
+### Classification
+
+- Type: source contract extension
+- User-facing impact: retain the exact Repository gate receipt and replay inputs
+  so browser reload after partial acknowledgement does not require CLI repair.
+- Landing Unit Decision: child_isolated_landing_unit; Platform owns the canonical
+  storage contract consumed by OOS. No new ART child or storage service.
+
+### Ownership
+
+- Owning repo or layer: platform-engineering, OpenProject state contract
+- Related repos: operator-orchestration-service, governance-operations-console
+- Related ADR: None; bounded extension of the existing machine-state field.
+
+### Root Cause
+
+- Immediate failure: live Proposal Repository gate had only local resolution.
+- Actual root cause: missing canonical handoff and recoverable acknowledgement.
+- Why it escaped earlier controls: isolated capability checks omitted the full
+  handoff and interrupted-browser recovery.
+
+### Source Changes
+
+- Repo: platform-engineering
+- Commit(s): candidate source; not operating evidence
+- Guardrail added: optional bounded typed current resolution, compatible with
+  existing records. OOS validates the same shape; immutable history remains in
+  OpenProject journals, not an accumulating state-field log.
+
+### Artifact And Deployment Evidence
+
+- Build workflow run: None
+- Published image tag: None
+- Published digest: None
+- Recorded prod revision: None
+- Argo application revision: None
+- Exact-revision consumers: complete-runtime Security acceptance requires
+  refreshed Platform source binding before activation; OOS mirror must land
+  after this contract. Console source and current acceptance also need refresh.
+
+### Host Or Runtime Recovery
+
+- Required host/runtime action: None for the optional schema itself.
+- Why it was environment drift instead of source defect: not environment drift.
+- Recovery command or procedure: existing complete-runtime activation after
+  the accepted OOS and Console repair batch; do not mutate canonical records here.
+
+### Live Verification
+
+- App health: existing composed runtime remains available.
+- Deployed image: unchanged by this source candidate.
+- Pod: None changed.
+- Functional verification: validation pending; optional-field compatibility and
+  OOS mirror equivalence must pass before merge.
+- Residual risk: does not itself prove the Console handoff operational.
+
+### Follow-Up
+
+- Required follow-up: OOS and Console source validation, exact Security delta
+  acceptance, ordered activation and real browser journey.
+- Optional hardening: None added.
+- Owner: platform-engineering and the existing workflow owners.
+
+Security review boundary: the existing [controlled Console runtime review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-10-15-governance-console-platform-operation.md) must accept the exact repair sources before activation. This source candidate is not operating acceptance.

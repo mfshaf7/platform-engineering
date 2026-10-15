@@ -37,6 +37,9 @@ UNIT_NAME = "governance-console-platform-operation-provider.service"
 SECRET_NAME = "governance-console-platform-operation-provider"
 SERVICE_NAME = "governance-console-platform-operation-provider"
 PROVIDER_PORT = 38491
+OOS_STATE_VOLUME_NAME = "governance-console-platform-operation-state"
+OOS_STATE_MOUNT_PATH = "/var/lib/oos/platform-operation"
+OOS_STATE_ROOT = STATE_ROOT / "oos-platform-operation"
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
 
 
@@ -441,6 +444,7 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
     runtime = policy["runtime"]
     security = policy["security"]
     oos_revision = security["reviewed_revisions"]["operator-orchestration-service"]
+    ensure_private(OOS_STATE_ROOT)
     secret_values = {
         "OOS_PLATFORM_OPERATION_CALLER_OPERATOR_BINDINGS_JSON": json.dumps(
             {"governance-operations-console": policy["platform_operation_provider"]["operator_id"]},
@@ -456,7 +460,7 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_DIGEST": security["decision_digest"],
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_REVISION": oos_revision,
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_URI": security["decision_uri"],
-        "OOS_PLATFORM_OPERATION_STATE_ROOT": "/var/lib/oos/platform-operation",
+        "OOS_PLATFORM_OPERATION_STATE_ROOT": OOS_STATE_MOUNT_PATH,
     }
     secret_manifest = {
         "apiVersion": "v1",
@@ -482,6 +486,26 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
     }
     manifest = "---\n".join(yaml.safe_dump(item, sort_keys=True) for item in (secret_manifest, service_manifest, endpoints_manifest))
     run(["k3s", "kubectl", "apply", "-f", "-"], input_value=manifest)
+    state_patch = {
+        "spec": {"template": {"spec": {
+            "containers": [{
+                "name": runtime["oos_deployment"],
+                "volumeMounts": [{
+                    "name": OOS_STATE_VOLUME_NAME,
+                    "mountPath": OOS_STATE_MOUNT_PATH,
+                }],
+            }],
+            "volumes": [{
+                "name": OOS_STATE_VOLUME_NAME,
+                "hostPath": {"path": str(OOS_STATE_ROOT), "type": "Directory"},
+            }],
+        }}},
+    }
+    run([
+        "k3s", "kubectl", "-n", ns, "patch",
+        f"deployment/{runtime['oos_deployment']}", "--type=strategic",
+        "--patch", json.dumps(state_patch, separators=(",", ":")),
+    ])
     run([
         "k3s", "kubectl", "-n", ns, "set", "env",
         f"deployment/{runtime['oos_deployment']}", f"--from=secret/{SECRET_NAME}",
@@ -652,6 +676,24 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if run(["k3s", "kubectl", "-n", ns, "set", "env", deployment, *(f"{name}-" for name in names)], check=False).returncode:
         failures.append("oos-environment-removal")
+    state_patch = {
+        "spec": {"template": {"spec": {
+            "containers": [{
+                "name": policy["runtime"]["oos_deployment"],
+                "volumeMounts": [{
+                    "name": OOS_STATE_VOLUME_NAME,
+                    "mountPath": OOS_STATE_MOUNT_PATH,
+                    "$patch": "delete",
+                }],
+            }],
+            "volumes": [{"name": OOS_STATE_VOLUME_NAME, "$patch": "delete"}],
+        }}},
+    }
+    if run([
+        "k3s", "kubectl", "-n", ns, "patch", deployment, "--type=strategic",
+        "--patch", json.dumps(state_patch, separators=(",", ":")),
+    ], check=False).returncode:
+        failures.append("oos-state-binding-removal")
     if run([
         "k3s", "kubectl", "-n", ns, "delete",
         f"secret/{SECRET_NAME}", f"service/{SERVICE_NAME}", f"endpoints/{SERVICE_NAME}",
@@ -663,10 +705,13 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
 
 def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
     failures: list[str] = []
-    if RESOLVED_ACTIVATION_POLICY_PATH.is_file():
+    binding_failures = remove_kubernetes_binding(policy)
+    failures.extend(binding_failures)
+    if RESOLVED_ACTIVATION_POLICY_PATH.is_file() and not binding_failures:
         if run(cross_domain_command("cleanup" if cleanup else "rollback"), check=False).returncode:
             failures.append("console-cross-domain-cleanup")
-    failures.extend(remove_kubernetes_binding(policy))
+    elif RESOLVED_ACTIVATION_POLICY_PATH.is_file():
+        failures.append("console-cross-domain-cleanup-blocked-by-oos-binding-removal")
     if run(["systemctl", "--user", "disable", "--now", UNIT_NAME], check=False).returncode:
         failures.append("provider-service-disable")
     remove_active_marker()

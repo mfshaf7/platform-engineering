@@ -57,6 +57,13 @@
     `work-session:delivery-1275:delivery-1275-platform-composition:r1`
     corrects the complete-runtime operating-verification timeout from `3600`
     to the schema maximum `1800` seconds.
+  - the first live replacement proof exposed two precondition gaps that source
+    tests had not exercised: OOS ran as UID 1000 without a writable volume at
+    the injected Platform-operation state path, and rollback waited for OOS
+    readiness before removing the binding that caused the startup failure.
+    The maintenance repair now projects a mode-0700 operator-private host
+    directory into the exact OOS state path and removes the OOS environment
+    and state binding before cross-domain rollback waits for readiness.
   - the preserved merge-ready packet and archived failed attempt remain bound
     to Platform PR #303; they are not represented as evidence for this
     replacement source revision.
@@ -93,9 +100,10 @@
 
 ## Follow-Up
 
-- Required follow-up: Obtain the fresh Security delta required by the repaired
-  exact Platform tree and current OOS owner revision, complete protected
-  Platform merge, and run the live operating proof. Console `#1292`, WGCF
+- Required follow-up: Merge the writable-state and rollback-order maintenance
+  repair, obtain the fresh Security delta for that exact Platform tree, recover
+  the failed replacement attempt through the evidence-preserving path, and run
+  the live operating proof from its governed successor. Console `#1292`, WGCF
   `#1294`, and Console `#1295` remain exact-revision inputs to that review.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

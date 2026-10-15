@@ -29,10 +29,37 @@ bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
 required.
 
+After merge, persistent services use the workspace main checkout when its
+clean committed tree matches the reviewed worktree and `origin/main`. This
+keeps the provider and composition auto-resume unit available after the
+review worktree is retired. A different or dirty tree is never substituted.
+Before removing the review worktree, activate from the current main checkout
+and verify both services' `WorkingDirectory` and `ExecStart` paths:
+
+```bash
+systemctl --user show governance-console-platform-operation-provider.service \
+  workspace-devint-accepted-idea-delivery-mfshaf7.service \
+  -p WorkingDirectory -p ExecStart
+```
+
+Every referenced source directory must survive cleanup. Successful branch
+cleanup alone does not prove runtime restart readiness.
+
 That private activation policy enables WGCF's read-only workspace-continuity
 projection only for the exact reviewed composition. It reuses the existing
 server-side Console WGCF caller credential and removes the enablement during
 rollback; neither the browser nor Console receives a new credential.
+
+The same accepted composition activates repository provisioning through the
+existing `gate:repository-custody-runtime-activation` boundary. Platform reads
+the dedicated GitHub App private key from its existing Vault path, uses the
+existing repository-provisioning identity tool to mint and project one
+short-lived organization installation token, activates WGCF custody readiness,
+mounts operator-private OOS custody state, and writes only the policy and
+credential-binding references into the Console server environment. The token
+and private key are never written to source, receipts, browser state, or
+process arguments. The operator running activation needs a current private
+Vault token in `VAULT_TOKEN` or mode-`0600` `~/.vault-token`.
 
 ## Commands
 
@@ -64,20 +91,23 @@ make governance-console-complete-runtime ACTION=verify-operating
 
 That proof checks authenticated startup, invalid-credential denial, revoked
 gate denial, stale-marker denial, provider process-loss recovery, full restart,
-rollback, teardown, and restoration to normal availability. It retains only
-credential-free receipts. The proof holds one operator-private filesystem lock
-across the complete lifecycle. A replacement executor waits on that lock and
-may reuse the result only when the retained receipt has a valid content digest,
-the exact current Security decision and reviewed revisions, the complete proof
-shape, and restored normal availability. Stale, malformed, partial, or
-different-revision receipts are ignored and cannot satisfy commissioning.
+rollback, teardown, repository-credential revocation, fresh credential
+delivery, and restoration of executable Console repository provisioning. It
+retains only credential-free receipts. The proof holds one operator-private
+filesystem lock across the complete lifecycle. A replacement executor waits
+on that lock and may reuse the result only when the retained receipt has a
+valid content digest, the exact current Security decision and reviewed
+revisions, the complete proof shape, and restored normal availability. Stale,
+malformed, partial, or different-revision receipts are ignored and cannot
+satisfy commissioning.
 
 ## Stop and cleanup
 
-`rollback` removes Console-facing services and the OOS-to-Platform binding but
-preserves the existing composition and owner state. `cleanup` additionally
-removes generated credentials and private materialized policy. `teardown`
-performs cleanup and suspends the complete composition.
+`rollback` revokes the short-lived repository-provisioning token, removes its
+runtime Secret, removes Console-facing services and OOS/WGCF runtime bindings,
+and preserves the existing composition and canonical owner state. `cleanup`
+additionally removes generated credentials and private materialized policy.
+`teardown` performs cleanup and suspends the complete composition.
 
 ```bash
 make governance-console-complete-runtime ACTION=rollback
@@ -100,6 +130,12 @@ owner evidence.
   private policy.
 - provider or Console readback unavailable: inspect the named systemd service
   and owner workload, repair the dependency, then run `restart`.
+- `repository provisioning ... stale or mismatched`: refresh the Vault-backed
+  activation with `ACTION=restart`; do not substitute an ambient `gh` token or
+  browser credential.
+- `Console repository provisioning is not executable`: inspect the reported
+  WGCF, OOS, credential, state, and Console binding instead of bypassing the
+  Repository Control surface.
 
 Private state and receipts live below
 `~/.local/state/platform-engineering/governance-console-complete-runtime/`.

@@ -57,6 +57,10 @@ are recorded in
 Product Publication composition and operating commissioning are recorded in
 [2026-10-12-product-publication-commissioning.md](2026-10-12-product-publication-commissioning.md).
 
+The complete Governance Operations Console runtime and its repository-
+provisioning acceptance repair are recorded in
+[2026-10-15-governance-console-complete-runtime.md](2026-10-15-governance-console-complete-runtime.md).
+
 The unused platform-integrated OpenProject runtime suspension is recorded in
 [2026-10-13-suspend-unused-openproject.md](2026-10-13-suspend-unused-openproject.md).
 It preserves database and PVC state while keeping application replicas at zero;

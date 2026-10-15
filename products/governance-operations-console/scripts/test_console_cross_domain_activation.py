@@ -476,6 +476,17 @@ class CrossDomainActivationTests(unittest.TestCase):
     def test_wgcf_binding_selects_the_reviewed_repository_contract_bundle(self) -> None:
         policy = json.loads(json.dumps(self.catalog_policy))
         policy["owners"]["wgcf"]["workspace_continuity_projection_enabled"] = True
+        policy["repository_custody"] = {
+            "policy_profile_ref": {
+                "uri": "repo://workspace-governance/contracts/repository-custody.yaml",
+                "digest": "sha256:" + "1" * 64,
+            },
+            "provisioning_credential_binding_ref": {
+                "uri": "platform-engineering://credential-bindings/repository-provisioning-github-app-v1",
+                "digest": "sha256:" + "2" * 64,
+            },
+            "wgcf_readiness_enabled": True,
+        }
         completed = activation.subprocess.CompletedProcess(
             [], 0, stdout="apiVersion: v1\nkind: Secret\n", stderr=""
         )
@@ -499,6 +510,7 @@ class CrossDomainActivationTests(unittest.TestCase):
             set_env,
         )
         self.assertIn("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED=true", set_env)
+        self.assertIn("WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED=true", set_env)
 
     def test_exact_security_binding_requires_current_packet_and_revisions(self) -> None:
         policy = self.catalog_policy
@@ -517,6 +529,18 @@ class CrossDomainActivationTests(unittest.TestCase):
             )
 
     def test_catalog_environment_adds_server_only_session_projection(self) -> None:
+        policy = json.loads(json.dumps(self.catalog_policy))
+        policy["repository_custody"] = {
+            "policy_profile_ref": {
+                "uri": "repo://workspace-governance/contracts/repository-custody.yaml",
+                "digest": "sha256:" + "1" * 64,
+            },
+            "provisioning_credential_binding_ref": {
+                "uri": "platform-engineering://credential-bindings/repository-provisioning-github-app-v1",
+                "digest": "sha256:" + "2" * 64,
+            },
+            "wgcf_readiness_enabled": True,
+        }
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             with (
@@ -524,7 +548,7 @@ class CrossDomainActivationTests(unittest.TestCase):
                 patch.object(activation, "STATE_ROOT", root),
             ):
                 path = activation.write_private_env(
-                    self.catalog_policy,
+                    policy,
                     "o" * 40,
                     "w" * 40,
                 )
@@ -532,6 +556,14 @@ class CrossDomainActivationTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertIn("GOVERNANCE_CONSOLE_OPERATOR_ID=operator:workspace-owner", value)
             self.assertIn("GOVERNANCE_CONSOLE_SESSION_PROJECTION_PATH=", value)
+            self.assertIn(
+                "REPOSITORY_CUSTODY_POLICY_PROFILE_DIGEST=sha256:" + "1" * 64,
+                value,
+            )
+            self.assertIn(
+                "REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_DIGEST=sha256:" + "2" * 64,
+                value,
+            )
             self.assertNotIn("BROWSER", value)
 
     def test_catalog_command_separates_first_use_from_existing_reference(self) -> None:

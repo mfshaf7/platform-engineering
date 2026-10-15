@@ -45,6 +45,11 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(provider["operator_id"], "operator:workspace-owner")
         self.assertEqual(policy["delivery"]["work_item_ref"], "openproject://work_packages/1291")
         self.assertEqual(policy["security"]["status"], "pending")
+        self.assertTrue(policy["repository_provisioning"]["enabled"])
+        self.assertEqual(
+            policy["repository_provisioning"]["security_gate_id"],
+            "gate:repository-custody-runtime-activation",
+        )
 
     def test_case_1291_negative_pending_security_blocks_activation(self) -> None:
         policy = runtime.validate_policy()
@@ -101,9 +106,48 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(activation["console"]["revision"], revisions["governance-operations-console"])
         self.assertEqual(activation["owners"]["oos"]["revision"], revisions["operator-orchestration-service"])
         self.assertTrue(activation["owners"]["wgcf"]["workspace_continuity_projection_enabled"])
+        self.assertTrue(activation["repository_custody"]["wgcf_readiness_enabled"])
+        self.assertEqual(
+            activation["repository_custody"]["provisioning_credential_binding_ref"],
+            policy["repository_provisioning"]["credential_binding_ref"],
+        )
         self.assertEqual(activation["authority"]["security_revision"], "f" * 40)
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())
+
+    def test_merged_identical_source_survives_worktree_retirement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            main = workspace / "platform-engineering"
+            candidate = workspace / "candidate"
+            main.mkdir()
+
+            def git(*args):
+                return runtime.subprocess.run(
+                    ["git", "-C", str(main), *args],
+                    check=True, capture_output=True, text=True,
+                )
+
+            git("init", "-b", "main")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "commit", "--allow-empty", "-m", "base")
+            git("update-ref", "refs/remotes/origin/main", "HEAD")
+            git("worktree", "add", "--detach", str(candidate), "HEAD")
+            with (
+                patch.object(runtime, "WORKSPACE_ROOT", workspace),
+                patch.object(runtime, "REPO_ROOT", candidate),
+                patch.object(runtime, "REPO_PATH_OVERRIDES", {}),
+            ):
+                self.assertEqual(runtime.persistent_platform_source(), main)
+                self.assertEqual(
+                    runtime.composition_command(runtime.validate_policy(), "up")[1],
+                    str(main / "scripts/dev_integration.py"),
+                )
+                (candidate / "pending-change").write_text("unique work", encoding="utf-8")
+                self.assertEqual(runtime.persistent_platform_source(), candidate)
+                (candidate / "pending-change").unlink()
+                (main / "pending-change").write_text("unique work", encoding="utf-8")
+                self.assertEqual(runtime.persistent_platform_source(), candidate)
 
     def test_kubernetes_secret_is_sent_on_stdin_not_process_arguments(self) -> None:
         policy = runtime.validate_policy()
@@ -120,10 +164,12 @@ class CompleteRuntimeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             state_root = Path(temp_dir) / "oos-platform-operation"
+            repository_state_root = Path(temp_dir) / "oos-repository-custody"
             with (
                 patch.object(runtime, "run", side_effect=fake_run),
                 patch.object(runtime, "namespace", return_value="devint-test"),
                 patch.object(runtime, "OOS_STATE_ROOT", state_root),
+                patch.object(runtime, "REPOSITORY_STATE_ROOT", repository_state_root),
             ):
                 runtime.apply_kubernetes_binding(policy, "10.42.0.1", "secret-value-with-at-least-thirty-two-bytes")
             self.assertEqual(state_root.stat().st_mode & 0o777, 0o700)
@@ -135,14 +181,61 @@ class CompleteRuntimeTests(unittest.TestCase):
         patch_call = next(args for args, _kwargs in calls if "patch" in args)
         state_patch = json.loads(patch_call[patch_call.index("--patch") + 1])
         pod = state_patch["spec"]["template"]["spec"]
-        self.assertEqual(pod["volumes"], [{
-            "name": runtime.OOS_STATE_VOLUME_NAME,
-            "hostPath": {"path": str(state_root), "type": "Directory"},
-        }])
-        self.assertEqual(pod["containers"][0]["volumeMounts"], [{
-            "name": runtime.OOS_STATE_VOLUME_NAME,
-            "mountPath": runtime.OOS_STATE_MOUNT_PATH,
-        }])
+        self.assertEqual(pod["volumes"], [
+            {
+                "name": runtime.OOS_STATE_VOLUME_NAME,
+                "hostPath": {"path": str(state_root), "type": "Directory"},
+            },
+            {
+                "name": "governance-console-repository-custody-state",
+                "hostPath": {"path": str(repository_state_root), "type": "Directory"},
+            },
+        ])
+        self.assertEqual(pod["containers"][0]["volumeMounts"], [
+            {
+                "name": runtime.OOS_STATE_VOLUME_NAME,
+                "mountPath": runtime.OOS_STATE_MOUNT_PATH,
+            },
+            {
+                "name": "governance-console-repository-custody-state",
+                "mountPath": "/var/lib/oos/repository-custody",
+            },
+        ])
+        flattened = " ".join(" ".join(call) for call, _kwargs in calls)
+        self.assertIn("OOS_REPOSITORY_CUSTODY_ENABLED=true", flattened)
+        self.assertIn(
+            "--from=secret/operator-orchestration-service-repository-provisioning-provider",
+            flattened,
+        )
+
+    def test_repository_private_key_uses_vault_stdin_and_private_temporary_file(self) -> None:
+        policy = runtime.validate_policy()
+        calls = []
+
+        def fake_run(args, **kwargs):
+            calls.append((args, kwargs))
+            return runtime.subprocess.CompletedProcess(
+                args,
+                0,
+                stdout="-----BEGIN PRIVATE KEY-----\nmaterial\n-----END PRIVATE KEY-----\n",
+                stderr="",
+            )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_root = Path(temp_dir) / "state"
+            private_root = state_root / "private"
+            with (
+                patch.object(runtime, "STATE_ROOT", state_root),
+                patch.object(runtime, "PRIVATE_ROOT", private_root),
+                patch.object(runtime, "vault_token", return_value="operator-vault-token"),
+                patch.object(runtime, "run", side_effect=fake_run),
+            ):
+                path = runtime.repository_provisioning_private_key(policy)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertIn("BEGIN PRIVATE KEY", path.read_text(encoding="utf-8"))
+        serialized_args = json.dumps(calls[0][0])
+        self.assertNotIn("operator-vault-token", serialized_args)
+        self.assertEqual(calls[0][1]["input_value"], "operator-vault-token\n")
 
     def test_provider_unit_uses_private_environment_and_no_inline_secret(self) -> None:
         policy = runtime.validate_policy()
@@ -177,11 +270,15 @@ class CompleteRuntimeTests(unittest.TestCase):
         patch_call = next(call for call in calls if "patch" in call)
         state_patch = json.loads(patch_call[patch_call.index("--patch") + 1])
         pod = state_patch["spec"]["template"]["spec"]
-        self.assertEqual(pod["volumes"], [{
-            "name": runtime.OOS_STATE_VOLUME_NAME,
-            "$patch": "delete",
-        }])
+        self.assertEqual(pod["volumes"], [
+            {"name": runtime.OOS_STATE_VOLUME_NAME, "$patch": "delete"},
+            {
+                "name": "governance-console-repository-custody-state",
+                "$patch": "delete",
+            },
+        ])
         self.assertEqual(pod["containers"][0]["volumeMounts"][0]["$patch"], "delete")
+        self.assertIn("OOS_REPOSITORY_CUSTODY_ENABLED-", flattened)
 
     def test_rollback_removes_oos_binding_before_cross_domain_waits(self) -> None:
         policy = runtime.validate_policy()
@@ -232,7 +329,8 @@ class CompleteRuntimeTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(runtime.RuntimeError, "rollback is incomplete"):
                     runtime.rollback(policy)
-            self.assertFalse((root / "state" / "receipts").exists())
+            receipts = root / "state" / "receipts"
+            self.assertFalse(any(receipts.glob("*-rollback.json")))
 
     def test_receipt_contains_digests_and_never_credentials(self) -> None:
         policy = runtime.validate_policy()
@@ -257,6 +355,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "teardown_receipt": "/private/teardown.json",
             "restored_activation_receipt": "/private/restored.json",
             "normal_availability_restored": True,
+            "repository_provisioning_restored": True,
         }
         with tempfile.TemporaryDirectory() as temp_dir:
             state_root = Path(temp_dir) / "state"
@@ -289,6 +388,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "teardown_receipt": "/private/teardown.json",
             "restored_activation_receipt": "/private/restored.json",
             "normal_availability_restored": True,
+            "repository_provisioning_restored": True,
         }
         with tempfile.TemporaryDirectory() as temp_dir:
             receipt_root = Path(temp_dir) / "receipts"

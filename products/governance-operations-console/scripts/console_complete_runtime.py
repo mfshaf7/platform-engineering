@@ -7,6 +7,7 @@ import argparse
 from contextlib import contextmanager
 from datetime import UTC, datetime
 import fcntl
+import hashlib
 import ipaddress
 import json
 import os
@@ -16,6 +17,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -43,6 +45,9 @@ PROVIDER_PORT = 38491
 OOS_STATE_VOLUME_NAME = "governance-console-platform-operation-state"
 OOS_STATE_MOUNT_PATH = "/var/lib/oos/platform-operation"
 OOS_STATE_ROOT = STATE_ROOT / "oos-platform-operation"
+REPOSITORY_STATE_ROOT = STATE_ROOT / "oos-repository-custody"
+REPOSITORY_PROVISIONING_RECEIPT = RECEIPT_ROOT / "repository-provisioning-deliver.json"
+REPOSITORY_PROVISIONING_REVOKE_RECEIPT = RECEIPT_ROOT / "repository-provisioning-revoke.json"
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
 OPERATING_PROOF_LOCK_PATH = STATE_ROOT / "verify-operating.lock"
 
@@ -86,9 +91,31 @@ def parse_repo_paths(values: list[str]) -> dict[str, Path]:
 
 
 def selected_repo_paths() -> dict[str, Path]:
-    selected = {"platform-engineering": REPO_ROOT}
+    selected = {"platform-engineering": persistent_platform_source()}
     selected.update(REPO_PATH_OVERRIDES)
     return selected
+
+
+def persistent_platform_source() -> Path:
+    """Prefer surviving merged source only when it is the identical clean tree."""
+    main = WORKSPACE_ROOT / "platform-engineering"
+    if main.resolve() == REPO_ROOT.resolve() or not main.is_dir() or not REPO_ROOT.is_dir():
+        return REPO_ROOT
+    main_tree = run(["git", "-C", str(main), "rev-parse", "HEAD^{tree}"], check=False)
+    candidate_tree = run(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD^{tree}"], check=False)
+    remote_tree = run(["git", "-C", str(main), "rev-parse", "origin/main^{tree}"], check=False)
+    branch = run(["git", "-C", str(main), "symbolic-ref", "--short", "HEAD"], check=False)
+    if (
+        any(result.returncode for result in (main_tree, candidate_tree, remote_tree, branch))
+        or not main_tree.stdout.strip()
+        or main_tree.stdout.strip() != candidate_tree.stdout.strip()
+        or main_tree.stdout.strip() != remote_tree.stdout.strip()
+        or branch.stdout.strip() != "main"
+        or run(["git", "-C", str(main), "status", "--porcelain"]).stdout.strip()
+        or run(["git", "-C", str(REPO_ROOT), "status", "--porcelain"]).stdout.strip()
+    ):
+        return REPO_ROOT
+    return main
 
 
 def repo_path(name: str) -> Path:
@@ -147,6 +174,68 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
         "security_gate_id": "gate:platform-operation-security",
     }:
         raise RuntimeError("complete runtime Platform-operation boundary is invalid")
+    repository = policy.get("repository_provisioning")
+    if not isinstance(repository, dict) or repository.get("enabled") is not True:
+        raise RuntimeError("complete runtime repository provisioning is not enabled")
+    if (
+        repository.get("security_gate_id") != "gate:repository-custody-runtime-activation"
+        or repository.get("security_review_ref")
+        != "docs/reviews/components/2026-10-15-repository-custody-controlled-activation.md"
+    ):
+        raise RuntimeError("complete runtime repository provisioning Security binding is invalid")
+    for name in ("policy_profile_ref", "credential_binding_ref"):
+        reference = repository.get(name)
+        if (
+            not isinstance(reference, dict)
+            or set(reference) != {"uri", "digest"}
+            or not isinstance(reference.get("uri"), str)
+            or not reference["uri"]
+            or not provider.DIGEST.fullmatch(str(reference.get("digest", "")))
+        ):
+            raise RuntimeError(f"complete runtime repository {name} is invalid")
+    identity = repository.get("identity")
+    if (
+        not isinstance(identity, dict)
+        or identity.get("contract") != "security/repository-provisioning-identity.yaml"
+        or not isinstance(identity.get("app_id"), int)
+        or identity["app_id"] <= 0
+        or not isinstance(identity.get("installation_id"), int)
+        or identity["installation_id"] <= 0
+        or identity.get("organization") != "mfshaf7-workspace"
+        or identity.get("runtime_secret_name")
+        != "operator-orchestration-service-repository-provisioning-provider"
+        or identity.get("runtime_secret_key")
+        != "OOS_REPOSITORY_PROVISIONING_INSTALLATION_TOKEN"
+    ):
+        raise RuntimeError("complete runtime repository provisioning identity is invalid")
+    vault = repository.get("vault")
+    if (
+        not isinstance(vault, dict)
+        or vault.get("address") != "http://127.0.0.1:8200"
+        or vault.get("namespace") != "vault"
+        or vault.get("pod") != "vault-0"
+        or vault.get("secret_path")
+        != "kv/components/operator-orchestration-service/dev-integration/repository-provisioning-provider"
+        or vault.get("secret_property") != "privateKey"
+    ):
+        raise RuntimeError("complete runtime repository provisioning Vault source is invalid")
+    wgcf = repository.get("wgcf")
+    if (
+        not isinstance(wgcf, dict)
+        or wgcf.get("namespace_pattern") != "devint-governance-control-fabric-{operator}"
+        or wgcf.get("deployment") != "workspace-governance-control-fabric-api"
+        or wgcf.get("service") != "workspace-governance-control-fabric-api"
+        or wgcf.get("port") != 8080
+        or wgcf.get("caller_id") != "operator-orchestration-service"
+    ):
+        raise RuntimeError("complete runtime repository WGCF binding is invalid")
+    oos = repository.get("oos")
+    if (
+        not isinstance(oos, dict)
+        or oos.get("state_mount_path") != "/var/lib/oos/repository-custody"
+        or oos.get("state_volume_name") != "governance-console-repository-custody-state"
+    ):
+        raise RuntimeError("complete runtime repository OOS state binding is invalid")
     security = policy["security"]
     required_repos = {
         "governance-operations-console",
@@ -238,6 +327,57 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
     ]
     if any(token not in review for token in required_review_tokens):
         raise RuntimeError("the Security review does not bind the complete exact source set")
+    repository = policy["repository_provisioning"]
+    try:
+        repository_review = _git_file(
+            security_repo,
+            security_revision,
+            repository["security_review_ref"],
+        )
+        oos_manifest = json.loads(
+            _git_file(
+                repo_path("operator-orchestration-service"),
+                revisions["operator-orchestration-service"],
+                "contracts/repository-custody/manifest.json",
+            )
+        )
+    except (RuntimeError, json.JSONDecodeError):
+        raise RuntimeError("the accepted repository-custody activation evidence is unavailable") from None
+    authority = oos_manifest.get("authority", {})
+    runtime_activation = oos_manifest.get("runtime_activation", {})
+    expected_policy_ref = repository["policy_profile_ref"]
+    if (
+        authority.get("uri") != expected_policy_ref["uri"]
+        or f"sha256:{authority.get('sha256', '')}" != expected_policy_ref["digest"]
+        or runtime_activation.get("enabled") is not True
+        or "provision-new" not in runtime_activation.get("active_capabilities", [])
+        or runtime_activation.get("allowed_runtime_profile") != "dev-integration"
+    ):
+        raise RuntimeError("the repository-custody source activation is stale or incomplete")
+    repository_review_tokens = (
+        repository["security_gate_id"],
+        "- decision: `approved-with-findings`",
+    )
+    if (
+        runtime_activation.get("security_review", {}).get("path") != repository["security_review_ref"]
+        or any(token not in repository_review for token in repository_review_tokens)
+    ):
+        raise RuntimeError("the Repository Custody Security review does not bind the active source")
+    identity = repository["identity"]
+    contract_path = REPO_ROOT / identity["contract"]
+    contract_bytes = contract_path.read_bytes()
+    contract = yaml.safe_load(contract_bytes)
+    expected_binding = {
+        "app_id": identity["app_id"],
+        "identity_id": contract["identity"]["id"],
+        "contract_digest": f"sha256:{hashlib.sha256(contract_bytes).hexdigest()}",
+        "installation_id": identity["installation_id"],
+        "organization": identity["organization"].casefold(),
+        "permissions": contract["identity"]["required_permissions"],
+        "provider_api_base_url": contract["identity"]["api_base_url"],
+    }
+    if provider.canonical_digest(expected_binding) != repository["credential_binding_ref"]["digest"]:
+        raise RuntimeError("the repository provisioning credential binding is stale")
     decision_digest = provider.canonical_digest(decision)
     resolved = json.loads(json.dumps(policy))
     resolved["security"].update({
@@ -269,6 +409,7 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
                 "complete-console-runtime",
                 "authenticated-platform-operation-provider",
                 "automatic-session-and-runtime-credential-lifecycle",
+                "repository-provisioning-runtime",
                 "restart-rollback-cleanup-and-teardown",
             ],
             "excludes": ["browser-owner-credentials", "direct-console-platform-authority", "stage-or-production-readiness"],
@@ -312,6 +453,11 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
             "policy": "session-projection-policy.yaml", "operator_id": policy["platform_operation_provider"]["operator_id"],
             "profile": runtime["session_profile"], "projection": "private/operator-identity.json",
             "issue_receipt": "receipts/operator-identity-issue.json", "revoke_receipt": "receipts/operator-identity-revoke.json",
+        },
+        "repository_custody": {
+            "policy_profile_ref": policy["repository_provisioning"]["policy_profile_ref"],
+            "provisioning_credential_binding_ref": policy["repository_provisioning"]["credential_binding_ref"],
+            "wgcf_readiness_enabled": True,
         },
         "receipts": {"directory": "governance-console-complete-runtime/receipts", "maximum_age_seconds": 120},
     }
@@ -358,7 +504,7 @@ def namespace(policy: dict[str, Any]) -> str:
 def composition_command(policy: dict[str, Any], action: str) -> list[str]:
     command = [
         sys.executable,
-        str(REPO_ROOT / "scripts" / "dev_integration.py"),
+        str(repo_path("platform-engineering") / "scripts" / "dev_integration.py"),
         action,
         "--composition",
         policy["platform_operation_provider"]["composition_id"],
@@ -381,6 +527,148 @@ def cross_domain_command(action: str) -> list[str]:
     for name, path in sorted(selected_repo_paths().items()):
         command.extend(["--repo-path", f"{name}={path}"])
     return command
+
+
+def dev_integration_session_manifest(policy: dict[str, Any]) -> Path:
+    return (
+        WORKSPACE_ROOT
+        / ".dev-integration"
+        / policy["runtime"]["session_profile"]
+        / operator()
+        / "current-session.yaml"
+    )
+
+
+def vault_token() -> str:
+    value = os.environ.get("VAULT_TOKEN", "").strip()
+    if value:
+        return value
+    path = Path.home() / ".vault-token"
+    if (
+        not path.is_file()
+        or path.is_symlink()
+        or path.stat().st_uid != os.geteuid()
+        or stat.S_IMODE(path.stat().st_mode) & 0o077
+    ):
+        raise RuntimeError("the operator-private Vault token is unavailable or unsafe")
+    value = path.read_text(encoding="utf-8").strip()
+    if not value:
+        raise RuntimeError("the operator-private Vault token is empty")
+    return value
+
+
+def repository_provisioning_private_key(policy: dict[str, Any]) -> Path:
+    ensure_private(STATE_ROOT)
+    ensure_private(PRIVATE_ROOT)
+    vault = policy["repository_provisioning"]["vault"]
+    script = (
+        'IFS= read -r VAULT_TOKEN; export VAULT_TOKEN; '
+        'export VAULT_ADDR="$1"; vault kv get -field="$2" "$3"'
+    )
+    result = run(
+        [
+            "k3s", "kubectl", "-n", vault["namespace"], "exec", "-i",
+            vault["pod"], "--", "sh", "-c", script, "vault-read",
+            vault["address"], vault["secret_property"], vault["secret_path"],
+        ],
+        input_value=vault_token() + "\n",
+    )
+    private_key = result.stdout.strip()
+    if "-----BEGIN" not in private_key or "PRIVATE KEY-----" not in private_key:
+        raise RuntimeError("the repository provisioning private key is invalid")
+    descriptor, raw_path = tempfile.mkstemp(
+        prefix="repository-provisioning-",
+        suffix=".pem",
+        dir=PRIVATE_ROOT,
+        text=True,
+    )
+    path = Path(raw_path)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(private_key + "\n")
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def repository_identity_command(
+    policy: dict[str, Any],
+    action: str,
+    receipt_path: Path,
+    *,
+    private_key_path: Path | None = None,
+) -> list[str]:
+    identity = policy["repository_provisioning"]["identity"]
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "repository_provisioning_identity.py"),
+        "--contract", str(REPO_ROOT / identity["contract"]),
+        action,
+        "--app-id", str(identity["app_id"]),
+        "--installation-id", str(identity["installation_id"]),
+        "--organization", identity["organization"],
+        "--receipt", str(receipt_path),
+    ]
+    if private_key_path is not None:
+        command.extend(["--private-key-file", str(private_key_path)])
+    if action in {"deliver", "revoke"}:
+        command.extend([
+            "--session-manifest", str(dev_integration_session_manifest(policy)),
+            "--workspace-root", str(WORKSPACE_ROOT),
+        ])
+    return command
+
+
+def deliver_repository_provisioning_identity(policy: dict[str, Any]) -> dict[str, Any]:
+    ensure_private(RECEIPT_ROOT)
+    private_key = repository_provisioning_private_key(policy)
+    try:
+        run(repository_identity_command(
+            policy,
+            "deliver",
+            REPOSITORY_PROVISIONING_RECEIPT,
+            private_key_path=private_key,
+        ))
+    finally:
+        private_key.unlink(missing_ok=True)
+    try:
+        value = json.loads(REPOSITORY_PROVISIONING_RECEIPT.read_text(encoding="utf-8"))
+        expires_at = datetime.fromisoformat(value["token_expires_at"].replace("Z", "+00:00"))
+    except (OSError, KeyError, ValueError, json.JSONDecodeError):
+        raise RuntimeError("the repository provisioning delivery receipt is invalid") from None
+    repository = policy["repository_provisioning"]
+    identity = repository["identity"]
+    if (
+        value.get("action") != "deliver"
+        or value.get("outcome") != "delivered"
+        or value.get("app_id") != identity["app_id"]
+        or value.get("installation_id") != identity["installation_id"]
+        or value.get("organization") != identity["organization"]
+        or value.get("credential_binding_digest")
+        != repository["credential_binding_ref"]["digest"]
+        or value.get("secret_values_embedded") is not False
+        or (expires_at - datetime.now(UTC)).total_seconds() < 300
+    ):
+        raise RuntimeError("the repository provisioning delivery receipt is stale or mismatched")
+    return value
+
+
+def revoke_repository_provisioning_identity(policy: dict[str, Any]) -> None:
+    identity = policy["repository_provisioning"]["identity"]
+    ns = namespace(policy)
+    if run(
+        ["k3s", "kubectl", "-n", ns, "get", f"secret/{identity['runtime_secret_name']}"],
+        check=False,
+    ).returncode:
+        return
+    ensure_private(RECEIPT_ROOT)
+    run(repository_identity_command(
+        policy,
+        "revoke",
+        REPOSITORY_PROVISIONING_REVOKE_RECEIPT,
+    ))
 
 
 def cni_gateway() -> str:
@@ -427,14 +715,15 @@ def write_provider_unit(policy: dict[str, Any], gateway: str, secret: str) -> No
     if not python:
         raise RuntimeError("python3 is unavailable for the Platform provider")
     state = STATE_ROOT / "provider"
+    runtime_repo = repo_path("platform-engineering")
     unit = f"""[Unit]
 Description=Governance Console Platform operation provider
 After=network.target k3s.service
 
 [Service]
-WorkingDirectory={REPO_ROOT}
+WorkingDirectory={runtime_repo}
 EnvironmentFile={env_path}
-ExecStart={python} {PRODUCT_ROOT / 'scripts' / 'platform_operation_provider.py'} --policy {RESOLVED_POLICY_PATH} --state-root {state} serve --listen-host {gateway} --listen-port {policy['runtime']['provider_port']}
+ExecStart={python} {runtime_repo / 'products' / 'governance-operations-console' / 'scripts' / 'platform_operation_provider.py'} --policy {RESOLVED_POLICY_PATH} --state-root {state} serve --listen-host {gateway} --listen-port {policy['runtime']['provider_port']}
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true
@@ -455,6 +744,11 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
     security = policy["security"]
     oos_revision = security["reviewed_revisions"]["operator-orchestration-service"]
     ensure_private(OOS_STATE_ROOT)
+    ensure_private(REPOSITORY_STATE_ROOT)
+    repository = policy["repository_provisioning"]
+    repository_wgcf = repository["wgcf"]
+    repository_oos = repository["oos"]
+    repository_identity = repository["identity"]
     secret_values = {
         "OOS_PLATFORM_OPERATION_CALLER_OPERATOR_BINDINGS_JSON": json.dumps(
             {"governance-operations-console": policy["platform_operation_provider"]["operator_id"]},
@@ -503,11 +797,17 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
                 "volumeMounts": [{
                     "name": OOS_STATE_VOLUME_NAME,
                     "mountPath": OOS_STATE_MOUNT_PATH,
+                }, {
+                    "name": repository_oos["state_volume_name"],
+                    "mountPath": repository_oos["state_mount_path"],
                 }],
             }],
             "volumes": [{
                 "name": OOS_STATE_VOLUME_NAME,
                 "hostPath": {"path": str(OOS_STATE_ROOT), "type": "Directory"},
+            }, {
+                "name": repository_oos["state_volume_name"],
+                "hostPath": {"path": str(REPOSITORY_STATE_ROOT), "type": "Directory"},
             }],
         }}},
     }
@@ -519,6 +819,24 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
     run([
         "k3s", "kubectl", "-n", ns, "set", "env",
         f"deployment/{runtime['oos_deployment']}", f"--from=secret/{SECRET_NAME}",
+    ])
+    run([
+        "k3s", "kubectl", "-n", ns, "set", "env",
+        f"deployment/{runtime['oos_deployment']}",
+        "OOS_REPOSITORY_CUSTODY_ENABLED=true",
+        f"OOS_REPOSITORY_CUSTODY_STATE_ROOT={repository_oos['state_mount_path']}",
+        (
+            "WGCF_REPOSITORY_CUSTODY_BASE_URL="
+            f"http://{repository_wgcf['service']}."
+            f"{repository_wgcf['namespace_pattern'].replace('{operator}', operator())}:"
+            f"{repository_wgcf['port']}"
+        ),
+        f"WGCF_REPOSITORY_CUSTODY_CALLER_ID={repository_wgcf['caller_id']}",
+    ])
+    run([
+        "k3s", "kubectl", "-n", ns, "set", "env",
+        f"deployment/{runtime['oos_deployment']}",
+        f"--from=secret/{repository_identity['runtime_secret_name']}",
     ])
     run([
         "k3s", "kubectl", "-n", ns, "rollout", "restart",
@@ -571,13 +889,149 @@ def console_operations(policy: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def repository_provisioning_status(policy: dict[str, Any]) -> dict[str, Any]:
+    repository = policy["repository_provisioning"]
+    identity = repository["identity"]
+    repository_oos = repository["oos"]
+    repository_wgcf = repository["wgcf"]
+    ns = namespace(policy)
+    secret_result = run([
+        "k3s", "kubectl", "-n", ns, "get",
+        f"secret/{identity['runtime_secret_name']}", "-o", "json",
+    ])
+    try:
+        secret = json.loads(secret_result.stdout)
+        annotations = secret["metadata"]["annotations"]
+        expires_at = datetime.fromisoformat(
+            annotations["workspace-governance/token-expires-at"].replace("Z", "+00:00")
+        )
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise RuntimeError("the repository provisioning runtime credential is invalid") from None
+    secret.pop("data", None)
+    if (
+        annotations.get("workspace-governance/credential-binding-digest")
+        != repository["credential_binding_ref"]["digest"]
+        or annotations.get("workspace-governance/provider-organization")
+        != identity["organization"]
+        or annotations.get("workspace-governance/dev-integration-profile")
+        != policy["runtime"]["session_profile"]
+        or (expires_at - datetime.now(UTC)).total_seconds() < 300
+    ):
+        raise RuntimeError("the repository provisioning runtime credential is stale or mismatched")
+
+    deployment = json.loads(run([
+        "k3s", "kubectl", "-n", ns, "get",
+        f"deployment/{policy['runtime']['oos_deployment']}", "-o", "json",
+    ]).stdout)
+    pod = deployment.get("spec", {}).get("template", {}).get("spec", {})
+    containers = pod.get("containers", [])
+    container = next(
+        (item for item in containers if item.get("name") == policy["runtime"]["oos_deployment"]),
+        None,
+    )
+    if not isinstance(container, dict):
+        raise RuntimeError("the OOS repository-custody container binding is unavailable")
+    environment = {item.get("name"): item for item in container.get("env", [])}
+    token_binding = environment.get(identity["runtime_secret_key"], {}).get("valueFrom", {}).get("secretKeyRef", {})
+    expected_plain = {
+        "OOS_REPOSITORY_CUSTODY_ENABLED": "true",
+        "OOS_REPOSITORY_CUSTODY_STATE_ROOT": repository_oos["state_mount_path"],
+        "WGCF_REPOSITORY_CUSTODY_CALLER_ID": repository_wgcf["caller_id"],
+        "WGCF_REPOSITORY_CUSTODY_BASE_URL": (
+            f"http://{repository_wgcf['service']}."
+            f"{repository_wgcf['namespace_pattern'].replace('{operator}', operator())}:"
+            f"{repository_wgcf['port']}"
+        ),
+    }
+    if (
+        any(environment.get(name, {}).get("value") != value for name, value in expected_plain.items())
+        or token_binding.get("name") != identity["runtime_secret_name"]
+        or token_binding.get("key") != identity["runtime_secret_key"]
+    ):
+        raise RuntimeError("the OOS repository-custody environment binding is incomplete")
+    mounts = {item.get("name"): item for item in container.get("volumeMounts", [])}
+    volumes = {item.get("name"): item for item in pod.get("volumes", [])}
+    state_name = repository_oos["state_volume_name"]
+    if (
+        mounts.get(state_name, {}).get("mountPath") != repository_oos["state_mount_path"]
+        or volumes.get(state_name, {}).get("hostPath", {}).get("path")
+        != str(REPOSITORY_STATE_ROOT)
+    ):
+        raise RuntimeError("the OOS repository-custody state binding is incomplete")
+
+    wgcf_namespace = repository_wgcf["namespace_pattern"].replace("{operator}", operator())
+    wgcf_deployment = json.loads(run([
+        "k3s", "kubectl", "-n", wgcf_namespace, "get",
+        f"deployment/{repository_wgcf['deployment']}", "-o", "json",
+    ]).stdout)
+    wgcf_environment = {
+        item.get("name"): item
+        for container_item in wgcf_deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
+        for item in container_item.get("env", [])
+    }
+    if wgcf_environment.get("WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED", {}).get("value") != "true":
+        raise RuntimeError("WGCF repository-custody readiness is not active")
+
+    try:
+        with urlopen(
+            Request(
+                f"http://127.0.0.1:{policy['runtime']['console_port']}/api/console/capabilities",
+                headers={"accept": "application/json"},
+            ),
+            timeout=15,
+        ) as response:
+            capabilities = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Console repository capability readback is unavailable: {type(exc).__name__}") from None
+    projected = next(
+        (
+            item for item in capabilities.get("capabilities", [])
+            if item.get("id") == "repository-provisioning"
+        ),
+        None,
+    )
+    if (
+        capabilities.get("mode") != "live"
+        or not isinstance(projected, dict)
+        or projected.get("source", {}).get("state") != "available"
+        or projected.get("mutation", {}).get("state") != "available"
+    ):
+        raise RuntimeError("Console repository provisioning is not executable")
+
+    probe_url = (
+        f"http://127.0.0.1:{policy['runtime']['console_port']}"
+        "/api/repositories/provisioning/requests/repository-custody-request:runtime-status-probe"
+    )
+    try:
+        urlopen(Request(probe_url, headers={"accept": "application/json"}), timeout=15)
+    except HTTPError as exc:
+        try:
+            body = json.loads(exc.read().decode("utf-8"))
+        except json.JSONDecodeError:
+            body = {}
+        if exc.code != 404 or body.get("code") != "repository_custody_request_not_found":
+            raise RuntimeError("the Console-to-OOS repository provisioning route is not active") from None
+    except (URLError, TimeoutError):
+        raise RuntimeError("the Console-to-OOS repository provisioning route is unavailable") from None
+    else:
+        raise RuntimeError("the repository provisioning readiness probe returned unexpected state")
+
+    return {
+        "console_capability": "available",
+        "credential_binding_digest": repository["credential_binding_ref"]["digest"],
+        "credential_expires_at": expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+        "oos_runtime": "active",
+        "wgcf_readiness": "active",
+    }
+
+
 def write_active_marker(policy: dict[str, Any]) -> None:
     ensure_private(STATE_ROOT)
     marker = STATE_ROOT / "active.json"
     payload = {
         "schema_version": 1,
-        "platform_revision": provider.git_head(REPO_ROOT),
-        "platform_tree": provider.git_tree(REPO_ROOT),
+        "platform_revision": provider.git_head(repo_path("platform-engineering")),
+        "platform_tree": provider.git_tree(repo_path("platform-engineering")),
         "security_decision_digest": policy["security"]["decision_digest"],
         "security_decision_uri": policy["security"]["decision_uri"],
         "activated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -651,7 +1105,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
         "activation_receipt", "invalid_credential_denied", "revoked_gate_denied",
         "stale_state_denied", "process_loss_recovered", "restart_receipt",
         "rollback_receipt", "teardown_receipt", "restored_activation_receipt",
-        "normal_availability_restored",
+        "normal_availability_restored", "repository_provisioning_restored",
     }
     for path in sorted(RECEIPT_ROOT.glob("*-verify-operating.json"), reverse=True):
         try:
@@ -684,7 +1138,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
             or any(proof.get(name) is not True for name in (
                 "invalid_credential_denied", "revoked_gate_denied",
                 "stale_state_denied", "process_loss_recovered",
-                "normal_availability_restored",
+                "normal_availability_restored", "repository_provisioning_restored",
             ))
             or any(not isinstance(proof.get(name), str) or not proof[name] for name in (
                 "activation_receipt", "restart_receipt", "rollback_receipt",
@@ -701,6 +1155,7 @@ def activate(policy: dict[str, Any]) -> Path:
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
     run(composition_command(policy, "up"))
+    deliver_repository_provisioning_identity(policy)
     secret = credential()
     gateway = cni_gateway()
     write_provider_unit(policy, gateway, secret)
@@ -720,6 +1175,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     run(cross_domain_command("status"))
     catalog = provider_catalog(policy, credential())
     console = console_operations(policy)
+    repository = repository_provisioning_status(policy)
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -729,6 +1185,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "platform_catalog_source_version": catalog["source_version"],
         "platform_subject_count": len(catalog["subjects"]),
         "provider_active": True,
+        "repository_provisioning": repository,
     })
 
 
@@ -736,6 +1193,7 @@ def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    deliver_repository_provisioning_identity(policy)
     run(["systemctl", "--user", "restart", UNIT_NAME])
     ns = namespace(policy)
     run([
@@ -764,6 +1222,11 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_REVISION",
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_URI",
         "OOS_PLATFORM_OPERATION_STATE_ROOT",
+        "OOS_REPOSITORY_CUSTODY_ENABLED",
+        "OOS_REPOSITORY_CUSTODY_STATE_ROOT",
+        "OOS_REPOSITORY_PROVISIONING_INSTALLATION_TOKEN",
+        "WGCF_REPOSITORY_CUSTODY_BASE_URL",
+        "WGCF_REPOSITORY_CUSTODY_CALLER_ID",
     ]
     failures: list[str] = []
     if run(["k3s", "kubectl", "-n", ns, "set", "env", deployment, *(f"{name}-" for name in names)], check=False).returncode:
@@ -776,9 +1239,19 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
                     "name": OOS_STATE_VOLUME_NAME,
                     "mountPath": OOS_STATE_MOUNT_PATH,
                     "$patch": "delete",
+                }, {
+                    "name": policy["repository_provisioning"]["oos"]["state_volume_name"],
+                    "mountPath": policy["repository_provisioning"]["oos"]["state_mount_path"],
+                    "$patch": "delete",
                 }],
             }],
-            "volumes": [{"name": OOS_STATE_VOLUME_NAME, "$patch": "delete"}],
+            "volumes": [
+                {"name": OOS_STATE_VOLUME_NAME, "$patch": "delete"},
+                {
+                    "name": policy["repository_provisioning"]["oos"]["state_volume_name"],
+                    "$patch": "delete",
+                },
+            ],
         }}},
     }
     if run([
@@ -797,6 +1270,10 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
 
 def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
     failures: list[str] = []
+    try:
+        revoke_repository_provisioning_identity(policy)
+    except RuntimeError:
+        failures.append("repository-provisioning-credential-revocation")
     binding_failures = remove_kubernetes_binding(policy)
     failures.extend(binding_failures)
     if RESOLVED_ACTIVATION_POLICY_PATH.is_file() and not binding_failures:
@@ -821,6 +1298,7 @@ def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
         "console_services_active": False,
         "credential_binding_present": False,
         "provider_active": False,
+        "repository_provisioning_credential_present": False,
     })
 
 
@@ -937,6 +1415,7 @@ def verify_operating(policy: dict[str, Any]) -> Path:
             "teardown_receipt": str(teardown_receipt),
             "restored_activation_receipt": str(restored_receipt),
             "normal_availability_restored": True,
+            "repository_provisioning_restored": True,
         })
 
 

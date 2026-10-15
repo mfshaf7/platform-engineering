@@ -23,6 +23,38 @@ platform_operation_provider:
   composition_id: refinement-catalog
   subject_ref: profile:accepted-idea-delivery
   security_gate_id: gate:platform-operation-security
+repository_provisioning:
+  enabled: true
+  security_gate_id: gate:repository-custody-runtime-activation
+  security_review_ref: docs/reviews/components/2026-10-15-repository-custody-controlled-activation.md
+  policy_profile_ref:
+    uri: repo://workspace-governance/contracts/repository-custody.yaml
+    digest: sha256:2e50df2e22bc233bf7abbf119a814a21c31b52659a9478f34ae4fb410e1f9f4f
+  credential_binding_ref:
+    uri: platform-engineering://credential-bindings/repository-provisioning-github-app-v1
+    digest: sha256:1c3b84794319e3bbe79f6aca30608710527260afefe7fa8951a699e0d8afe321
+  identity:
+    contract: security/repository-provisioning-identity.yaml
+    app_id: 4764490
+    installation_id: 157584455
+    organization: mfshaf7-workspace
+    runtime_secret_name: operator-orchestration-service-repository-provisioning-provider
+    runtime_secret_key: OOS_REPOSITORY_PROVISIONING_INSTALLATION_TOKEN
+  vault:
+    address: http://127.0.0.1:8200
+    namespace: vault
+    pod: vault-0
+    secret_path: kv/components/operator-orchestration-service/dev-integration/repository-provisioning-provider
+    secret_property: privateKey
+  wgcf:
+    namespace_pattern: devint-governance-control-fabric-{operator}
+    deployment: workspace-governance-control-fabric-api
+    service: workspace-governance-control-fabric-api
+    port: 8080
+    caller_id: operator-orchestration-service
+  oos:
+    state_mount_path: /var/lib/oos/repository-custody
+    state_volume_name: governance-console-repository-custody-state
 security:
   gate_id: gate:platform-operation-security
   status: pending

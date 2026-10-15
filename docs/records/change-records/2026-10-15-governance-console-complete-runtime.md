@@ -38,7 +38,10 @@
 ## Source Changes
 
 - Repo: `platform-engineering`
-- Commit(s): Pending Agent Gary source commit and protected merge.
+- Commit(s): Platform maintenance PR
+  [#305](https://github.com/mfshaf7/platform-engineering/pull/305), merged as
+  `36510a9783b7b4667e4cdcd60b3144b54515c5f7`; the bounded successor
+  commissioning-record commit remains pending protected review and merge.
 - Guardrail added:
   - test: finite catalog, exact command/control binding, replay, failure,
     process-identity recovery, stale marker, credential custody, read-only
@@ -64,8 +67,19 @@
     The maintenance repair now projects a mode-0700 operator-private host
     directory into the exact OOS state path and removes the OOS environment
     and state binding before cross-domain rollback waits for readiness.
+  - Platform PR
+    [#305](https://github.com/mfshaf7/platform-engineering/pull/305)
+    landed that repair. Security PR
+    [#254](https://github.com/mfshaf7/security-architecture/pull/254)
+    accepted its exact Platform tree
+    `79539f1e3ffc0c0dadf8f4dac2c4cef1b21f9842` without widening the trust
+    boundary.
+  - successor session
+    `work-session:delivery-1275:delivery-1275-platform-composition:r2` starts
+    from the reviewed repair commit and owns the repeated merge-ready and live
+    operating proof.
   - the preserved merge-ready packet and archived failed attempt remain bound
-    to Platform PR #303; they are not represented as evidence for this
+    to Platform PR #304; they are not represented as evidence for this
     replacement source revision.
 
 ## Artifact And Deployment Evidence
@@ -100,10 +114,12 @@
 
 ## Follow-Up
 
-- Required follow-up: Merge the writable-state and rollback-order maintenance
-  repair, obtain the fresh Security delta for that exact Platform tree, recover
-  the failed replacement attempt through the evidence-preserving path, and run
-  the live operating proof from its governed successor. Console `#1292`, WGCF
-  `#1294`, and Console `#1295` remain exact-revision inputs to that review.
+- Required follow-up: Complete protected review and merge of the bounded
+  successor commissioning record, then run the live operating proof from
+  successor session
+  `work-session:delivery-1275:delivery-1275-platform-composition:r2`.
+  Platform PR #305 and Security PR #254 already satisfy the intervening repair
+  and exact-tree acceptance prerequisites. Console `#1292`, WGCF `#1294`, and
+  Console `#1295` remain exact-revision inputs to that proof.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

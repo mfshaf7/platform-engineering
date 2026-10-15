@@ -65,7 +65,12 @@ make governance-console-complete-runtime ACTION=verify-operating
 That proof checks authenticated startup, invalid-credential denial, revoked
 gate denial, stale-marker denial, provider process-loss recovery, full restart,
 rollback, teardown, and restoration to normal availability. It retains only
-credential-free receipts.
+credential-free receipts. The proof holds one operator-private filesystem lock
+across the complete lifecycle. A replacement executor waits on that lock and
+may reuse the result only when the retained receipt has a valid content digest,
+the exact current Security decision and reviewed revisions, the complete proof
+shape, and restored normal availability. Stale, malformed, partial, or
+different-revision receipts are ignored and cannot satisfy commissioning.
 
 ## Stop and cleanup
 

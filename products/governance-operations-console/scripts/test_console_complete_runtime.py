@@ -17,6 +17,26 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def accepted_policy(self) -> dict:
+        policy = runtime.validate_policy()
+        revisions = {
+            "governance-operations-console": "a" * 40,
+            "operator-orchestration-service": "b" * 40,
+            "platform-engineering": "c" * 40,
+            "workspace-governance": "d" * 40,
+            "workspace-governance-control-fabric": "e" * 40,
+        }
+        policy["security"].update({
+            "status": "accepted",
+            "decision_uri": "security-architecture://git/" + "f" * 40 + "/decision.yaml",
+            "decision_digest": "sha256:" + "1" * 64,
+            "platform_revision": revisions["platform-engineering"],
+            "platform_tree": "2" * 40,
+            "reviewed_revisions": revisions,
+            "security_revision": "f" * 40,
+        })
+        return policy
+
     def test_case_1291_positive_source_contract_is_one_existing_composition(self) -> None:
         policy = runtime.validate_policy()
         provider = policy["platform_operation_provider"]
@@ -223,6 +243,65 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertTrue(value["content_digest"].startswith("sha256:"))
         self.assertFalse(value["credential_values_embedded"])
         self.assertNotIn("caller_secret", json.dumps(value).casefold())
+
+    def test_verify_operating_reuses_exact_locked_receipt(self) -> None:
+        policy = self.accepted_policy()
+        proof = {
+            "activation_receipt": "/private/activate.json",
+            "invalid_credential_denied": True,
+            "revoked_gate_denied": True,
+            "stale_state_denied": True,
+            "process_loss_recovered": True,
+            "restart_receipt": "/private/restart.json",
+            "rollback_receipt": "/private/rollback.json",
+            "teardown_receipt": "/private/teardown.json",
+            "restored_activation_receipt": "/private/restored.json",
+            "normal_availability_restored": True,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_root = Path(temp_dir) / "state"
+            receipt_root = state_root / "receipts"
+            lock_path = state_root / "verify-operating.lock"
+            with (
+                patch.object(runtime, "STATE_ROOT", state_root),
+                patch.object(runtime, "RECEIPT_ROOT", receipt_root),
+                patch.object(runtime, "OPERATING_PROOF_LOCK_PATH", lock_path),
+            ):
+                prior = runtime.receipt("verify-operating", policy, proof)
+                with (
+                    patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+                    patch.object(runtime, "activate", side_effect=AssertionError("cached proof must not activate")),
+                ):
+                    result = runtime.verify_operating(policy)
+            self.assertEqual(result, prior)
+            self.assertEqual(lock_path.stat().st_mode & 0o777, 0o600)
+
+    def test_operating_receipt_reuse_rejects_stale_or_malformed_receipts(self) -> None:
+        policy = self.accepted_policy()
+        proof = {
+            "activation_receipt": "/private/activate.json",
+            "invalid_credential_denied": True,
+            "revoked_gate_denied": True,
+            "stale_state_denied": True,
+            "process_loss_recovered": True,
+            "restart_receipt": "/private/restart.json",
+            "rollback_receipt": "/private/rollback.json",
+            "teardown_receipt": "/private/teardown.json",
+            "restored_activation_receipt": "/private/restored.json",
+            "normal_availability_restored": True,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            receipt_root = Path(temp_dir) / "receipts"
+            with patch.object(runtime, "RECEIPT_ROOT", receipt_root):
+                path = runtime.receipt("verify-operating", policy, proof)
+                stale = json.loads(json.dumps(policy))
+                stale["security"]["decision_digest"] = "sha256:" + "9" * 64
+                self.assertIsNone(runtime.reusable_operating_receipt(stale))
+                value = json.loads(path.read_text(encoding="utf-8"))
+                value["content_digest"] = "sha256:" + "0" * 64
+                path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+                path.chmod(0o600)
+                self.assertIsNone(runtime.reusable_operating_receipt(policy))
 
 
 if __name__ == "__main__":

@@ -99,10 +99,25 @@
     from merged Platform revision
     `e2e664a00fc99c7b4b196b4462db634dbf193d9b` and owns the final exact-head
     Security acceptance and live operating proof.
+  - the `r3` proof then exposed a self-hosting boundary: full composition
+    teardown terminated the source executor process group supervising that
+    proof before it could retain the result. OOS PR
+    [#339](https://github.com/mfshaf7/operator-orchestration-service/pull/339)
+    moves runtime/live evidence into its own process group, and OOS PR
+    [#340](https://github.com/mfshaf7/operator-orchestration-service/pull/340)
+    permits the existing evidence-preserving recovery path to archive an
+    interrupted acquisition without claiming readiness.
+  - the failed `r3` attempt is archived with its exact merge-ready packet. The
+    `r4` successor serializes the complete proof with an operator-private file
+    lock and reuses only a digest-valid receipt bound to the exact current
+    Security decision, reviewed revisions, complete proof shape, and restored
+    normal availability. This lets the detached original proof restore the
+    runtime and lets the replacement executor reconcile that exact result
+    without repeating teardown.
 
 ## Artifact And Deployment Evidence
 
-- Build workflow run: Pending pull request validation.
+- Build workflow run: Pending `r4` pull request validation.
 - Published image tag: None; this local lane uses reviewed source checkouts.
 - Published digest: None.
 - Recorded prod revision: None; production is outside scope.
@@ -124,7 +139,8 @@
 - Deployed image: Existing reviewed dev-integration source composition.
 - Pod: Existing `refinement-catalog` workloads; no new pod or control plane.
 - Functional verification: Source tests bind `case:1291-positive` and
-  `case:1291-negative`; the final operating command binds
+  `case:1291-negative`, including exact cached-receipt reuse and stale or
+  malformed receipt rejection; the final operating command binds
   `case:platform-runtime-positive` and `case:platform-runtime-negative`.
 - Residual risk: Runtime activation remains denied until the external Security
   decision accepts the exact Platform candidate tree and every declared owner
@@ -134,8 +150,8 @@
 
 - Required follow-up: Review this bounded successor revision, bind an external
   Security decision to its exact PR head and tree, then run the live operating
-  proof from governed session `r3`. Platform PRs #305, #306, and #307 remain
-  immutable repair and recovery evidence. Console `#1292`, WGCF `#1294`, and
-  Console `#1295` remain exact-revision inputs to that proof.
+  proof from governed session `r4`. Platform PRs #305, #306, #307, and #308
+  remain immutable repair and recovery evidence. Console `#1292`, WGCF `#1294`,
+  and Console `#1295` remain exact-revision inputs to that proof.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

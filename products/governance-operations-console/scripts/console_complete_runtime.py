@@ -81,8 +81,14 @@ def parse_repo_paths(values: list[str]) -> dict[str, Path]:
     return result
 
 
+def selected_repo_paths() -> dict[str, Path]:
+    selected = {"platform-engineering": REPO_ROOT}
+    selected.update(REPO_PATH_OVERRIDES)
+    return selected
+
+
 def repo_path(name: str) -> Path:
-    return REPO_PATH_OVERRIDES.get(name, WORKSPACE_ROOT / name)
+    return selected_repo_paths().get(name, WORKSPACE_ROOT / name)
 
 
 def git_head(name: str) -> str:
@@ -355,7 +361,7 @@ def composition_command(policy: dict[str, Any], action: str) -> list[str]:
         "--workspace-root",
         str(WORKSPACE_ROOT),
     ]
-    for name, path in sorted(REPO_PATH_OVERRIDES.items()):
+    for name, path in sorted(selected_repo_paths().items()):
         command.extend(["--repo-path", f"{name}={path}"])
     return command
 
@@ -368,7 +374,7 @@ def cross_domain_command(action: str) -> list[str]:
         str(RESOLVED_ACTIVATION_POLICY_PATH),
         action,
     ]
-    for name, path in sorted(REPO_PATH_OVERRIDES.items()):
+    for name, path in sorted(selected_repo_paths().items()):
         command.extend(["--repo-path", f"{name}={path}"])
     return command
 

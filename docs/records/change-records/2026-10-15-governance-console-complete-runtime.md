@@ -42,8 +42,11 @@
   [#305](https://github.com/mfshaf7/platform-engineering/pull/305), merged as
   `36510a9783b7b4667e4cdcd60b3144b54515c5f7`, and bounded successor PR
   [#306](https://github.com/mfshaf7/platform-engineering/pull/306), merged as
-  `df6844ded120c2325bb09d0b41dacc10fe33a44e`; the worktree-selection
-  maintenance repair remains pending protected review and merge.
+  `df6844ded120c2325bb09d0b41dacc10fe33a44e`. Platform maintenance PR
+  [#307](https://github.com/mfshaf7/platform-engineering/pull/307), merged as
+  `e2e664a00fc99c7b4b196b4462db634dbf193d9b`, binds the composed runtime to
+  the reviewed Platform worktree unless the operator supplies an explicit
+  source override.
 - Guardrail added:
   - test: finite catalog, exact command/control binding, replay, failure,
     process-identity recovery, stale marker, credential custody, read-only
@@ -88,9 +91,14 @@
     composition and cross-domain commands, while an explicit operator
     `--repo-path` still takes precedence. A focused regression test covers
     both paths.
-  - the preserved merge-ready packet and archived failed attempt remain bound
-    to Platform PR #304; they are not represented as evidence for this
-    replacement source revision.
+  - Platform PR #307 landed that repair. The failed `r2` attempt was archived
+    with its own preserved evidence and is not represented as successful
+    operating proof.
+  - governed successor session
+    `work-session:delivery-1275:delivery-1275-platform-composition:r3` starts
+    from merged Platform revision
+    `e2e664a00fc99c7b4b196b4462db634dbf193d9b` and owns the final exact-head
+    Security acceptance and live operating proof.
 
 ## Artifact And Deployment Evidence
 
@@ -124,10 +132,10 @@
 
 ## Follow-Up
 
-- Required follow-up: Merge the worktree-selection repair, refresh exact-head
-  Security acceptance, recover the failed `r2` evidence-preserving session,
-  and run the live operating proof from its governed successor. Platform PRs
-  #305 and #306 remain immutable repair and recovery evidence. Console `#1292`,
-  WGCF `#1294`, and Console `#1295` remain exact-revision inputs to that proof.
+- Required follow-up: Review this bounded successor revision, bind an external
+  Security decision to its exact PR head and tree, then run the live operating
+  proof from governed session `r3`. Platform PRs #305, #306, and #307 remain
+  immutable repair and recovery evidence. Console `#1292`, WGCF `#1294`, and
+  Console `#1295` remain exact-revision inputs to that proof.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

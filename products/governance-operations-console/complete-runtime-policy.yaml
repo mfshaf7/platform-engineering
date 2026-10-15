@@ -4,8 +4,8 @@ delivery:
   work_item_ref: openproject://work_packages/1291
   architecture:
     artifact_id: architecture-packet:delivery-1275-v1
-    uri: wgcf://artifacts/delivery-art/sha256/8ad9c43664bb580a2eef7a23a8ddfa77c95bdea7bfc00efcb424d5008b71062a
-    digest: sha256:8ad9c43664bb580a2eef7a23a8ddfa77c95bdea7bfc00efcb424d5008b71062a
+    uri: wgcf://artifacts/delivery-art/sha256/02840790fc36f5f8311d2d66cadec0d5e9ad98184aff3d88c6ff106a2d0afef4
+    digest: sha256:02840790fc36f5f8311d2d66cadec0d5e9ad98184aff3d88c6ff106a2d0afef4
 workspace_root: /home/mfshaf7/projects
 runtime_state_root: /home/mfshaf7/.local/state/platform-engineering/governance-console-complete-runtime
 runtime:

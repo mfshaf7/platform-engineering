@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from datetime import UTC, datetime
+import fcntl
 import ipaddress
 import json
 import os
 from pathlib import Path
 import secrets
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -41,6 +44,7 @@ OOS_STATE_VOLUME_NAME = "governance-console-platform-operation-state"
 OOS_STATE_MOUNT_PATH = "/var/lib/oos/platform-operation"
 OOS_STATE_ROOT = STATE_ROOT / "oos-platform-operation"
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
+OPERATING_PROOF_LOCK_PATH = STATE_ROOT / "verify-operating.lock"
 
 
 class RuntimeError(RuntimeError):
@@ -610,6 +614,88 @@ def receipt(action: str, policy: dict[str, Any], proof: dict[str, Any]) -> Path:
     return target
 
 
+@contextmanager
+def operating_proof_lock():
+    ensure_private(STATE_ROOT)
+    flags = os.O_CREAT | os.O_RDWR
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(OPERATING_PROOF_LOCK_PATH, flags, 0o600)
+    except OSError as exc:
+        raise RuntimeError(f"operating-proof lock is unavailable: {type(exc).__name__}") from None
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid():
+            raise RuntimeError("operating-proof lock path is unsafe")
+        os.fchmod(descriptor, 0o600)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
+    ensure_private(RECEIPT_ROOT)
+    expected_security = {
+        "gate_id": policy["security"]["gate_id"],
+        "decision_uri": policy["security"]["decision_uri"],
+        "decision_digest": policy["security"]["decision_digest"],
+        "reviewed_revisions": policy["security"]["reviewed_revisions"],
+    }
+    expected_fields = {
+        "schema_version", "artifact_type", "action", "delivery", "security",
+        "credential_values_embedded", "recorded_at", "proof", "content_digest",
+    }
+    expected_proof_fields = {
+        "activation_receipt", "invalid_credential_denied", "revoked_gate_denied",
+        "stale_state_denied", "process_loss_recovered", "restart_receipt",
+        "rollback_receipt", "teardown_receipt", "restored_activation_receipt",
+        "normal_availability_restored",
+    }
+    for path in sorted(RECEIPT_ROOT.glob("*-verify-operating.json"), reverse=True):
+        try:
+            metadata = path.lstat()
+            if (
+                path.is_symlink()
+                or not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+            ):
+                continue
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(value, dict) or set(value) != expected_fields:
+            continue
+        content_digest = value.pop("content_digest", None)
+        proof = value.get("proof")
+        if (
+            content_digest != provider.canonical_digest(value)
+            or value.get("schema_version") != 1
+            or value.get("artifact_type") != "governance-console-complete-runtime-receipt"
+            or value.get("action") != "verify-operating"
+            or value.get("delivery") != policy["delivery"]
+            or value.get("security") != expected_security
+            or value.get("credential_values_embedded") is not False
+            or not isinstance(value.get("recorded_at"), str)
+            or not isinstance(proof, dict)
+            or set(proof) != expected_proof_fields
+            or any(proof.get(name) is not True for name in (
+                "invalid_credential_denied", "revoked_gate_denied",
+                "stale_state_denied", "process_loss_recovered",
+                "normal_availability_restored",
+            ))
+            or any(not isinstance(proof.get(name), str) or not proof[name] for name in (
+                "activation_receipt", "restart_receipt", "rollback_receipt",
+                "teardown_receipt", "restored_activation_receipt",
+            ))
+        ):
+            continue
+        return path
+    return None
+
+
 def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
@@ -818,35 +904,40 @@ def wait_for_provider(policy: dict[str, Any], secret: str, timeout_seconds: int 
 
 
 def verify_operating(policy: dict[str, Any]) -> Path:
-    activate_receipt = activate(policy)
-    resolved, _ = resolve_security_decision(policy)
-    secret = credential()
-    if not wrong_credential_denied(resolved):
-        raise RuntimeError("invalid provider credential did not fail closed")
-    if not stale_marker_denied(resolved, secret):
-        raise RuntimeError("stale runtime state did not withhold effect capabilities")
-    if not revoked_gate_denied(resolved):
-        raise RuntimeError("revoked Security gate did not block provider startup")
-    run(["systemctl", "--user", "kill", "--signal=KILL", UNIT_NAME])
-    wait_for_provider(resolved, secret)
-    restart_receipt = restart(policy)
-    rollback_receipt = rollback(resolved)
-    if run(["systemctl", "--user", "is-active", "--quiet", UNIT_NAME], check=False).returncode == 0:
-        raise RuntimeError("rollback left the Platform provider active")
-    teardown_receipt = teardown(resolved)
-    restored_receipt = activate(policy)
-    return receipt("verify-operating", resolve_security_decision(policy)[0], {
-        "activation_receipt": str(activate_receipt),
-        "invalid_credential_denied": True,
-        "revoked_gate_denied": True,
-        "stale_state_denied": True,
-        "process_loss_recovered": True,
-        "restart_receipt": str(restart_receipt),
-        "rollback_receipt": str(rollback_receipt),
-        "teardown_receipt": str(teardown_receipt),
-        "restored_activation_receipt": str(restored_receipt),
-        "normal_availability_restored": True,
-    })
+    with operating_proof_lock():
+        resolved, _ = resolve_security_decision(policy)
+        cached = reusable_operating_receipt(resolved)
+        if cached is not None:
+            return cached
+        activate_receipt = activate(policy)
+        secret = credential()
+        if not wrong_credential_denied(resolved):
+            raise RuntimeError("invalid provider credential did not fail closed")
+        if not stale_marker_denied(resolved, secret):
+            raise RuntimeError("stale runtime state did not withhold effect capabilities")
+        if not revoked_gate_denied(resolved):
+            raise RuntimeError("revoked Security gate did not block provider startup")
+        run(["systemctl", "--user", "kill", "--signal=KILL", UNIT_NAME])
+        wait_for_provider(resolved, secret)
+        restart_receipt = restart(policy)
+        rollback_receipt = rollback(resolved)
+        if run(["systemctl", "--user", "is-active", "--quiet", UNIT_NAME], check=False).returncode == 0:
+            raise RuntimeError("rollback left the Platform provider active")
+        teardown_receipt = teardown(resolved)
+        restored_receipt = activate(policy)
+        final_policy, _ = resolve_security_decision(policy)
+        return receipt("verify-operating", final_policy, {
+            "activation_receipt": str(activate_receipt),
+            "invalid_credential_denied": True,
+            "revoked_gate_denied": True,
+            "stale_state_denied": True,
+            "process_loss_recovered": True,
+            "restart_receipt": str(restart_receipt),
+            "rollback_receipt": str(rollback_receipt),
+            "teardown_receipt": str(teardown_receipt),
+            "restored_activation_receipt": str(restored_receipt),
+            "normal_availability_restored": True,
+        })
 
 
 def main() -> int:

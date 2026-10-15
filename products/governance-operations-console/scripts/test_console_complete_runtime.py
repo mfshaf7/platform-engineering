@@ -31,6 +31,34 @@ class CompleteRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(runtime.RuntimeError, "not accepted"):
             runtime.require_activation_allowed(policy)
 
+    def test_complete_runtime_commands_select_the_current_platform_checkout(self) -> None:
+        policy = runtime.validate_policy()
+        reviewed_checkout = Path("/tmp/reviewed-platform-worktree")
+        with (
+            patch.object(runtime, "REPO_ROOT", reviewed_checkout),
+            patch.object(runtime, "REPO_PATH_OVERRIDES", {}),
+        ):
+            self.assertEqual(runtime.repo_path("platform-engineering"), reviewed_checkout)
+            for command in (
+                runtime.composition_command(policy, "up"),
+                runtime.cross_domain_command("activate"),
+            ):
+                self.assertIn(
+                    f"platform-engineering={reviewed_checkout}",
+                    command,
+                )
+
+        explicit_checkout = Path("/tmp/explicit-platform-worktree")
+        with (
+            patch.object(runtime, "REPO_ROOT", reviewed_checkout),
+            patch.object(
+                runtime,
+                "REPO_PATH_OVERRIDES",
+                {"platform-engineering": explicit_checkout},
+            ),
+        ):
+            self.assertEqual(runtime.repo_path("platform-engineering"), explicit_checkout)
+
     def test_security_decision_materializes_exact_runtime_without_source_pin_update(self) -> None:
         policy = runtime.validate_policy()
         revisions = {

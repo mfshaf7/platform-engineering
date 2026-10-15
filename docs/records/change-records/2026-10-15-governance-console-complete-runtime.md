@@ -2,6 +2,14 @@
 
 ## Summary
 
+The same maintenance Landing Unit includes automatic purpose-bound repository
+credential renewal through the existing local systemd lifecycle. Five-minute
+checks renew before expiry, reconcile the exact non-secret delivery version
+into OOS, and stop before rollback revocation. Lifecycle locking, stale-source
+denial, interrupted-consumption recovery, and exact operating-proof receipt
+binding cover that continuation; activation-only delivery is not represented
+as unattended readiness.
+
 - Date: 2026-10-15
 - Short title: Compose the complete local Console runtime
 - Environment: `dev-integration`
@@ -9,6 +17,10 @@
 
 ## Classification
 
+- Maintenance Landing Unit: `maintenance-1275-complete-runtime-repository-custody`.
+- Landing Unit Decision: `child_isolated_landing_unit`; one Platform runtime
+  repair, review, deployment, and rollback boundary, tracked by this existing
+  record and the Epic 1275 acceptance exercise without a new ART child.
 - Type: product runtime composition and owner-protocol implementation
 - User-facing impact: The Console can request bounded Platform operations
   through OOS while Platform supplies one complete startup, health, recovery,
@@ -34,6 +46,9 @@
 - Why it escaped earlier controls: Individual capability evidence did not
   require the full Console-only idea-to-product runtime to start, recover,
   roll back, tear down, and return to normal availability as one system.
+  The first complete-runtime proof then repeated that narrow boundary by
+  validating Platform-operation recovery without asserting each terminal
+  capability required by the downstream to-do acceptance journey.
 
 ## Source Changes
 
@@ -114,10 +129,31 @@
     normal availability. This lets the detached original proof restore the
     runtime and lets the replacement executor reconcile that exact result
     without repeating teardown.
+  - the fixture-free item `#1298` acceptance journey then exposed that the
+    complete-runtime proof was still narrower than its downstream contract:
+    Repository Control correctly failed closed because the coordinator had not
+    delivered the approved provisioning identity, activated WGCF repository-
+    custody readiness, enabled persistent OOS custody state, or projected the
+    required Console authority references. The maintenance repair composes
+    those existing controls into the same lifecycle and makes `status` fail
+    unless Console repository provisioning is executable end to end.
+  - activation and restart now mint a fresh short-lived token through the
+    existing Vault-backed provisioning identity tool. Rollback revokes that
+    token and removes its Secret before removing OOS and WGCF bindings. The
+    private key and token remain absent from source, process arguments,
+    receipts, and browser state.
+  - a subsequent host restart exposed that cleanup had removed a Platform
+    worktree still referenced by composition auto-resume and provider systemd
+    units. Recovery rebound the units to main. The coordinator now chooses
+    the surviving clean main checkout for persistent service commands only
+    when its tree matches both the reviewed worktree and `origin/main`.
+    Tests retain the worktree when either checkout is dirty, and the primary
+    runbook requires service-source verification before worktree retirement.
 
 ## Artifact And Deployment Evidence
 
-- Build workflow run: Pending `r4` pull request validation.
+- Build workflow run: The original `r4` proof is complete. The repository-
+  provisioning maintenance PR and exact-tree Security refresh are pending.
 - Published image tag: None; this local lane uses reviewed source checkouts.
 - Published digest: None.
 - Recorded prod revision: None; production is outside scope.
@@ -135,7 +171,10 @@
 
 ## Live Verification
 
-- App health: Pending exact-revision composed proof after Security `#1303`.
+- App health: The prior exact-revision composed proof passed for the Platform-
+  operation boundary. Repository provisioning remains unproven until the
+  maintenance source is reviewed, Security refreshes the exact Platform tree,
+  and the repaired operating proof and item `#1298` browser journey pass.
 - Deployed image: Existing reviewed dev-integration source composition.
 - Pod: Existing `refinement-catalog` workloads; no new pod or control plane.
 - Functional verification: Source tests bind `case:1291-positive` and
@@ -148,10 +187,11 @@
 
 ## Follow-Up
 
-- Required follow-up: Review this bounded successor revision, bind an external
-  Security decision to its exact PR head and tree, then run the live operating
-  proof from governed session `r4`. Platform PRs #305, #306, #307, and #308
-  remain immutable repair and recovery evidence. Console `#1292`, WGCF `#1294`,
-  and Console `#1295` remain exact-revision inputs to that proof.
+- Required follow-up: Review the bounded repository-provisioning maintenance
+  revision, refresh the external Security decision against its exact Platform
+  head and tree, run the repaired complete-runtime operating proof, and then
+  complete the real item `#1298` Console journey. Platform PRs #305 through
+  #310 remain immutable repair and recovery evidence. Console `#1292`, WGCF
+  `#1294`, and Console `#1295` remain exact-revision inputs to that proof.
 - Optional hardening: None before the exact accepted composition is proven.
 - Owner: `platform-engineering`

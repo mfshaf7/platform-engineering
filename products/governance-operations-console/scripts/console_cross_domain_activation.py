@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import stat
@@ -316,6 +317,27 @@ def validate(policy: dict[str, Any]) -> None:
         session_policy = PRODUCT_ROOT / policy["session"]["policy"]
         if not session_policy.is_file():
             raise ActivationError("the Console session projection policy is unavailable")
+    repository_custody = policy.get("repository_custody")
+    if repository_custody is not None:
+        if not isinstance(repository_custody, dict) or set(repository_custody) != {
+            "policy_profile_ref",
+            "provisioning_credential_binding_ref",
+            "wgcf_readiness_enabled",
+        }:
+            raise ActivationError("the repository-custody runtime binding is invalid")
+        for name in ("policy_profile_ref", "provisioning_credential_binding_ref"):
+            reference = repository_custody.get(name)
+            if (
+                not isinstance(reference, dict)
+                or set(reference) != {"uri", "digest"}
+                or not isinstance(reference.get("uri"), str)
+                or not reference["uri"]
+                or not isinstance(reference.get("digest"), str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", reference["digest"])
+            ):
+                raise ActivationError(f"the repository-custody {name} is invalid")
+        if repository_custody.get("wgcf_readiness_enabled") is not True:
+            raise ActivationError("WGCF repository-custody readiness is not enabled")
     security = repo_path("security-architecture")
     revision = policy["authority"]["security_revision"]
     review = policy["authority"]["security_review_ref"]
@@ -399,6 +421,8 @@ def install_wgcf_binding(policy: dict[str, Any], secret: str) -> None:
         set_env.append(f"WGCF_REPOSITORY_READINESS_CONTRACT_ROOT={contract_root}")
     if owner.get("workspace_continuity_projection_enabled") is True:
         set_env.append("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED=true")
+    if policy.get("repository_custody", {}).get("wgcf_readiness_enabled") is True:
+        set_env.append("WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED=true")
     kubectl(*set_env)
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")
 
@@ -423,6 +447,8 @@ def wgcf_binding_present(policy: dict[str, Any]) -> bool:
         expected.add("WGCF_REPOSITORY_READINESS_CONTRACT_ROOT")
     if owner.get("workspace_continuity_projection_enabled") is True:
         expected.add("WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED")
+    if policy.get("repository_custody", {}).get("wgcf_readiness_enabled") is True:
+        expected.add("WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED")
     environment = [
         item
         for container in deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
@@ -435,7 +461,15 @@ def wgcf_binding_present(policy: dict[str, Any]) -> bool:
         and item.get("value") == "true"
         for item in environment
     )
-    return expected.issubset(observed) and continuity_enabled
+    repository_readiness_enabled = (
+        policy.get("repository_custody", {}).get("wgcf_readiness_enabled") is not True
+        or any(
+            item.get("name") == "WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED"
+            and item.get("value") == "true"
+            for item in environment
+        )
+    )
+    return expected.issubset(observed) and continuity_enabled and repository_readiness_enabled
 
 
 def unit_name(role: str) -> str:
@@ -457,6 +491,16 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
         values.extend([
             f"GOVERNANCE_CONSOLE_OPERATOR_ID={policy['session']['operator_id']}",
             f"GOVERNANCE_CONSOLE_SESSION_PROJECTION_PATH={session_projection_path(policy)}",
+        ])
+    repository_custody = policy.get("repository_custody")
+    if repository_custody:
+        policy_ref = repository_custody["policy_profile_ref"]
+        credential_ref = repository_custody["provisioning_credential_binding_ref"]
+        values.extend([
+            f"REPOSITORY_CUSTODY_POLICY_PROFILE_URI={policy_ref['uri']}",
+            f"REPOSITORY_CUSTODY_POLICY_PROFILE_DIGEST={policy_ref['digest']}",
+            f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_URI={credential_ref['uri']}",
+            f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_DIGEST={credential_ref['digest']}",
         ])
     path.write_text(
         "\n".join(values) + "\n",
@@ -1306,6 +1350,7 @@ def rollback(policy: dict[str, Any], *, remove_files: bool = False) -> Path:
         "WGCF_GOVERNANCE_HISTORY_CALLER_ID-", "WGCF_GOVERNANCE_HISTORY_CALLER_SECRET-",
         "WGCF_REPOSITORY_READINESS_CONTRACT_ROOT-",
         "WGCF_WORKSPACE_CONTINUITY_PROJECTION_ENABLED-",
+        "WGCF_REPOSITORY_CUSTODY_READINESS_ENABLED-",
     )
     kubectl("-n", ns, "delete", "secret", WGCF_SECRET, "--ignore-not-found=true")
     kubectl("-n", ns, "rollout", "status", f"deployment/{owner['deployment']}", "--timeout=180s")

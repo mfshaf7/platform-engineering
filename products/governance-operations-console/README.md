@@ -94,3 +94,7 @@ bounded lifecycle. Security binds the exact candidate Platform tree and exact
 owner revisions outside the candidate source, avoiding a post-review pin
 cycle. Generated credentials, resolved policies, service state, and receipts
 remain operator-private; only secret-free evidence may leave that custody.
+It also composes the already-approved repository-provisioning identity, WGCF
+custody readiness, OOS custody state, and Console policy references. Complete
+runtime status fails unless repository provisioning is executable through the
+Console and the short-lived provider credential is current.

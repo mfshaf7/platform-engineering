@@ -2,6 +2,16 @@
 
 ## Summary
 
+Maintenance Landing Unit `maintenance-1275-runtime-probe-contract` uses
+`child_isolated_landing_unit` for the Platform verification-only correction.
+Live Console GET returned HTTP 404 with its documented public adapter code
+`repository_custody_oos_rejected` and the exact missing-request message, but
+the Platform checker expected OOS's internal error representation. The checker
+now validates the actual Console boundary, rejects route/identity/preview
+lookalikes, and waits at most thirty seconds for tunnel recovery after the
+already approved OOS rollout. This changes no identity, mutation, delivery,
+credential, source-acceptance, or rollback authority. The Console API is unchanged.
+
 The same maintenance Landing Unit includes automatic purpose-bound repository
 credential renewal through the existing local systemd lifecycle. Five-minute
 checks renew before expiry, reconcile the exact non-secret delivery version

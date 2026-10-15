@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -18,6 +19,36 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_repository_route_probe_uses_public_console_error_contract(self) -> None:
+        policy = runtime.validate_policy()
+        body = {"code": "repository_custody_oos_rejected", "error": "Repository custody request was not found.", "mode": "live", "status": "offline", "retryable": False}
+        error = runtime.HTTPError("http://127.0.0.1/test", 404, "Not Found", {}, io.BytesIO(json.dumps(body).encode()))
+        with patch.object(runtime, "urlopen", side_effect=error) as fetch:
+            runtime.require_repository_projection_route(policy)
+        self.assertIn("/api/repositories/provisioning/requests/", fetch.call_args.args[0].full_url)
+
+    def test_repository_route_probe_recovers_tunnel_restart_but_rejects_false_readiness(self) -> None:
+        policy = runtime.validate_policy()
+        body = {"code": "repository_custody_oos_rejected", "error": "Repository custody request was not found.", "mode": "live", "status": "offline"}
+        def failure(code, value):
+            return runtime.HTTPError("http://127.0.0.1/test", code, "probe", {}, io.BytesIO(json.dumps(value).encode()))
+        with (
+            patch.object(runtime, "urlopen", side_effect=[runtime.URLError("tunnel restarting"), failure(404, body)]) as fetch,
+            patch.object(runtime.time, "sleep"),
+        ):
+            runtime.require_repository_projection_route(policy)
+            self.assertEqual(fetch.call_count, 2)
+        for code, value in ((401, body), (404, {**body, "error": "Route not found."}), (404, {**body, "mode": "disconnected-preview"}), (404, [])):
+            with self.subTest(code=code, value=value), patch.object(runtime, "urlopen", side_effect=failure(code, value)):
+                with self.assertRaisesRegex(runtime.RuntimeError, "route is not active"):
+                    runtime.require_repository_projection_route(policy)
+        with (
+            patch.object(runtime, "urlopen", side_effect=runtime.URLError("unavailable")),
+            patch.object(runtime.time, "monotonic", side_effect=[0, 31]),
+        ):
+            with self.assertRaisesRegex(runtime.RuntimeError, "route is unavailable"):
+                runtime.require_repository_projection_route(policy)
+
     def accepted_policy(self) -> dict:
         policy = runtime.validate_policy()
         revisions = {

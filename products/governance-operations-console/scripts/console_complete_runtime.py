@@ -1079,23 +1079,7 @@ def repository_provisioning_status(policy: dict[str, Any]) -> dict[str, Any]:
     ):
         raise RuntimeError("Console repository provisioning is not executable")
 
-    probe_url = (
-        f"http://127.0.0.1:{policy['runtime']['console_port']}"
-        "/api/repositories/provisioning/requests/repository-custody-request:runtime-status-probe"
-    )
-    try:
-        urlopen(Request(probe_url, headers={"accept": "application/json"}), timeout=15)
-    except HTTPError as exc:
-        try:
-            body = json.loads(exc.read().decode("utf-8"))
-        except json.JSONDecodeError:
-            body = {}
-        if exc.code != 404 or body.get("code") != "repository_custody_request_not_found":
-            raise RuntimeError("the Console-to-OOS repository provisioning route is not active") from None
-    except (URLError, TimeoutError):
-        raise RuntimeError("the Console-to-OOS repository provisioning route is unavailable") from None
-    else:
-        raise RuntimeError("the repository provisioning readiness probe returned unexpected state")
+    require_repository_projection_route(policy)
 
     return {
         "console_capability": "available",
@@ -1104,6 +1088,39 @@ def repository_provisioning_status(policy: dict[str, Any]) -> dict[str, Any]:
         "oos_runtime": "active",
         "wgcf_readiness": "active",
     }
+
+
+def require_repository_projection_route(policy: dict[str, Any]) -> None:
+    """Probe the Console contract, not OOS's internal error representation."""
+    probe_url = (
+        f"http://127.0.0.1:{policy['runtime']['console_port']}"
+        "/api/repositories/provisioning/requests/repository-custody-request:runtime-status-probe"
+    )
+    deadline = time.monotonic() + 30
+    while True:
+        try:
+            with urlopen(Request(probe_url, headers={"accept": "application/json"}), timeout=5):
+                raise RuntimeError("the repository provisioning readiness probe returned unexpected state")
+        except HTTPError as exc:
+            try:
+                body = json.loads(exc.read().decode("utf-8"))
+            except (ValueError, UnicodeError):
+                body = {}
+            if (
+                exc.code == 404 and isinstance(body, dict)
+                and body.get("code") == "repository_custody_oos_rejected"
+                and body.get("error") == "Repository custody request was not found."
+                and body.get("mode") == "live" and body.get("status") == "offline"
+            ):
+                return
+            if exc.code not in {502, 503}:
+                raise RuntimeError("the Console-to-OOS repository provisioning route is not active") from None
+        except (URLError, TimeoutError):
+            pass
+        if time.monotonic() < deadline:
+            time.sleep(1)
+            continue
+        raise RuntimeError("the Console-to-OOS repository provisioning route is unavailable") from None
 
 
 def write_active_marker(policy: dict[str, Any]) -> None:

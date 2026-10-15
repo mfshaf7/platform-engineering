@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from datetime import timedelta
 import unittest
 from unittest.mock import patch
 
@@ -255,6 +256,96 @@ class CompleteRuntimeTests(unittest.TestCase):
             self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", unit)
             self.assertEqual(env.stat().st_mode & 0o777, 0o600)
 
+    def test_repository_refresh_units_use_surviving_source_and_no_credentials(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            units = Path(temp_dir) / "units"
+            with (
+                patch.object(runtime, "UNIT_ROOT", units),
+                patch.object(runtime, "repo_path", return_value=Path("/tmp/reviewed-source")),
+                patch.object(runtime, "run"),
+                patch.object(runtime.shutil, "which", return_value="/usr/bin/python3"),
+            ):
+                runtime.write_repository_refresh_units()
+            service = (units / runtime.REPOSITORY_REFRESH_SERVICE).read_text()
+            timer = (units / runtime.REPOSITORY_REFRESH_TIMER).read_text()
+            self.assertIn("WorkingDirectory=/tmp/reviewed-source", service)
+            self.assertIn("refresh-credentials", service)
+            self.assertIn("ConditionPathExists=", service)
+            self.assertIn("OnUnitActiveSec=300s", timer)
+            self.assertNotIn("VAULT_TOKEN", service)
+            self.assertNotIn("privateKey", service)
+
+    def test_repository_refresh_is_early_idempotent_and_recovers_interrupted_consumption(self) -> None:
+        policy = self.accepted_policy()
+        for minutes, should_deliver in ((50, False), (10, True), (-5, True)):
+            with self.subTest(minutes=minutes), tempfile.TemporaryDirectory() as temp_dir:
+                state = Path(temp_dir)
+                (state / "active.json").write_text(json.dumps({
+                    "platform_tree": policy["security"]["platform_tree"],
+                    "security_decision_digest": policy["security"]["decision_digest"],
+                }))
+                delivered = {
+                    "token_expires_at": (runtime.datetime.now(runtime.UTC) + timedelta(minutes=minutes)).isoformat(),
+                    "credential_binding_digest": policy["repository_provisioning"]["credential_binding_ref"]["digest"],
+                }
+                delivery_receipt = state / "delivery.json"
+                delivery_receipt.write_text(json.dumps(delivered))
+                calls = []
+                with (
+                    patch.object(runtime, "STATE_ROOT", state),
+                    patch.object(runtime, "REPOSITORY_PROVISIONING_RECEIPT", delivery_receipt),
+                    patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+                    patch.object(runtime, "require_materialized_policy"),
+                    patch.object(runtime, "require_activation_allowed"),
+                    patch.object(runtime, "deliver_repository_provisioning_identity", return_value=delivered) as deliver,
+                    patch.object(runtime, "repository_provisioning_status") as readiness,
+                    patch.object(runtime, "namespace", return_value="devint-test"),
+                    patch.object(runtime, "receipt", return_value=state / "result.json") as receipt,
+                    patch.object(runtime, "run", side_effect=lambda args, **kwargs: calls.append(args)),
+                ):
+                    runtime.refresh_repository_credentials(policy)
+                self.assertEqual(deliver.called, should_deliver)
+                readiness.assert_called_once_with(policy)
+                # The same annotation is always reconciled, including after a
+                # crash following Secret delivery but preceding pod consumption.
+                patch_value = json.loads(calls[0][-1])
+                self.assertEqual(
+                    patch_value["spec"]["template"]["metadata"]["annotations"]["workspace-governance/repository-token-expires-at"],
+                    delivered["token_expires_at"],
+                )
+                self.assertNotIn("restart", calls[1])
+                self.assertEqual(receipt.call_args.args[2]["refreshed"], should_deliver)
+
+    def test_repository_refresh_denies_stale_runtime_without_minting(self) -> None:
+        policy = self.accepted_policy()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = Path(temp_dir)
+            (state / "active.json").write_text(json.dumps({"platform_tree": "stale"}))
+            with (
+                patch.object(runtime, "STATE_ROOT", state),
+                patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+                patch.object(runtime, "require_materialized_policy"),
+                patch.object(runtime, "require_activation_allowed"),
+                patch.object(runtime, "deliver_repository_provisioning_identity") as deliver,
+                patch.object(runtime, "run") as run,
+            ):
+                with self.assertRaisesRegex(runtime.RuntimeError, "binding is stale"):
+                    runtime.refresh_repository_credentials(policy)
+                deliver.assert_not_called()
+                run.assert_not_called()
+
+    def test_repository_refresh_does_not_wait_on_lifecycle_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = Path(temp_dir)
+            with (
+                patch.object(runtime, "STATE_ROOT", state),
+                patch.object(runtime, "OPERATING_PROOF_LOCK_PATH", state / "lifecycle.lock"),
+            ):
+                with runtime.operating_proof_lock():
+                    with self.assertRaisesRegex(runtime.RuntimeError, "lifecycle is busy"):
+                        with runtime.operating_proof_lock(blocking=False):
+                            self.fail("renewal acquired an occupied lifecycle lock")
+
     def test_rollback_removes_only_complete_runtime_bindings(self) -> None:
         policy = runtime.validate_policy()
         calls = []
@@ -356,6 +447,8 @@ class CompleteRuntimeTests(unittest.TestCase):
             "restored_activation_receipt": "/private/restored.json",
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
+            "repository_credentials_renewed": True,
+            "credential_refresh_receipt": "/private/refresh.json",
         }
         with tempfile.TemporaryDirectory() as temp_dir:
             state_root = Path(temp_dir) / "state"
@@ -389,6 +482,8 @@ class CompleteRuntimeTests(unittest.TestCase):
             "restored_activation_receipt": "/private/restored.json",
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
+            "repository_credentials_renewed": True,
+            "credential_refresh_receipt": "/private/refresh.json",
         }
         with tempfile.TemporaryDirectory() as temp_dir:
             receipt_root = Path(temp_dir) / "receipts"

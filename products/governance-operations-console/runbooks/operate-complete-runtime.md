@@ -61,6 +61,24 @@ and private key are never written to source, receipts, browser state, or
 process arguments. The operator running activation needs a current private
 Vault token in `VAULT_TOKEN` or mode-`0600` `~/.vault-token`.
 
+The existing user-systemd lifecycle also maintains the provisioning credential.
+`governance-console-repository-credentials.timer` checks every five minutes and
+renews the dedicated token when fewer than twenty minutes remain. It invokes
+only the same exact-App delivery path, rechecks current Security and source
+bindings, and reconciles a non-secret delivery-version annotation on the OOS
+pod template. A new token causes one bounded OOS rollout; unchanged delivery
+versions do not restart it. Persistent workflow state is retained. If the host
+crashes after delivery, the next tick finishes consumption of that same version.
+Missing Vault access, stale acceptance, or rollout failure remains a visible
+failed service, not successful readiness or an ambient-token fallback.
+
+The timer requires the active-runtime marker and uses the lifecycle lock
+without waiting. Activation, restart, proof, and rollback therefore cannot race
+renewal. Rollback stops renewal before revoking the token. Source-only review
+does not prove renewal; commissioning forces the same refresh path and checks
+the active timer and restored readiness. The owner recovery command remains
+`ACTION=restart`; routine renewal requires no Console operator or CLI action.
+
 ## Commands
 
 Validate source without changing runtime:
@@ -92,7 +110,7 @@ make governance-console-complete-runtime ACTION=verify-operating
 That proof checks authenticated startup, invalid-credential denial, revoked
 gate denial, stale-marker denial, provider process-loss recovery, full restart,
 rollback, teardown, repository-credential revocation, fresh credential
-delivery, and restoration of executable Console repository provisioning. It
+delivery and renewal, and restoration of executable Console repository provisioning. It
 retains only credential-free receipts. The proof holds one operator-private
 filesystem lock across the complete lifecycle. A replacement executor waits
 on that lock and may reuse the result only when the retained receipt has a

@@ -2,6 +2,14 @@
 
 ## Summary
 
+The same maintenance Landing Unit includes automatic purpose-bound repository
+credential renewal through the existing local systemd lifecycle. Five-minute
+checks renew before expiry, reconcile the exact non-secret delivery version
+into OOS, and stop before rollback revocation. Lifecycle locking, stale-source
+denial, interrupted-consumption recovery, and exact operating-proof receipt
+binding cover that continuation; activation-only delivery is not represented
+as unattended readiness.
+
 - Date: 2026-10-15
 - Short title: Compose the complete local Console runtime
 - Environment: `dev-integration`

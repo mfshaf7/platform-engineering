@@ -39,6 +39,8 @@ RESOLVED_POLICY_PATH = PRIVATE_ROOT / "provider-policy.yaml"
 RESOLVED_ACTIVATION_POLICY_PATH = PRIVATE_ROOT / "cross-domain-policy.yaml"
 UNIT_ROOT = Path.home() / ".config/systemd/user"
 UNIT_NAME = "governance-console-platform-operation-provider.service"
+REPOSITORY_REFRESH_SERVICE = "governance-console-repository-credentials.service"
+REPOSITORY_REFRESH_TIMER = "governance-console-repository-credentials.timer"
 SECRET_NAME = "governance-console-platform-operation-provider"
 SERVICE_NAME = "governance-console-platform-operation-provider"
 PROVIDER_PORT = 38491
@@ -671,6 +673,85 @@ def revoke_repository_provisioning_identity(policy: dict[str, Any]) -> None:
     ))
 
 
+def write_repository_refresh_units() -> None:
+    """Reuse the local runtime's systemd lifecycle for purpose-bound renewal."""
+    UNIT_ROOT.mkdir(parents=True, exist_ok=True)
+    runtime_repo = repo_path("platform-engineering")
+    python = shutil.which("python3")
+    if not python:
+        raise RuntimeError("python3 is unavailable for repository credential renewal")
+    service = f"""[Unit]
+Description=Renew Governance Console repository provisioning credentials
+After=network.target
+ConditionPathExists={STATE_ROOT / 'active.json'}
+
+[Service]
+Type=oneshot
+WorkingDirectory={runtime_repo}
+ExecStart={python} {runtime_repo / 'products/governance-operations-console/scripts/console_complete_runtime.py'} refresh-credentials
+TimeoutStartSec=420
+NoNewPrivileges=true
+PrivateTmp=true
+"""
+    timer = f"""[Unit]
+Description=Maintain Governance Console repository provisioning credentials
+
+[Timer]
+OnActiveSec=60s
+OnUnitActiveSec=300s
+Unit={REPOSITORY_REFRESH_SERVICE}
+
+[Install]
+WantedBy=timers.target
+"""
+    (UNIT_ROOT / REPOSITORY_REFRESH_SERVICE).write_text(service, encoding="utf-8")
+    (UNIT_ROOT / REPOSITORY_REFRESH_TIMER).write_text(timer, encoding="utf-8")
+    run(["systemctl", "--user", "daemon-reload"])
+    run(["systemctl", "--user", "enable", "--now", REPOSITORY_REFRESH_TIMER])
+
+
+def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = False) -> Path:
+    policy, activation = resolve_security_decision(policy)
+    require_materialized_policy(policy, activation)
+    require_activation_allowed(policy)
+    try:
+        marker = json.loads((STATE_ROOT / "active.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise RuntimeError("repository renewal requires the active reviewed runtime") from None
+    if (
+        not isinstance(marker, dict)
+        or marker.get("security_decision_digest") != policy["security"]["decision_digest"]
+        or marker.get("platform_tree") != policy["security"]["platform_tree"]
+    ):
+        raise RuntimeError("repository renewal runtime binding is stale")
+    try:
+        delivered = json.loads(REPOSITORY_PROVISIONING_RECEIPT.read_text(encoding="utf-8"))
+        expires_at = datetime.fromisoformat(delivered["token_expires_at"].replace("Z", "+00:00"))
+        fresh = (
+            delivered.get("credential_binding_digest")
+            == policy["repository_provisioning"]["credential_binding_ref"]["digest"]
+            and (expires_at - datetime.now(UTC)).total_seconds() > 1200
+        )
+    except (OSError, KeyError, ValueError, TypeError):
+        fresh = False
+    # Delivery remains the existing exact-App, exact-installation Platform path.
+    refreshed = force or not fresh
+    if refreshed:
+        delivered = deliver_repository_provisioning_identity(policy)
+    # A stable, non-secret delivery version makes consumption retryable after
+    # a crash between Secret replacement and rollout, without rolling on every tick.
+    deployment = f"deployment/{policy['runtime']['oos_deployment']}"
+    prefix = ["k3s", "kubectl", "-n", namespace(policy)]
+    run([*prefix, "patch", deployment, "--type=merge", "--patch", json.dumps({
+        "spec": {"template": {"metadata": {"annotations": {
+            "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
+        }}}},
+    })])
+    run([*prefix, "rollout", "status", deployment, "--timeout=300s"])
+    repository_provisioning_status(policy)
+    return receipt("refresh-credentials", policy, {"refreshed": refreshed, "credential_current": True})
+
+
 def cni_gateway() -> str:
     value = json.loads(run(["ip", "-j", "-4", "addr", "show", "cni0"]).stdout)
     addresses = [
@@ -1069,7 +1150,7 @@ def receipt(action: str, policy: dict[str, Any], proof: dict[str, Any]) -> Path:
 
 
 @contextmanager
-def operating_proof_lock():
+def operating_proof_lock(*, blocking: bool = True):
     ensure_private(STATE_ROOT)
     flags = os.O_CREAT | os.O_RDWR
     if hasattr(os, "O_NOFOLLOW"):
@@ -1083,7 +1164,10 @@ def operating_proof_lock():
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid():
             raise RuntimeError("operating-proof lock path is unsafe")
         os.fchmod(descriptor, 0o600)
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except BlockingIOError:
+            raise RuntimeError("complete runtime lifecycle is busy; credential renewal will retry") from None
         yield
     finally:
         os.close(descriptor)
@@ -1106,6 +1190,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
         "stale_state_denied", "process_loss_recovered", "restart_receipt",
         "rollback_receipt", "teardown_receipt", "restored_activation_receipt",
         "normal_availability_restored", "repository_provisioning_restored",
+        "repository_credentials_renewed", "credential_refresh_receipt",
     }
     for path in sorted(RECEIPT_ROOT.glob("*-verify-operating.json"), reverse=True):
         try:
@@ -1139,10 +1224,12 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
                 "invalid_credential_denied", "revoked_gate_denied",
                 "stale_state_denied", "process_loss_recovered",
                 "normal_availability_restored", "repository_provisioning_restored",
+                "repository_credentials_renewed",
             ))
             or any(not isinstance(proof.get(name), str) or not proof[name] for name in (
                 "activation_receipt", "restart_receipt", "rollback_receipt",
                 "teardown_receipt", "restored_activation_receipt",
+                "credential_refresh_receipt",
             ))
         ):
             continue
@@ -1162,6 +1249,7 @@ def activate(policy: dict[str, Any]) -> Path:
     apply_kubernetes_binding(policy, gateway, secret)
     run(cross_domain_command("activate"))
     write_active_marker(policy)
+    write_repository_refresh_units()
     return status(policy, action="activate")
 
 
@@ -1172,6 +1260,8 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     run(composition_command(policy, "status"))
     if run(["systemctl", "--user", "is-active", "--quiet", UNIT_NAME], check=False).returncode:
         raise RuntimeError("Platform operation provider service is not active")
+    if run(["systemctl", "--user", "is-active", "--quiet", REPOSITORY_REFRESH_TIMER], check=False).returncode:
+        raise RuntimeError("repository credential renewal timer is not active")
     run(cross_domain_command("status"))
     catalog = provider_catalog(policy, credential())
     console = console_operations(policy)
@@ -1205,6 +1295,8 @@ def restart(policy: dict[str, Any]) -> Path:
         f"deployment/{policy['runtime']['oos_deployment']}", "--timeout=300s",
     ])
     run(cross_domain_command("restart"))
+    write_active_marker(policy)
+    write_repository_refresh_units()
     return status(policy, action="restart")
 
 
@@ -1270,6 +1362,11 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
 
 def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
     failures: list[str] = []
+    # Stop renewal before revocation so a concurrent timer cannot restore it.
+    for unit in (REPOSITORY_REFRESH_TIMER, REPOSITORY_REFRESH_SERVICE):
+        if (UNIT_ROOT / unit).is_file():
+            if run(["systemctl", "--user", "disable", "--now", unit], check=False).returncode:
+                failures.append("repository-credential-renewal-disable")
     try:
         revoke_repository_provisioning_identity(policy)
     except RuntimeError:
@@ -1286,6 +1383,8 @@ def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
     remove_active_marker()
     if cleanup:
         (UNIT_ROOT / UNIT_NAME).unlink(missing_ok=True)
+        for unit in (REPOSITORY_REFRESH_TIMER, REPOSITORY_REFRESH_SERVICE):
+            (UNIT_ROOT / unit).unlink(missing_ok=True)
         for name in ("provider.env", "provider-caller-secret"):
             (PRIVATE_ROOT / name).unlink(missing_ok=True)
         RESOLVED_POLICY_PATH.unlink(missing_ok=True)
@@ -1388,6 +1487,7 @@ def verify_operating(policy: dict[str, Any]) -> Path:
         if cached is not None:
             return cached
         activate_receipt = activate(policy)
+        credential_refresh_receipt = refresh_repository_credentials(policy, force=True)
         secret = credential()
         if not wrong_credential_denied(resolved):
             raise RuntimeError("invalid provider credential did not fail closed")
@@ -1416,6 +1516,8 @@ def verify_operating(policy: dict[str, Any]) -> Path:
             "restored_activation_receipt": str(restored_receipt),
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
+            "repository_credentials_renewed": True,
+            "credential_refresh_receipt": str(credential_refresh_receipt),
         })
 
 
@@ -1424,7 +1526,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating"),
+        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials"),
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
@@ -1444,8 +1546,13 @@ def main() -> int:
             "cleanup": lambda value: rollback(value, cleanup=True),
             "teardown": teardown,
             "verify-operating": verify_operating,
+            "refresh-credentials": refresh_repository_credentials,
         }
-        result = actions[args.action](policy)
+        if args.action in {"status", "verify-operating"}:
+            result = actions[args.action](policy)
+        else:
+            with operating_proof_lock(blocking=args.action != "refresh-credentials"):
+                result = actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
     except (RuntimeError, provider.ProviderError) as exc:

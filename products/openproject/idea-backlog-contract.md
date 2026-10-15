@@ -235,6 +235,14 @@ against `proposal-workflow-state.schema.json` before updating OpenProject.
 OpenProject journals remain the immutable event and history surface; the field
 must not accumulate an event log.
 
+An optional bounded `repository_resolution` holds the current Repository gate
+receipt and its exact source-version, custody-request, provider-receipt and
+resolution bindings. It is not a second history log: immutable events remain
+OpenProject journals. Retaining this single owner outcome allows Console-only
+acknowledgement recovery after the canonical custody update committed but event
+journaling or the browser response was interrupted. Older records without this
+optional field remain valid. Only OOS may create or consume it as write authority.
+
 An empty field on a record that predates this contract means no Proposal
 workflow-state document has been recorded yet. Provisioning must not fabricate
 route, custody, command, handoff, or receipt evidence for existing records.

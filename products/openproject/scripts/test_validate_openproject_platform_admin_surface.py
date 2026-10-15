@@ -3,6 +3,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 SCRIPT_PATH = (
@@ -17,6 +18,29 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ValidateOpenProjectPlatformAdminSurfaceTest(unittest.TestCase):
+    def test_repository_resolution_is_optional_bounded_recovery_not_a_history_log(self) -> None:
+        schema = json.loads(MODULE.PROPOSAL_WORKFLOW_STATE_SCHEMA_PATH.read_text(encoding="utf-8"))
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        state = {
+            "schema_version": 1, "route": None,
+            "handoff": {"state": "not-requested", "packet_ref": None, "target_receipt_ref": None, "target_record_ref": None},
+            "last_accepted_command": None, "receipt_refs": [], "updated_at": "2026-10-15T20:00:00Z",
+        }
+        validator.validate(state)
+        resolution = {
+            "resolution_id": "repository-resolution:idea-851:review-1", "custody_request_id": "repository-custody-request:todo",
+            "receipt_ref": "repository-resolution:idea-851:receipt-1", "source_version": "version-2", "proposal_id": "idea-851",
+            "repository_request_ref": "repo-request://proposal/idea-851", "resolved_owner": "repo:todo",
+            "resolved_repo_ref": "https://github.com/example-workspace/todo", "recorded_at": "2026-10-15T20:00:00Z",
+            "notes": "Use reviewed successful custody.",
+            "custody_receipt_ref": {"uri": "oos://receipts/repository-custody/todo.json", "digest": "sha256:" + "a" * 64},
+        }
+        state["repository_resolution"] = resolution
+        validator.validate(state)
+        for mutation in ({"source_version": "unversioned"}, {"notes": "x" * 1001}, {"unbounded_history": []}):
+            with self.subTest(mutation=mutation):
+                self.assertTrue(list(validator.iter_errors({**state, "repository_resolution": {**resolution, **mutation}})))
+
     def test_live_contract_passes(self) -> None:
         repo_root = pathlib.Path(__file__).resolve().parents[3]
         self.assertEqual(MODULE.validate_contract(repo_root), [])

@@ -70,16 +70,31 @@ class CompleteRuntimeTests(unittest.TestCase):
             calls.append((args, kwargs))
             return runtime.subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
-        with (
-            patch.object(runtime, "run", side_effect=fake_run),
-            patch.object(runtime, "namespace", return_value="devint-test"),
-        ):
-            runtime.apply_kubernetes_binding(policy, "10.42.0.1", "secret-value-with-at-least-thirty-two-bytes")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_root = Path(temp_dir) / "oos-platform-operation"
+            with (
+                patch.object(runtime, "run", side_effect=fake_run),
+                patch.object(runtime, "namespace", return_value="devint-test"),
+                patch.object(runtime, "OOS_STATE_ROOT", state_root),
+            ):
+                runtime.apply_kubernetes_binding(policy, "10.42.0.1", "secret-value-with-at-least-thirty-two-bytes")
+            self.assertEqual(state_root.stat().st_mode & 0o777, 0o700)
         serialized_args = json.dumps([item[0] for item in calls])
         self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", serialized_args)
         manifest = calls[0][1]["input_value"]
         self.assertIn("OOS_PLATFORM_OPERATION_PROVIDER_CALLER_SECRET", manifest)
         self.assertIn("secret-value-with-at-least-thirty-two-bytes", manifest)
+        patch_call = next(args for args, _kwargs in calls if "patch" in args)
+        state_patch = json.loads(patch_call[patch_call.index("--patch") + 1])
+        pod = state_patch["spec"]["template"]["spec"]
+        self.assertEqual(pod["volumes"], [{
+            "name": runtime.OOS_STATE_VOLUME_NAME,
+            "hostPath": {"path": str(state_root), "type": "Directory"},
+        }])
+        self.assertEqual(pod["containers"][0]["volumeMounts"], [{
+            "name": runtime.OOS_STATE_VOLUME_NAME,
+            "mountPath": runtime.OOS_STATE_MOUNT_PATH,
+        }])
 
     def test_provider_unit_uses_private_environment_and_no_inline_secret(self) -> None:
         policy = runtime.validate_policy()
@@ -111,6 +126,43 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertIn("OOS_PLATFORM_OPERATION_ENABLED-", flattened)
         self.assertIn(runtime.SECRET_NAME, flattened)
         self.assertNotIn("WGCF_REPOSITORY_READINESS_CALLER_SECRET-", flattened)
+        patch_call = next(call for call in calls if "patch" in call)
+        state_patch = json.loads(patch_call[patch_call.index("--patch") + 1])
+        pod = state_patch["spec"]["template"]["spec"]
+        self.assertEqual(pod["volumes"], [{
+            "name": runtime.OOS_STATE_VOLUME_NAME,
+            "$patch": "delete",
+        }])
+        self.assertEqual(pod["containers"][0]["volumeMounts"][0]["$patch"], "delete")
+
+    def test_rollback_removes_oos_binding_before_cross_domain_waits(self) -> None:
+        policy = runtime.validate_policy()
+        calls = []
+
+        def fake_remove(_policy):
+            calls.append("remove-oos-binding")
+            return []
+
+        def fake_run(args, **_kwargs):
+            if runtime.RESOLVED_ACTIVATION_POLICY_PATH.name in " ".join(args):
+                calls.append("cross-domain-rollback")
+            return runtime.subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            activation = root / "cross-domain-policy.yaml"
+            activation.write_text("present\n", encoding="utf-8")
+            with (
+                patch.object(runtime, "STATE_ROOT", root / "state"),
+                patch.object(runtime, "PRIVATE_ROOT", root / "state" / "private"),
+                patch.object(runtime, "RECEIPT_ROOT", root / "state" / "receipts"),
+                patch.object(runtime, "UNIT_ROOT", root / "units"),
+                patch.object(runtime, "RESOLVED_ACTIVATION_POLICY_PATH", activation),
+                patch.object(runtime, "remove_kubernetes_binding", side_effect=fake_remove),
+                patch.object(runtime, "run", side_effect=fake_run),
+            ):
+                runtime.rollback(policy)
+        self.assertEqual(calls[:2], ["remove-oos-binding", "cross-domain-rollback"])
 
     def test_incomplete_rollback_fails_without_success_receipt(self) -> None:
         policy = runtime.validate_policy()

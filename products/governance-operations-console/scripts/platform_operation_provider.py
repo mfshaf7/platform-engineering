@@ -335,7 +335,9 @@ def runner_command(action: str, policy: dict[str, Any]) -> list[str]:
     composition = provider["composition_id"]
     common = [sys.executable, str(script)]
     if action == "dev-integration.start":
-        return [*common, "up", "--composition", composition, "--workspace-root", workspace]
+        # The existing coordinator restores the whole accepted Console boundary
+        # through its retained profile unit, including canonical-data bindings.
+        return [sys.executable, str(PRODUCT_ROOT / "scripts/console_complete_runtime.py"), "activate"]
     if action == "dev-integration.status":
         return [*common, "status", "--composition", composition, "--workspace-root", workspace]
     if action == "dev-integration.stop":

@@ -98,3 +98,13 @@ It also composes the already-approved repository-provisioning identity, WGCF
 custody readiness, OOS custody state, and Console policy references. Complete
 runtime status fails unless repository provisioning is executable through the
 Console and the short-lived provider credential is current.
+
+The complete-runtime extension separates reviewed execution source from fresh
+canonical business records. Its existing renewal timer maintains two fixed
+private owner snapshots; OOS, WGCF and the Studio Preview adapter require
+short-lived checkpoints. Normal startup reuses the retained composition unit,
+and status checks live Prototype and Delivery registers plus the selected
+source-realization profile. See the complete-runtime runbook for the exact
+Security gate, record-only boundaries, commissioning and rollback. Source
+implementation is not a claim that the final Console-created app journey has
+passed.

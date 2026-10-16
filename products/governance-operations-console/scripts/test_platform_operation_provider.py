@@ -163,7 +163,8 @@ class PlatformOperationProviderTests(unittest.TestCase):
             policy = accepted_policy(Path(temp_dir))
             start = provider.runner_command("dev-integration.start", policy)
             smoke = provider.runner_command("dev-integration.smoke", policy)
-        self.assertIn("refinement-catalog", start)
+        self.assertTrue(start[1].endswith("console_complete_runtime.py"))
+        self.assertEqual(start[2:], ["activate"])
         self.assertIn("accepted-idea-delivery", smoke)
         self.assertNotIn("shell", " ".join(start + smoke))
 

@@ -13,12 +13,14 @@ contract:
     Define the platform-owned admission contract for bounded governed AI
     runtime assists before any consumer can activate a live model-assisted path.
   model_profiles:
+    - source-realization-v1
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
     - delivery-refinement-advisor-v1
     - agent-console-assistant-v1
   consumers:
     allowed_callers:
+      - operator-orchestration-service/source-realization
       - workspace-governance/intake-assist
       - operator-orchestration-service/work-design-assist
       - operator-orchestration-service/refinement-assist

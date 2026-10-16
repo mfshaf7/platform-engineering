@@ -36,6 +36,7 @@ CONTRACT_PATHS = (
     Path("security/schemas/delivery-work-design-advice.schema.json"),
     Path("security/schemas/delivery-refinement-advice.schema.json"),
     Path("security/schemas/agent-console-response.schema.json"),
+    Path("security/schemas/source-realization-change-set.schema.json"),
 )
 LOCAL_REFERENCE_PATHS = (
     Path("docs/standards/governed-ai-access-model.md"),
@@ -190,6 +191,7 @@ class ModelProfileResolverTests(unittest.TestCase):
             "delivery-work-design-advice.schema.json",
             "delivery-refinement-advice.schema.json",
             "agent-console-response.schema.json",
+            "source-realization-change-set.schema.json",
         ):
             schema_path = root / "security/schemas" / schema_name
             schema_path.parent.mkdir(parents=True, exist_ok=True)
@@ -402,6 +404,7 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "delivery-work-design-advisor-v1",
                     "delivery-refinement-advisor-v1",
                     "agent-console-assistant-v1",
+                    "source-realization-v1",
                 },
             )
             self.assertTrue(
@@ -566,7 +569,9 @@ class ModelProfileResolverTests(unittest.TestCase):
             root = Path(temp_dir)
             profile_path, access_path = self.prepare_contracts(root)
             access = yaml.safe_load(access_path.read_text(encoding="utf-8"))
-            access["access_plane"]["allowed_callers"][0]["purpose"] = "different-purpose"
+            target = next(item for item in access["access_plane"]["allowed_callers"]
+                if item["caller_id"] == "workspace-governance/intake-assist")
+            target["purpose"] = "different-purpose"
             access_path.write_text(
                 yaml.safe_dump(access, sort_keys=False), encoding="utf-8"
             )

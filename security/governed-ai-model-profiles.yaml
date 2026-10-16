@@ -6,6 +6,87 @@ registry:
     repo: security-architecture
     path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
 model_profiles:
+  source-realization-v1:
+    status: active
+    purpose: bounded-source-realization
+    invocation_path: governed-ai-gateway
+    selected_binding_by_environment:
+      dev-integration: local-ollama-qwen3-8b
+    bindings:
+      local-ollama-qwen3-8b:
+        status: active
+        environments:
+          - dev-integration
+        provider: ollama
+        provider_route: ollama-local-host
+        upstream_model: qwen3:8b
+        model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+        runtime_version: 0.40.1
+        selection:
+          selected_at: "2026-10-16"
+          selected_by: operator:workspace-owner
+          basis: existing-local-binding-for-reviewed-bounded-source-realization
+          documentation_ref: https://ollama.com/library/qwen3:8b
+    allowed_callers:
+      - operator-orchestration-service/source-realization
+    allowed_data_scope:
+      - CGG receipt-bound model-safe work-session objective and repository context
+      - exact source session, commit, objective digest and context digest bindings
+      - OOS-owned bounded task instruction
+    runtime_limits:
+      max_request_bytes: 300000
+      max_output_tokens: 4096
+      timeout_seconds: 180
+      retry_count: 0
+      max_concurrency: 1
+    task_contracts:
+      default_task_kind: source_realization
+      allowed:
+        source_realization:
+          contract_ref: oos.delivery-art.source-realization.v1
+          contract_version: "1.0"
+          contract_source_ref:
+            repo: operator-orchestration-service
+            path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+          instruction_owner_repo: operator-orchestration-service
+          instruction_source: caller
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/source-realization-change-set.schema.json
+          input_contract:
+            allowed_fields:
+              - task_instruction
+              - model_safe_packet
+              - source_binding
+            required_fields:
+              - task_instruction
+              - model_safe_packet
+              - source_binding
+            model_safe_packet_required_fields:
+              - content
+              - packet_ref
+              - redaction_receipt_ref
+              - projection_receipt_ref
+              - artifact_digest
+    provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/source-realization-change-set.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+    human_approval_required: true
+    direct_provider_access_allowed: false
+    security_review_ref:
+      repo: security-architecture
+      path: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
+    notes: >-
+      Uses the existing admitted local model only. The provider schema is the
+      gateway's bounded structural subset; OOS independently enforces its full
+      path, action/content, identity, source, digest and change-set constraints.
+      Source application additionally requires explicit exact-digest acceptance
+      and the existing Agent Gary executor. Runtime commissioning remains gated
+      by the exact complete-composition Security decision. No tools, direct
+      provider access, automatic merge, paid provider or new model are admitted.
   intake-classifier-v1:
     status: active
     purpose: workspace-intake-assist

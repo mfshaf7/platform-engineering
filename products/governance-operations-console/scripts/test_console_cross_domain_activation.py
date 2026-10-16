@@ -126,6 +126,12 @@ class CrossDomainActivationTests(unittest.TestCase):
             console_unit = (units / activation.unit_name("console")).read_text(encoding="utf-8")
             self.assertIn(f"EnvironmentFile={env_file}", console_unit)
             self.assertIn("ExecStart=/tools/npm run dev", console_unit)
+            # The Next development supervisor can exit successfully when its
+            # server child ends. A commissioned long-running UI must restart
+            # on that exit as well as on a nonzero exit.
+            self.assertIn("Restart=always\nRestartSec=2", console_unit)
+            for role in ("oos", "wgcf"):
+                self.assertIn("Restart=on-failure", (units / activation.unit_name(role)).read_text())
             self.assertNotIn("secret", console_unit)
             self.assertIn("Wants=governance-console-cross-domain-oos.service", console_unit)
 

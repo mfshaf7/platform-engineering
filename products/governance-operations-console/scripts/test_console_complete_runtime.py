@@ -24,6 +24,95 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_security_anchor_tracks_relevant_decisions_not_unrelated_index_commits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return runtime.subprocess.run(["git", "-C", str(root), *args], check=True,
+                    text=True, capture_output=True).stdout.strip()
+            git("init", "-b", "main")
+            git("config", "user.name", "Synthetic security owner")
+            git("config", "user.email", "test@example.invalid")
+            (root / "decision.yaml").write_text("status: accepted\n")
+            (root / "review.md").write_text("Exact source acceptance\n")
+            git("add", "."); git("commit", "-m", "accept reviewed source")
+            accepted = git("rev-parse", "HEAD")
+            (root / "generated-index.yaml").write_text("records: []\n")
+            git("add", "."); git("commit", "-m", "update unrelated record index")
+            current = git("rev-parse", "HEAD")
+            self.assertNotEqual(current, accepted)
+            self.assertEqual(runtime.security_acceptance_anchor(root, current, ["decision.yaml", "review.md"]), accepted)
+            (root / "decision.yaml").write_text("status: revoked\n")
+            git("add", "."); git("commit", "-m", "revoke decision")
+            revoked = git("rev-parse", "HEAD")
+            self.assertEqual(runtime.security_acceptance_anchor(root, revoked, ["decision.yaml", "review.md"]), revoked)
+
+    def test_retained_supervision_is_required_before_uncached_live_proof(self) -> None:
+        policy = self.accepted_policy()
+        with (
+            patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+            patch.object(runtime, "reusable_operating_receipt", return_value=None),
+            patch.object(runtime, "operating_proof_lock"),
+            patch.object(runtime, "require_retained_supervision", side_effect=runtime.RuntimeError("retained supervisor required")),
+            patch.object(runtime, "activate") as activate,
+        ):
+            with self.assertRaisesRegex(runtime.RuntimeError, "retained supervisor"):
+                runtime.verify_operating(policy)
+            activate.assert_not_called()
+
+    def test_normal_activation_delegates_before_lifecycle_lock_to_avoid_self_deadlock(self) -> None:
+        policy = self.accepted_policy()
+        with (
+            patch.object(runtime.sys, "argv", ["console_complete_runtime.py", "activate"]),
+            patch.object(runtime, "validate_policy", return_value=policy),
+            patch.object(runtime, "inside_composition_supervisor", return_value=False),
+            patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+            patch.object(runtime, "require_activation_allowed"),
+            patch.object(runtime, "write_composition_supervisor") as install,
+            patch.object(runtime, "composition_supervisor_unit", return_value="workspace-devint-accepted-idea-delivery-synthetic.service"),
+            patch.object(runtime, "run") as commands,
+            patch.object(runtime, "status", return_value=Path("/private/result.json")),
+            patch.object(runtime, "operating_proof_lock", side_effect=AssertionError("outer delegate must not hold the inner unit's lock")),
+        ):
+            self.assertEqual(runtime.main(), 0)
+            install.assert_called_once_with(policy)
+            commands.assert_called_once_with(["systemctl", "--user", "restart", "workspace-devint-accepted-idea-delivery-synthetic.service"])
+
+    def test_fixed_profile_supervisor_reuses_the_existing_unit_and_survives_generic_base_refresh(self) -> None:
+        sys_scripts = str(runtime.REPO_ROOT / "scripts")
+        import sys
+        sys.path.insert(0, sys_scripts)
+        try:
+            import dev_integration_auto_resume as resume
+        finally:
+            sys.path.pop(0)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            owner = root / "operator-orchestration-service"
+            profile = owner / "dev-integration/profiles/accepted-idea-delivery/profile.yaml"
+            profile.parent.mkdir(parents=True)
+            profile.write_text("runtime:\n  state_model: persistent\n  resume_policy: operator-login\n")
+            with (
+                patch.dict(os.environ, {"XDG_CONFIG_HOME": str(root / "config")}),
+                patch.object(runtime, "operator", return_value="synthetic"),
+                patch.object(runtime, "repo_path", side_effect=lambda name: owner if name == "operator-orchestration-service" else runtime.REPO_ROOT),
+                patch.object(runtime, "selected_repo_paths", return_value={"platform-engineering": runtime.REPO_ROOT}),
+                patch.object(resume, "_run_systemctl", return_value=runtime.subprocess.CompletedProcess([], 0, "enabled\n", "")),
+                patch.object(runtime, "run"),
+            ):
+                runtime.write_composition_supervisor(self.accepted_policy())
+            units = root / "config/systemd/user"
+            unit = units / "workspace-devint-accepted-idea-delivery-synthetic.service"
+            dropin = units / f"{unit.name}.d/console-runtime.conf"
+            self.assertIn("RemainAfterExit=yes", unit.read_text())
+            self.assertIn("DEVINT_AUTO_RESUME=1", unit.read_text())
+            self.assertIn("--composition", unit.read_text())
+            self.assertIn("refinement-catalog", unit.read_text())
+            self.assertIn("ExecStart=\nExecStart=", dropin.read_text())
+            self.assertIn("console_complete_runtime.py", dropin.read_text())
+            self.assertIn('"activate"', dropin.read_text())
+            self.assertEqual(len(list(units.glob("*.service"))), 1)
+
     def test_repository_route_probe_uses_public_console_error_contract(self) -> None:
         policy = runtime.validate_policy()
         body = {"code": "repository_custody_oos_rejected", "error": "Repository custody request was not found.", "mode": "live", "status": "offline", "retryable": False}
@@ -62,6 +151,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "platform-engineering": "c" * 40,
             "workspace-governance": "d" * 40,
             "workspace-governance-control-fabric": "e" * 40,
+            "workspace-prototype-studio": "1" * 40,
         }
         policy["security"].update({
             "status": "accepted",
@@ -129,6 +219,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "platform-engineering": "c" * 40,
             "workspace-governance": "d" * 40,
             "workspace-governance-control-fabric": "e" * 40,
+            "workspace-prototype-studio": "1" * 40,
         }
         policy["security"].update({
             "status": "accepted",
@@ -307,7 +398,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             self.assertIn("WorkingDirectory=/tmp/reviewed-source", service)
             self.assertIn("refresh-credentials", service)
             self.assertIn("ConditionPathExists=", service)
-            self.assertIn("OnUnitActiveSec=300s", timer)
+            self.assertIn("OnUnitActiveSec=60s", timer)
             self.assertNotIn("VAULT_TOKEN", service)
             self.assertNotIn("privateKey", service)
 
@@ -339,6 +430,7 @@ class CompleteRuntimeTests(unittest.TestCase):
                     patch.object(runtime, "receipt", return_value=state / "result.json") as receipt,
                     patch.object(runtime, "run", side_effect=lambda args, **kwargs: calls.append(args)),
                     patch.object(runtime, "workflow_credential_manager") as workflows,
+                    patch.object(runtime, "refresh_record_authorities", return_value={"status": "current"}),
                 ):
                     workflows.return_value.renew.return_value = {"refreshed": [], "identities": {}}
                     runtime.refresh_repository_credentials(policy)
@@ -370,6 +462,133 @@ class CompleteRuntimeTests(unittest.TestCase):
                     runtime.refresh_repository_credentials(policy)
                 deliver.assert_not_called()
                 run.assert_not_called()
+
+    def test_record_refresh_failure_withholds_writes_without_skipping_credential_renewal(self) -> None:
+        policy = self.accepted_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            (state / "active.json").write_text(json.dumps({
+                "platform_tree": policy["security"]["platform_tree"],
+                "security_decision_digest": policy["security"]["decision_digest"],
+            }))
+            delivered = {"token_expires_at": (runtime.datetime.now(runtime.UTC) + timedelta(minutes=50)).isoformat()}
+            with (
+                patch.object(runtime, "STATE_ROOT", state),
+                patch.object(runtime, "REPOSITORY_PROVISIONING_RECEIPT", state / "missing.json"),
+                patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+                patch.object(runtime, "require_materialized_policy"),
+                patch.object(runtime, "require_activation_allowed"),
+                patch.object(runtime, "refresh_record_authorities", side_effect=runtime.record_authority.RecordAuthorityError("provider unavailable")),
+                patch.object(runtime, "deliver_repository_provisioning_identity", return_value=delivered) as deliver,
+                patch.object(runtime, "workflow_credential_manager") as credentials,
+                patch.object(runtime, "repository_provisioning_status") as readiness,
+                patch.object(runtime, "receipt", return_value=state / "result.json") as receipt,
+            ):
+                with self.assertRaisesRegex(runtime.RuntimeError, "credentials remain maintained"):
+                    runtime.refresh_repository_credentials(policy)
+                deliver.assert_called_once_with(policy)
+                credentials.return_value.renew.assert_called_once()
+                readiness.assert_called_once_with(policy)
+                self.assertEqual(receipt.call_args.args[2]["record_authority"], {"status": "unavailable"})
+
+    def record_deployments(self, policy: dict) -> dict:
+        """Capture the real producer patches; no cluster or credentials involved."""
+        deployments = {}
+        def fake_run(args, **kwargs):
+            if "patch" in args:
+                spec = json.loads(args[args.index("--patch") + 1])["spec"]
+                deployments[next(item for item in args if item.startswith("deployment/"))] = {
+                    "metadata": {"generation": 4}, "spec": {"replicas": 1, **spec},
+                    "status": {"observedGeneration": 4, "updatedReplicas": 1, "availableReplicas": 1},
+                }
+            return runtime.subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        with patch.object(runtime, "run", side_effect=fake_run):
+            runtime.apply_record_authority_binding(policy)
+        return deployments
+
+    def test_record_binding_proves_exact_owner_mounts_flags_and_consumed_generation(self) -> None:
+        policy = self.accepted_policy()
+        deployments = self.record_deployments(policy)
+        self.assertEqual(len(deployments), 2)
+        original = deployments[f"deployment/{policy['runtime']['oos_deployment']}"]
+        self.assertEqual(len(original["spec"]["template"]["spec"]["containers"][0]["volumeMounts"]), 5)
+        def readback(values):
+            return lambda args, **kwargs: runtime.subprocess.CompletedProcess(args, 0,
+                stdout=json.dumps(values[next(item for item in args if item.startswith("deployment/"))]), stderr="")
+        with (
+            patch.object(runtime, "run", side_effect=readback(deployments)),
+            patch.object(runtime, "record_authority_status", return_value={"status": "current"}),
+        ):
+            self.assertEqual(runtime.record_binding_status(policy), {"status": "current"})
+        for failure in ("missing", "wrong-owner", "writable", "wrong-path", "subpath", "sidecar-only", "guard-off", "wrong-profile", "old-generation", "not-updated", "not-available"):
+            with self.subTest(failure=failure):
+                values = json.loads(json.dumps(deployments))
+                deployment = values[f"deployment/{policy['runtime']['oos_deployment']}"]
+                pod = deployment["spec"]["template"]["spec"]
+                container = pod["containers"][0]
+                if failure == "missing":
+                    container["volumeMounts"].pop()
+                elif failure == "wrong-owner":
+                    pod["volumes"][0]["hostPath"]["path"] = str(runtime.RECORD_AUTHORITY_ROOT / "workspace-prototype-studio")
+                elif failure == "writable":
+                    container["volumeMounts"][0]["readOnly"] = False
+                elif failure == "wrong-path":
+                    container["volumeMounts"][0]["mountPath"] = "/wrong-source"
+                elif failure == "subpath":
+                    container["volumeMounts"][0]["subPath"] = "not-the-owner-root"
+                elif failure == "sidecar-only":
+                    container["name"] = "unrelated-sidecar"
+                elif failure in ("guard-off", "wrong-profile"):
+                    key = "OOS_RECORD_AUTHORITY_FRESHNESS_REQUIRED" if failure == "guard-off" else "OOS_SOURCE_REALIZATION_PROFILE_ID"
+                    next(item for item in container["env"] if item["name"] == key)["value"] = "wrong"
+                elif failure == "old-generation":
+                    deployment["status"]["observedGeneration"] = 3
+                elif failure == "not-updated":
+                    deployment["status"]["updatedReplicas"] = 0
+                elif failure == "not-available":
+                    deployment["status"]["availableReplicas"] = 0
+                with (
+                    patch.object(runtime, "run", side_effect=readback(values)),
+                    patch.object(runtime, "record_authority_status", return_value={"status": "current"}),
+                    self.assertRaises(runtime.RuntimeError),
+                ):
+                    runtime.record_binding_status(policy)
+
+    def test_record_binding_rollback_restores_owner_roots_and_disables_new_guards(self) -> None:
+        calls = []
+        with patch.object(runtime, "run", side_effect=lambda args, **kwargs: calls.append(args) or runtime.subprocess.CompletedProcess(args, 0, "", "")):
+            runtime.apply_record_authority_binding(self.accepted_policy(), enabled=False)
+        patches = [json.loads(args[args.index("--patch") + 1])["spec"]["template"]["spec"] for args in calls if "patch" in args]
+        self.assertEqual(len(patches), 2)
+        for pod in patches:
+            for volume in pod["volumes"]:
+                self.assertIn(volume["hostPath"]["path"], [str(runtime.repo_path(owner)) for owner in runtime.record_authority.OWNERS])
+            for item in pod["containers"][0]["env"]:
+                if item["name"].endswith("REQUIRED") or item["name"] == "OOS_SOURCE_REALIZATION_ENABLED":
+                    self.assertEqual(item["value"], "false")
+            self.assertTrue(all(item["readOnly"] for item in pod["containers"][0]["volumeMounts"]))
+        with patch.object(runtime, "run", return_value=runtime.subprocess.CompletedProcess([], 1, "", "")) as commands:
+            runtime.apply_record_authority_binding(self.accepted_policy(), enabled=False)
+            self.assertFalse(any("patch" in call.args[0] for call in commands.call_args_list))
+
+    def test_primary_console_records_require_live_models_not_fixture_or_failed_reads(self) -> None:
+        policy = self.accepted_policy()
+        prototype = {"mode": "live", "projection": {"readModel": {"records": []}}}
+        delivery = {"mode": "live", "projection": {"packages": []}}
+        def response(value):
+            context = Mock()
+            context.__enter__ = Mock(return_value=io.BytesIO(json.dumps(value).encode()))
+            context.__exit__ = Mock(return_value=False)
+            return context
+        with patch.object(runtime, "urlopen", side_effect=[response(prototype), response(delivery)]) as reads:
+            self.assertEqual(runtime.require_console_primary_records(policy), {"prototype": 0, "delivery": 0})
+            self.assertTrue(reads.call_args_list[0].args[0].endswith("/api/prototypes/records"))
+            self.assertTrue(reads.call_args_list[1].args[0].endswith("/api/delivery/workspace"))
+        for malformed in ({**prototype, "mode": "disconnected-preview"}, {"mode": "live", "projection": None}, {"mode": "live", "projection": {"readModel": {"records": {}}}}):
+            with patch.object(runtime, "urlopen", return_value=response(malformed)), self.assertRaisesRegex(runtime.RuntimeError, "fixtures are not readiness"):
+                runtime.require_console_primary_records(policy)
+        with patch.object(runtime, "urlopen", side_effect=runtime.URLError("unavailable")), self.assertRaisesRegex(runtime.RuntimeError, "primary canonical read is unavailable"):
+            runtime.require_console_primary_records(policy)
 
     def test_repository_refresh_does_not_wait_on_lifecycle_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -87,3 +87,15 @@ exact-tree Security decision; generated policy and credential values stay in
 operator-private state. Use the top-level
 `make governance-console-complete-runtime ACTION=<action>` target and the
 complete-runtime runbook rather than calling either script directly.
+
+`console_record_authority.py` is an internal helper of that same lifecycle,
+not another operator command or daemon. It maintains only two fixed private
+record snapshots and expiring checkpoints while preserving reviewed control
+code and primary checkouts. Its native Git tests cover allowed records,
+disallowed code/modes, provider failure, history rewrite, interrupted refresh,
+expiry and different-UID read access. Set
+`CONSOLE_NATIVE_RECORD_IMAGE_PROOF=1` when running
+`test_console_record_authority.py` to additionally prove actual built OOS and
+WGCF readers accept fresh checkpoints and deny expired ones with read-only
+mounts and no network. The default unit suite skips only that image-dependent
+case. The complete operating proof remains separately required.

@@ -78,8 +78,7 @@ out workloads. It reuses exact-App provider validation, checks current Security/
 bindings, and verifies the existing Secret ownership and credential binding.
 All required Vault keys are checked before replacement. Resource-version
 compare-and-swap uses the original identity producer's server-side Apply field
-manager, preserving its recovery command and unrelated Secret fields, including
-WGCF caller credentials. Native ownership proof is available without provider
+manager, preserving its recovery command and unrelated Secret fields. Native ownership proof is available without provider
 issuance or real Secret changes:
 
 ```bash
@@ -104,6 +103,33 @@ before revocation can leave an old unchanged-scope token valid only until its
 original maximum-one-hour expiry. Successful renewal requires normal revocation.
 Missing Vault access, stale acceptance, failed consumption or provider denial
 remains a visible failure, never readiness or ambient-credential fallback.
+
+Landing, Maturity and Closure also consume the already-admitted WGCF OOS
+registry caller. Their dedicated GitHub Apps remain separate; they do not
+define separate WGCF principals. Renewal verifies the active operator WGCF
+session, exact API credential binding, enabled owner gates and actual issuer
+consumption before reconciling only their declared `wgcf-caller-secret` keys.
+The same grouped rollout binds all three consumer issuer expectations to the
+exact WGCF revision in the current Security-accepted composition. Historical
+identity activation refs remain immutable foundation evidence; they are not
+the current receipt issuer. The actual running WGCF image revision must match
+the accepted one before any consumer reconciliation. OOS retains its exact
+issuer and service-identity checks; no revision wildcard or ancestry waiver is
+introduced.
+The same exact issuer binding is maintained for the existing Workspace Intake
+and Product Publication consumers. Their enablement, caller privileges and
+Security gates do not change. Whole-process inspection covers all current
+issuer expectations rather than treating the first failing workflow as the
+entire dependency boundary.
+This neither creates nor rotates a WGCF principal. A source mismatch fails
+before replacement; the existing issuer commissioning path owns its repair.
+Caller-only changes do not mint new GitHub tokens. Secret resource versions
+join the existing delivery markers so one grouped OOS rollout consumes a
+changed environment binding, including after interrupted delivery. Unchanged
+markers leave the pod template unchanged. Status additionally verifies exact
+OOS caller consumption and authenticated, non-mutating WGCF readiness reads
+for all three families; valid provider tokens alone are not workflow health.
+Credential values never enter arguments, output, receipts or the browser.
 
 ## Reviewed execution and current records
 

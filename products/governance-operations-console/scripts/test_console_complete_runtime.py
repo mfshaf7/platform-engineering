@@ -833,12 +833,15 @@ class WorkflowCredentialTests(unittest.TestCase):
                 if provider and not self.consume_ok:
                     return SimpleNamespace(returncode=1, stdout="")
                 results = {slug: {"configured": True, **({"http": self.probe_http, "token_consumed": True,
-                            "repository_id": manager.contract(slug)[0].repository_id} if provider else {})} for slug in module.WORKFLOWS}
+                            "repository_id": manager.contract(slug)[0].repository_id,
+                            **({"readiness_authenticated": True} if slug in module.READINESS_WORKFLOWS else {})} if provider else {})} for slug in module.WORKFLOWS}
                 return SimpleNamespace(returncode=0, stdout=json.dumps(results))
             return SimpleNamespace(returncode=0, stdout="")
         manager = module.Credentials(repo_root=runtime.REPO_ROOT, workspace_root=root,
-                                     session_manifest=root / "session.yaml", run=execute, private_key=key_loader)
+                                     session_manifest=root / "session.yaml", run=execute, private_key=key_loader,
+                                     readiness_revision="a" * 40)
         manager.target = lambda contract: self.target
+        manager.readiness_source = Mock(return_value=("synthetic-preserved-caller", "http://current-wgcf:8080"))
         for slug, ids in module.WORKFLOWS.items():
             contract, _ = manager.contract(slug)
             self.secrets[slug] = {"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
@@ -852,6 +855,175 @@ class WorkflowCredentialTests(unittest.TestCase):
                 "data": {contract.runtime_secret_key: base64.b64encode(("ghs_old_" + slug).encode()).decode(),
                          "wgcf-caller-secret": base64.b64encode(b"synthetic-preserved-caller").decode()}}
         return manager
+
+    def test_caller_only_drift_repairs_whole_group_without_mint_and_uses_resource_versions(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            manager.readiness_source.return_value = ("current-synthetic-caller-credential-123456", "http://current-wgcf:8080")
+            with self.assertRaisesRegex(module.CredentialError, "projection is stale"):
+                manager.status()
+            with patch.object(module.intake_identity, "validated_token") as issue:
+                result = manager.renew()
+                issue.assert_not_called()
+            self.assertEqual(result["refreshed"], [])
+            self.assertEqual(len([args for args, _ in self.calls if "apply" in args]), 3)
+            for slug in module.READINESS_WORKFLOWS:
+                secret = self.secrets[slug]
+                self.assertEqual(base64.b64decode(secret["data"]["wgcf-caller-secret"]).decode(), manager.readiness_source.return_value[0])
+                self.assertEqual(secret["metadata"]["resourceVersion"], "43")
+                self.assertTrue(result["identities"][slug]["readiness_authenticated"])
+            versions = [json.loads(args[-1])["spec"]["template"]["metadata"]["annotations"]
+                        for args, _ in self.calls if "patch" in args][-1]
+            for slug in module.READINESS_WORKFLOWS:
+                self.assertEqual(versions[module.ANNOTATION + slug + "-credential-resource-version"], "43")
+            patch_payload = [json.loads(args[-1]) for args, _ in self.calls if "patch" in args][-1]
+            environment = patch_payload["spec"]["template"]["spec"]["containers"][0]["env"]
+            self.assertEqual({item["name"]: item["value"] for item in environment}, {
+                **{manager.contract(slug)[0].wgcf_implementation_ref_env: "a" * 40 for slug in module.READINESS_WORKFLOWS},
+                "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF": "a" * 40,
+                "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF": "a" * 40})
+            self.calls.clear()
+            manager.renew()
+            self.assertFalse(any("apply" in args for args, _ in self.calls))
+            unchanged = [json.loads(args[-1])["spec"]["template"]["metadata"]["annotations"]
+                         for args, _ in self.calls if "patch" in args][-1]
+            self.assertEqual(versions, unchanged)  # Same pod template, no restart.
+            self.assertNotIn(manager.readiness_source.return_value[0], json.dumps(result))
+            for args, _ in self.calls:
+                self.assertNotIn(manager.readiness_source.return_value[0], json.dumps(args))
+
+    def test_caller_replacement_loss_recovers_without_rotating_provider_tokens(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            manager.readiness_source.return_value = ("current-synthetic-caller-credential-123456", "http://current-wgcf:8080")
+            self.consume_ok = False
+            with patch.object(module.intake_identity, "validated_token") as issue:
+                with self.assertRaisesRegex(module.CredentialError, "actual OOS"):
+                    manager.renew()
+                self.consume_ok = True
+                self.calls.clear()
+                manager.renew()
+                issue.assert_not_called()
+            self.assertFalse(any("apply" in args for args, _ in self.calls))
+            self.assertEqual(len([args for args, _ in self.calls if "rollout" in args]), 1)
+
+    def test_missing_or_wrong_readiness_source_denies_before_any_write(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            manager.readiness_source.side_effect = module.CredentialError("issuer consumption unavailable")
+            with self.assertRaises(module.CredentialError):
+                manager.renew()
+            self.assertFalse(any("apply" in args or "patch" in args for args, _ in self.calls))
+
+    def test_partial_caller_reconciliation_retains_completed_write_and_retry_finishes_remaining(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            manager.readiness_source.return_value = ("current-synthetic-caller-credential-123456", "http://current-wgcf:8080")
+            project = manager._project_binding
+            count = 0
+            def interrupted(*args):
+                nonlocal count
+                count += 1
+                if count == 2:
+                    raise module.CredentialError("synthetic CAS conflict")
+                project(*args)
+            with patch.object(manager, "_project_binding", side_effect=interrupted):
+                with self.assertRaises(module.CredentialError): manager.renew()
+            self.calls.clear()
+            with patch.object(module.intake_identity, "validated_token") as issue:
+                manager.renew()
+                issue.assert_not_called()
+            self.assertEqual(len([args for args, _ in self.calls if "apply" in args]), 2)
+
+    def test_actual_generated_probe_checks_caller_consumption_and_readiness_authentication(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            bindings = {slug: manager.binding(slug) for slug in module.WORKFLOWS}
+            caller_bad, issuer_stale, publication_stale, server_status = False, False, False, 404
+            def execute(args, **kwargs):
+                program = args[-1]
+                marker = "const specs="
+                specs = json.loads(program.split(marker, 1)[1].split(";\n", 1)[0])
+                environment = {"PATH": os.defpath}
+                environment.update({"OOS_PRODUCT_PUBLICATION_ENABLED": "true", "OOS_WORKSPACE_INTAKE_ENABLED": "true",
+                    "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF": ("b" if publication_stale else "a") * 40,
+                    "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF": "a" * 40})
+                files, repositories = {}, {}
+                for spec in specs:
+                    environment.update(spec["required"])
+                    files[environment[spec["file_env"]]] = base64.b64decode(bindings[spec["slug"]][2]["data"][manager.contract(spec["slug"])[0].runtime_secret_key]).decode()
+                    repositories[files[environment[spec["file_env"]]]] = {"id": spec["id"], "full_name": spec["repository"]}
+                    if "readiness" in spec:
+                        environment[spec["readiness"]["secret_env"]] = "wrong-caller" if caller_bad else "synthetic-preserved-caller"
+                        contract, _ = manager.contract(spec["slug"])
+                        if issuer_stale:
+                            environment[contract.wgcf_implementation_ref_env] = "b" * 40
+                shim = "require('node:fs').readFileSync=(file)=>(" + json.dumps(files) + ")[file];\n"
+                shim += ("globalThis.fetch=async(url,options)=>url.startsWith('https://api.github.com/')?"
+                    "{status:200,json:async()=>({total_count:1,repositories:[" + json.dumps(repositories)
+                    + "[options.headers.Authorization.slice(7)]]})}:{status:" + str(server_status) + "};\n")
+                return runtime.subprocess.run([runtime.shutil.which("node"), "-e", shim + program], env=environment, text=True, capture_output=True)
+            manager.run = execute
+            result = manager.probe(bindings)
+            self.assertTrue(all(result[slug]["readiness_authenticated"] for slug in module.READINESS_WORKFLOWS))
+            issuer_stale = True
+            self.assertTrue(all(value["configured"] for value in manager.probe(bindings, provider=False).values()))
+            with self.assertRaises(module.CredentialError): manager.probe(bindings)
+            issuer_stale = False
+            publication_stale = True
+            self.assertTrue(all(value["configured"] for value in manager.probe(bindings, provider=False).values()))
+            with self.assertRaises(module.CredentialError): manager.probe(bindings)
+            publication_stale = False
+            caller_bad = True
+            with self.assertRaises(module.CredentialError): manager.probe(bindings)
+            caller_bad = False
+            for status in (200, 401, 403, 503):
+                server_status = status
+                with self.subTest(status=status), self.assertRaises(module.CredentialError): manager.probe(bindings)
+
+    def test_actual_readiness_source_rejects_wrong_principal_namespace_activation_and_unconsumed_issuer(self):
+        module = runtime.workflow_credentials
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            bindings = {slug: manager.binding(slug) for slug in module.WORKFLOWS}
+            namespace = "devint-governance-control-fabric-test"
+            caller = "synthetic-authoritative-readiness-caller-123456"
+            environment = [
+                {"name": "WGCF_ARTIFACT_REGISTRY_OOS_CALLER_ID", "value": "operator-orchestration-service"},
+                {"name": "WGCF_ARTIFACT_REGISTRY_OOS_CALLER_SECRET", "valueFrom": {"secretKeyRef": {
+                    "name": module.READINESS_SECRET, "key": "oos-caller-secret"}}},
+                *[{"name": "WGCF_" + slug.upper().replace("-", "_") + "_READINESS_ENABLED", "value": "true"}
+                  for slug in module.READINESS_WORKFLOWS],
+            ]
+            deployment = {"spec": {"template": {"spec": {"containers": [{"name": "api", "env": environment}]}}}}
+            secret = {"metadata": {"name": module.READINESS_SECRET, "namespace": namespace,
+                "labels": {"devint.profile": "governance-control-fabric", "app.kubernetes.io/component": "artifact-registry-auth"}},
+                "data": {"oos-caller-secret": base64.b64encode(caller.encode()).decode()}}
+            consumed = {"consumed": True}
+            def execute(args, **kwargs):
+                value = consumed if "exec" in args else secret if "secret" in args else deployment
+                self.assertNotIn(caller, json.dumps(args))
+                return SimpleNamespace(returncode=0, stdout=json.dumps(value))
+            manager.run = execute
+            source = lambda: module.Credentials.readiness_source(manager, bindings)
+            with patch.object(module.prototype_identity, "runner_owned_readiness_namespace", return_value=namespace):
+                self.assertEqual(source(), (caller, f"http://{module.READINESS_DEPLOYMENT}.{namespace}.svc.cluster.local:8080"))
+                environment[0]["value"] = "another-principal"
+                with self.assertRaises(module.CredentialError): source()
+                environment[0]["value"] = "operator-orchestration-service"
+                secret["metadata"]["namespace"] = "other-namespace"
+                with self.assertRaises(module.CredentialError): source()
+                secret["metadata"]["namespace"] = namespace
+                environment[-1]["value"] = "false"
+                with self.assertRaises(module.CredentialError): source()
+                environment[-1]["value"] = "true"
+                consumed["consumed"] = False
+                with self.assertRaises(module.CredentialError): source()
 
     def issue(self, args, contract):
         self.assertTrue(all(key.exists() for key in self.keys))
@@ -1070,6 +1242,21 @@ class NativeWorkflowCredentialOwnershipTests(unittest.TestCase):
         return runtime.run(["k3s", "kubectl", "-n", self.target.namespace, *args],
                            input_value=json.dumps(payload) if payload is not None else None, check=check)
 
+    def test_actual_readiness_issuer_must_match_current_security_review(self):
+        # Read-only check of the real issuer. The candidate source is not
+        # commissioned, and no credential or deployment is changed here.
+        decision = runtime.yaml.safe_load((runtime.WORKSPACE_ROOT / "security-architecture" /
+            "docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml").read_text())
+        self.assertEqual(decision["status"], "accepted")
+        self.manager.readiness_revision = decision["reviewed_revisions"]["workspace-governance-control-fabric"]
+        bindings = {slug: self.manager.binding(slug) for slug in runtime.workflow_credentials.WORKFLOWS}
+        caller, url = self.manager.readiness_source(bindings)
+        self.assertGreaterEqual(len(caller), 32)
+        self.assertIn("devint-governance-control-fabric-", url)
+        self.manager.readiness_revision = "0" * 40
+        with self.assertRaises(runtime.workflow_credentials.CredentialError):
+            self.manager.readiness_source(bindings)
+
     def create(self, field_manager):
         name = "console-credential-ownership-proof-" + uuid.uuid4().hex[:12]
         payload = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": name, "namespace": self.target.namespace},
@@ -1128,8 +1315,12 @@ class NativeWorkflowCredentialOwnershipTests(unittest.TestCase):
                 current = json.loads(self.kubectl(["get", "secret", name, "-o", "json"]).stdout)
                 stale = json.loads(json.dumps(current))
                 current["data"][contract.runtime_secret_key] = base64.b64encode(b"synthetic-renewed").decode()
+                if getattr(contract, "wgcf_secret_key", None):
+                    current["data"][contract.wgcf_secret_key] = base64.b64encode(b"synthetic-current-wgcf-caller").decode()
                 current["metadata"]["annotations"][module.ANNOTATION + "token-expires-at"] = "2026-10-16T11:00:00Z"
                 self.manager._project_binding(slug, contract, self.target, current)
+                projected = json.loads(self.kubectl(["get", "secret", name, "-o", "json"]).stdout)
+                self.assertEqual(projected["data"], current["data"])
                 with self.assertRaises(runtime.RuntimeError):
                     self.manager._project_binding(slug, contract, self.target, stale)
                 original["stringData"][contract.runtime_secret_key] = "synthetic-recovered"

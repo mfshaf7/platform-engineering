@@ -5,10 +5,12 @@ import importlib.util
 import base64
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 from datetime import timedelta
 import unittest
+import uuid
 from unittest.mock import patch
 from unittest.mock import Mock
 from types import SimpleNamespace
@@ -557,9 +559,14 @@ class WorkflowCredentialTests(unittest.TestCase):
             if "get" in args:
                 slug = next(slug for slug, secret in self.secrets.items() if secret["metadata"]["name"] in args)
                 return SimpleNamespace(returncode=0, stdout=json.dumps(self.secrets[slug]))
-            if "replace" in args:
+            if "apply" in args:
                 secret = json.loads(kwargs["input_value"])
                 slug = next(slug for slug, old in self.secrets.items() if old["metadata"]["name"] == secret["metadata"]["name"])
+                contract, _ = manager.contract(slug)
+                field_manager = "platform-workspace-intake" if slug == "workspace-intake" else f"platform-{contract.workflow_slug}"
+                self.assertIn("--server-side", args)
+                self.assertIn("--field-manager=" + field_manager, args)
+                self.assertNotIn("managedFields", secret["metadata"])
                 self.assertEqual(secret["metadata"]["resourceVersion"], self.secrets[slug]["metadata"]["resourceVersion"])
                 secret["metadata"]["resourceVersion"] = str(int(secret["metadata"]["resourceVersion"]) + 1)
                 self.secrets[slug] = secret
@@ -700,7 +707,7 @@ class WorkflowCredentialTests(unittest.TestCase):
                 with self.assertRaisesRegex(runtime.RuntimeError, "Vault source"):
                     manager.renew()
             issue.assert_not_called()
-            self.assertFalse(any("replace" in args for args, _ in self.calls))
+            self.assertFalse(any("apply" in args for args, _ in self.calls))
             self.assertTrue(all(not key.exists() for key in self.keys))
 
     def test_binding_drift_and_missing_owner_secret_never_gain_activation_authority(self):
@@ -744,7 +751,7 @@ class WorkflowCredentialTests(unittest.TestCase):
             manager = self.manager(Path(temp), minutes=-5)
             execute = manager.run
             def conflict(args, **kwargs):
-                if "replace" in args:
+                if "apply" in args:
                     raise runtime.RuntimeError("conflict")
                 return execute(args, **kwargs)
             manager.run = conflict
@@ -764,7 +771,7 @@ class WorkflowCredentialTests(unittest.TestCase):
             with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=invalid):
                 with self.assertRaisesRegex(runtime.workflow_credentials.IdentityError, "key invalid"):
                     manager.renew()
-            self.assertFalse(any("replace" in args for args, _ in self.calls))
+            self.assertFalse(any("apply" in args for args, _ in self.calls))
             self.assertEqual(len(self.providers), 2)
             for provider in self.providers:
                 self.assertTrue(provider.revoke_token.call_args.args[0].startswith("ghs_new_"))
@@ -784,6 +791,96 @@ class WorkflowCredentialTests(unittest.TestCase):
             manager.run = invalid
             with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "incomplete"):
                 manager.status()
+
+
+@unittest.skipUnless(os.environ.get("CONSOLE_NATIVE_KUBE_PROOF_NAMESPACE"), "native local-cluster proof is opt-in")
+class NativeWorkflowCredentialOwnershipTests(unittest.TestCase):
+    """Exercise the actual adapter without provider issuance or real Secrets."""
+
+    def setUp(self):
+        self.manager = runtime.workflow_credential_manager(runtime.validate_policy())
+        self.contract, _ = self.manager.contract("proposal-target")
+        self.target = self.manager.target(self.contract)  # Existing local-cluster/session guard.
+        self.assertEqual(self.target.namespace, os.environ["CONSOLE_NATIVE_KUBE_PROOF_NAMESPACE"])
+        self.names = []
+        self.addCleanup(self.remove_objects)
+
+    def remove_objects(self):
+        for kind, name in self.names:
+            runtime.run(["k3s", "kubectl", "-n", self.target.namespace, "delete", kind, name, "--ignore-not-found=true"])
+
+    def kubectl(self, args, payload=None, *, check=True):
+        return runtime.run(["k3s", "kubectl", "-n", self.target.namespace, *args],
+                           input_value=json.dumps(payload) if payload is not None else None, check=check)
+
+    def create(self, field_manager):
+        name = "console-credential-ownership-proof-" + uuid.uuid4().hex[:12]
+        payload = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": name, "namespace": self.target.namespace},
+                   "data": {"token": "synthetic-one", "unrelated": "retained"}}
+        self.names.append(("configmap", name))
+        self.kubectl(["apply", "--server-side", "--field-manager=" + field_manager, "-f", "-"], payload)
+        current = json.loads(self.kubectl(["get", "configmap", name, "-o", "json"]).stdout)
+        return payload, current
+
+    def test_legacy_replace_reproduces_original_owner_recovery_conflict(self):
+        field_manager = "platform-" + self.contract.workflow_slug
+        original, current = self.create(field_manager)
+        current["data"]["token"] = "synthetic-two"
+        self.kubectl(["replace", "-f", "-"], current)
+        original["data"]["token"] = "synthetic-three"
+        denied = self.kubectl(["apply", "--server-side", "--field-manager=" + field_manager,
+                               "--dry-run=server", "-f", "-"], original, check=False)
+        self.assertNotEqual(denied.returncode, 0)
+        self.assertIn("conflict", denied.stderr.lower())
+
+    def test_actual_adapter_preserves_each_owner_recovery_and_cas(self):
+        for slug in runtime.workflow_credentials.WORKFLOWS:
+            with self.subTest(slug=slug):
+                contract, _ = self.manager.contract(slug)
+                field_manager = "platform-workspace-intake" if slug == "workspace-intake" else "platform-" + contract.workflow_slug
+                original, current = self.create(field_manager)
+                stale = json.loads(json.dumps(current))
+                current["data"]["token"] = "synthetic-two"
+                self.manager._project_binding(slug, contract, self.target, current)
+                stale["data"]["token"] = "synthetic-stale"
+                with self.assertRaises(runtime.RuntimeError):
+                    self.manager._project_binding(slug, contract, self.target, stale)
+                original["data"]["token"] = "synthetic-three"
+                self.kubectl(["apply", "--server-side", "--field-manager=" + field_manager, "-f", "-"], original)
+                recovered = json.loads(self.kubectl(["get", "configmap", original["metadata"]["name"], "-o", "json"]).stdout)
+                self.assertEqual(recovered["data"], {"token": "synthetic-three", "unrelated": "retained"})
+
+    def test_actual_secret_producer_manifests_survive_renewal_and_recovery(self):
+        module = runtime.workflow_credentials
+        for slug in module.WORKFLOWS:
+            with self.subTest(slug=slug):
+                contract, _ = self.manager.contract(slug)
+                field_manager = "platform-workspace-intake" if slug == "workspace-intake" else "platform-" + contract.workflow_slug
+                token = SimpleNamespace(token="synthetic-original", expires_at="2026-10-16T10:00:00Z")
+                if slug == "workspace-intake":
+                    manifest = module.intake_identity.secret_manifest(contract, token, "synthetic-binding", self.target)
+                else:
+                    manifest = module.prototype_identity.secret_manifest(contract, token,
+                        module.ProviderRepository(contract.repository, contract.repository_id),
+                        "synthetic-binding", "synthetic-runtime", self.target, "synthetic-caller")
+                original = module.yaml.safe_load(manifest)
+                name = "console-credential-secret-proof-" + uuid.uuid4().hex[:12]
+                original["metadata"]["name"] = name
+                self.names.append(("secret", name))
+                self.kubectl(["apply", "--server-side", "--field-manager=" + field_manager, "-f", "-"], original)
+                current = json.loads(self.kubectl(["get", "secret", name, "-o", "json"]).stdout)
+                stale = json.loads(json.dumps(current))
+                current["data"][contract.runtime_secret_key] = base64.b64encode(b"synthetic-renewed").decode()
+                current["metadata"]["annotations"][module.ANNOTATION + "token-expires-at"] = "2026-10-16T11:00:00Z"
+                self.manager._project_binding(slug, contract, self.target, current)
+                with self.assertRaises(runtime.RuntimeError):
+                    self.manager._project_binding(slug, contract, self.target, stale)
+                original["stringData"][contract.runtime_secret_key] = "synthetic-recovered"
+                original["metadata"]["annotations"][module.ANNOTATION + "token-expires-at"] = "2026-10-16T12:00:00Z"
+                self.kubectl(["apply", "--server-side", "--field-manager=" + field_manager, "-f", "-"], original)
+                recovered = json.loads(self.kubectl(["get", "secret", name, "-o", "json"]).stdout)
+                self.assertEqual(recovered["data"], {key: base64.b64encode(value.encode()).decode()
+                                 for key, value in original["stringData"].items()})
 
 
 if __name__ == "__main__":

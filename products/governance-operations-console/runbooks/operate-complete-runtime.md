@@ -74,8 +74,21 @@ The timer checks every five minutes and renews when fewer than twenty minutes
 remain. It reuses exact-App provider validation, checks current Security/source
 bindings, and verifies the existing Secret ownership and credential binding.
 All required Vault keys are checked before replacement. Resource-version
-compare-and-swap preserves unrelated Secret fields, including WGCF caller
-credentials. Temporary private keys are removed on every exit; tokens never
+compare-and-swap uses the original identity producer's server-side Apply field
+manager, preserving its recovery command and unrelated Secret fields, including
+WGCF caller credentials. Native ownership proof is available without provider
+issuance or real Secret changes:
+
+```bash
+CONSOLE_NATIVE_KUBE_PROOF_NAMESPACE=devint-accepted-idea-delivery-mfshaf7 \
+  python3 products/governance-operations-console/scripts/test_console_complete_runtime.py
+```
+
+The existing local-cluster/session guard must pass; only uniquely named synthetic
+ConfigMaps and synthetic Secrets are created and removed. This reproduces the old
+replacement conflict, then proves each actual adapter's recovery compatibility,
+stale-version denial and the existing producers' real Secret manifest format.
+Temporary private keys are removed on every exit; tokens never
 enter process arguments, logs, source, browser state or receipts.
 
 The token batch takes one OOS delivery-version update and bounded rollout.

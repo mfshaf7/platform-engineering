@@ -714,6 +714,7 @@ def workflow_credential_manager(policy: dict[str, Any]) -> workflow_credentials.
         repo_root=REPO_ROOT, workspace_root=WORKSPACE_ROOT,
         session_manifest=dev_integration_session_manifest(policy), run=run,
         private_key=vault_private_key,
+        readiness_revision=policy["security"]["reviewed_revisions"].get("workspace-governance-control-fabric"),
     )
 
 

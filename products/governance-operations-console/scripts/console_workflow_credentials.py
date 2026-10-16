@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -28,6 +29,9 @@ WORKFLOWS = {
     "workspace-intake": (4845505, 159392456),
 }
 ANNOTATION = "workspace-governance/"
+READINESS_WORKFLOWS = ("prototype-landing", "prototype-maturity", "prototype-closure")
+READINESS_DEPLOYMENT = "workspace-governance-control-fabric-api"
+READINESS_SECRET = READINESS_DEPLOYMENT + "-artifact-registry-callers"
 
 
 class CredentialError(RuntimeError):
@@ -41,12 +45,13 @@ def validate_policy(policy: dict[str, Any]) -> None:
 
 class Credentials:
     def __init__(self, *, repo_root: Path, workspace_root: Path, session_manifest: Path,
-                 run, private_key):
+                 run, private_key, readiness_revision: str | None = None):
         self.repo_root = repo_root
         self.workspace_root = workspace_root
         self.session_manifest = session_manifest
         self.run = run
         self.private_key = private_key
+        self.readiness_revision = readiness_revision
 
     def contract(self, slug: str):
         path = self.repo_root / "security" / f"{slug}-identity.yaml"
@@ -89,7 +94,75 @@ class Credentials:
             raise CredentialError(f"{slug}: existing owner identity binding is invalid") from None
         return contract, target, secret
 
+    def readiness_source(self, bindings: dict) -> tuple[str, str]:
+        """Prove the already-admitted WGCF principal and its consumed credential.
+
+        This is not a new caller or a secret rotation. These three consumers
+        already use the SAME OOS registry principal. Their GitHub identities
+        and authoring permissions remain separate and unchanged.
+        """
+        try:
+            if not re.fullmatch(r"[0-9a-f]{40}", self.readiness_revision or ""):
+                raise ValueError("exact reviewed WGCF revision required")
+            target = bindings[READINESS_WORKFLOWS[0]][1]
+            namespace = prototype_identity.runner_owned_readiness_namespace(
+                self.workspace_root, target, require_running=True,
+            )
+            deployment = json.loads(self.run(["k3s", "kubectl", "-n", namespace,
+                "get", "deployment", READINESS_DEPLOYMENT, "-o", "json"]).stdout)
+            containers = deployment["spec"]["template"]["spec"]["containers"]
+            api = next(item for item in containers if item["name"] == "api")
+            environment = {item["name"]: item for item in api["env"]}
+            if (environment["WGCF_ARTIFACT_REGISTRY_OOS_CALLER_ID"].get("value") != "operator-orchestration-service"
+                    or environment["WGCF_ARTIFACT_REGISTRY_OOS_CALLER_SECRET"].get("valueFrom") != {
+                        "secretKeyRef": {"name": READINESS_SECRET, "key": "oos-caller-secret"}}):
+                raise ValueError("issuer binding")
+            for slug in READINESS_WORKFLOWS:
+                contract, member_target, _ = bindings[slug]
+                if (member_target.namespace != target.namespace
+                        or contract.wgcf_caller_id != "operator-orchestration-service"
+                        or contract.wgcf_secret_key != "wgcf-caller-secret"
+                        or environment["WGCF_" + slug.upper().replace("-", "_") + "_READINESS_ENABLED"].get("value") != "true"):
+                    raise ValueError("consumer or activation binding")
+            source = json.loads(self.run(["k3s", "kubectl", "-n", namespace,
+                "get", "secret", READINESS_SECRET, "-o", "json"]).stdout)
+            if (source["metadata"]["name"] != READINESS_SECRET
+                    or source["metadata"]["namespace"] != namespace
+                    or source["metadata"]["labels"].get("devint.profile") != "governance-control-fabric"
+                    or source["metadata"]["labels"].get("app.kubernetes.io/component") != "artifact-registry-auth"):
+                raise ValueError("credential source")
+            value = base64.b64decode(source["data"]["oos-caller-secret"], validate=True).decode()
+            if len(value) < 32 or "\n" in value or "\r" in value:
+                raise ValueError("credential shape")
+            fingerprint = hashlib.sha256(value.encode()).hexdigest()
+            # Only a fingerprint enters argv; only a boolean leaves the pod.
+            program = ("import os,hashlib,json; from control_fabric_core.artifact_registry import read_implementation_ref; "
+                "print(json.dumps({'consumed': read_implementation_ref() == " + repr(self.readiness_revision) + " and "
+                "os.environ.get('WGCF_ARTIFACT_REGISTRY_OOS_CALLER_ID') == 'operator-orchestration-service' and "
+                "hashlib.sha256(os.environ.get('WGCF_ARTIFACT_REGISTRY_OOS_CALLER_SECRET','').encode()).hexdigest() == "
+                + repr(fingerprint) + "}))")
+            observed = self.run(["k3s", "kubectl", "-n", namespace, "exec",
+                "deployment/" + READINESS_DEPLOYMENT, "-c", "api", "--", "python3", "-c", program])
+            if json.loads(observed.stdout) != {"consumed": True}:
+                raise ValueError("issuer consumption")
+            return value, f"http://{READINESS_DEPLOYMENT}.{namespace}.svc.cluster.local:8080"
+        except Exception:
+            raise CredentialError("current admitted WGCF readiness caller source or issuer consumption is unavailable") from None
+
+    def reconcile_readiness(self, bindings: dict) -> dict:
+        value, _ = self.readiness_source(bindings)
+        encoded = base64.b64encode(value.encode()).decode()
+        for slug in READINESS_WORKFLOWS:
+            contract, target, secret = bindings[slug]
+            if secret["data"].get(contract.wgcf_secret_key) != encoded:
+                updated = {**secret, "data": {**secret["data"], contract.wgcf_secret_key: encoded}}
+                self._project_binding(slug, contract, target, updated)
+        # Fresh resourceVersions identify caller-only delivery and make a crash
+        # between replacement and consumption retryable without minting tokens.
+        return {slug: self.binding(slug) for slug in WORKFLOWS}
+
     def probe(self, bindings: dict, *, provider: bool = True) -> dict:
+        _, readiness_url = self.readiness_source(bindings)
         specs = []
         for slug, (contract, _, secret) in bindings.items():
             required = {
@@ -101,6 +174,17 @@ class Credentials:
             specs.append({"slug": slug, "required": required, "file_env": contract.token_file_env,
                           "repository": contract.repository, "id": contract.repository_id,
                           "token_digest": hashlib.sha256(base64.b64decode(secret["data"][contract.runtime_secret_key], validate=True)).hexdigest()})
+            if slug in READINESS_WORKFLOWS:
+                required.update({contract.wgcf_base_url_env: readiness_url,
+                                 contract.wgcf_caller_id_env: "operator-orchestration-service",
+                                 contract.wgcf_implementation_ref_env: self.readiness_revision,
+                                 contract.wgcf_service_identity_ref_env: contract.wgcf_service_identity_ref})
+                specs[-1]["readiness"] = {
+                    "secret_env": contract.wgcf_caller_secret_env,
+                    "caller_env": contract.wgcf_caller_id_env,
+                    "url_env": contract.wgcf_base_url_env,
+                    "secret_digest": hashlib.sha256(base64.b64decode(secret["data"][contract.wgcf_secret_key], validate=True)).hexdigest(),
+                }
         # Only the bounded result leaves the pod. Credentials are read in the child
         # environment, never expanded into process arguments, output, or receipts.
         program = r"""
@@ -112,6 +196,16 @@ const specs=SPECIFICATIONS;
   const token=fs.readFileSync(process.env[s.file_env],'utf8').trim();
   if(!token.startsWith('ghs_'))throw Error(s.slug+': mounted installation credential is unavailable');
   if(!CHECK_PROVIDER){results[s.slug]={configured:true};continue;}
+  if(s.readiness){
+    const r=s.readiness;
+    if(process.env[r.caller_env]!=='operator-orchestration-service'||
+       crypto.createHash('sha256').update(process.env[r.secret_env]??'').digest('hex')!==r.secret_digest)
+      throw Error(s.slug+': readiness credential delivery has not been consumed');
+    const response=await fetch(process.env[r.url_env]+'/v1/readiness/'+s.slug+'/'+'0'.repeat(64),{
+      headers:{'x-wgcf-caller-id':process.env[r.caller_env],'x-wgcf-caller-secret':process.env[r.secret_env]},
+      redirect:'error',signal:AbortSignal.timeout(5000)});
+    if(response.status!==404)throw Error(s.slug+': bounded readiness authentication read failed');
+  }
   if(crypto.createHash('sha256').update(token).digest('hex')!==s.token_digest)throw Error(s.slug+': credential delivery has not been consumed');
   const response=await fetch('https://api.github.com/installation/repositories?per_page=2',{
     headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
@@ -121,7 +215,8 @@ const specs=SPECIFICATIONS;
   const value=await response.json();
   if(value.total_count!==1||value.repositories?.length!==1||value.repositories[0].id!==s.id||value.repositories[0].full_name!==s.repository)
     throw Error(s.slug+': mounted credential has the wrong repository scope');
-  results[s.slug]={configured:true,token_consumed:true,http:200,repository_id:s.id};
+  results[s.slug]={configured:true,token_consumed:true,http:200,repository_id:s.id,
+    ...(s.readiness?{readiness_authenticated:true}: {})};
 }console.log(JSON.stringify(results));})().catch(()=>{console.error('Required workflow credential or runtime binding failed its bounded check');process.exitCode=1;});
 """.replace("SPECIFICATIONS", json.dumps(specs)).replace("CHECK_PROVIDER", "true" if provider else "false")
         namespace = next(iter(bindings.values()))[1].namespace
@@ -139,6 +234,8 @@ const specs=SPECIFICATIONS;
                 if provider and (result.get("token_consumed") is not True or result.get("http") not in (200, 401)
                                  or (result.get("http") == 200 and result.get("repository_id") != bindings[slug][0].repository_id)):
                     raise ValueError("provider proof")
+                if provider and result.get("http") == 200 and slug in READINESS_WORKFLOWS and result.get("readiness_authenticated") is not True:
+                    raise ValueError("readiness proof")
             return value
         except (ValueError, TypeError):
             raise CredentialError("workflow credential runtime proof is incomplete") from None
@@ -155,6 +252,12 @@ const specs=SPECIFICATIONS;
 
     def status(self) -> dict:
         bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
+        current_caller, _ = self.readiness_source(bindings)
+        encoded_caller = base64.b64encode(current_caller.encode()).decode()
+        for slug in READINESS_WORKFLOWS:
+            contract, _, secret = bindings[slug]
+            if secret["data"].get(contract.wgcf_secret_key) != encoded_caller:
+                raise CredentialError("workflow readiness caller projection is stale; run the existing credential refresh")
         for slug, (_, target, secret) in bindings.items():
             if ((self.expiry(secret) - datetime.now(UTC)).total_seconds() < 300
                     or secret["metadata"]["annotations"][ANNOTATION + "dev-integration-session"] != target.session_id):
@@ -168,6 +271,7 @@ const specs=SPECIFICATIONS;
     def renew(self, *, force: bool = False, extra_annotations: dict | None = None) -> dict:
         bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
         self.probe(bindings, provider=False)
+        bindings = self.reconcile_readiness(bindings)
         due = [slug for slug, (_, target, secret) in bindings.items()
                if force
                or (self.expiry(secret) - datetime.now(UTC)).total_seconds() < 1200
@@ -175,6 +279,7 @@ const specs=SPECIFICATIONS;
         if not due:
             # Finish an interrupted delivery before judging the mounted token or
             # minting another one. A fresh Secret alone does not prove consumption.
+            bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
             self.consume(bindings, extra_annotations)
             observed = self.probe(bindings)
             due = [slug for slug in WORKFLOWS if observed[slug].get("http") == 401]
@@ -185,7 +290,7 @@ const specs=SPECIFICATIONS;
         previous = []
         refreshed = []
         try:
-            # Prove all required key sources before replacing any credential.
+            # Prove all required key sources before replacing a provider token.
             for slug in due:
                 _, definition = self.contract(slug)
                 source = definition["secret_custody"]["private_key_source"]
@@ -219,6 +324,7 @@ const specs=SPECIFICATIONS;
             # Always reconcile the delivery versions: this also repairs a crash
             # after Secret replacement but before pod consumption. No forced restart
             # occurs on an unchanged timer tick, and the group takes one rollout.
+            bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
             self.consume(bindings, extra_annotations)
             current = self.status()
             for client, old in previous:
@@ -256,6 +362,15 @@ const specs=SPECIFICATIONS;
         versions = dict(extra_annotations or {})
         versions.update({ANNOTATION + slug + "-token-expires-at": secret["metadata"]["annotations"][ANNOTATION + "token-expires-at"]
                          for slug, (_, _, secret) in bindings.items()})
+        versions.update({ANNOTATION + slug + "-credential-resource-version": secret["metadata"]["resourceVersion"]
+                         for slug, (_, _, secret) in bindings.items() if slug in READINESS_WORKFLOWS})
+        # Historical identity activation revisions are floors, not the issuer
+        # version of the current reviewed composition. Bind consumers to that
+        # exact accepted issuer; never weaken OOS's exact-receipt checks.
+        environment = [{"name": bindings[slug][0].wgcf_implementation_ref_env,
+                        "value": self.readiness_revision} for slug in READINESS_WORKFLOWS]
         self.run(["k3s", "kubectl", "-n", namespace, "patch", "deployment/operator-orchestration-service",
-                  "--type=merge", "--patch", json.dumps({"spec": {"template": {"metadata": {"annotations": versions}}}})])
+                  "--type=strategic", "--patch", json.dumps({"spec": {"template": {
+                      "metadata": {"annotations": versions}, "spec": {"containers": [{
+                          "name": "operator-orchestration-service", "env": environment}]}}}})])
         self.run(["k3s", "kubectl", "-n", namespace, "rollout", "status", "deployment/operator-orchestration-service", "--timeout=300s"])

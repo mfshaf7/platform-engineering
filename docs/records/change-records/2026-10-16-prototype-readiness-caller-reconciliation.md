@@ -35,6 +35,13 @@ security_evidence:
 - Actual root cause: Landing, Maturity and Closure retained old caller credentials and historical issuer expectations while the active WGCF registry used the current composition-owned OOS credential and reviewed image revision. Renewal preserved these stale fields and verified only GitHub provider access.
 - Why it escaped earlier controls: primary register reads and valid installation tokens do not exercise WGCF readiness authentication.
 
+Whole-process inspection before merge covered every OOS WGCF caller and issuer
+binding. Only the three dedicated Prototype caller credentials differed; all
+shared caller credentials matched. Product Publication also retained an old
+issuer expectation while Workspace Intake already matched. The same grouped
+current-issuer binding covers all five existing issuer consumers without
+changing their gates or privileges. No separate repair story is introduced.
+
 ## Source Changes
 
 - Repo: platform-engineering

@@ -116,6 +116,11 @@ the current receipt issuer. The actual running WGCF image revision must match
 the accepted one before any consumer reconciliation. OOS retains its exact
 issuer and service-identity checks; no revision wildcard or ancestry waiver is
 introduced.
+The same exact issuer binding is maintained for the existing Workspace Intake
+and Product Publication consumers. Their enablement, caller privileges and
+Security gates do not change. Whole-process inspection covers all current
+issuer expectations rather than treating the first failing workflow as the
+entire dependency boundary.
 This neither creates nor rotates a WGCF principal. A source mismatch fails
 before replacement; the existing issuer commissioning path owns its repair.
 Caller-only changes do not mint new GitHub tokens. Secret resource versions

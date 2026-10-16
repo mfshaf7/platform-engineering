@@ -177,8 +177,11 @@ class Credentials:
             if slug in READINESS_WORKFLOWS:
                 required.update({contract.wgcf_base_url_env: readiness_url,
                                  contract.wgcf_caller_id_env: "operator-orchestration-service",
-                                 contract.wgcf_implementation_ref_env: self.readiness_revision,
                                  contract.wgcf_service_identity_ref_env: contract.wgcf_service_identity_ref})
+                if provider:
+                    # Pre-reconciliation admission may observe the stale issuer
+                    # expectation that consume() is responsible for repairing.
+                    required[contract.wgcf_implementation_ref_env] = self.readiness_revision
                 specs[-1]["readiness"] = {
                     "secret_env": contract.wgcf_caller_secret_env,
                     "caller_env": contract.wgcf_caller_id_env,
@@ -191,7 +194,14 @@ class Credentials:
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const specs=SPECIFICATIONS;
-(async()=>{const results={};for(const s of specs){
+const reviewedIssuer=REVIEWED_ISSUER;
+(async()=>{for(const [enabled,issuer] of [
+  ['OOS_PRODUCT_PUBLICATION_ENABLED','WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF'],
+  ['OOS_WORKSPACE_INTAKE_ENABLED','WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF']]){
+  if(CHECK_PROVIDER&&process.env[enabled]==='true'&&process.env[issuer]!==reviewedIssuer)
+    throw Error('Active shared readiness issuer binding is stale');
+}
+const results={};for(const s of specs){
   if(Object.entries(s.required).some(([k,v])=>process.env[k]!==v))throw Error(s.slug+': owner runtime binding is unavailable');
   const token=fs.readFileSync(process.env[s.file_env],'utf8').trim();
   if(!token.startsWith('ghs_'))throw Error(s.slug+': mounted installation credential is unavailable');
@@ -218,7 +228,7 @@ const specs=SPECIFICATIONS;
   results[s.slug]={configured:true,token_consumed:true,http:200,repository_id:s.id,
     ...(s.readiness?{readiness_authenticated:true}: {})};
 }console.log(JSON.stringify(results));})().catch(()=>{console.error('Required workflow credential or runtime binding failed its bounded check');process.exitCode=1;});
-""".replace("SPECIFICATIONS", json.dumps(specs)).replace("CHECK_PROVIDER", "true" if provider else "false")
+""".replace("SPECIFICATIONS", json.dumps(specs)).replace("REVIEWED_ISSUER", json.dumps(self.readiness_revision)).replace("CHECK_PROVIDER", "true" if provider else "false")
         namespace = next(iter(bindings.values()))[1].namespace
         result = self.run(["k3s", "kubectl", "-n", namespace, "exec", "deployment/operator-orchestration-service",
                            "--", "node", "-e", program], check=False)
@@ -369,6 +379,10 @@ const specs=SPECIFICATIONS;
         # exact accepted issuer; never weaken OOS's exact-receipt checks.
         environment = [{"name": bindings[slug][0].wgcf_implementation_ref_env,
                         "value": self.readiness_revision} for slug in READINESS_WORKFLOWS]
+        # The same live issuer also serves these already-admitted workflows.
+        # Updating an exact expected revision does not enable either workflow.
+        environment.extend({"name": name, "value": self.readiness_revision} for name in (
+            "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF", "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF"))
         self.run(["k3s", "kubectl", "-n", namespace, "patch", "deployment/operator-orchestration-service",
                   "--type=strategic", "--patch", json.dumps({"spec": {"template": {
                       "metadata": {"annotations": versions}, "spec": {"containers": [{

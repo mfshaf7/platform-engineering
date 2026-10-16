@@ -880,7 +880,9 @@ class WorkflowCredentialTests(unittest.TestCase):
             patch_payload = [json.loads(args[-1]) for args, _ in self.calls if "patch" in args][-1]
             environment = patch_payload["spec"]["template"]["spec"]["containers"][0]["env"]
             self.assertEqual({item["name"]: item["value"] for item in environment}, {
-                manager.contract(slug)[0].wgcf_implementation_ref_env: "a" * 40 for slug in module.READINESS_WORKFLOWS})
+                **{manager.contract(slug)[0].wgcf_implementation_ref_env: "a" * 40 for slug in module.READINESS_WORKFLOWS},
+                "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF": "a" * 40,
+                "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF": "a" * 40})
             self.calls.clear()
             manager.renew()
             self.assertFalse(any("apply" in args for args, _ in self.calls))
@@ -942,12 +944,15 @@ class WorkflowCredentialTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             manager = self.manager(Path(temp))
             bindings = {slug: manager.binding(slug) for slug in module.WORKFLOWS}
-            caller_bad, server_status = False, 404
+            caller_bad, issuer_stale, publication_stale, server_status = False, False, False, 404
             def execute(args, **kwargs):
                 program = args[-1]
                 marker = "const specs="
                 specs = json.loads(program.split(marker, 1)[1].split(";\n", 1)[0])
                 environment = {"PATH": os.defpath}
+                environment.update({"OOS_PRODUCT_PUBLICATION_ENABLED": "true", "OOS_WORKSPACE_INTAKE_ENABLED": "true",
+                    "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF": ("b" if publication_stale else "a") * 40,
+                    "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF": "a" * 40})
                 files, repositories = {}, {}
                 for spec in specs:
                     environment.update(spec["required"])
@@ -955,6 +960,9 @@ class WorkflowCredentialTests(unittest.TestCase):
                     repositories[files[environment[spec["file_env"]]]] = {"id": spec["id"], "full_name": spec["repository"]}
                     if "readiness" in spec:
                         environment[spec["readiness"]["secret_env"]] = "wrong-caller" if caller_bad else "synthetic-preserved-caller"
+                        contract, _ = manager.contract(spec["slug"])
+                        if issuer_stale:
+                            environment[contract.wgcf_implementation_ref_env] = "b" * 40
                 shim = "require('node:fs').readFileSync=(file)=>(" + json.dumps(files) + ")[file];\n"
                 shim += ("globalThis.fetch=async(url,options)=>url.startsWith('https://api.github.com/')?"
                     "{status:200,json:async()=>({total_count:1,repositories:[" + json.dumps(repositories)
@@ -963,6 +971,14 @@ class WorkflowCredentialTests(unittest.TestCase):
             manager.run = execute
             result = manager.probe(bindings)
             self.assertTrue(all(result[slug]["readiness_authenticated"] for slug in module.READINESS_WORKFLOWS))
+            issuer_stale = True
+            self.assertTrue(all(value["configured"] for value in manager.probe(bindings, provider=False).values()))
+            with self.assertRaises(module.CredentialError): manager.probe(bindings)
+            issuer_stale = False
+            publication_stale = True
+            self.assertTrue(all(value["configured"] for value in manager.probe(bindings, provider=False).values()))
+            with self.assertRaises(module.CredentialError): manager.probe(bindings)
+            publication_stale = False
             caller_bad = True
             with self.assertRaises(module.CredentialError): manager.probe(bindings)
             caller_bad = False

@@ -448,6 +448,7 @@ spec:
             httpGet:
               path: /readyz
               port: http
+            timeoutSeconds: 5
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:

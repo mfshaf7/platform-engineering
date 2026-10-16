@@ -63,7 +63,8 @@ python3 - \
   "${UPSTREAM_MODEL}" \
   "${UPSTREAM_MODEL_DIGEST}" \
   "${PROVIDER_RUNTIME_VERSION}" \
-  "${WORK_DESIGN_SELECTION_JSON}" <<'PY'
+  "${WORK_DESIGN_SELECTION_JSON}" \
+  "${MODEL_SELECTIONS_JSON}" <<'PY'
 import json
 import pathlib
 import sys
@@ -237,10 +238,8 @@ if summary["direct_ollama_reachable_from_consumer"]:
 if not summary["provider_schema_valid"]:
     failures.append("gateway did not record valid provider schema evidence")
 if set(summary["ready_profile_ids"]) != {
-    "agent-console-assistant-v1",
-    "intake-classifier-v1",
-    "delivery-work-design-advisor-v1",
-    "delivery-refinement-advisor-v1",
+    name for name, profile in json.loads(sys.argv[16])["profiles"].items()
+    if profile["activation_eligible"] is True
 }:
     failures.append("gateway readiness does not expose every independently active profile")
 if summary["work_design_http_status"] != 200:

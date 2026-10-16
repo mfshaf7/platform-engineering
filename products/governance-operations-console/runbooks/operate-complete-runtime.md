@@ -117,6 +117,12 @@ advance; Studio application source under `prototypes/` is incubation data to
 this control plane. Governing code, schema, policy, hooks, symlinks, executable
 modes, history rewrites and unrelated paths are denied.
 
+Unchanged refresh keeps the still-valid prior checkpoint readable while the
+provider fetch and admission checks run, then replaces it atomically. A changed
+record revision or reviewed source set invalidates the prior checkpoint before
+changing the clone. Failed observation still invalidates freshness; this is not
+an offline cache or grace-period bypass.
+
 Each successful bounded refresh atomically issues a five-minute checkpoint
 binding owner, trusted ref, reviewed control baseline, actual record revision,
 observation and expiry. OOS and WGCF consume read-only snapshots and require

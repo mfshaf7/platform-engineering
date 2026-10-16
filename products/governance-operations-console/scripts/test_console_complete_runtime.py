@@ -24,6 +24,44 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_record_group_keeps_unchanged_checkpoints_and_invalidates_peers_on_change_or_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            owners = sorted(runtime.record_authority.OWNERS)
+            files = {owner: root / owner / ".git" / runtime.record_authority.CHECKPOINT for owner in owners}
+            for file in files.values():
+                file.parent.mkdir(parents=True)
+                file.write_text("prior accepted checkpoint")
+            policy = {"security": {"reviewed_revisions": {owner: "a" * 40 for owner in owners}}}
+            calls = []
+            change = False
+            fail = False
+            def refresh(cache, source, owner, reviewed, *, before_change):
+                calls.append(owner)
+                if fail:
+                    raise runtime.record_authority.RecordAuthorityError("offline")
+                if change and owner == owners[-1]:
+                    before_change()
+                    self.assertTrue(all(not file.exists() for file in files.values()))
+                elif not change:
+                    self.assertTrue(all(file.exists() for file in files.values()))
+                files[owner].write_text("fresh accepted checkpoint")
+                return {"record_revision": reviewed}
+            with (patch.object(runtime, "RECORD_AUTHORITY_ROOT", root),
+                  patch.object(runtime, "repo_path", side_effect=lambda owner: root / owner),
+                  patch.object(runtime.record_authority, "refresh_snapshot", side_effect=refresh)):
+                runtime.refresh_record_authorities(policy)
+                self.assertEqual(calls, owners)
+                change = True
+                calls.clear()
+                runtime.refresh_record_authorities(policy)
+                self.assertEqual(calls, owners + [owners[0]])
+                self.assertTrue(all(file.exists() for file in files.values()))
+                fail = True
+                with self.assertRaises(runtime.record_authority.RecordAuthorityError):
+                    runtime.refresh_record_authorities(policy)
+                self.assertTrue(all(not file.exists() for file in files.values()))
+
     def test_security_anchor_tracks_relevant_decisions_not_unrelated_index_commits(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

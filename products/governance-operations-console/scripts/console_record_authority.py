@@ -115,8 +115,35 @@ def provider_remote(source: Path, owner: str) -> str:
     return remote
 
 
+def invalidate_snapshot(cache_root: Path, owner: str) -> None:
+    if owner not in OWNERS:
+        return
+    root = cache_root / owner
+    if (not cache_root.is_symlink() and not root.is_symlink()
+        and not (root / ".git").is_symlink() and (root / ".git").is_dir()
+        and root.stat().st_uid == os.geteuid()
+        and (root / ".git").stat().st_uid == os.geteuid()):
+        (root / ".git" / CHECKPOINT).unlink(missing_ok=True)
+
+
 def refresh_snapshot(cache_root: Path, source: Path, owner: str, reviewed: str,
-                     *, now: datetime | None = None, remote_for_test: Path | None = None) -> dict[str, Any]:
+                     *, now: datetime | None = None, remote_for_test: Path | None = None,
+                     before_change=None) -> dict[str, Any]:
+    if owner not in OWNERS:
+        raise RecordAuthorityError("canonical record owner is invalid")
+    try:
+        return _refresh_snapshot(cache_root, source, owner, reviewed,
+            now=now, remote_for_test=remote_for_test, before_change=before_change)
+    except (RecordAuthorityError, OSError, ValueError, TypeError, KeyError):
+        # Failed observation must still fail closed, even when the last
+        # successful checkpoint had not expired yet.
+        invalidate_snapshot(cache_root, owner)
+        raise
+
+
+def _refresh_snapshot(cache_root: Path, source: Path, owner: str, reviewed: str,
+                     *, now: datetime | None = None, remote_for_test: Path | None = None,
+                     before_change=None) -> dict[str, Any]:
     """Refresh one fixed owner. remote_for_test is native-Git test injection only."""
     if owner not in OWNERS or not COMMIT.fullmatch(reviewed):
         raise RecordAuthorityError("record source owner or reviewed baseline is invalid")
@@ -143,9 +170,12 @@ def refresh_snapshot(cache_root: Path, source: Path, owner: str, reviewed: str,
             if not stat.S_ISREG(info.st_mode) or info.st_size > 2048:
                 raise ValueError()
             value = json.loads(checkpoint.read_text())
-            checkpoint.unlink()  # Invalidate before checking a prior source-set binding.
             if value["owner_repo"] != owner or value["record_revision"] != previous:
                 raise ValueError()
+            if value["reviewed_revision"] != reviewed:
+                if before_change:
+                    before_change()
+                checkpoint.unlink(missing_ok=True)  # A different source set cannot borrow freshness.
         except (OSError, ValueError, TypeError, KeyError):
             raise RecordAuthorityError("retained record checkpoint is malformed or from another source set") from None
     remote = remote or provider_remote(source, owner)
@@ -158,8 +188,12 @@ def refresh_snapshot(cache_root: Path, source: Path, owner: str, reviewed: str,
     git(root, "fetch", "--no-tags", "origin", f"+refs/heads/main:{CANDIDATE_REF}")
     candidate = git(root, "rev-parse", f"{CANDIDATE_REF}^{{commit}}")
     changed = admit_record_delta(root, owner, reviewed, candidate, previous)
-    git(root, "checkout", "--detach", candidate)
-    git(root, "update-ref", TRUSTED_REF, candidate)
+    if candidate != previous or git(root, "rev-parse", TRUSTED_REF) != candidate:
+        if before_change:
+            before_change()
+        checkpoint.unlink(missing_ok=True)
+        git(root, "checkout", "--detach", candidate)
+        git(root, "update-ref", TRUSTED_REF, candidate)
     observed = now or datetime.now(timezone.utc)
     value = dict(schema_version=1, owner_repo=owner, trusted_ref=TRUSTED_REF,
         reviewed_revision=reviewed, record_revision=candidate,

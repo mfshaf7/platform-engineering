@@ -603,6 +603,19 @@ class WorkflowCredentialTests(unittest.TestCase):
             with self.subTest(required=required), self.assertRaises(runtime.workflow_credentials.CredentialError):
                 runtime.workflow_credentials.validate_policy({**policy, "workflow_credentials": {"enabled": True, "required": required}})
 
+    def test_target_reuses_existing_local_cluster_guard_before_secret_access(self):
+        module = runtime.workflow_credentials
+        manager = module.Credentials(repo_root=runtime.REPO_ROOT, workspace_root=Path("/tmp/test"),
+                                     session_manifest=Path("/tmp/test/session.yaml"), run=Mock(), private_key=Mock())
+        target = SimpleNamespace(namespace="devint-test")
+        with patch.object(module, "load_dev_integration_target", return_value=target), patch.object(module, "verify_dev_integration_cluster", return_value=target) as verify:
+            self.assertIs(manager.target(Mock()), target)
+            verify.assert_called_once_with("k3s kubectl", target)
+        with patch.object(module, "load_dev_integration_target", return_value=target), patch.object(module, "verify_dev_integration_cluster", side_effect=module.IdentityError("wrong cluster")):
+            with self.assertRaisesRegex(module.IdentityError, "wrong cluster"):
+                manager.binding("proposal-target")
+        manager.run.assert_not_called()
+
     def test_expired_group_rotates_once_preserving_owner_fields_and_proves_consumption(self):
         with tempfile.TemporaryDirectory() as temp:
             manager = self.manager(Path(temp), minutes=-5)

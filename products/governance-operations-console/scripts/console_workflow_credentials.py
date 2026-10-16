@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import prototype_workflow_identity as prototype_identity
 import workspace_intake_identity as intake_identity
-from repository_provider_identity import IdentityError, ProviderRepository, load_dev_integration_target
+from repository_provider_identity import IdentityError, ProviderRepository, load_dev_integration_target, verify_dev_integration_cluster
 
 # Previously commissioned identities. Neither callers nor browser input select Apps,
 # destinations, repositories, permissions, or workflow activation.
@@ -60,7 +60,9 @@ class Credentials:
         return contract, definition
 
     def target(self, contract):
-        return load_dev_integration_target(self.session_manifest, self.workspace_root, contract, require_running=True)
+        return verify_dev_integration_cluster("k3s kubectl", load_dev_integration_target(
+            self.session_manifest, self.workspace_root, contract, require_running=True,
+        ))
 
     def binding(self, slug: str) -> tuple[Any, Any, dict]:
         contract, _ = self.contract(slug)

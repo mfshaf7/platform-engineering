@@ -33,6 +33,38 @@ def caller(profile_id: str, caller_id: str) -> dict:
 
 
 class GatewayPolicyTests(unittest.TestCase):
+    def test_bounded_realization_matches_the_existing_oos_contract_and_local_model_only(self) -> None:
+        policy = GatewayPolicy(selections())
+        request = {
+            "profile_id": "source-realization-v1",
+            "caller_identity": caller("source-realization-v1", "operator-orchestration-service/source-realization"),
+            "operator_identity": {"operator_id": "operator:workspace-owner"},
+            "task": {"kind": "source_realization", "contract_ref": "oos.delivery-art.source-realization.v1", "version": "1.0"},
+            "provider_output_schema_ref": "platform-engineering/security/schemas/source-realization-change-set.schema.json",
+            "input": {
+                "task_instruction": "Produce one bounded change set; no commands, tools, approval or merge.",
+                "model_safe_packet": {"content": "Synthetic admitted objective and repository context",
+                    "packet_ref": "cgg://packets/test", "redaction_receipt_ref": "cgg://redactions/test",
+                    "projection_receipt_ref": "cgg://projections/test", "artifact_digest": "sha256:" + "a" * 64},
+                "source_binding": {"session_id": "session:test", "base_commit": "b" * 40,
+                    "objective_digest": "sha256:" + "c" * 64, "context_digest": "sha256:" + "d" * 64},
+            },
+        }
+        decision = policy.evaluate(request)
+        self.assertTrue(decision.allowed, decision.reasons)
+        self.assertEqual(decision.profile["provider"], "ollama")
+        self.assertEqual(decision.profile["upstream_model"], "qwen3:8b")
+        self.assertEqual(decision.profile["runtime_limits"]["max_concurrency"], 1)
+        wrong_workflow = copy.deepcopy(request)
+        wrong_workflow["caller_identity"]["caller_workflow"] = "delivery-art-source-realization"
+        self.assertIn("caller-identity-mismatch", policy.evaluate(wrong_workflow).reasons)
+        wrong_schema = copy.deepcopy(request)
+        wrong_schema["provider_output_schema_ref"] = "operator-orchestration-service/contracts/delivery-art-work-session/source-realization-change-set.schema.json"
+        self.assertIn("output-schema-mismatch", policy.evaluate(wrong_schema).reasons)
+        direct = copy.deepcopy(request)
+        direct["input"]["provider_url"] = "http://unapproved.invalid"
+        self.assertFalse(policy.evaluate(direct).allowed)
+
     def test_intake_compatibility_request_resolves_the_default_task(self) -> None:
         request = {
             "profile_id": "intake-classifier-v1",

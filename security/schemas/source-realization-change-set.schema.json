@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://platform-engineering.local/security/schemas/source-realization-change-set.schema.json",
+  "title": "Bounded source realization provider output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "change_set_id", "session_id", "base_commit", "objective_digest", "commit_message", "operations"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "change_set_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "base_commit": {"type": "string", "minLength": 40, "maxLength": 40},
+    "objective_digest": {"type": "string", "minLength": 71, "maxLength": 71},
+    "commit_message": {"type": "string", "minLength": 10, "maxLength": 120},
+    "operations": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["action", "path", "content", "expected_digest"],
+        "properties": {
+          "action": {"type": "string", "enum": ["create", "replace", "delete"]},
+          "path": {"type": "string", "minLength": 1, "maxLength": 240},
+          "content": {"type": ["string", "null"], "maxLength": 65536},
+          "expected_digest": {"type": ["string", "null"], "minLength": 71, "maxLength": 71}
+        }
+      }
+    }
+  }
+}

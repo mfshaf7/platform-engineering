@@ -308,6 +308,7 @@ class GatewayRuntimeTests(unittest.TestCase):
                 "agent-console-assistant-v1",
                 "delivery-refinement-advisor-v1",
                 "delivery-work-design-advisor-v1",
+                "source-realization-v1",
             ],
         )
         self.assertFalse(readiness["profiles"]["intake-classifier-v1"]["ready"])

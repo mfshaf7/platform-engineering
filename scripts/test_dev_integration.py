@@ -528,6 +528,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "delivery-work-design-advisor-v1",
                     "delivery-refinement-advisor-v1",
                     "agent-console-assistant-v1",
+                    "source-realization-v1",
                 },
             )
             self.assertTrue(
@@ -545,6 +546,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "activation_eligible"
                 ]
             )
+            self.assertTrue(selections["profiles"]["source-realization-v1"]["activation_eligible"])
             gateway = next(
                 document
                 for document in documents

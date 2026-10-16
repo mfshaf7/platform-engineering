@@ -60,6 +60,15 @@ Platform activation #1013. The Console continues to call OOS only; neither OOS
 business handlers nor CGG receive provider credentials. Paid-provider, stage,
 and production activation remain prohibited.
 
+`source-realization-v1` extends the same local provider/model for OOS's bounded
+`source_realization` task. It binds the exact `source-realization` caller
+workflow and Platform-owned structural change-set schema. OOS retains stricter
+semantic validation, private draft custody and explicit digest acceptance;
+the model receives no tools, shell, repository credential or apply authority.
+Its source configuration must not be reported as operating readiness before
+the exact Console complete-runtime Security decision and commissioning proof.
+The complete-runtime runbook is the activation and recovery surface.
+
 The dev-integration launcher resolves every configured logical profile for one
 environment, verifies each matching access-plane route, and emits
 content-addressed non-secret selection references. Requests must name an exact

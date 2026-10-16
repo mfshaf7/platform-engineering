@@ -90,3 +90,37 @@ used as a signal target. Stale activation state withholds effect capabilities.
 Rollback removes only the dedicated provider, OOS binding, Console services,
 and generated credentials; teardown additionally suspends the reused
 composition while preserving owner evidence.
+
+### Current canonical data under reviewed controls
+
+The complete-runtime owner maintains private, bounded Git snapshots for the
+fixed Workspace Governance and Prototype Studio providers. Only approved
+record/inventory paths and Studio incubation application source may advance
+from the reviewed control revision. Policy, schemas, control code, executable
+modes, symlinks and rewritten history remain denied. Primary execution-source
+checkouts are never pulled or reset by refresh.
+
+The existing credential timer refreshes records every minute and atomically
+publishes a five-minute owner/ref/revision checkpoint. A failed refresh
+invalidates both owners while credential maintenance continues. OOS, WGCF and
+the fixed Studio Preview owner adapter require that freshness proof. Runtime
+status verifies consumed read-only mounts and current live Prototype and
+Delivery registers, not only producer files or homepage health.
+
+The new source-realization profile retains the existing provider, model,
+gateway and caller boundaries. Platform structural validation does not
+replace OOS semantic validation, explicit exact-digest acceptance or Gary's
+source executor. It is commissioned only with the exact composed Security
+decision and operating proof.
+
+Normal activation and the Platform provider reuse the admitted composition
+oneshot with retained supervision. A product-owned drop-in composes the full
+runtime so ordinary startup cannot silently revert owner mounts or lose
+detached helpers with the request controller. Uncached full operating proof
+also requires retained supervision. Rollback restores prior mounts and flags,
+removes that drop-in and preserves both owner data and the generic unit.
+
+Current clean Security source is always revalidated. Acceptance provenance
+uses the last commit touching the relevant decision/review files, so unrelated
+generated index updates do not invalidate otherwise identical acceptance.
+Changed or revoked decisions do invalidate it.

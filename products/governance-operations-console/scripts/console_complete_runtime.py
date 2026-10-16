@@ -11,6 +11,7 @@ import hashlib
 import ipaddress
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -27,6 +28,7 @@ import yaml
 
 import platform_operation_provider as provider
 import console_workflow_credentials as workflow_credentials
+import console_record_authority as record_authority
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +55,7 @@ REPOSITORY_PROVISIONING_RECEIPT = RECEIPT_ROOT / "repository-provisioning-delive
 REPOSITORY_PROVISIONING_REVOKE_RECEIPT = RECEIPT_ROOT / "repository-provisioning-revoke.json"
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
 OPERATING_PROOF_LOCK_PATH = STATE_ROOT / "verify-operating.lock"
+RECORD_AUTHORITY_ROOT = STATE_ROOT / "record-authority"
 
 
 class RuntimeError(RuntimeError):
@@ -135,10 +138,21 @@ def git_tree(name: str) -> str:
 
 def require_clean_exact_source(name: str, revision: str) -> None:
     path = repo_path(name)
-    if not re_full_commit(revision) or not path.is_dir() or git_head(name) != revision:
+    if not re_full_commit(revision) or not path.is_dir():
         raise RuntimeError(f"{name} is not at the exact reviewed revision")
     if run(["git", "-C", str(path), "status", "--porcelain"]).stdout.strip():
         raise RuntimeError(f"{name} must be clean before complete runtime activation")
+    current = git_head(name)
+    if current != revision:
+        if name not in record_authority.OWNERS:
+            raise RuntimeError(f"{name} is not at the exact reviewed revision")
+        # Only accepted record-only descendants may advance an owner's primary
+        # checkout. All executable/schema/policy source remains exactly pinned.
+        branch = run(["git", "-C", str(path), "symbolic-ref", "--short", "HEAD"]).stdout.strip()
+        if branch != "main":
+            raise RuntimeError(f"{name} data advancement is not on main")
+        record_authority.git(path, "merge-base", "--is-ancestor", current, "refs/remotes/origin/main")
+        record_authority.admit_record_delta(path, name, revision, current)
 
 
 def re_full_commit(value: Any) -> bool:
@@ -148,6 +162,12 @@ def re_full_commit(value: Any) -> bool:
 def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     policy = provider.load_policy(policy_path)
     workflow_credentials.validate_policy(policy)
+    if policy.get("record_authority") != {"enabled": True,
+        "owner_repos": ["workspace-governance", "workspace-prototype-studio"]}:
+        raise RuntimeError("complete runtime canonical record boundary is invalid")
+    if policy.get("source_realization") != {"enabled": True, "profile_id": "source-realization-v1",
+        "security_review_ref": "docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md"}:
+        raise RuntimeError("complete runtime source realization boundary is invalid")
     delivery = policy.get("delivery", {})
     architecture = delivery.get("architecture", {})
     if delivery.get("delivery_id") != "delivery-1275" or delivery.get("work_item_ref") != "openproject://work_packages/1291":
@@ -247,6 +267,7 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
         "platform-engineering",
         "workspace-governance",
         "workspace-governance-control-fabric",
+        "workspace-prototype-studio",
     }
     if (
         security.get("owner_repo") != "security-architecture"
@@ -268,6 +289,19 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
 
 def _git_file(repo: Path, revision: str, path: str) -> str:
     return run(["git", "-C", str(repo), "show", f"{revision}:{path}"]).stdout
+
+
+def security_acceptance_anchor(repo: Path, current: str, paths: list[str]) -> str:
+    """Bind current decision content, not unrelated generated-index commits.
+
+    Callers still read and validate the decision at clean current origin/main;
+    a changed/revoked decision or relevant review advances this exact anchor.
+    """
+    value = run(["git", "-C", str(repo), "log", "-1", "--format=%H", current,
+        "--", *paths]).stdout.strip()
+    if not re_full_commit(value):
+        raise RuntimeError("Security acceptance source history is unavailable")
+    return value
 
 
 def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -383,15 +417,21 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
     if provider.canonical_digest(expected_binding) != repository["credential_binding_ref"]["digest"]:
         raise RuntimeError("the repository provisioning credential binding is stale")
     decision_digest = provider.canonical_digest(decision)
+    # The current authoritative content has already passed every gate above.
+    # An unrelated owner-record index update must not invalidate that decision.
+    acceptance_revision = security_acceptance_anchor(security_repo, security_revision, [
+        security["decision_ref"], security["review_ref"], repository["security_review_ref"],
+        policy["source_realization"]["security_review_ref"],
+    ])
     resolved = json.loads(json.dumps(policy))
     resolved["security"].update({
         "status": "accepted",
-        "decision_uri": f"security-architecture://git/{security_revision}/{security['decision_ref']}",
+        "decision_uri": f"security-architecture://git/{acceptance_revision}/{security['decision_ref']}",
         "decision_digest": decision_digest,
         "platform_revision": revisions["platform-engineering"],
         "platform_tree": trees["platform-engineering"],
         "reviewed_revisions": revisions,
-        "security_revision": security_revision,
+        "security_revision": acceptance_revision,
     })
     activation = resolved_activation_policy(resolved)
     return resolved, activation
@@ -463,6 +503,12 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
             "provisioning_credential_binding_ref": policy["repository_provisioning"]["credential_binding_ref"],
             "wgcf_readiness_enabled": True,
         },
+        "prototype_preview": {
+            "owner_repo_root": str(RECORD_AUTHORITY_ROOT / "workspace-prototype-studio"),
+            "source_revision": revisions["workspace-prototype-studio"],
+            "state_root": str(STATE_ROOT / "prototype-preview"),
+            "record_authority_freshness_required": True,
+        },
         "receipts": {"directory": "governance-console-complete-runtime/receipts", "maximum_age_seconds": 120},
     }
 
@@ -518,6 +564,69 @@ def composition_command(policy: dict[str, Any], action: str) -> list[str]:
     for name, path in sorted(selected_repo_paths().items()):
         command.extend(["--repo-path", f"{name}={path}"])
     return command
+
+
+def composition_supervisor_unit(policy: dict[str, Any]) -> str:
+    account = re.sub(r"[^a-z0-9]+", "-", operator().lower()).strip("-")
+    return f"workspace-devint-{policy['runtime']['session_profile']}-{account}.service"
+
+
+def inside_composition_supervisor(policy: dict[str, Any]) -> bool:
+    if os.environ.get("DEVINT_AUTO_RESUME") != "1":
+        return False
+    try:
+        groups = Path("/proc/self/cgroup").read_text().splitlines()
+    except OSError:
+        return False
+    return any(composition_supervisor_unit(policy) in line.split(":")[-1].split("/") for line in groups)
+
+
+def require_retained_supervision() -> str:
+    try:
+        groups = Path("/proc/self/cgroup").read_text().splitlines()
+        units = [part for line in groups for part in line.split(":")[-1].split("/")
+            if part.endswith(".service") and re.fullmatch(r"[A-Za-z0-9_.@-]+", part)]
+        unit = units[-1]
+        value = run(["systemctl", "--user", "show", unit, "-p", "Type", "-p", "RemainAfterExit"]).stdout
+        fields = dict(line.split("=", 1) for line in value.splitlines() if "=" in line)
+        if fields.get("Type") != "oneshot" or fields.get("RemainAfterExit") != "yes":
+            raise ValueError()
+        return unit
+    except (OSError, IndexError, ValueError):
+        raise RuntimeError("runtime proof requires a retained oneshot supervisor; detached owner helpers must survive controller exit") from None
+
+
+def write_composition_supervisor(policy: dict[str, Any]) -> None:
+    # Reuse the admitted profile unit. Its product-owned drop-in survives a
+    # generic profile-unit refresh and adds no new service or startup authority.
+    scripts = repo_path("platform-engineering") / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        from dev_integration_auto_resume import build_auto_resume_spec, enable_auto_resume, _systemd_quote, _systemd_path_value
+    finally:
+        sys.path.pop(0)
+    profile_path = repo_path("operator-orchestration-service") / "dev-integration/profiles/accepted-idea-delivery/profile.yaml"
+    profile = yaml.safe_load(profile_path.read_text())
+    spec = build_auto_resume_spec(operator=operator(), platform_runner=scripts / "dev_integration.py",
+        profile=profile, profile_id=policy["runtime"]["session_profile"],
+        composition_id=policy["platform_operation_provider"]["composition_id"],
+        repo_paths=selected_repo_paths(), workspace_root=WORKSPACE_ROOT)
+    if spec.policy != "operator-login" or spec.unit_name != composition_supervisor_unit(policy):
+        raise RuntimeError("the existing composition supervisor is not admitted")
+    enable_auto_resume(spec)
+    directory = spec.unit_path.parent / f"{spec.unit_name}.d"
+    ensure_private(directory)
+    command = [sys.executable, str(PRODUCT_ROOT / "scripts/console_complete_runtime.py"), "activate"]
+    for name, path in sorted(selected_repo_paths().items()):
+        command.extend(["--repo-path", f"{name}={path}"])
+    content = "[Service]\nWorkingDirectory=" + _systemd_path_value(repo_path("platform-engineering")) + "\nExecStart=\nExecStart="
+    content += " ".join(_systemd_quote(value) for value in command) + "\n"
+    target = directory / "console-runtime.conf"
+    if target.is_symlink():
+        raise RuntimeError("the composition supervisor drop-in is unsafe")
+    target.write_text(content)
+    target.chmod(0o600)
+    run(["systemctl", "--user", "daemon-reload"])
 
 
 def cross_domain_command(action: str) -> list[str]:
@@ -711,7 +820,7 @@ Description=Maintain Governance Console admitted workflow credentials
 
 [Timer]
 OnActiveSec=60s
-OnUnitActiveSec=300s
+OnUnitActiveSec=60s
 Unit={REPOSITORY_REFRESH_SERVICE}
 
 [Install]
@@ -737,6 +846,14 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
         or marker.get("platform_tree") != policy["security"]["platform_tree"]
     ):
         raise RuntimeError("repository renewal runtime binding is stale")
+    record_failure = False
+    try:
+        records = refresh_record_authorities(policy)
+    except record_authority.RecordAuthorityError:
+        # A data/provider failure withholds fresh record authority, but must not
+        # silently prevent the existing purpose-bound credential renewal.
+        records = {"status": "unavailable"}
+        record_failure = True
     try:
         delivered = json.loads(REPOSITORY_PROVISIONING_RECEIPT.read_text(encoding="utf-8"))
         expires_at = datetime.fromisoformat(delivered["token_expires_at"].replace("Z", "+00:00"))
@@ -757,9 +874,151 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
     })
     repository_provisioning_status(policy)
-    return receipt("refresh-credentials", policy, {
+    result = receipt("refresh-credentials", policy, {
         "refreshed": refreshed, "credential_current": True, "workflow_credentials": workflows,
+        "record_authority": records,
     })
+    if record_failure:
+        raise RuntimeError("canonical record refresh failed; owner writes are withheld; credentials remain maintained")
+    return result
+
+
+def refresh_record_authorities(policy: dict[str, Any]) -> dict[str, Any]:
+    revisions = policy["security"]["reviewed_revisions"]
+    # Invalidate the whole bounded group before refreshing any member. A partial
+    # refresh is not permission for one owner to use a stale peer snapshot.
+    for owner in sorted(record_authority.OWNERS):
+        checkpoint = RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT
+        if checkpoint.is_file() and not checkpoint.is_symlink():
+            checkpoint.unlink()
+    try:
+        values = {owner: record_authority.refresh_snapshot(RECORD_AUTHORITY_ROOT,
+            repo_path(owner), owner, revisions[owner]) for owner in sorted(record_authority.OWNERS)}
+    except Exception:
+        for owner in sorted(record_authority.OWNERS):
+            checkpoint = RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT
+            if checkpoint.is_file() and not checkpoint.is_symlink():
+                checkpoint.unlink()
+        raise record_authority.RecordAuthorityError("canonical record refresh failed; restore the approved owner source") from None
+    return {"status": "current", "owners": values}
+
+
+def record_authority_status(policy: dict[str, Any]) -> dict[str, Any]:
+    return {"status": "current", "owners": {owner: record_authority.snapshot_status(
+        RECORD_AUTHORITY_ROOT, owner, policy["security"]["reviewed_revisions"][owner])
+        for owner in sorted(record_authority.OWNERS)}}
+
+
+def apply_record_authority_binding(policy: dict[str, Any], *, enabled: bool = True) -> None:
+    """Compose private data mounts without changing owner execution-source roots."""
+    studio = str(RECORD_AUTHORITY_ROOT / "workspace-prototype-studio" if enabled else repo_path("workspace-prototype-studio"))
+    governance = str(RECORD_AUTHORITY_ROOT / "workspace-governance" if enabled else repo_path("workspace-governance"))
+    flag = "true" if enabled else "false"
+    oos_mounts = {
+        "workspace-governance-source": (governance, "/sources/workspace-governance"),
+        "proposal-target-application-authority": (studio, "/var/lib/oos/proposal-target-application/authority"),
+        "prototype-landing-authority": (studio, "/var/lib/oos/prototype-landing/authority"),
+        "prototype-maturity-authority": (studio, "/var/lib/oos/prototype-maturity/authority"),
+        "prototype-closure-authority": (studio, "/var/lib/oos/prototype-closure/authority"),
+    }
+    wgcf = policy["repository_provisioning"]["wgcf"]
+    for ns, deployment, container, mounts, environment in [
+        (namespace(policy), policy["runtime"]["oos_deployment"], policy["runtime"]["oos_deployment"], oos_mounts,
+         {"OOS_RECORD_AUTHORITY_FRESHNESS_REQUIRED": flag, "OOS_SOURCE_REALIZATION_ENABLED": flag,
+          "OOS_SOURCE_REALIZATION_PROFILE_ID": policy["source_realization"]["profile_id"]}),
+        (wgcf["namespace_pattern"].replace("{operator}", operator()), wgcf["deployment"], "api",
+         {"workspace-governance-source": (governance, "/sources/workspace-governance"),
+          "prototype-studio-source": (studio, "/sources/workspace-prototype-studio")},
+         {"WGCF_RECORD_AUTHORITY_FRESHNESS_REQUIRED": flag}),
+    ]:
+        if not enabled and run(["k3s", "kubectl", "-n", ns, "get", f"deployment/{deployment}", "-o", "name"], check=False).returncode:
+            continue
+        patch = {"spec": {"template": {"spec": {
+            "containers": [{"name": container,
+                "volumeMounts": [{"name": name, "mountPath": value[1], "readOnly": True} for name, value in mounts.items()],
+                "env": [{"name": name, "value": value} for name, value in environment.items()]}],
+            "volumes": [{"name": name, "hostPath": {"path": value[0], "type": "Directory"}} for name, value in mounts.items()],
+        }}}}
+        run(["k3s", "kubectl", "-n", ns, "patch", f"deployment/{deployment}",
+            "--type=strategic", "--patch", json.dumps(patch, separators=(",", ":"))])
+        run(["k3s", "kubectl", "-n", ns, "rollout", "status", f"deployment/{deployment}", "--timeout=300s"])
+
+
+def record_binding_status(policy: dict[str, Any]) -> dict[str, Any]:
+    """Observe actual consumed roots/flags, not only producer checkpoint files."""
+    records = record_authority_status(policy)
+    wgcf = policy["repository_provisioning"]["wgcf"]
+    targets = [
+        (namespace(policy), policy["runtime"]["oos_deployment"], "OOS_RECORD_AUTHORITY_FRESHNESS_REQUIRED", "OOS_SOURCE_REALIZATION_ENABLED"),
+        (wgcf["namespace_pattern"].replace("{operator}", operator()), wgcf["deployment"], "WGCF_RECORD_AUTHORITY_FRESHNESS_REQUIRED", None),
+    ]
+    for ns, name, freshness, realization in targets:
+        value = json.loads(run(["k3s", "kubectl", "-n", ns, "get", f"deployment/{name}", "-o", "json"]).stdout)
+        pod = value["spec"]["template"]["spec"]
+        expected_container = name if freshness.startswith("OOS_") else "api"
+        container = next((item for item in pod["containers"] if item["name"] == expected_container), None)
+        if not isinstance(container, dict):
+            raise RuntimeError("canonical record owner container is unavailable")
+        environment = {item["name"]: item.get("value") for item in container.get("env", [])}
+        if environment.get(freshness) != "true" or realization and environment.get(realization) != "true":
+            raise RuntimeError("canonical record or realization runtime guard is not active")
+        expected = {"workspace-governance-source": ("workspace-governance", "/sources/workspace-governance")}
+        if realization:
+            expected.update({f"{family}-authority": ("workspace-prototype-studio", f"/var/lib/oos/{family}/authority")
+                for family in ("proposal-target-application", "prototype-landing", "prototype-maturity", "prototype-closure")})
+            if environment.get("OOS_SOURCE_REALIZATION_PROFILE_ID") != "source-realization-v1":
+                raise RuntimeError("source realization is not bound to the commissioned profile")
+        else:
+            expected["prototype-studio-source"] = ("workspace-prototype-studio", "/sources/workspace-prototype-studio")
+        mounts = {item["name"]: item for item in container.get("volumeMounts", [])}
+        volumes = {item["name"]: item for item in pod.get("volumes", [])}
+        for volume_name, (owner, mount_path) in expected.items():
+            if (volumes.get(volume_name, {}).get("hostPath", {}).get("path") != str(RECORD_AUTHORITY_ROOT / owner)
+                or volumes.get(volume_name, {}).get("hostPath", {}).get("type") != "Directory"
+                or mounts.get(volume_name, {}).get("mountPath") != mount_path
+                or mounts.get(volume_name, {}).get("readOnly") is not True
+                or mounts.get(volume_name, {}).get("subPath")
+                or mounts.get(volume_name, {}).get("subPathExpr")):
+                raise RuntimeError("canonical record runtime mount is missing, swapped or not read-only")
+        replicas = value["spec"].get("replicas", 1)
+        state = value.get("status", {})
+        if (not replicas or state.get("observedGeneration") != value.get("metadata", {}).get("generation")
+            or state.get("updatedReplicas") != replicas or state.get("availableReplicas") != replicas):
+            raise RuntimeError("canonical record owner has not consumed the current deployment")
+    return records
+
+
+def require_source_realization_profile(policy: dict[str, Any]) -> dict[str, Any]:
+    script = """const url=new URL('/readyz',process.env.GOVERNED_AI_GATEWAY_BASE_URL);
+const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
+const body=await response.json();const p=body.profiles?.['source-realization-v1'];
+if(!response.ok||p?.status!=='active'||p.activation_allowed!==true||p.activation_eligible!==true||p.ready!==true||JSON.stringify(p.task_kinds)!==JSON.stringify(['source_realization']))process.exit(1);
+console.log(JSON.stringify({profile_id:'source-realization-v1',status:p.status,ready:p.ready,task_kinds:p.task_kinds}));"""
+    value = json.loads(run(["k3s", "kubectl", "-n", namespace(policy), "exec",
+        f"deployment/{policy['runtime']['oos_deployment']}", "--", "node", "--input-type=module", "-e", script]).stdout)
+    if value != {"profile_id": "source-realization-v1", "status": "active", "ready": True, "task_kinds": ["source_realization"]}:
+        raise RuntimeError("the actual governed source realization profile is unavailable")
+    return value
+
+
+def require_console_primary_records(policy: dict[str, Any]) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for owner, route, key in (("prototype", "/api/prototypes/records", "readModel"), ("delivery", "/api/delivery/workspace", None)):
+        try:
+            with urlopen(f"http://127.0.0.1:{policy['runtime']['console_port']}{route}", timeout=90) as response:
+                raw = response.read(5 * 1024 * 1024 + 1)
+                if len(raw) > 5 * 1024 * 1024:
+                    raise ValueError()
+                value = json.loads(raw)
+            projection = value["projection"]
+            model = projection[key] if key else projection
+            records = model["records" if key else "packages"]
+            if value.get("mode") != "live" or not isinstance(records, list):
+                raise ValueError()
+            counts[owner] = len(records)
+        except (OSError, ValueError, KeyError, TypeError, HTTPError, URLError):
+            raise RuntimeError(f"the Console {owner} primary canonical read is unavailable; fixtures are not readiness") from None
+    return counts
 
 
 def cni_gateway() -> str:
@@ -1269,7 +1528,11 @@ def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    write_composition_supervisor(policy)
+    refresh_record_authorities(policy)
     run(composition_command(policy, "up"))
+    # Full composition startup may take longer than the data freshness window.
+    refresh_record_authorities(policy)
     delivered = deliver_repository_provisioning_identity(policy)
     workflow_credential_manager(policy).renew(extra_annotations={
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
@@ -1278,6 +1541,7 @@ def activate(policy: dict[str, Any]) -> Path:
     gateway = cni_gateway()
     write_provider_unit(policy, gateway, secret)
     apply_kubernetes_binding(policy, gateway, secret)
+    apply_record_authority_binding(policy)
     run(cross_domain_command("activate"))
     write_active_marker(policy)
     write_repository_refresh_units()
@@ -1298,6 +1562,9 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     console = console_operations(policy)
     repository = repository_provisioning_status(policy)
     workflows = workflow_credential_manager(policy).status()
+    records = record_binding_status(policy)
+    realization = require_source_realization_profile(policy)
+    primary_records = require_console_primary_records(policy)
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1309,6 +1576,9 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "provider_active": True,
         "repository_provisioning": repository,
         "workflow_credentials": workflows,
+        "record_authority": records,
+        "source_realization": realization,
+        "primary_records": primary_records,
     })
 
 
@@ -1316,6 +1586,7 @@ def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    refresh_record_authorities(policy)
     delivered = deliver_repository_provisioning_identity(policy)
     workflow_credential_manager(policy).renew(extra_annotations={
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
@@ -1330,6 +1601,7 @@ def restart(policy: dict[str, Any]) -> Path:
         "k3s", "kubectl", "-n", ns, "rollout", "status",
         f"deployment/{policy['runtime']['oos_deployment']}", "--timeout=300s",
     ])
+    apply_record_authority_binding(policy)
     run(cross_domain_command("restart"))
     write_active_marker(policy)
     write_repository_refresh_units()
@@ -1403,6 +1675,17 @@ def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
         if (UNIT_ROOT / unit).is_file():
             if run(["systemctl", "--user", "disable", "--now", unit], check=False).returncode:
                 failures.append("repository-credential-renewal-disable")
+    try:
+        apply_record_authority_binding(policy, enabled=False)
+        dropin = UNIT_ROOT / f"{composition_supervisor_unit(policy)}.d" / "console-runtime.conf"
+        if dropin.is_symlink():
+            raise RuntimeError("the composition supervisor drop-in is unsafe")
+        dropin.unlink(missing_ok=True)
+        # Preserve the admitted generic profile unit and all owner data. Only
+        # the Console-owned coordinator override is retired during rollback.
+        run(["systemctl", "--user", "daemon-reload"])
+    except (OSError, RuntimeError):
+        failures.append("console-record-boundary-restoration")
     try:
         revoke_repository_provisioning_identity(policy)
     except RuntimeError:
@@ -1523,6 +1806,7 @@ def verify_operating(policy: dict[str, Any]) -> Path:
         cached = reusable_operating_receipt(resolved)
         if cached is not None:
             return cached
+        require_retained_supervision()
         activate_receipt = activate(policy)
         credential_refresh_receipt = refresh_repository_credentials(policy, force=True)
         secret = credential()
@@ -1586,14 +1870,27 @@ def main() -> int:
             "verify-operating": verify_operating,
             "refresh-credentials": refresh_repository_credentials,
         }
-        if args.action in {"status", "verify-operating"}:
+        if args.action == "activate" and not inside_composition_supervisor(policy):
+            # Delegate before taking the lifecycle lock. The independently
+            # retained unit takes it normally; holding it while waiting here
+            # would deadlock its activation. No new flag or bypass is used.
+            resolved, _ = resolve_security_decision(policy)
+            require_activation_allowed(resolved)
+            if args.policy.resolve() != POLICY_PATH.resolve():
+                raise RuntimeError("normal activation requires the canonical complete-runtime policy")
+            write_composition_supervisor(resolved)
+            run(["systemctl", "--user", "restart", composition_supervisor_unit(resolved)])
+            result = status(policy, action="activate")
+        elif args.action in {"status", "verify-operating"}:
             result = actions[args.action](policy)
         else:
+            if args.action == "activate":
+                require_retained_supervision()
             with operating_proof_lock(blocking=args.action != "refresh-credentials"):
                 result = actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
-    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError) as exc:
+    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError) as exc:
         print(f"complete Console runtime {args.action} failed: {exc}", file=sys.stderr)
         return 1
 

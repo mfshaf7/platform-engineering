@@ -502,6 +502,14 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
             f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_URI={credential_ref['uri']}",
             f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_DIGEST={credential_ref['digest']}",
         ])
+    preview = policy.get("prototype_preview")
+    if preview:
+        values.extend([
+            f"GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_OWNER_REPO_ROOT={preview['owner_repo_root']}",
+            f"GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_SOURCE_REVISION={preview['source_revision']}",
+            f"GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_STATE_ROOT={preview['state_root']}",
+            "GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_RECORD_AUTHORITY_FRESHNESS_REQUIRED=true",
+        ])
     path.write_text(
         "\n".join(values) + "\n",
         encoding="utf-8",
@@ -542,7 +550,7 @@ WorkingDirectory={console_root}
 EnvironmentFile={env_path}
 Environment=PATH={Path(npm_path).parent}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart={npm_path} run dev
-Restart=on-failure
+Restart=always
 RestartSec=2
 
 [Install]

@@ -23,7 +23,8 @@ Security owns these two files in `security-architecture`:
 
 The YAML decision must accept gate `gate:platform-operation-security`, work
 item `#1303`, the current Architecture Packet reference, the exact reviewed
-revisions for Console, OOS, Platform, Workspace Governance, and WGCF, and the
+revisions for Console, OOS, Platform, Workspace Governance, WGCF and Prototype
+Studio, and the
 exact reviewed Platform tree. The Markdown review must contain those same
 bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
@@ -70,8 +71,10 @@ App/installation set and the existing dedicated identity contracts/Vault paths
 are allowed. Missing or disabled owner bindings require their existing
 commissioning procedure; renewal cannot activate a workflow or widen scope.
 
-The timer checks every five minutes and renews when fewer than twenty minutes
-remain. It reuses exact-App provider validation, checks current Security/source
+The timer checks every minute and renews credentials when fewer than twenty
+minutes remain. It also refreshes the two fixed canonical-record authorities
+described below; ordinary record refresh does not rotate credentials or roll
+out workloads. It reuses exact-App provider validation, checks current Security/source
 bindings, and verifies the existing Secret ownership and credential binding.
 All required Vault keys are checked before replacement. Resource-version
 compare-and-swap uses the original identity producer's server-side Apply field
@@ -102,6 +105,46 @@ original maximum-one-hour expiry. Successful renewal requires normal revocation.
 Missing Vault access, stale acceptance, failed consumption or provider denial
 remains a visible failure, never readiness or ambient-credential fallback.
 
+## Reviewed execution and current records
+
+Execution code, schemas, workflow policy, model selection and owner commands
+stay bound to the exact reviewed source. Platform maintains separate private
+Git snapshots for only Workspace Governance and Prototype Studio. It fetches
+their fixed canonical `main` refs without pulling or rewriting the primary
+checkouts. Source/data classification is closed in
+`scripts/console_record_authority.py`: inventories and owner records may
+advance; Studio application source under `prototypes/` is incubation data to
+this control plane. Governing code, schema, policy, hooks, symlinks, executable
+modes, history rewrites and unrelated paths are denied.
+
+Each successful bounded refresh atomically issues a five-minute checkpoint
+binding owner, trusted ref, reviewed control baseline, actual record revision,
+observation and expiry. OOS and WGCF consume read-only snapshots and require
+fresh checkpoints; the existing fixed Studio Preview adapter checks the same
+binding independently. A failed refresh invalidates the entire two-owner
+group, blocks authority-dependent writes and remains visible. It must not skip
+existing credential renewal. Dirty or unique cache contents are preserved,
+never reset. The next valid timer tick can recover without manual `git pull`.
+
+Complete status now checks actual workload mounts, read-only flags, selected
+profile and consumed deployment generations, then reads both Console primary
+registers. A successful empty live register is valid; fixture data, missing
+models and a merely healthy homepage are not readiness. Work Design and
+governed source realization execute through Delivery's existing work session;
+Prototype exploration and baseline approval do not replace Delivery execution.
+
+The `source-realization-v1` profile reuses the admitted local Ollama model.
+The gateway validates Platform's bounded structural output schema; OOS then
+validates its stricter change-set semantics and exact operator digest
+acceptance. Source merge alone is not runtime commissioning. Status must prove
+the actual gateway profile is ready and the OOS realization flag is active
+after the exact Security decision is accepted.
+
+Security acceptance still reads and validates current clean Security `main`.
+Its stable provenance anchor is the last commit touching the four relevant
+decision/review files, not an unrelated generated-index commit. Changed or
+revoked decisions change the anchor; no cached acceptance can override them.
+
 The timer requires the active-runtime marker and uses the lifecycle lock
 without waiting. Activation, restart, proof, and rollback therefore cannot race
 renewal. Rollback stops renewal before revoking the token. Source-only review
@@ -126,6 +169,15 @@ make governance-console-complete-runtime ACTION=activate
 make governance-console-complete-runtime ACTION=status
 ```
 
+Normal activation delegates before taking the lifecycle lock to the existing
+admitted composition user service. Its product-owned drop-in invokes this same
+complete-runtime activation, rather than only the raw profile launcher.
+`Type=oneshot` and `RemainAfterExit=yes` retain owner helpers after the
+controller exits. The finite Platform provider's start action uses this same
+path. No additional daemon, service family or browser authority is introduced.
+The Console web service restarts on successful unexpected process exit as well
+as nonzero exit; an explicit systemd stop still leaves it stopped.
+
 Recover the admitted services and re-prove current readback:
 
 ```bash
@@ -137,6 +189,12 @@ Run the bounded operating proof only during work item `#1291` commissioning:
 ```bash
 make governance-console-complete-runtime ACTION=verify-operating
 ```
+
+An uncached commissioning run must execute inside a retained user-systemd
+oneshot with `RemainAfterExit=yes`; a temporary executor scope is rejected
+before effects. The proof holds the lifecycle lock and calls its internal
+activation directly, never a nested delegate that would deadlock. Inspect the
+retained proof receipt and normal availability after the controller exits.
 
 That proof checks authenticated startup, invalid-credential denial, revoked
 gate denial, stale-marker denial, provider process-loss recovery, full restart,
@@ -166,6 +224,12 @@ make governance-console-complete-runtime ACTION=teardown
 
 Rollback and teardown never delete ART, Git, OOS workflow, WGCF, Security, or
 owner evidence.
+
+Rollback restores the original primary owner mounts, disables the new record
+freshness and realization flags, removes only the product-owned composition
+drop-in and preserves the generic profile auto-resume unit. Private record
+snapshots and Studio Preview state are preserved; rollback does not rewrite
+business history or reverse a reviewed owner merge.
 
 The five other bindings predate the Console complete-runtime owner. Rollback
 does not delete, disable or revoke them: their last dedicated tokens retain

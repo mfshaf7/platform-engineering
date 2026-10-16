@@ -20,6 +20,17 @@ owner configuration and unrelated Secret fields, batches token consumption
 into one OOS rollout, and proves actual mounted-token/provider acceptance.
 It introduces no service, permission, credential authority or ART child.
 
+Before activation, native Kubernetes proof caught an implementation miss in
+PR314: replace retained data but transferred field ownership away from the
+original server-side Apply producer, breaking its later recovery. The same
+maintenance scope corrects the operation to the exact existing producer's Apply
+manager while retaining resourceVersion CAS and all existing fields. The native
+regression exercises the actual adapter for all five producers, rejects stale
+updates and reproduces the old conflict on isolated synthetic ConfigMaps. The
+existing producers' actual Secret manifests also pass renewal and recovery using
+synthetic, non-provider values and unique test names. No
+real workflow Secret or provider grant is changed by that regression proof.
+
 Merge Platform first, refresh the existing Security exact-composition decision
 and generated change-record index second, then activate and prove all five
 identities. Exact-revision consumers are that Security decision and its private

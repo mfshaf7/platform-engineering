@@ -211,10 +211,7 @@ const specs=SPECIFICATIONS;
                 annotations[ANNOTATION + "token-expires-at"] = token.expires_at
                 annotations[ANNOTATION + "dev-integration-session"] = target.session_id
                 try:
-                    # ResourceVersion is the compare-and-swap guard; unrelated
-                    # fields (including existing WGCF caller secrets) are retained.
-                    self.run(["k3s", "kubectl", "-n", target.namespace, "replace", "-f", "-"],
-                             input_value=json.dumps(secret))
+                    self._project_binding(slug, contract, target, secret)
                 except Exception:
                     raise CredentialError(f"{slug}: credential replacement failed") from None
                 previous.append((client, old))
@@ -243,6 +240,16 @@ const specs=SPECIFICATIONS;
                 key.unlink(missing_ok=True)
             if revoke_failed:
                 raise CredentialError("unprojected workflow credential revocation failed")
+
+    def _project_binding(self, slug: str, contract, target, secret: dict) -> None:
+        # Retain the original producer's Apply ownership, not an Update/replace
+        # manager that would make its existing recovery command conflict. Keep
+        # resourceVersion for CAS and all existing fields to avoid SSA deletion.
+        manager = "platform-workspace-intake" if slug == "workspace-intake" else f"platform-{contract.workflow_slug}"
+        payload = {**secret, "metadata": dict(secret["metadata"])}
+        payload["metadata"].pop("managedFields", None)
+        self.run(["k3s", "kubectl", "-n", target.namespace, "apply", "--server-side",
+                  f"--field-manager={manager}", "-f", "-"], input_value=json.dumps(payload))
 
     def consume(self, bindings: dict, extra_annotations: dict | None) -> None:
         namespace = next(iter(bindings.values()))[1].namespace

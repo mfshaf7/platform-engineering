@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import base64
 import io
 import json
 from pathlib import Path
@@ -9,6 +10,8 @@ import tempfile
 from datetime import timedelta
 import unittest
 from unittest.mock import patch
+from unittest.mock import Mock
+from types import SimpleNamespace
 
 
 SCRIPT = Path(__file__).with_name("console_complete_runtime.py")
@@ -333,18 +336,19 @@ class CompleteRuntimeTests(unittest.TestCase):
                     patch.object(runtime, "namespace", return_value="devint-test"),
                     patch.object(runtime, "receipt", return_value=state / "result.json") as receipt,
                     patch.object(runtime, "run", side_effect=lambda args, **kwargs: calls.append(args)),
+                    patch.object(runtime, "workflow_credential_manager") as workflows,
                 ):
+                    workflows.return_value.renew.return_value = {"refreshed": [], "identities": {}}
                     runtime.refresh_repository_credentials(policy)
                 self.assertEqual(deliver.called, should_deliver)
                 readiness.assert_called_once_with(policy)
                 # The same annotation is always reconciled, including after a
                 # crash following Secret delivery but preceding pod consumption.
-                patch_value = json.loads(calls[0][-1])
                 self.assertEqual(
-                    patch_value["spec"]["template"]["metadata"]["annotations"]["workspace-governance/repository-token-expires-at"],
+                    workflows.return_value.renew.call_args.kwargs["extra_annotations"]["workspace-governance/repository-token-expires-at"],
                     delivered["token_expires_at"],
                 )
-                self.assertNotIn("restart", calls[1])
+                self.assertFalse(calls)
                 self.assertEqual(receipt.call_args.args[2]["refreshed"], should_deliver)
 
     def test_repository_refresh_denies_stale_runtime_without_minting(self) -> None:
@@ -479,6 +483,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
             "repository_credentials_renewed": True,
+            "workflow_credentials_renewed": True,
             "credential_refresh_receipt": "/private/refresh.json",
         }
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -514,6 +519,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
             "repository_credentials_renewed": True,
+            "workflow_credentials_renewed": True,
             "credential_refresh_receipt": "/private/refresh.json",
         }
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -528,6 +534,256 @@ class CompleteRuntimeTests(unittest.TestCase):
                 path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
                 path.chmod(0o600)
                 self.assertIsNone(runtime.reusable_operating_receipt(policy))
+
+
+class WorkflowCredentialTests(unittest.TestCase):
+    def manager(self, root: Path, *, minutes=50):
+        module = runtime.workflow_credentials
+        self.target = SimpleNamespace(namespace="devint-test", profile_id="accepted-idea-delivery", session_id="session-current")
+        self.secrets = {}
+        self.calls = []
+        self.providers = []
+        self.keys = []
+        self.probe_http = 200
+        self.consume_ok = True
+        def key_loader(vault):
+            key = root / (vault["secret_path"].split("/")[-1] + ".pem")
+            key.write_text("synthetic private key")
+            key.chmod(0o600)
+            self.keys.append(key)
+            return key
+        def execute(args, **kwargs):
+            self.calls.append((args, kwargs))
+            if "get" in args:
+                slug = next(slug for slug, secret in self.secrets.items() if secret["metadata"]["name"] in args)
+                return SimpleNamespace(returncode=0, stdout=json.dumps(self.secrets[slug]))
+            if "replace" in args:
+                secret = json.loads(kwargs["input_value"])
+                slug = next(slug for slug, old in self.secrets.items() if old["metadata"]["name"] == secret["metadata"]["name"])
+                self.assertEqual(secret["metadata"]["resourceVersion"], self.secrets[slug]["metadata"]["resourceVersion"])
+                secret["metadata"]["resourceVersion"] = str(int(secret["metadata"]["resourceVersion"]) + 1)
+                self.secrets[slug] = secret
+            if "exec" in args:
+                program = args[-1]
+                provider = "if(!true)" in program
+                if provider and not self.consume_ok:
+                    return SimpleNamespace(returncode=1, stdout="")
+                results = {slug: {"configured": True, **({"http": self.probe_http, "token_consumed": True,
+                            "repository_id": manager.contract(slug)[0].repository_id} if provider else {})} for slug in module.WORKFLOWS}
+                return SimpleNamespace(returncode=0, stdout=json.dumps(results))
+            return SimpleNamespace(returncode=0, stdout="")
+        manager = module.Credentials(repo_root=runtime.REPO_ROOT, workspace_root=root,
+                                     session_manifest=root / "session.yaml", run=execute, private_key=key_loader)
+        manager.target = lambda contract: self.target
+        for slug, ids in module.WORKFLOWS.items():
+            contract, _ = manager.contract(slug)
+            self.secrets[slug] = {"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+                "metadata": {"name": contract.runtime_secret_name, "namespace": self.target.namespace, "resourceVersion": "42",
+                    "labels": {"app.kubernetes.io/managed-by": "platform-engineering"},
+                    "annotations": {module.ANNOTATION + "credential-binding-digest": module.intake_identity.binding_digest(
+                        contract, *ids, module.ProviderRepository(contract.repository, contract.repository_id)),
+                        module.ANNOTATION + "dev-integration-profile": self.target.profile_id,
+                        module.ANNOTATION + "dev-integration-session": self.target.session_id,
+                        module.ANNOTATION + "token-expires-at": (runtime.datetime.now(runtime.UTC) + timedelta(minutes=minutes)).isoformat()}},
+                "data": {contract.runtime_secret_key: base64.b64encode(("ghs_old_" + slug).encode()).decode(),
+                         "wgcf-caller-secret": base64.b64encode(b"synthetic-preserved-caller").decode()}}
+        return manager
+
+    def issue(self, args, contract):
+        self.assertTrue(all(key.exists() for key in self.keys))
+        self.assertEqual((args.app_id, args.installation_id), runtime.workflow_credentials.WORKFLOWS[args.private_key_file.stem])
+        client = Mock()
+        self.providers.append(client)
+        return client, SimpleNamespace(token="ghs_new_" + args.private_key_file.stem,
+                    expires_at=(runtime.datetime.now(runtime.UTC) + timedelta(minutes=60)).isoformat()), None
+
+    def test_policy_requires_whole_closed_identity_group(self):
+        policy = runtime.validate_policy()
+        for required in ([], policy["workflow_credentials"]["required"][:-1], [*policy["workflow_credentials"]["required"], "unapproved"]):
+            with self.subTest(required=required), self.assertRaises(runtime.workflow_credentials.CredentialError):
+                runtime.workflow_credentials.validate_policy({**policy, "workflow_credentials": {"enabled": True, "required": required}})
+
+    def test_target_reuses_existing_local_cluster_guard_before_secret_access(self):
+        module = runtime.workflow_credentials
+        manager = module.Credentials(repo_root=runtime.REPO_ROOT, workspace_root=Path("/tmp/test"),
+                                     session_manifest=Path("/tmp/test/session.yaml"), run=Mock(), private_key=Mock())
+        target = SimpleNamespace(namespace="devint-test")
+        with patch.object(module, "load_dev_integration_target", return_value=target), patch.object(module, "verify_dev_integration_cluster", return_value=target) as verify:
+            self.assertIs(manager.target(Mock()), target)
+            verify.assert_called_once_with("k3s kubectl", target)
+        with patch.object(module, "load_dev_integration_target", return_value=target), patch.object(module, "verify_dev_integration_cluster", side_effect=module.IdentityError("wrong cluster")):
+            with self.assertRaisesRegex(module.IdentityError, "wrong cluster"):
+                manager.binding("proposal-target")
+        manager.run.assert_not_called()
+
+    def test_expired_group_rotates_once_preserving_owner_fields_and_proves_consumption(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-5)
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=self.issue) as issue:
+                result = manager.renew(extra_annotations={"repository-version": "current"})
+            self.assertEqual(issue.call_count, 5)
+            self.assertEqual(len(result["identities"]), 5)
+            self.assertEqual(len([args for args, _ in self.calls if "patch" in args]), 1)
+            self.assertEqual(len([args for args, _ in self.calls if "rollout" in args]), 1)
+            self.assertFalse(any("restart" in args for args, _ in self.calls))
+            for secret in self.secrets.values():
+                self.assertEqual(base64.b64decode(secret["data"]["wgcf-caller-secret"]), b"synthetic-preserved-caller")
+                self.assertEqual(secret["metadata"]["resourceVersion"], "43")
+            for client in self.providers:
+                client.revoke_token.assert_called_once()
+                self.assertTrue(client.revoke_token.call_args.args[0].startswith("ghs_old_"))
+            self.assertTrue(all(not key.exists() for key in self.keys))
+            for args, kwargs in self.calls:
+                for slug in runtime.workflow_credentials.WORKFLOWS:
+                    self.assertNotIn("ghs_old_" + slug, json.dumps(args))
+                    self.assertNotIn("ghs_new_" + slug, json.dumps(args))
+            self.assertNotIn("ghs_", json.dumps(result))
+
+    def test_unchanged_tick_and_interrupted_consumption_reuse_existing_delivery(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token") as issue:
+                result = manager.renew()
+            issue.assert_not_called()
+            self.assertEqual(result["refreshed"], [])
+            patch_index = next(i for i, (args, _) in enumerate(self.calls) if "patch" in args)
+            provider_index = next(i for i, (args, _) in enumerate(self.calls) if "exec" in args and "if(!true)" in args[-1])
+            self.assertLess(patch_index, provider_index)
+            self.assertEqual(len([args for args, _ in self.calls if "rollout" in args]), 1)
+
+    def test_force_renews_all_even_before_expiry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=self.issue) as issue:
+                manager.renew(force=True)
+            self.assertEqual(issue.call_count, 5)
+
+    def test_failed_consumption_keeps_owner_state_and_recovers_without_reminting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-5)
+            self.consume_ok = False
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=self.issue) as issue:
+                with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "actual OOS"):
+                    manager.renew()
+                self.assertEqual(issue.call_count, 5)
+                for client in self.providers:
+                    client.revoke_token.assert_not_called()
+                self.consume_ok = True
+                recovered = manager.renew()
+                self.assertEqual(issue.call_count, 5)
+                self.assertEqual(recovered["refreshed"], [])
+                self.assertEqual(len(recovered["identities"]), 5)
+            self.assertTrue(all(not key.exists() for key in self.keys))
+
+    def test_invalid_mounted_token_is_renewed_even_with_fresh_expiry_annotation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            self.probe_http = 401
+            def issue(args, contract):
+                self.probe_http = 200
+                return self.issue(args, contract)
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=issue) as minted:
+                result = manager.renew()
+            self.assertEqual(minted.call_count, 5)
+            self.assertEqual(len(result["refreshed"]), 5)
+
+    def test_missing_key_denies_group_before_any_credential_change(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-5)
+            original = manager.private_key
+            def key(vault):
+                if vault["secret_path"].endswith("prototype-closure"):
+                    raise runtime.RuntimeError("Vault source unavailable")
+                return original(vault)
+            manager.private_key = key
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token") as issue:
+                with self.assertRaisesRegex(runtime.RuntimeError, "Vault source"):
+                    manager.renew()
+            issue.assert_not_called()
+            self.assertFalse(any("replace" in args for args, _ in self.calls))
+            self.assertTrue(all(not key.exists() for key in self.keys))
+
+    def test_binding_drift_and_missing_owner_secret_never_gain_activation_authority(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            for path, replacement in (("namespace", "wrong-owner"), ("resourceVersion", 42)):
+                with self.subTest(path=path):
+                    original = self.secrets["proposal-target"]["metadata"][path]
+                    self.secrets["proposal-target"]["metadata"][path] = replacement
+                    with self.assertRaises(runtime.workflow_credentials.CredentialError):
+                        manager.status()
+                    self.secrets["proposal-target"]["metadata"][path] = original
+            manager.run = Mock(return_value=SimpleNamespace(returncode=1, stdout=""))
+            with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "commissioning"):
+                manager.renew()
+
+    def test_expired_stale_or_unconsumed_credentials_cannot_pass_status(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-1)
+            with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "expired"):
+                manager.status()
+            manager = self.manager(Path(temp))
+            self.secrets["proposal-target"]["metadata"]["annotations"][runtime.workflow_credentials.ANNOTATION + "dev-integration-session"] = "prior-session"
+            with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "stale"):
+                manager.status()
+            manager = self.manager(Path(temp))
+            self.consume_ok = False
+            with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "actual OOS"):
+                manager.status()
+
+    def test_provider_denial_is_not_readiness(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            for status in (401, 403):
+                self.probe_http = status
+                with self.subTest(status=status), self.assertRaises(runtime.workflow_credentials.CredentialError):
+                    manager.status()
+
+    def test_cas_replacement_failure_revokes_unprojected_token(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-5)
+            execute = manager.run
+            def conflict(args, **kwargs):
+                if "replace" in args:
+                    raise runtime.RuntimeError("conflict")
+                return execute(args, **kwargs)
+            manager.run = conflict
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=self.issue):
+                with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "replacement failed"):
+                    manager.renew()
+            self.providers[0].revoke_token.assert_called_once_with("ghs_new_proposal-target")
+            self.assertTrue(all(not key.exists() for key in self.keys))
+
+    def test_later_invalid_key_or_grant_cannot_partially_rotate_the_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp), minutes=-5)
+            def invalid(args, contract):
+                if args.private_key_file.stem == "prototype-maturity":
+                    raise runtime.workflow_credentials.IdentityError("key invalid")
+                return self.issue(args, contract)
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=invalid):
+                with self.assertRaisesRegex(runtime.workflow_credentials.IdentityError, "key invalid"):
+                    manager.renew()
+            self.assertFalse(any("replace" in args for args, _ in self.calls))
+            self.assertEqual(len(self.providers), 2)
+            for provider in self.providers:
+                self.assertTrue(provider.revoke_token.call_args.args[0].startswith("ghs_new_"))
+            self.assertTrue(all(not key.exists() for key in self.keys))
+
+    def test_wrong_repo_or_malformed_provider_proof_is_denied(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            execute = manager.run
+            def invalid(args, **kwargs):
+                result = execute(args, **kwargs)
+                if "exec" in args:
+                    value = json.loads(result.stdout)
+                    value["proposal-target"]["repository_id"] = 999
+                    return SimpleNamespace(returncode=0, stdout=json.dumps(value))
+                return result
+            manager.run = invalid
+            with self.assertRaisesRegex(runtime.workflow_credentials.CredentialError, "incomplete"):
+                manager.status()
 
 
 if __name__ == "__main__":

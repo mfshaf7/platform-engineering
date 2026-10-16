@@ -1,6 +1,44 @@
+---
+security_evidence:
+  review_areas: [identity, secrets, runtime, delivery]
+  findings: []
+  risks: []
+  workstreams: [WS-003, WS-005]
+---
+
 # Governance Console Complete Runtime
 
 ## Summary
+
+Maintenance Landing Unit `maintenance-1275-workflow-credential-lifecycle-platform`
+uses `child_isolated_landing_unit` for the operator-approved extension of the
+existing renewal timer and readiness checks. The real Console journey found
+expired Proposal Target, Landing, Maturity, Closure and Intake tokens even
+though complete-runtime activation passed. This repair rotates the five
+already-enabled dedicated Apps through existing identity validation, preserves
+owner configuration and unrelated Secret fields, batches token consumption
+into one OOS rollout, and proves actual mounted-token/provider acceptance.
+It introduces no service, permission, credential authority or ART child.
+
+Merge Platform first, refresh the existing Security exact-composition decision
+and generated change-record index second, then activate and prove all five
+identities. Exact-revision consumers are that Security decision and its private
+materialized policies; no OOS, Console, WGCF or Workspace Governance source
+change is planned. Rollback stops renewal but preserves the pre-existing five
+owner bindings; it still revokes the Console-owned provisioning/provider
+credentials. Source tests are not live proof. The final acceptance still needs
+the real persistent to-do product and Portfolio readback.
+
+Bootstrap preflight found two absent declared Vault entries and one invalid
+stored Maturity PEM. Proposal Target and Closure were imported create-only
+from the existing operator keys. Maturity's existing valid private key was
+verified against its exact App and installation, then updated with Vault
+version compare-and-swap; prior Vault version 2 remains recoverable. All five
+Vault keys, App identities, installations and existing permissions passed
+read-only provider verification before activation. No App permissions or
+repository selection changed. Batch preparation now validates all replacement
+grants before changing the first runtime Secret; its invalid-later-key test
+proves that earlier prepared grants are revoked without partial delivery.
 
 Maintenance Landing Unit `maintenance-1275-runtime-probe-contract` uses
 `child_isolated_landing_unit` for the Platform verification-only correction.

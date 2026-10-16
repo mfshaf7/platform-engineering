@@ -55,6 +55,14 @@ repository_provisioning:
   oos:
     state_mount_path: /var/lib/oos/repository-custody
     state_volume_name: governance-console-repository-custody-state
+workflow_credentials:
+  enabled: true
+  required:
+    - proposal-target
+    - prototype-closure
+    - prototype-landing
+    - prototype-maturity
+    - workspace-intake
 security:
   gate_id: gate:platform-operation-security
   status: pending

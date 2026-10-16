@@ -26,6 +26,7 @@ from urllib.request import Request, urlopen
 import yaml
 
 import platform_operation_provider as provider
+import console_workflow_credentials as workflow_credentials
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -146,6 +147,7 @@ def re_full_commit(value: Any) -> bool:
 
 def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     policy = provider.load_policy(policy_path)
+    workflow_credentials.validate_policy(policy)
     delivery = policy.get("delivery", {})
     architecture = delivery.get("architecture", {})
     if delivery.get("delivery_id") != "delivery-1275" or delivery.get("work_item_ref") != "openproject://work_packages/1291":
@@ -560,9 +562,12 @@ def vault_token() -> str:
 
 
 def repository_provisioning_private_key(policy: dict[str, Any]) -> Path:
+    return vault_private_key(policy["repository_provisioning"]["vault"])
+
+
+def vault_private_key(vault: dict[str, Any]) -> Path:
     ensure_private(STATE_ROOT)
     ensure_private(PRIVATE_ROOT)
-    vault = policy["repository_provisioning"]["vault"]
     script = (
         'IFS= read -r VAULT_TOKEN; export VAULT_TOKEN; '
         'export VAULT_ADDR="$1"; vault kv get -field="$2" "$3"'
@@ -593,6 +598,14 @@ def repository_provisioning_private_key(policy: dict[str, Any]) -> Path:
         path.unlink(missing_ok=True)
         raise
     return path
+
+
+def workflow_credential_manager(policy: dict[str, Any]) -> workflow_credentials.Credentials:
+    return workflow_credentials.Credentials(
+        repo_root=REPO_ROOT, workspace_root=WORKSPACE_ROOT,
+        session_manifest=dev_integration_session_manifest(policy), run=run,
+        private_key=vault_private_key,
+    )
 
 
 def repository_identity_command(
@@ -681,7 +694,7 @@ def write_repository_refresh_units() -> None:
     if not python:
         raise RuntimeError("python3 is unavailable for repository credential renewal")
     service = f"""[Unit]
-Description=Renew Governance Console repository provisioning credentials
+Description=Renew Governance Console admitted workflow credentials
 After=network.target
 ConditionPathExists={STATE_ROOT / 'active.json'}
 
@@ -689,12 +702,12 @@ ConditionPathExists={STATE_ROOT / 'active.json'}
 Type=oneshot
 WorkingDirectory={runtime_repo}
 ExecStart={python} {runtime_repo / 'products/governance-operations-console/scripts/console_complete_runtime.py'} refresh-credentials
-TimeoutStartSec=420
+TimeoutStartSec=900
 NoNewPrivileges=true
 PrivateTmp=true
 """
     timer = f"""[Unit]
-Description=Maintain Governance Console repository provisioning credentials
+Description=Maintain Governance Console admitted workflow credentials
 
 [Timer]
 OnActiveSec=60s
@@ -740,16 +753,13 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
         delivered = deliver_repository_provisioning_identity(policy)
     # A stable, non-secret delivery version makes consumption retryable after
     # a crash between Secret replacement and rollout, without rolling on every tick.
-    deployment = f"deployment/{policy['runtime']['oos_deployment']}"
-    prefix = ["k3s", "kubectl", "-n", namespace(policy)]
-    run([*prefix, "patch", deployment, "--type=merge", "--patch", json.dumps({
-        "spec": {"template": {"metadata": {"annotations": {
-            "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
-        }}}},
-    })])
-    run([*prefix, "rollout", "status", deployment, "--timeout=300s"])
+    workflows = workflow_credential_manager(policy).renew(force=force, extra_annotations={
+        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
+    })
     repository_provisioning_status(policy)
-    return receipt("refresh-credentials", policy, {"refreshed": refreshed, "credential_current": True})
+    return receipt("refresh-credentials", policy, {
+        "refreshed": refreshed, "credential_current": True, "workflow_credentials": workflows,
+    })
 
 
 def cni_gateway() -> str:
@@ -1207,7 +1217,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
         "stale_state_denied", "process_loss_recovered", "restart_receipt",
         "rollback_receipt", "teardown_receipt", "restored_activation_receipt",
         "normal_availability_restored", "repository_provisioning_restored",
-        "repository_credentials_renewed", "credential_refresh_receipt",
+        "repository_credentials_renewed", "workflow_credentials_renewed", "credential_refresh_receipt",
     }
     for path in sorted(RECEIPT_ROOT.glob("*-verify-operating.json"), reverse=True):
         try:
@@ -1242,6 +1252,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
                 "stale_state_denied", "process_loss_recovered",
                 "normal_availability_restored", "repository_provisioning_restored",
                 "repository_credentials_renewed",
+                "workflow_credentials_renewed",
             ))
             or any(not isinstance(proof.get(name), str) or not proof[name] for name in (
                 "activation_receipt", "restart_receipt", "rollback_receipt",
@@ -1259,7 +1270,10 @@ def activate(policy: dict[str, Any]) -> Path:
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
     run(composition_command(policy, "up"))
-    deliver_repository_provisioning_identity(policy)
+    delivered = deliver_repository_provisioning_identity(policy)
+    workflow_credential_manager(policy).renew(extra_annotations={
+        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
+    })
     secret = credential()
     gateway = cni_gateway()
     write_provider_unit(policy, gateway, secret)
@@ -1283,6 +1297,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     catalog = provider_catalog(policy, credential())
     console = console_operations(policy)
     repository = repository_provisioning_status(policy)
+    workflows = workflow_credential_manager(policy).status()
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1293,6 +1308,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "platform_subject_count": len(catalog["subjects"]),
         "provider_active": True,
         "repository_provisioning": repository,
+        "workflow_credentials": workflows,
     })
 
 
@@ -1300,7 +1316,10 @@ def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
-    deliver_repository_provisioning_identity(policy)
+    delivered = deliver_repository_provisioning_identity(policy)
+    workflow_credential_manager(policy).renew(extra_annotations={
+        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
+    })
     run(["systemctl", "--user", "restart", UNIT_NAME])
     ns = namespace(policy)
     run([
@@ -1415,6 +1434,7 @@ def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
         "credential_binding_present": False,
         "provider_active": False,
         "repository_provisioning_credential_present": False,
+        "preexisting_workflow_bindings_preserved": True,
     })
 
 
@@ -1534,6 +1554,7 @@ def verify_operating(policy: dict[str, Any]) -> Path:
             "normal_availability_restored": True,
             "repository_provisioning_restored": True,
             "repository_credentials_renewed": True,
+            "workflow_credentials_renewed": True,
             "credential_refresh_receipt": str(credential_refresh_receipt),
         })
 
@@ -1572,7 +1593,7 @@ def main() -> int:
                 result = actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
-    except (RuntimeError, provider.ProviderError) as exc:
+    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError) as exc:
         print(f"complete Console runtime {args.action} failed: {exc}", file=sys.stderr)
         return 1
 

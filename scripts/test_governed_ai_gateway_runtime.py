@@ -17,7 +17,7 @@ sys.path.insert(0, str(RUNTIME_ROOT))
 
 from gateway_app import GatewayRuntime  # noqa: E402
 from model_profile_resolver import resolve_model_profile_registry  # noqa: E402
-from ollama_adapter import ProviderResult  # noqa: E402
+from ollama_adapter import ProviderResult, ProviderIntegrityError, ProviderUnavailable  # noqa: E402
 
 
 def selections() -> dict:
@@ -42,6 +42,9 @@ class FakeAdapter:
     def __init__(self, output: dict) -> None:
         self.output = output
         self.calls: list[dict] = []
+
+    def verify_binding(self):
+        return {"runtime_version": "0.40.5", "model_digest": "verified-test-binding"}
 
     def invoke(self, **kwargs) -> ProviderResult:
         self.calls.append(kwargs)
@@ -295,7 +298,7 @@ class GatewayRuntimeTests(unittest.TestCase):
             selections=resolved,
             audit_root=self.audit_root,
             compatibility_profile_id="intake-classifier-v1",
-            adapters={},
+            adapters={name: FakeAdapter({}) for name in resolved["profiles"]},
         )
 
         readiness = runtime.readiness()
@@ -334,6 +337,27 @@ class GatewayRuntimeTests(unittest.TestCase):
 
         self.assertFalse(readiness["ready"])
         self.assertEqual(readiness["ready_profile_ids"], [])
+
+    def test_readiness_observes_actual_provider_and_deduplicates_binding_without_inference(self):
+        from unittest.mock import Mock
+        resolved = selections()
+        adapter = FakeAdapter({})
+        adapter.verify_binding = Mock(return_value={})
+        runtime = GatewayRuntime(selections=resolved, audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={name: adapter for name in resolved["profiles"]})
+        self.assertTrue(runtime.readiness()["ready"])
+        self.assertEqual(adapter.verify_binding.call_count, 1)
+        self.assertEqual(adapter.calls, [])
+        for error, code in [(ProviderIntegrityError("version mismatch"), "provider-integrity-failed"),
+                            (ProviderUnavailable("unreachable"), "provider-unavailable")]:
+            adapter.verify_binding.side_effect = error
+            result = runtime.readiness()
+            self.assertFalse(result["ready"])
+            self.assertEqual(result["ready_profile_ids"], [])
+            self.assertTrue(all(p["activation_eligible"] and not p["ready"]
+                and p["failure"] == code for p in result["profiles"].values()))
+
 
     @staticmethod
     def intake_request() -> dict:

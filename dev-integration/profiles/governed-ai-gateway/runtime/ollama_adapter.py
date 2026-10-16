@@ -95,6 +95,17 @@ class OllamaAdapter:
         self._opener = opener
         self._slots = threading.BoundedSemaphore(max_concurrency)
 
+    def verify_binding(self) -> dict[str, str]:
+        """Bounded metadata-only readiness; never load a model or infer."""
+        probe = OllamaAdapter(
+            base_url=self.base_url, model=self.model,
+            expected_digest=self.expected_digest,
+            expected_runtime_version=self.expected_runtime_version,
+            timeout_seconds=1, retry_count=0, opener=self._opener,
+        )
+        return {"runtime_version": probe._read_runtime_version(),
+                "model_digest": probe._read_model_digest()}
+
     def classify(self, intake_packet: dict) -> ProviderResult:
         return self.invoke(
             input_payload=intake_packet,

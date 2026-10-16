@@ -885,20 +885,29 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
 
 def refresh_record_authorities(policy: dict[str, Any]) -> dict[str, Any]:
     revisions = policy["security"]["reviewed_revisions"]
-    # Invalidate the whole bounded group before refreshing any member. A partial
-    # refresh is not permission for one owner to use a stale peer snapshot.
-    for owner in sorted(record_authority.OWNERS):
-        checkpoint = RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT
-        if checkpoint.is_file() and not checkpoint.is_symlink():
-            checkpoint.unlink()
+    invalidated = False
+    def before_change():
+        nonlocal invalidated
+        if invalidated:
+            return
+        # Preserve group-wide denial before any actual source change, not on
+        # every unchanged timer tick. A fresh checkpoint is not a stale cache.
+        for owner in sorted(record_authority.OWNERS):
+            record_authority.invalidate_snapshot(RECORD_AUTHORITY_ROOT, owner)
+        invalidated = True
     try:
         values = {owner: record_authority.refresh_snapshot(RECORD_AUTHORITY_ROOT,
-            repo_path(owner), owner, revisions[owner]) for owner in sorted(record_authority.OWNERS)}
+            repo_path(owner), owner, revisions[owner], before_change=before_change)
+            for owner in sorted(record_authority.OWNERS)}
+        # A later owner change may have invalidated an already refreshed,
+        # unchanged peer. Re-observe that peer before returning group readiness.
+        for owner in sorted(record_authority.OWNERS):
+            if not (RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT).is_file():
+                values[owner] = record_authority.refresh_snapshot(RECORD_AUTHORITY_ROOT,
+                    repo_path(owner), owner, revisions[owner], before_change=before_change)
     except Exception:
         for owner in sorted(record_authority.OWNERS):
-            checkpoint = RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT
-            if checkpoint.is_file() and not checkpoint.is_symlink():
-                checkpoint.unlink()
+            record_authority.invalidate_snapshot(RECORD_AUTHORITY_ROOT, owner)
         raise record_authority.RecordAuthorityError("canonical record refresh failed; restore the approved owner source") from None
     return {"status": "current", "owners": values}
 

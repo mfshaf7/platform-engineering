@@ -78,6 +78,60 @@ def adapter(opener=valid_opener, **overrides) -> OllamaAdapter:
 
 
 class OllamaAdapterTests(unittest.TestCase):
+    def test_real_http_metadata_integrity_without_model_invocation(self):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import threading
+        state = {"version": "0.32.15", "digest": DIGEST, "paths": []}
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+            def do_GET(self):
+                state["paths"].append(self.path)
+                payload = {"version": state["version"]} if self.path == "/api/version" else {
+                    "models": [{"name": "qwen3:8b", "digest": state["digest"]}]}
+                data = json.dumps(payload).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            native = adapter(opener=__import__("urllib.request", fromlist=["urlopen"]).urlopen,
+                base_url=f"http://127.0.0.1:{server.server_port}")
+            self.assertEqual(native.verify_binding()["model_digest"], DIGEST)
+            state["version"] = "unapproved"
+            with self.assertRaises(ProviderIntegrityError):
+                native.verify_binding()
+            state["version"] = "0.32.15"
+            state["digest"] = "0" * 64
+            with self.assertRaises(ProviderIntegrityError):
+                native.verify_binding()
+            self.assertTrue(set(state["paths"]) <= {"/api/version", "/api/tags"})
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+        with self.assertRaises(ProviderUnavailable):
+            native.verify_binding()
+
+    def test_readiness_checks_actual_version_and_digest_with_short_timeout_without_chat(self):
+        calls = []
+        def opener(request, **kwargs):
+            calls.append((request.full_url, kwargs["timeout"]))
+            self.assertNotIn("/api/chat", request.full_url)
+            return valid_opener(request, **kwargs)
+        result = adapter(opener).verify_binding()
+        self.assertEqual(result, {"runtime_version": "0.32.15", "model_digest": DIGEST})
+        self.assertEqual([timeout for _, timeout in calls], [1, 1])
+        with self.assertRaises(ProviderIntegrityError):
+            adapter(opener, expected_runtime_version="unapproved-version").verify_binding()
+        with self.assertRaises(ProviderIntegrityError):
+            adapter(opener, expected_digest="0" * 64).verify_binding()
+        with self.assertRaises(ProviderUnavailable):
+            adapter(lambda *_a, **_kw: (_ for _ in ()).throw(urllib.error.URLError("offline"))).verify_binding()
+
     def test_valid_result_is_bounded_and_structured(self) -> None:
         result = adapter().classify({"operator_supplied_intake_notes": "A new component."})
 

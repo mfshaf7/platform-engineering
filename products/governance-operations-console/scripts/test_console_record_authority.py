@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
+import console_record_authority
 
 from console_record_authority import (
     CHECKPOINT, TRUSTED_REF, RecordAuthorityError, admit_record_delta,
@@ -82,6 +84,29 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         from datetime import timedelta
         with self.assertRaises(RecordAuthorityError):
             snapshot_status(self.cache, self.owner, self.reviewed, now=self.now + timedelta(minutes=6))
+
+    def test_unchanged_refresh_keeps_prior_valid_checkpoint_readable_during_provider_fetch(self):
+        self.refresh()
+        original = console_record_authority.git
+        observations = []
+        def observe(root, *args, **kwargs):
+            if args[0] in {"fetch", "checkout", "update-ref"}:
+                observations.append(args[0])
+                self.assertEqual(snapshot_status(self.cache, self.owner, self.reviewed,
+                    now=self.now)["record_revision"], self.reviewed)
+            return original(root, *args, **kwargs)
+        with patch.object(console_record_authority, "git", side_effect=observe):
+            self.refresh()
+        self.assertEqual(observations, ["fetch"])
+
+    def test_failure_never_unlinks_through_an_untrusted_clone_symlink(self):
+        self.refresh()
+        moved = self.cache / "retained"
+        self.clone.rename(moved)
+        self.clone.symlink_to(moved, target_is_directory=True)
+        with self.assertRaises(RecordAuthorityError):
+            self.refresh()
+        self.assertTrue((moved / ".git" / CHECKPOINT).is_file())
 
     def test_code_schema_policy_symlink_and_executable_advancement_never_become_authority(self):
         for name, kind in [("scripts/control.py", "code"), ("schemas/product.json", "schema"),

@@ -78,7 +78,7 @@ class GovernedAiModelProfileTests(unittest.TestCase):
             if binding.get("status") == "active" and binding.get("provider") == "ollama"
         }
 
-        self.assertEqual(versions, {"0.40.1"})
+        self.assertEqual(versions, {"0.40.5"})
 
     def test_model_must_be_allowed_by_selected_provider_route(self) -> None:
         with tempfile.TemporaryDirectory(prefix="governed-ai-profile-") as temp_dir:

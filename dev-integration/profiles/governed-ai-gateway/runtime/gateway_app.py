@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from gateway_policy import GatewayPolicy, InvocationDecision
-from ollama_adapter import OllamaAdapter, OllamaAdapterError, SYSTEM_PROMPT
+from ollama_adapter import OllamaAdapter, OllamaAdapterError, ProviderIntegrityError, SYSTEM_PROMPT
 
 
 def utc_now() -> str:
@@ -143,10 +143,34 @@ class GatewayRuntime:
 
     def readiness(self) -> dict[str, Any]:
         compatibility = self.profiles[self.compatibility_profile_id]
+        # Eligibility is policy truth; readiness also observes actual provider
+        # version and model digest. Share one bounded metadata probe across
+        # identical bindings, without inference or an unbounded retry loop.
+        bindings: dict[tuple, tuple[bool, str | None]] = {}
+        provider_states: dict[str, tuple[bool, str | None]] = {}
+        for profile_id, profile in self.profiles.items():
+            adapter = self.adapters.get(profile_id)
+            state = (False, "profile-ineligible")
+            if profile["activation_eligible"] is True:
+                key = (getattr(adapter, "base_url", profile["endpoint_origin"]),
+                       profile["upstream_model"], profile["model_digest"], profile["runtime_version"])
+                if key not in bindings:
+                    if adapter is None:
+                        bindings[key] = (False, "provider-unconfigured")
+                    else:
+                        try:
+                            adapter.verify_binding()
+                            bindings[key] = (True, None)
+                        except ProviderIntegrityError:
+                            bindings[key] = (False, "provider-integrity-failed")
+                        except OllamaAdapterError:
+                            bindings[key] = (False, "provider-unavailable")
+                state = bindings[key]
+            provider_states[profile_id] = state
         ready_profile_ids = sorted(
             profile_id
             for profile_id, profile in self.profiles.items()
-            if profile["activation_eligible"] is True
+            if provider_states[profile_id][0]
         )
         profile_states = {
             profile_id: {
@@ -154,6 +178,7 @@ class GatewayRuntime:
                 "activation_allowed": profile["profile_activation_allowed"],
                 "activation_eligible": profile["activation_eligible"],
                 "ready": profile_id in ready_profile_ids,
+                "failure": provider_states[profile_id][1],
                 "task_kinds": sorted(profile["task_contracts"]),
             }
             for profile_id, profile in sorted(self.profiles.items())

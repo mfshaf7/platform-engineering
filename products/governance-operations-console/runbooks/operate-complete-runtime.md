@@ -61,21 +61,39 @@ and private key are never written to source, receipts, browser state, or
 process arguments. The operator running activation needs a current private
 Vault token in `VAULT_TOKEN` or mode-`0600` `~/.vault-token`.
 
-The existing user-systemd lifecycle also maintains the provisioning credential.
-`governance-console-repository-credentials.timer` checks every five minutes and
-renews the dedicated token when fewer than twenty minutes remain. It invokes
-only the same exact-App delivery path, rechecks current Security and source
-bindings, and reconciles a non-secret delivery-version annotation on the OOS
-pod template. A new token causes one bounded OOS rollout; unchanged delivery
-versions do not restart it. Persistent workflow state is retained. If the host
-crashes after delivery, the next tick finishes consumption of that same version.
-Missing Vault access, stale acceptance, or rollout failure remains a visible
-failed service, not successful readiness or an ambient-token fallback.
+The existing user-systemd lifecycle maintains provisioning and the five
+previously commissioned Proposal Target, Prototype Landing, Prototype Maturity,
+Prototype Closure and Workspace Intake identities. The existing
+`governance-console-repository-credentials` unit names remain compatibility
+names for this one timer; no new renewal service is introduced. Only the closed
+App/installation set and the existing dedicated identity contracts/Vault paths
+are allowed. Missing or disabled owner bindings require their existing
+commissioning procedure; renewal cannot activate a workflow or widen scope.
+
+The timer checks every five minutes and renews when fewer than twenty minutes
+remain. It reuses exact-App provider validation, checks current Security/source
+bindings, and verifies the existing Secret ownership and credential binding.
+All required Vault keys are checked before replacement. Resource-version
+compare-and-swap preserves unrelated Secret fields, including WGCF caller
+credentials. Temporary private keys are removed on every exit; tokens never
+enter process arguments, logs, source, browser state or receipts.
+
+The token batch takes one OOS delivery-version update and bounded rollout.
+Unchanged versions do not restart OOS. After a crash between replacement and
+consumption, renewal first consumes the retained version instead of minting
+another. Readiness proves exact configuration, hash equality with each actual
+mounted token, live provider acceptance and exact-one-repository scope. Prior
+tokens are revoked after replacement consumption is proven. A process loss
+before revocation can leave an old unchanged-scope token valid only until its
+original maximum-one-hour expiry. Successful renewal requires normal revocation.
+Missing Vault access, stale acceptance, failed consumption or provider denial
+remains a visible failure, never readiness or ambient-credential fallback.
 
 The timer requires the active-runtime marker and uses the lifecycle lock
 without waiting. Activation, restart, proof, and rollback therefore cannot race
 renewal. Rollback stops renewal before revoking the token. Source-only review
-does not prove renewal; commissioning forces the same refresh path and checks
+does not prove renewal; commissioning forces the complete identity group through
+the same refresh path and checks
 the active timer and restored readiness. The owner recovery command remains
 `ACTION=restart`; routine renewal requires no Console operator or CLI action.
 
@@ -135,6 +153,12 @@ make governance-console-complete-runtime ACTION=teardown
 
 Rollback and teardown never delete ART, Git, OOS workflow, WGCF, Security, or
 owner evidence.
+
+The five other bindings predate the Console complete-runtime owner. Rollback
+does not delete, disable or revoke them: their last dedicated tokens retain
+their original bounded expiry while managed renewal stops. Teardown suspends
+the existing composition. Later accepted activation renews stale tokens and
+proves consumption; preservation does not promise indefinite availability.
 
 ## Failure interpretation
 

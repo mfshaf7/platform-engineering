@@ -64,6 +64,8 @@ def data_path(owner: str, value: str) -> bool:
         return True
     if value.startswith("prototypes/") and len(path.parts) >= 3:
         return True  # Incubation application source is data to this control plane.
+    if value.startswith("fixtures/prototypes/") and len(path.parts) >= 4:
+        return True  # Landing's Prototype-local synthetic fixtures, not control code.
     return (
         value.startswith(("records/", "docs/prototypes/"))
         and path.suffix in {".json", ".yaml", ".yml", ".md"}

@@ -204,6 +204,68 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         for path in ["scripts/prototype_preview.py", "packages/prototype_preview/runtime.py", "prototypes/todo/.git/config", "prototypes/todo/.gitattributes"]:
             self.assertFalse(data_path("workspace-prototype-studio", path))
 
+    def test_complete_landing_output_advances_records_and_fixture_changes_without_code(self):
+        self.owner = "workspace-prototype-studio"
+        self.refresh()
+        # All twelve outputs from the real Landing producer, not only the
+        # previously missing .gitkeep. Owner schemas validate their contents;
+        # this boundary proves data classification and real Git causality.
+        outputs = [
+            "prototypes.yaml",
+            *[f"docs/prototypes/todo/{name}.md" for name in
+              ["backlog", "brief", "change-log", "decision-log", "design-profile"]],
+            "fixtures/prototypes/todo/.gitkeep",
+            "prototypes/todo/README.md",
+            "records/prototype-landings/todo/history/apply.json",
+            "records/prototype-landings/todo/record.json",
+            "records/prototype-landings/todo/validation-plan.yaml",
+            "records/prototype-preview-profiles/todo.yaml",
+        ]
+        for name in outputs:
+            self.write(name, "" if name.endswith(".gitkeep") else "synthetic owner record\n")
+        landed = self.commit("owner Landing output")
+        proof = self.refresh()
+        self.assertEqual(proof["record_revision"], landed)
+        self.assertEqual(proof["changed_path_count"], len(outputs))
+        self.assertEqual(git(self.clone, "show", "HEAD:scripts/control.py"), "reviewed control code")
+        self.write("fixtures/prototypes/todo/nested/tasks.json", "[]\n")
+        fixture = self.commit("add bounded synthetic fixture")
+        self.assertEqual(self.refresh()["record_revision"], fixture)
+        self.write("fixtures/prototypes/todo/nested/tasks.json", '[{"done": true}]\n')
+        updated = self.commit("update bounded synthetic fixture")
+        self.assertEqual(self.refresh()["record_revision"], updated)
+        (self.source / "fixtures/prototypes/todo/nested/tasks.json").unlink()
+        deleted = self.commit("delete bounded synthetic fixture")
+        self.assertEqual(self.refresh()["record_revision"], deleted)
+        self.assertEqual(git(self.source, "status", "--porcelain"), "")
+
+    def test_fixture_admission_does_not_admit_control_paths_modes_or_links(self):
+        self.owner = "workspace-prototype-studio"
+        for name in ["fixtures/control.json", "fixtures/prototypes/control.json",
+                     "fixtures/other/todo/input.json", "fixtures/prototypes/todo/.git/config",
+                     "fixtures/prototypes/todo/.gitattributes", "fixtures/prototypes/todo/.gitmodules",
+                     "fixtures/prototypes/todo/../control.json"]:
+            self.assertFalse(data_path(self.owner, name), name)
+        for kind in ["executable", "symlink", "control-cochange"]:
+            with self.subTest(kind=kind):
+                accepted = self.refresh()["record_revision"]
+                name = "fixtures/prototypes/todo/input.json"
+                self.write(name, "[]\n")
+                target = self.source / name
+                if kind == "executable":
+                    target.chmod(0o755)
+                elif kind == "symlink":
+                    target.unlink()
+                    target.symlink_to("../../../scripts/control.py")
+                else:
+                    self.write("scripts/control.py", "unreviewed control change")
+                rejected = self.commit("unaccepted fixture boundary delta")
+                with self.assertRaises(RecordAuthorityError):
+                    self.refresh()
+                self.assertFalse((self.clone / ".git" / CHECKPOINT).exists())
+                self.assertEqual(git(self.clone, "rev-parse", "HEAD"), accepted)
+                git(self.source, "revert", "--no-edit", rejected)
+
 
 if __name__ == "__main__":
     unittest.main()

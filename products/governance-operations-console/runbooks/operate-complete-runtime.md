@@ -140,7 +140,10 @@ their fixed canonical `main` refs without pulling or rewriting the primary
 checkouts. Source/data classification is closed in
 `scripts/console_record_authority.py`: inventories and owner records may
 advance; Studio application source under `prototypes/` is incubation data to
-this control plane. Governing code, schema, policy, hooks, symlinks, executable
+this control plane. Landing's documented synthetic fixture outputs under
+`fixtures/prototypes/<prototype-id>/` advance with those owner records, including
+its empty `.gitkeep`; unrelated fixture namespaces remain outside the boundary.
+Fixture data is never executed as control-plane code. Governing code, schema, policy, hooks, symlinks, executable
 modes, history rewrites and unrelated paths are denied.
 
 Unchanged refresh keeps the still-valid prior checkpoint readable while the

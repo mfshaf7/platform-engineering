@@ -111,6 +111,12 @@ These support shared platform operations:
   - atomically rotates an ephemeral host credential per Landing Unit, suspends
     all new issuance, and revokes exact projected sessions without using
     ambient human GitHub credentials
+- `agent_source_intent.py`
+  - reuses that issuer behind the existing authenticated Platform provider's
+    finite issue/renew/revoke actions, with approved pre-session source intent,
+    real Delivery/Prototype binding, private tombstones and secret-free receipts
+  - no standalone mint command, new daemon, source writer or bootstrap grant;
+    primary procedure: [Agent source identity](../docs/components/operator-orchestration-service/agent-source-identity.md)
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, direct Intake/Inventory readiness, identity binding,
@@ -133,6 +139,10 @@ These support shared platform operations:
     repository inventory, selected repository ids, one-repository token scope,
     immutable session bindings, rotation rollback, suspension, revocation,
     bootstrap retirement, safe receipt writes, and secret-free receipts
+- `test_agent_source_intent.py`
+  - exercises that actual issuer through loopback provider HTTP and the existing
+    authenticated operation API, including cold recovery, concurrent replay,
+    renewal, tombstones, unknown issuance, caller/scope and private-state denials
 - `test_repository_provider_identity.py`
   - proves positive commissioning and delivery plus unavailable, expired,
     over-privileged, mismatched, redirected, and revoked failure paths against a

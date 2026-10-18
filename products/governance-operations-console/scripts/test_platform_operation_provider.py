@@ -14,6 +14,7 @@ SPEC = importlib.util.spec_from_file_location("platform_operation_provider", SCR
 assert SPEC and SPEC.loader
 provider = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(provider)
+from test_agent_source_intent import source_input
 
 
 SOURCE = "a" * 40
@@ -35,6 +36,9 @@ def accepted_policy(root: Path) -> dict:
 
 def command(policy: dict, *, action: str = "dev-integration.status", input_value: dict | None = None) -> dict:
     profile = policy["platform_operation_provider"]["profile_id"]
+    if action in provider.source_credentials.ACTION_SET and input_value is None:
+        input_value = source_input()
+        input_value["source_intent"]["caller_id"] = policy["platform_operation_provider"]["caller_id"]
     value = {
         "schema_version": 1,
         "command_id": f"command:{profile}:{action.rsplit('.', 1)[1]}:1",
@@ -47,7 +51,7 @@ def command(policy: dict, *, action: str = "dev-integration.status", input_value
             "ref": f"profile:{profile}",
             "expected_source_version": SOURCE,
         },
-        "capability_id": f"dev-integration.{profile}.{action.rsplit('.', 1)[1]}",
+        "capability_id": action if action in provider.source_credentials.ACTION_SET else f"dev-integration.{profile}.{action.rsplit('.', 1)[1]}",
         "action": action,
         "input": input_value if input_value is not None else {},
         "requested_at": "2026-10-15T00:00:00Z",
@@ -75,7 +79,7 @@ class PlatformOperationProviderTests(unittest.TestCase):
         self.assertTrue(all(item["approval_required"] for item in catalog["subjects"][0]["capabilities"]))
         self.assertEqual(
             [item["action"] for item in catalog["subjects"][0]["capabilities"] if item["destructive"]],
-            ["dev-integration.stop"],
+            ["agent-source.revoke", "dev-integration.stop"],
         )
 
     def test_case_1291_negative_pending_or_stale_security_blocks_provider(self) -> None:
@@ -252,6 +256,63 @@ class PlatformOperationProviderTests(unittest.TestCase):
             capabilities = {item["action"]: item for item in catalog["subjects"][0]["capabilities"]}
             self.assertTrue(capabilities["dev-integration.status"]["available"])
             self.assertFalse(capabilities["dev-integration.smoke"]["available"])
+            self.assertFalse(capabilities["agent-source.issue"]["available"])
+
+    def test_source_actions_never_execute_through_generic_shell_runner(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            policy = accepted_policy(Path(temp_dir))
+            for action in provider.source_credentials.ACTION_SET:
+                with self.assertRaises(provider.ProviderError):
+                    provider.runner_command(action, policy)
+
+    def test_source_worker_suppresses_sensitive_error_and_never_claims_no_effect(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            policy = accepted_policy(root)
+            store = provider.OperationStore(root / "state")
+            exact = command(policy, action="agent-source.issue")
+            record = provider.new_record(exact, SOURCE)
+            store.write(record)
+            with patch.object(provider, "git_head", return_value=SOURCE), patch.object(provider, "activation_is_current", return_value=True), patch.object(provider.source_credentials, "operate", side_effect=RuntimeError("synthetic-token-must-not-leak")) as issuer:
+                self.assertEqual(provider.execute_worker(store, policy, exact["command_id"]), 1)
+                issuer.assert_called_once()
+            failed = store.read(exact["command_id"])
+            self.assertEqual(failed["state"], "failed")
+            self.assertEqual(failed["receipt"]["effect"], "partial")
+            self.assertFalse(failed["cancel_available"])
+            self.assertNotIn("synthetic-token-must-not-leak", json.dumps(failed))
+            self.assertNotIn("synthetic-token-must-not-leak", "".join(p.read_text() for p in store.logs.glob("*.log")))
+
+    def test_credential_commands_need_closed_input_and_digest_bound_approval(self) -> None:
+        # Actual valid commands/HTTP/issuer are covered by test_agent_source_intent.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            policy = accepted_policy(Path(temp_dir))
+            missing = command(policy, action="agent-source.issue", input_value={})
+            missing["capability_id"] = "agent-source.issue"
+            missing["intent_digest"] = provider.canonical_digest(provider.command_intent(missing))
+            missing["approval"]["intent_digest"] = missing["intent_digest"]
+            with self.assertRaisesRegex(provider.ProviderError, "intent binding is invalid"):
+                provider.validate_command(missing, policy, SOURCE)
+
+    def test_queued_source_revalidates_current_security_head_and_runtime_before_effect(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            policy = accepted_policy(root)
+            store = provider.OperationStore(root / "state")
+            for index, mode in enumerate(("head", "security", "runtime")):
+                exact = command(policy, action="agent-source.issue")
+                exact["command_id"] = f"command:source:stale:{index}"
+                exact["intent_digest"] = provider.canonical_digest(provider.command_intent(exact))
+                exact["approval"]["intent_digest"] = exact["intent_digest"]
+                record = provider.new_record(exact, SOURCE)
+                store.write(record)
+                candidate_policy = json.loads(json.dumps(policy))
+                if mode == "security":
+                    candidate_policy["security"]["status"] = "pending"
+                with patch.object(provider, "git_head", return_value="c" * 40 if mode == "head" else SOURCE), patch.object(provider.source_credentials, "operate") as issuer:
+                    self.assertEqual(provider.execute_worker(store, candidate_policy, exact["command_id"]), 1)
+                    issuer.assert_not_called()
+                self.assertEqual(store.read(exact["command_id"])["receipt"]["effect"], "none")
 
 
 if __name__ == "__main__":

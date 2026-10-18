@@ -418,6 +418,8 @@ class CompleteRuntimeTests(unittest.TestCase):
                 unit = (root / "units" / runtime.UNIT_NAME).read_text(encoding="utf-8")
                 env = root / "state" / "private" / "provider.env"
             self.assertIn(f"EnvironmentFile={env}", unit)
+            self.assertIn("Environment=VAULT_ADDR=http://127.0.0.1:32200", unit)
+            self.assertIn("Environment=XDG_RUNTIME_DIR=%t", unit)
             self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", unit)
             self.assertEqual(env.stat().st_mode & 0o777, 0o600)
 

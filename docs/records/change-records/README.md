@@ -69,6 +69,10 @@ workbench.
 
 ## Goals
 
+The staged Console source-authoring producer is recorded in
+[2026-10-18-console-source-authoring.md](2026-10-18-console-source-authoring.md).
+Its source tests do not constitute runtime activation or Console-only proof.
+
 Each record should make it easy to answer:
 
 - what failed

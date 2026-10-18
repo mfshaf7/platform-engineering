@@ -18,7 +18,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from jsonschema import Draft202012Validator
 import yaml
@@ -416,6 +416,11 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
             os.fsync(handle.fileno())
         os.chmod(temporary, 0o600)
         temporary.replace(path)
+        directory_descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -621,50 +626,7 @@ def command_deliver(args: argparse.Namespace) -> int:
         if (root / contract.suspension_filename).exists():
             raise IdentityError("Agent source token issuance is suspended")
         current = read_credential(contract, directory)
-        if current is not None:
-            immutable = {
-                "repository": repository.full_name,
-                "repository_id": repository.provider_repository_id,
-                "landing_unit_id": args.landing_unit_id,
-                "branch": args.branch,
-                "fetched_base": args.fetched_base,
-                "human_reviewer_id": args.human_reviewer_id,
-            }
-            if any(current.get(key) != value for key, value in immutable.items()):
-                raise IdentityError("existing runtime credential is bound to different session truth")
-        with private_key_file(
-            contract,
-            vault_command=args.vault_command,
-            sandbox=args.sandbox,
-            sandbox_private_key=args.private_key_file,
-        ) as key_path:
-            client = provider_client(contract, args)
-            app_jwt = verify_provider_identity(contract, client, key_path)
-            if current is not None:
-                safe_revoke(client, current["token"])
-                (directory / contract.credential_filename).unlink()
-            token, _ = issue_repository_token(contract, client, app_jwt, repository)
-        credential = {
-            "schema_version": 1,
-            "identity_id": contract.identity_id,
-            "logical_agent_id": contract.logical_agent_id,
-            "provider_principal": contract.provider_principal,
-            "app_id": contract.app_id,
-            "installation_id": contract.installation_id,
-            "repository": repository.full_name,
-            "repository_id": repository.provider_repository_id,
-            "landing_unit_id": args.landing_unit_id,
-            "branch": args.branch,
-            "fetched_base": args.fetched_base,
-            "human_reviewer_id": args.human_reviewer_id,
-            "token": token.token,
-            "token_expires_at": token.expires_at,
-        }
-        try:
-            write_json_atomic(directory / contract.credential_filename, credential)
-        except OSError:
-            safe_revoke(client, token.token)
-            raise
+        credential = deliver_locked(contract, args, repository, directory, current)
     write_receipt(
         args.receipt,
         receipt(
@@ -675,7 +637,7 @@ def command_deliver(args: argparse.Namespace) -> int:
             landing_unit_id=args.landing_unit_id,
             branch=args.branch,
             fetched_base=args.fetched_base,
-            token_expires_at=token.expires_at,
+            token_expires_at=credential["token_expires_at"],
         ),
     )
     print(
@@ -683,6 +645,61 @@ def command_deliver(args: argparse.Namespace) -> int:
         f"repository={repository.full_name} receipt={args.receipt}"
     )
     return 0
+
+
+def deliver_locked(
+    contract: Contract,
+    args: argparse.Namespace,
+    repository: Repository,
+    directory: Path,
+    current: dict[str, Any] | None,
+    *,
+    before_issue: Callable[[], None] | None = None,
+) -> dict[str, Any]:
+    """Existing issuer transaction; caller must hold the projection lock.
+
+    Shared by engineering delivery and the authenticated source-intent provider.
+    This is not an alternate key custody, provider, permission or minting path.
+    """
+    immutable = {
+        "repository": repository.full_name,
+        "repository_id": repository.provider_repository_id,
+        "landing_unit_id": args.landing_unit_id,
+        "branch": args.branch,
+        "fetched_base": args.fetched_base,
+        "human_reviewer_id": args.human_reviewer_id,
+    }
+    if current is not None and any(current.get(key) != value for key, value in immutable.items()):
+        raise IdentityError("existing runtime credential is bound to different session truth")
+    with private_key_file(
+        contract, vault_command=args.vault_command, sandbox=args.sandbox,
+        sandbox_private_key=args.private_key_file,
+    ) as key_path:
+        client = provider_client(contract, args)
+        app_jwt = verify_provider_identity(contract, client, key_path)
+        if current is not None:
+            safe_revoke(client, current["token"])
+            (directory / contract.credential_filename).unlink()
+        if before_issue is not None:
+            before_issue()
+        token, _ = issue_repository_token(contract, client, app_jwt, repository)
+    credential = {
+        "schema_version": 1,
+        "identity_id": contract.identity_id,
+        "logical_agent_id": contract.logical_agent_id,
+        "provider_principal": contract.provider_principal,
+        "app_id": contract.app_id,
+        "installation_id": contract.installation_id,
+        **immutable,
+        "token": token.token,
+        "token_expires_at": token.expires_at,
+    }
+    try:
+        write_json_atomic(directory / contract.credential_filename, credential)
+    except OSError:
+        safe_revoke(client, token.token)
+        raise
+    return credential
 
 
 def _remove_session(directory: Path) -> None:

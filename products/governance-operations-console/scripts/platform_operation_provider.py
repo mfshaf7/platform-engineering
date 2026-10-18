@@ -23,6 +23,10 @@ from urllib.parse import unquote, urlparse
 
 import yaml
 
+# Reuse the shared Platform issuer, not a Console-owned credential subsystem.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+import agent_source_intent as source_credentials
+
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PRODUCT_ROOT.parents[1]
@@ -37,6 +41,7 @@ ALLOWED_ACTIONS = {
     "dev-integration.smoke",
     "dev-integration.stop",
     "dev-integration.promote-check",
+    *source_credentials.ACTION_SET,
 }
 
 
@@ -122,16 +127,17 @@ def capability_catalog(policy: dict[str, Any], source_version: str, *, activated
     provider = policy["platform_operation_provider"]
     capabilities = []
     for action in sorted(ALLOWED_ACTIONS):
+        source_action = action in source_credentials.ACTION_SET
         suffix = action.removeprefix("dev-integration.")
-        available = activated or action in {"dev-integration.start", "dev-integration.status"}
+        available = activated or action in {"dev-integration.start", "dev-integration.status", "agent-source.revoke"}
         capabilities.append({
-            "capability_id": f"dev-integration.{provider['profile_id']}.{suffix}",
+            "capability_id": action if source_action else f"dev-integration.{provider['profile_id']}.{suffix}",
             "action": action,
             "available": available,
             "unavailable_reason": None if available else "The complete Console runtime is not active.",
-            "required_capability": f"platform.dev-integration.{suffix}",
+            "required_capability": f"platform.{action}" if source_action else f"platform.dev-integration.{suffix}",
             "approval_required": True,
-            "destructive": action == "dev-integration.stop",
+            "destructive": action in {"dev-integration.stop", "agent-source.revoke"},
         })
     return {
         "schema_version": 1,
@@ -182,10 +188,16 @@ def validate_command(command: Any, policy: dict[str, Any], source_version: str) 
     }:
         raise ProviderError(409, "platform_provider_source_stale", "Platform command source binding is stale or invalid.")
     action = command.get("action")
-    expected_capability = f"dev-integration.{provider['profile_id']}.{str(action).removeprefix('dev-integration.')}"
+    source_action = isinstance(action, str) and action in source_credentials.ACTION_SET
+    expected_capability = action if source_action else f"dev-integration.{provider['profile_id']}.{str(action).removeprefix('dev-integration.')}"
     if action not in ALLOWED_ACTIONS or command.get("capability_id") != expected_capability:
         raise ProviderError(403, "platform_provider_capability_forbidden", "Platform command is outside the finite capability set.")
-    if command.get("input") != {}:
+    if source_action:
+        try:
+            source_credentials.validate_input(command.get("input"), caller_id=provider["caller_id"], operator_id=provider["operator_id"])
+        except source_credentials.identity.IdentityError:
+            raise ProviderError(400, "platform_source_intent_invalid", "Source credential intent binding is invalid.") from None
+    elif command.get("input") != {}:
         raise ProviderError(400, "platform_provider_input_forbidden", "This Platform capability accepts no caller-selected input.")
     digest = canonical_digest(command_intent(command))
     approval = command.get("approval")
@@ -361,7 +373,7 @@ def new_record(command: dict[str, Any], source_version: str) -> dict[str, Any]:
         "state": "queued",
         "attempt": 1,
         "retryable": False,
-        "cancel_available": True,
+        "cancel_available": command["action"] not in source_credentials.ACTION_SET,
         "blocker": None,
         "failure": None,
         "receipt": None,
@@ -417,40 +429,88 @@ def execute_worker(store: OperationStore, policy: dict[str, Any], command_id: st
         record = store.read(command_id)
         if record is None or record["state"] != "queued":
             return 0
-        record["cancel_available"] = True
+        if record["command"]["action"] in source_credentials.ACTION_SET:
+            try:
+                current_source = git_head()
+                require_security_activation(policy, current_source)
+                if current_source != record["source_version"]:
+                    raise ProviderError(409, "platform_provider_source_stale", "Queued source credential command requires its exact Platform source.")
+                validate_command(record["command"], policy, current_source)
+                if record["command"]["action"] != "agent-source.revoke" and not activation_is_current(policy, current_source):
+                    raise ProviderError(409, "platform_source_runtime_inactive", "Credential issuance requires the current accepted Console runtime; exact revocation remains available.")
+            except ProviderError as exc:
+                record["cancel_available"] = False
+                record["retryable"] = False
+                record["failure"] = {"code": exc.code, "detail": str(exc), "owner": "platform-engineering"}
+                record["receipt"] = terminal_receipt(record, "failed", "none")
+                event(record, "failed", "Platform rejected stale or invalid credential authority before issuance.")
+                store.write(record)
+                return 1
+        record["cancel_available"] = record["command"]["action"] not in source_credentials.ACTION_SET
         event(record, "running", "Platform started the bounded owner operation.")
         store.write(record)
     log_path = store.logs / f"{store.key(command_id)}-attempt-{record['attempt']}.log"
+    credential_receipt = None
+    credential_failure = None
     with log_path.open("w", encoding="utf-8") as log:
         log_path.chmod(0o600)
-        result = subprocess.run(
-            runner_command(record["command"]["action"], policy),
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=False,
-        )
+        if record["command"]["action"] in source_credentials.ACTION_SET:
+            try:
+                # All executable/custody paths are owner-selected, never HTTP input.
+                # OOS must resolve canonical start/session truth before dispatch.
+                args = argparse.Namespace(
+                    contract=REPO_ROOT / "security/agent-source-identity.yaml", sandbox=False,
+                    runtime_root=None, workspace_repo_inventory=Path(policy["workspace_root"]) / "workspace-governance/contracts/repos.yaml",
+                    provider_api_base_url=None, vault_command="vault", private_key_file=None,
+                )
+                credential_receipt = source_credentials.operate(
+                    args, state_root=store.root, action=record["command"]["action"], command_id=command_id,
+                    input_value=record["command"]["input"],
+                    caller_id=policy["platform_operation_provider"]["caller_id"],
+                    operator_id=policy["platform_operation_provider"]["operator_id"],
+                )
+                returncode = 0
+                log.write("Exact source-intent credential operation completed; secret-free receipt retained.\n")
+            except source_credentials.SourceIntentError as exc:
+                returncode = 1
+                credential_failure = {"code": exc.code, "detail": str(exc), "owner": "platform-engineering"}
+                if exc.retry_after is not None:
+                    credential_failure["retry_after"] = exc.retry_after
+                log.write(f"{exc.code}: {exc}\n")
+            except Exception:
+                # Provider/Vault errors may contain sensitive response details.
+                # Never project those exceptions or subprocess output into logs.
+                returncode = 1
+                log.write("Source credential action failed safely; retain original command and recover or revoke its exact intent.\n")
+        else:
+            result = subprocess.run(
+                runner_command(record["command"]["action"], policy),
+                stdout=log, stderr=subprocess.STDOUT, text=True, check=False,
+            )
+            returncode = result.returncode
     with store.lock(command_id):
         current = store.read(command_id)
         if current is None or current["state"] in TERMINAL_STATES:
             return 0
         current["cancel_available"] = False
         current["worker"] = None
-        if result.returncode == 0:
+        if returncode == 0:
             current["retryable"] = False
             current["receipt"] = terminal_receipt(current, "succeeded", "verified")
+            if credential_receipt is not None:
+                current["receipt"]["source_credential"] = credential_receipt
             event(current, "succeeded", "Platform owner command completed with current readback.")
         else:
             current["retryable"] = True
-            current["failure"] = {
+            current["failure"] = credential_failure or {
                 "code": "platform_owner_command_failed",
                 "detail": "The bounded Platform owner command failed; inspect the safe log reference.",
                 "owner": "platform-engineering",
             }
-            current["receipt"] = terminal_receipt(current, "failed", "none")
+            current["receipt"] = terminal_receipt(current, "failed", "partial" if current["command"]["action"] in source_credentials.ACTION_SET else "none")
             event(current, "failed", "Platform owner command failed without claiming success.")
         store.write(current)
-    return result.returncode
+    return returncode
 
 
 def terminal_receipt(record: dict[str, Any], outcome: str, effect: str) -> dict[str, Any]:
@@ -543,7 +603,7 @@ class ProviderService:
                 record.update({
                     "attempt": record["attempt"] + 1,
                     "retryable": False,
-                    "cancel_available": True,
+                    "cancel_available": record["command"]["action"] not in source_credentials.ACTION_SET,
                     "failure": None,
                     "blocker": None,
                     "receipt": None,

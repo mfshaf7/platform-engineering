@@ -25,6 +25,8 @@ shared_paths:
       - prototype_closure_evidence.py
       - test_prototype_closure_evidence.py
       - agent_source_identity.py
+      - agent_source_intent.py
+      - test_agent_source_intent.py
       - test_agent_source_identity.py
       - dev_integration.py
       - dev_integration_auto_resume.py

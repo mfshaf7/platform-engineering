@@ -8,10 +8,75 @@ by the selected-repository GitHub App principal
 `mfshaf7-agent-gary[bot]`. The authoritative Platform definition is
 [agent-source-identity.yaml](../../../security/agent-source-identity.yaml).
 
-Normal OOS consumption remains disabled until ART #1137. This Platform surface
-commissions the provider identity and can create an inactive, exact Landing
-Unit projection for verification; it does not authorize OOS source actions,
-review, approval, merge, or default-branch writes.
+The original commissioning definition retains its historical inactive marker;
+it is not the current OOS activation authority. Use the accepted OOS source
+workflow and exact runtime/Security bindings for normal source availability.
+Engineering delivery below does not itself authorize source actions, review,
+approval, merge or default-branch writes.
+
+## Console Credential Effects — Staged Producer
+
+The existing authenticated Platform operation provider now implements source
+for `agent-source.issue`, `agent-source.renew`, and `agent-source.revoke`.
+Do not operate this extension until dependent OOS/Console consumers and final
+exact Security acceptance have been commissioned together. Current source
+implementation is not a claim of Console availability.
+
+Use the existing `/v1/console-operations/commands` envelope, source-version
+binding, authenticated OOS caller and exact operator approval. Capability ID
+equals the source action; the Platform subject remains the configured runtime
+profile. `input` contains exactly `source_intent` and nullable `session_id`.
+The closed intent contains `schema_version: 1`, `purpose: ordinary-source`,
+`intent_id`, authenticated `caller_id`, accountable `operator_id`, `subject`,
+`source_start_digest`, exact `repository`, integer `repository_id` and
+`installation_id`, `landing_unit_id`, non-default `branch`, exact40hex
+`fetched_base`, `human_reviewer_id` and timezone-qualified `expires_at`.
+The required `supersedes_intent_digest` is null initially. An explicitly approved
+recovery generation names its exact revoked predecessor instead; it keeps the
+logical Landing Unit and may rotate branch/base under a new source-start digest.
+Platform requires the same canonical subject, operator and repository, no live
+predecessor projection and no unresolved predecessor issuance. Old command
+receipts remain readable; old revoke/retry cannot mutate a successor credential.
+This is normal recovery, not a new ART item or a permanently unusable Landing Unit.
+
+Delivery subject: exactly `kind: delivery`, actual `work_item_ref`
+(`work-item-<id>`) and canonical `snapshot_digest`. Prototype subject: exactly
+`kind: prototype`, actual `prototype_id`, matching `registry_ref`, independent
+exact40hex `registry_revision`, bounded `repo://` `source_ref` and exact40hex
+`source_revision`. These fields are bindings, not proof of canonical existence:
+OOS must resolve and authorize the actual record and source-start input before
+dispatch. Model/browser-selected requests must not pass through as trusted OOS
+assertions. An absent session is correct before Delivery work start. Once OOS
+binds the actual session, a different or absent session cannot renew it.
+
+Issue creates no branch/worktree. Replaying its command returns the same
+historical receipt without minting. A missing or near-expiry projection needs
+an explicit renew command under the same still-approved intent; current tokens
+are reused. Revoke also works before issue or after approval expiry. It writes
+a durable non-secret tombstone first; a delayed issue cannot reopen it. A new
+command cannot change intent, Landing Unit, repository, base or branch. Generic
+worker cancellation is unavailable for these effects: use exact revoke.
+
+Cold recovery reads the original command through the existing by-command API.
+If a process died after projecting the credential, retry recovers it without
+minting. If issuance may have happened without a recoverable projection, the
+provider reports `platform_source_issuance_uncertain` with `retry_after` at the
+maximum token lifetime. Revoke records the stop immediately but does not claim
+an unobserved provider token was revoked: it reports
+`platform_source_revocation_expiry_pending` until that bound expires. Keep the
+same command/intent; do not manufacture another source request as recovery.
+Known custody/provider preflight failures before minting can retry immediately;
+the uncertainty wait applies only after the actual mint phase was entered.
+
+Success returns only a `source_credential` receipt inside the existing terminal
+receipt: binding/digest/expiry, subject/session, action/outcome and receipt digest.
+Keys/tokens never enter the journal, logs, OOS responses, browser or model.
+The token is repository-scoped at GitHub; branch/base and approval expiry are
+OOS/executor controls, not native GitHub token restrictions. OOS must recheck
+them at work start and every source action and revoke on terminal close/cancel.
+Read-only status/preflight never invokes these actions. Bootstrap, organization
+admission and App permissions are separate; this ordinary-source producer does
+not authorize them. See [ADR-029](../../decisions/adr/ADR-029-source-intent-credential-effects.md).
 
 ## Primary Operator Path
 
@@ -69,11 +134,12 @@ not an operator procedure.
 
 ## Authority And Least Privilege
 
-The App installation is selected over the active governed owner repositories
+This issuer's admitted target set is the active governed owner repositories
 recorded in the Workspace Governance repository inventory. The Platform
 definition resolves that inventory to exact provider repository ids and fails
-closed when the two sets differ. Retired, proposed, external, and unclassified
-repositories remain outside the installation. Each issued token exposes
+closed when the two sets differ. Retired, proposed, external and unclassified
+repositories remain outside this issuance set; an App installation elsewhere
+is not source admission. Each issued token exposes
 exactly one admitted repository and only Metadata read, Contents write, Pull
 requests write, and Checks read. Platform does not accept a repository from
 the current directory, remote URL, branch name, or ambient `gh` session.

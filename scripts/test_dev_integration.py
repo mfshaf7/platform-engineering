@@ -1279,5 +1279,14 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 )
 
 
+def load_tests(loader, tests, pattern):
+    # This admitted owner suite is also the normal bounded-runtime conformance
+    # entrypoint. Run the actual new Platform credential API/issuer cases here;
+    # matching profile metadata alone cannot prove their behavior.
+    import test_agent_source_intent
+    tests.addTests(loader.loadTestsFromModule(test_agent_source_intent))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()

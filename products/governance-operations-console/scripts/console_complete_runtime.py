@@ -1083,6 +1083,8 @@ After=network.target k3s.service
 [Service]
 WorkingDirectory={runtime_repo}
 EnvironmentFile={env_path}
+Environment=VAULT_ADDR=http://127.0.0.1:32200
+Environment=XDG_RUNTIME_DIR=%t
 ExecStart={python} {runtime_repo / 'products' / 'governance-operations-console' / 'scripts' / 'platform_operation_provider.py'} --policy {RESOLVED_POLICY_PATH} --state-root {state} serve --listen-host {gateway} --listen-port {policy['runtime']['provider_port']}
 Restart=on-failure
 RestartSec=2

@@ -208,7 +208,7 @@ def validate_command(command: Any, policy: dict[str, Any], source_version: str) 
         raise ProviderError(403, "platform_provider_capability_forbidden", "Platform command is outside the finite capability set.")
     if source_action:
         try:
-            source_credentials.validate_input(command.get("input"), caller_id=provider["caller_id"], operator_id=provider["operator_id"])
+            source_credentials.validate_operation_input(command.get("input"), caller_id=provider["caller_id"], operator_id=provider["operator_id"])
         except source_credentials.identity.IdentityError:
             raise ProviderError(400, "platform_source_intent_invalid", "Source credential intent binding is invalid.") from None
     elif command.get("input") != {}:

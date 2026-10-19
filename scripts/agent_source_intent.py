@@ -19,6 +19,7 @@ import stat
 from typing import Any, Callable
 
 import agent_source_identity as identity
+import agent_source_bootstrap as bootstrap
 
 
 ACTION_SET = {"agent-source.issue", "agent-source.renew", "agent-source.revoke"}
@@ -64,7 +65,7 @@ def read_state(path: Path) -> dict[str, Any]:
     return value
 
 
-def validate_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str, Any]:
+def validate_input(value: Any, *, caller_id: str, operator_id: str, _bootstrap: bool = False) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {"source_intent", "session_id"}:
         raise identity.IdentityError("source credential input must contain only source_intent and session_id")
     intent = value["source_intent"]
@@ -76,7 +77,7 @@ def validate_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str,
     }
     if not isinstance(intent, dict) or set(intent) != fields or type(intent.get("schema_version")) is not int or intent["schema_version"] != 1:
         raise identity.IdentityError("source intent fields are invalid")
-    if intent["purpose"] != "ordinary-source":
+    if intent["purpose"] != (bootstrap.PURPOSE if _bootstrap else "ordinary-source"):
         raise identity.IdentityError("ordinary source issuance cannot authorize trusted bootstrap")
     if intent["caller_id"] != caller_id or intent["operator_id"] != operator_id:
         raise identity.IdentityError("source intent caller or operator binding is invalid")
@@ -93,7 +94,9 @@ def validate_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str,
     subject = intent["subject"]
     if not isinstance(subject, dict):
         raise identity.IdentityError("source intent requires a real subject binding")
-    if subject.get("kind") == "delivery":
+    if _bootstrap:
+        bootstrap.validate_subject(subject)
+    elif subject.get("kind") == "delivery":
         if (set(subject) != {"kind", "work_item_ref", "snapshot_digest"}
                 or not re.fullmatch(r"work-item-[1-9][0-9]*", str(subject["work_item_ref"]))
                 or not DIGEST.fullmatch(str(subject["snapshot_digest"]))):
@@ -122,6 +125,15 @@ def validate_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str,
     return json.loads(json.dumps(value))
 
 
+def validate_operation_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str, Any]:
+    """Explicit dispatcher for the authenticated Platform-operation boundary.
+
+    Ordinary source consumers keep validate_input's default deny for bootstrap.
+    """
+    is_bootstrap = isinstance(value, dict) and isinstance(value.get("source_intent"), dict) and value["source_intent"].get("purpose") == bootstrap.PURPOSE
+    return validate_input(value, caller_id=caller_id, operator_id=operator_id, _bootstrap=is_bootstrap)
+
+
 def operate(
     args: argparse.Namespace, *, state_root: Path, action: str, command_id: str,
     input_value: dict[str, Any], caller_id: str, operator_id: str,
@@ -136,8 +148,15 @@ def operate(
     """
     if action not in ACTION_SET or not isinstance(command_id, str) or not IDENTIFIER.fullmatch(command_id):
         raise identity.IdentityError("source credential action or command identity is invalid")
-    value = validate_input(input_value, caller_id=caller_id, operator_id=operator_id)
+    value = validate_operation_input(input_value, caller_id=caller_id, operator_id=operator_id)
     intent, session_id = value["source_intent"], value["session_id"]
+    bootstrap_projection = bootstrap.projection(intent["subject"]) if intent["purpose"] == bootstrap.PURPOSE else {}
+    def admitted_contract() -> identity.Contract:
+        if bootstrap_projection:
+            if inventory_reader is None:
+                raise identity.IdentityError("bootstrap requires the current trusted canonical record reader; no engineering CLI fallback")
+            return bootstrap.contract_from_snapshot(identity.load_contract(args.contract), inventory_reader(), intent)
+        return identity.load_operating_contract(args, inventory_reader=inventory_reader)
     # Revocation must remain possible after inventory retirement or suspension.
     if action == "agent-source.revoke":
         contract = identity.load_contract(args.contract)
@@ -145,8 +164,9 @@ def operate(
         # never current admission. It cannot mint or broaden a token.
         repository = identity.Repository(intent["repository"], intent["repository_id"])
         contract = identity.replace(contract, repositories=(repository,))
+        contract = identity.purpose_contract(contract, bootstrap_projection)
     else:
-        contract = identity.load_operating_contract(args, inventory_reader=inventory_reader)
+        contract = admitted_contract()
     contract = identity.select_installation(contract, intent["repository"])
     repository = identity._validate_session_inputs(
         contract, landing_unit_id=intent["landing_unit_id"], repository_name=intent["repository"],
@@ -182,7 +202,7 @@ def operate(
                     raise identity.IdentityError("source intent is superseded; historical commands cannot act on its successor")
                 previous = state["intent"]
                 previous_subject = previous["subject"]
-                subject_key = "work_item_ref" if previous_subject["kind"] == "delivery" else "prototype_id"
+                subject_key = {"delivery": "work_item_ref", "prototype": "prototype_id", "repository-bootstrap": "owner_repo"}[previous_subject["kind"]]
                 same_subject = (intent["subject"].get("kind") == previous_subject["kind"]
                                 and intent["subject"].get(subject_key) == previous_subject[subject_key])
                 unchanged = ("caller_id", "operator_id", "repository", "repository_id", "installation_id", "landing_unit_id", "human_reviewer_id")
@@ -228,7 +248,8 @@ def operate(
         }
         credential_identity = {"identity_id": contract.identity_id, "logical_agent_id": contract.logical_agent_id,
                                "provider_principal": contract.provider_principal, "app_id": contract.app_id}
-        if current is not None and ("purpose" in current or any(current.get(key) != expected for key, expected in {**binding, **credential_identity}.items())):
+        if current is not None and ((not bootstrap_projection and "purpose" in current)
+                or any(current.get(key) != expected for key, expected in {**binding, **credential_identity, **bootstrap_projection}.items())):
             raise identity.IdentityError("projected credential differs from the approved source intent")
         if not alias.exists():
             identity.write_json_atomic(alias, alias_value)
@@ -277,6 +298,10 @@ def operate(
                     issue_args = argparse.Namespace(**vars(args))
                     for key in ("landing_unit_id", "branch", "fetched_base", "human_reviewer_id"):
                         setattr(issue_args, key, intent[key])
+                    if bootstrap_projection:
+                        issue_args.purpose = bootstrap.PURPOSE
+                        issue_args.approval_ref = bootstrap_projection["approval_ref"]
+                        issue_args._trusted_bootstrap_projection = bootstrap_projection
                     def before_issue() -> None:
                         # Persist immediately before the real provider mint, not
                         # before Vault or provider-identity preflight.
@@ -284,7 +309,7 @@ def operate(
                             raise SourceIntentError("platform_source_intent_expired", "The approved source intent has expired.")
                         if inventory_reader is not None:
                             current_contract = identity.select_installation(
-                                identity.load_operating_contract(args, inventory_reader=inventory_reader), intent["repository"],
+                                admitted_contract(), intent["repository"],
                             )
                             current_repository = identity.expected_repository(current_contract, intent["repository"])
                             if (current_repository != repository or current_contract.installation_id != contract.installation_id):
@@ -313,6 +338,8 @@ def operate(
             "token_expires_at": expiry, "authorization_expires_at": intent["expires_at"],
             "recorded_at": now.isoformat().replace("+00:00", "Z"), "secret_values_embedded": False,
         }
+        if bootstrap_projection:
+            result["purpose"] = bootstrap.PURPOSE
         result["receipt_digest"] = digest(result)
         state["operations"][command_id] = {"digest": operation_digest, "receipt": result}
         identity.write_json_atomic(path, state)

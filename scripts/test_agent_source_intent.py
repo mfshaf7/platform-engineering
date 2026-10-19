@@ -71,6 +71,21 @@ def admission_snapshot() -> intents.identity.RepositoryInventorySnapshot:
     )
 
 
+def proposed_snapshot() -> intents.identity.RepositoryInventorySnapshot:
+    snapshot = admission_snapshot()
+    inventory = yaml.safe_load(snapshot.inventory)
+    binding = inventory["repos"].pop("sample-owner")["provider_repository"]
+    intake = {"schema_version": 2, "repos": {"sample-owner": {
+        "status": "proposed", "repo_class": "product-source", "requires_security_bindings": False,
+        "security_owner": None, "provider_repository": binding,
+        "validation_behavior": {"posture": "covered-by-owner-repo", "wgcf_graph_role": "product-runtime-source",
+                                "catalog_refs": [], "notes": "Synthetic source-only project validation."},
+        "notes": "Synthetic proposed source; no control-plane or runtime authority.",
+        "record": {"id": "repo:sample-owner", "version": 1},
+    }}}
+    return intents.identity.replace(snapshot, inventory=yaml.safe_dump(inventory).encode(), intake=yaml.safe_dump(intake).encode())
+
+
 class SourceIntentTests(unittest.TestCase):
     setUpClass = classmethod(fixture.AgentSourceIdentityTests.setUpClass.__func__)
     tearDownClass = classmethod(fixture.AgentSourceIdentityTests.tearDownClass.__func__)
@@ -608,6 +623,139 @@ class SourceIntentTests(unittest.TestCase):
         with self.assertRaisesRegex(intents.identity.IdentityError, "superseded"):
             self.operate("renew", value=original, command="command:old:late-renew")
         self.assertEqual(len(self.state.issued), 2)
+
+
+class BootstrapSourceIntentTests(unittest.TestCase):
+    setUpClass = classmethod(fixture.AgentSourceIdentityTests.setUpClass.__func__)
+    tearDownClass = classmethod(fixture.AgentSourceIdentityTests.tearDownClass.__func__)
+    setUp = fixture.AgentSourceIdentityTests.setUp
+    tearDown = fixture.AgentSourceIdentityTests.tearDown
+    args = SourceIntentTests.args
+    operate = SourceIntentTests.operate
+    credential = SourceIntentTests.credential
+    organization_source = SourceIntentTests.organization_source
+
+    def bootstrap_source(self, *, workflow=False):
+        self.organization_source()
+        snapshot = proposed_snapshot()
+        entry = yaml.safe_load(snapshot.intake)["repos"]["sample-owner"]
+        self.value["source_intent"].update(purpose="trusted-owner-bootstrap", subject={
+            "kind": "repository-bootstrap", "owner_repo": "sample-owner",
+            "intake_entry_ref": {"id": entry["record"]["id"], "version": entry["record"]["version"], "digest": intents.digest(entry)},
+            "custody_receipt_digest": "sha256:" + "c" * 64, "template_digest": "sha256:" + "d" * 64,
+            "plan_digest": "sha256:" + "e" * 64, "decision_ref": "operator:fixture-owner-bootstrap",
+            "allowed_paths": sorted(["AGENTS.md", "contracts/delivery-art-work-session/evidence-profile.json"] +
+                                    ([".github/workflows/validate.yaml"] if workflow else [])),
+            "workflow_write": workflow, "workflow_approval_ref": "operator:fixture-workflows-grant" if workflow else None,
+        })
+        return snapshot
+
+    def test_bootstrap_uses_the_same_exact_issuer_but_a_separately_marked_four_permission_projection(self):
+        snapshot = self.bootstrap_source()
+        result = self.operate(inventory_reader=lambda: snapshot)
+        _, credential = self.credential()
+        self.assertEqual(result["purpose"], "trusted-owner-bootstrap")
+        self.assertEqual(credential["purpose"], result["purpose"])
+        self.assertEqual(credential["bootstrap_plan_digest"], self.value["source_intent"]["subject"]["plan_digest"])
+        self.assertFalse(credential["workflow_write"])
+        self.assertEqual(self.state.issued, [("sample-owner",)])
+        self.assertEqual(set(self.state.issued_permissions[-1]), {"metadata", "contents", "pull_requests", "checks"})
+        self.assertEqual(result, self.operate(inventory_reader=lambda: snapshot))
+        self.assertEqual(len(self.state.issued), 1)
+        self.assertFalse(any(self.work.rglob(".git")), "The issuer must not create source checkouts")
+        for record in (self.work / "provider").rglob("*.json"):
+            self.assertNotIn(credential["token"], record.read_text())
+
+    def test_ordinary_parser_and_ordinary_issuance_cannot_borrow_proposed_bootstrap(self):
+        snapshot = self.bootstrap_source()
+        with self.assertRaisesRegex(intents.identity.IdentityError, "ordinary source"):
+            intents.validate_input(self.value, caller_id=CALLER, operator_id=OPERATOR)
+        with self.assertRaisesRegex(intents.identity.IdentityError, "canonical record reader"):
+            self.operate()
+        self.value["source_intent"]["purpose"] = "ordinary-source"
+        with self.assertRaisesRegex(intents.identity.IdentityError, "subject kind"):
+            self.operate(inventory_reader=lambda: snapshot)
+        self.value["source_intent"]["subject"] = source_input()["source_intent"]["subject"]
+        with self.assertRaises(intents.identity.IdentityError):
+            self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(self.state.issued, [])
+
+    def test_optional_workflow_needs_separate_approval_and_actual_provider_grant(self):
+        snapshot = self.bootstrap_source(workflow=True)
+        subject = self.value["source_intent"]["subject"]
+        subject["workflow_approval_ref"] = None
+        with self.assertRaisesRegex(intents.identity.IdentityError, "separate operator"):
+            self.operate(inventory_reader=lambda: snapshot)
+        subject["workflow_approval_ref"] = "operator:fixture-workflows-grant"
+        self.state.workflow_granted = False
+        with self.assertRaises(intents.identity.IdentityError):
+            self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(self.state.issued, [])
+        self.state.workflow_granted = True
+        result = self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(result["permissions"]["workflows"], "write")
+        self.assertTrue(self.credential()[1]["workflow_write"])
+
+    def test_source_only_proposed_authority_is_rechecked_before_mint_and_preflight_failure_is_recoverable(self):
+        snapshot = self.bootstrap_source()
+        calls = []
+        def changed():
+            calls.append(True)
+            if len(calls) == 1:
+                return snapshot
+            intake = yaml.safe_load(snapshot.intake)
+            intake["repos"]["sample-owner"]["status"] = "admitted"
+            return intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode())
+        with self.assertRaisesRegex(intents.identity.IdentityError, "current proposed"):
+            self.operate(inventory_reader=changed)
+        self.assertEqual(self.state.issued, [])
+        self.assertEqual(self.operate(inventory_reader=lambda: snapshot)["outcome"], "issued")
+        self.assertEqual(len(self.state.issued), 1)
+
+    def test_bootstrap_refuses_status_security_provider_and_finite_path_substitution(self):
+        for mode in ("admitted", "out-of-scope", "security", "control-owner", "entry-version", "provider", "inventory", "retired", "duplicate"):
+            with self.subTest(mode=mode):
+                snapshot = self.bootstrap_source()
+                intake, inventory = yaml.safe_load(snapshot.intake), yaml.safe_load(snapshot.inventory)
+                entry = intake["repos"]["sample-owner"]
+                if mode in {"admitted", "out-of-scope"}: entry["status"] = mode
+                elif mode == "security": entry["requires_security_bindings"] = True
+                elif mode == "control-owner": entry["validation_behavior"]["wgcf_graph_role"] = "control-owner"
+                elif mode == "entry-version": entry["record"]["version"] += 1
+                elif mode == "provider": entry["provider_repository"]["provider_repository_id"] = "42"
+                elif mode in {"inventory", "retired"}:
+                    inventory["repos" if mode == "inventory" else "retired_repos"]["sample-owner"] = {
+                        "posture": "suspended", "lifecycle": "suspended"}
+                else:
+                    intake["repos"]["duplicate"] = deepcopy(entry)
+                snapshot = intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode(), inventory=yaml.safe_dump(inventory).encode())
+                with self.assertRaises(intents.identity.IdentityError): self.operate(inventory_reader=lambda: snapshot)
+                self.assertEqual(self.state.issued, [])
+        snapshot = self.bootstrap_source()
+        self.value["source_intent"]["subject"]["allowed_paths"].append("app/arbitrary-code.js")
+        with self.assertRaisesRegex(intents.identity.IdentityError, "trusted owner-control"):
+            self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(self.state.issued, [])
+
+    def test_revocation_does_not_depend_on_proposed_authority_and_revoked_purpose_cannot_renew(self):
+        snapshot = self.bootstrap_source()
+        self.operate(inventory_reader=lambda: snapshot)
+        def unavailable(): raise AssertionError("revocation must not read current records")
+        result = self.operate("revoke", command="command:bootstrap:stop", inventory_reader=unavailable)
+        self.assertEqual(result["outcome"], "revoked")
+        self.assertEqual(result["purpose"], "trusted-owner-bootstrap")
+        self.assertEqual(self.state.revoked, ["agent-source-secret-1"])
+        with self.assertRaisesRegex(intents.identity.IdentityError, "revoked source intent"):
+            self.operate("renew", command="command:bootstrap:late-renew", inventory_reader=lambda: snapshot)
+        self.assertEqual(len(self.state.issued), 1)
+
+    def test_selected_entry_not_global_register_revision_binds_bootstrap_authority(self):
+        snapshot = self.bootstrap_source()
+        def unrelated_changes():
+            intake = yaml.safe_load(snapshot.intake)
+            intake["repos"]["unrelated-no-provider"] = {"status": "out-of-scope"}
+            return intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode(), revision="f" * 40)
+        self.assertEqual(self.operate(inventory_reader=unrelated_changes)["outcome"], "issued")
 
 
 if __name__ == "__main__":

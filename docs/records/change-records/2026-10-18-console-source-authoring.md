@@ -80,6 +80,23 @@ does not depend on current Inventory availability. The legacy engineering
 delivery surface remains digest-pinned. Proposed trusted bootstrap, consumer
 adapters and final coherent commissioning are still pending, not implied here.
 
+The proposed-owner source primitive is now staged as a separate
+`trusted-owner-bootstrap` purpose and real `repository-bootstrap` subject,
+without changing ordinary Delivery/Prototype acceptance. The authenticated
+provider uses the existing issuer/projection/recovery transaction; it does not
+add an engineering CLI mint override. It independently validates current
+canonical proposed source-only Intake, absent active/retired Inventory, exact
+entry version/digest/provider coordinates, finite owner-control paths and
+operator decision. Recheck follows custody preflight before the actual mint.
+The credential projection and receipt are purpose-marked. Optional workflow
+permission requires the selected workflow path and separate approval; ordinary
+bootstrap without CI still receives four permissions. No model writes,
+application import, checkout, admission or runtime authority is granted.
+Actual loopback issuer tests cover the new purpose and ordinary regression
+boundary (37 source-intent cases); this is not a real target token issuance or
+Console operating witness. Remaining source consumers and exact Security
+acceptance must be completed before activation.
+
 ## Artifact And Deployment Evidence
 
 Base: ac854a4e08a6d075bd1842127513c55de59f3997. Candidate validation and exact

@@ -42,18 +42,24 @@ LANDING_UNIT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,127}$")
 WORKFLOW_PURPOSE = "workflow-maintenance"
 
 
-def delivery_purpose(args: argparse.Namespace) -> dict[str, str]:
+def delivery_purpose(args: argparse.Namespace) -> dict[str, Any]:
     purpose = getattr(args, "purpose", "ordinary-source")
     approval = getattr(args, "approval_ref", None)
     if purpose == "ordinary-source" and approval is None:
         return {}
+    if purpose == "trusted-owner-bootstrap" and hasattr(args, "_trusted_bootstrap_projection"):
+        from agent_source_bootstrap import validate_projection
+        marker = validate_projection(args._trusted_bootstrap_projection)
+        if marker["approval_ref"] != approval:
+            raise IdentityError("bootstrap projection approval differs from its canonical source intent")
+        return marker
     if purpose != WORKFLOW_PURPOSE or not isinstance(approval, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:/._#-]{2,255}", approval):
         raise IdentityError("workflow maintenance requires its explicit operator approval reference")
     return {"purpose": purpose, "approval_ref": approval}
 
 
-def purpose_contract(contract: Contract, purpose: dict[str, str]) -> Contract:
-    if not purpose:
+def purpose_contract(contract: Contract, purpose: dict[str, Any]) -> Contract:
+    if not purpose or (purpose.get("purpose") == "trusted-owner-bootstrap" and purpose.get("workflow_write") is False):
         return contract
     return replace(contract, required_permissions={**contract.required_permissions, "workflows": "write"})
 
@@ -594,6 +600,10 @@ def read_credential(contract: Contract, directory: Path) -> dict[str, Any] | Non
     if isinstance(payload, dict) and payload.get("purpose") == WORKFLOW_PURPOSE:
         required |= {"purpose", "approval_ref"}
         delivery_purpose(argparse.Namespace(purpose=payload.get("purpose"), approval_ref=payload.get("approval_ref")))
+    elif isinstance(payload, dict) and payload.get("purpose") == "trusted-owner-bootstrap":
+        from agent_source_bootstrap import PROJECTION_FIELDS, validate_projection
+        required |= PROJECTION_FIELDS
+        validate_projection({key: payload.get(key) for key in PROJECTION_FIELDS})
     if not isinstance(payload, dict) or set(payload) != required or not payload.get("token"):
         raise IdentityError("runtime credential projection has an invalid shape")
     return payload

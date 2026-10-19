@@ -23,8 +23,8 @@ Security owns these two files in `security-architecture`:
 
 The YAML decision must accept gate `gate:platform-operation-security`, work
 item `#1303`, the current Architecture Packet reference, the exact reviewed
-revisions for Console, OOS, Platform, Workspace Governance, WGCF and Prototype
-Studio, and the
+revisions for Console, OOS, Platform, Workspace Governance, WGCF, Prototype
+Studio and CGG, and the
 exact reviewed Platform tree. The Markdown review must contain those same
 bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
@@ -174,6 +174,18 @@ validates its stricter change-set semantics and exact operator digest
 acceptance. Source merge alone is not runtime commissioning. Status must prove
 the actual gateway profile is ready and the OOS realization flag is active
 after the exact Security decision is accepted.
+
+Prototype authoring reuses this source-realization composition and the existing
+model through the separate `prototype-source-authoring-v1` caller/task. Its
+active source configuration is proposed deployment state, not current runtime
+authority. Keep Platform primary and the running gateway unchanged until the
+fresh exact composed decision accepts the final Platform tree and all seven
+implementation owners, including changed CGG. Then use the existing activation
+path, which renders and starts the admitted composition's CGG and gateway
+participants; no additional service or activation manifest is introduced.
+Qualify the actual Prototype profile/readback and Console authoring route during
+the final operating witness. A healthy Delivery profile alone does not prove
+Prototype readiness, nor does Prototype become mandatory for every project.
 
 Security acceptance still reads and validates current clean Security `main`.
 Its stable provenance anchor is the last commit touching the four relevant

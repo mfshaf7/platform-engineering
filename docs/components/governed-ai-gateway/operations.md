@@ -3,13 +3,16 @@
 ## Prototype source authoring preparation
 
 `prototype-source-authoring-v1` reuses the existing local `qwen3:8b` binding,
-route, limits and bounded change-set schema. It is a separate suspended profile
+route, limits and bounded change-set schema. It is a separate desired-source profile
 for the exact `operator-orchestration-service/prototype-source-authoring`
 caller and `oos.prototype.source-authoring.v1` task. The profile boundary keeps
 Delivery and Prototype task allowlists separate without widening gateway policy.
 Its baseline Security reference is an architectural anchor only; this new
-purpose requires fresh exact composed acceptance and reviewed activation through
-the lifecycle path below. No provider, model, permission or runtime was added.
+purpose requires fresh exact composed acceptance and explicit gateway
+commissioning through the Console complete-runtime runbook. The proposed active
+source selection is not live authority: keep Platform primary/running gateway
+unchanged until that decision. No provider, model or running runtime was added.
+Normal later model-profile lifecycle changes use the reviewed path below.
 Do not activate it by merely enabling a consumer environment flag. OOS owns
 canonical Prototype eligibility, receipt-bound CGG context, app/design scope and
 exact-draft acceptance; the model cannot mutate Studio controls or source.

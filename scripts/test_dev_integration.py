@@ -537,7 +537,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     "activation_eligible"
                 ]
             )
-            self.assertFalse(selections["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
+            self.assertTrue(selections["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
             self.assertTrue(
                 selections["profiles"]["delivery-refinement-advisor-v1"][
                     "activation_eligible"

@@ -355,8 +355,13 @@ class GatewayRuntimeTests(unittest.TestCase):
             result = runtime.readiness()
             self.assertFalse(result["ready"])
             self.assertEqual(result["ready_profile_ids"], [])
-            self.assertTrue(all(p["activation_eligible"] and not p["ready"]
-                and p["failure"] == code for p in result["profiles"].values()))
+            for name, observed in result["profiles"].items():
+                eligible = resolved["profiles"][name]["activation_eligible"]
+                self.assertEqual(observed["activation_eligible"], eligible)
+                self.assertFalse(observed["ready"])
+                if eligible:
+                    self.assertEqual(observed["failure"], code)
+            self.assertFalse(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
 
 
     @staticmethod

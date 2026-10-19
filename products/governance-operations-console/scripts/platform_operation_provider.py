@@ -25,7 +25,9 @@ import yaml
 
 # Reuse the shared Platform issuer, not a Console-owned credential subsystem.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agent_source_intent as source_credentials
+import console_record_authority as record_authority
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +56,18 @@ class ProviderError(RuntimeError):
 
 def now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def source_inventory_snapshot(policy: dict[str, Any]) -> source_credentials.identity.RepositoryInventorySnapshot:
+    if policy.get("record_authority", {}).get("enabled") is not True:
+        raise ProviderError(409, "platform_source_inventory_unavailable", "Source issuance requires current canonical record authority.")
+    reviewed = policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
+    if not isinstance(reviewed, str) or not re.fullmatch(r"[0-9a-f]{40}", reviewed):
+        raise ProviderError(409, "platform_source_inventory_unavailable", "Source issuance requires the exact accepted inventory control revision.")
+    # Fixed owner-selected cache. No HTTP field can choose its path, revision,
+    # schema, provider binding or freshness checkpoint.
+    cache = Path(policy["runtime_state_root"]) / "record-authority"
+    return source_credentials.identity.RepositoryInventorySnapshot(**record_authority.read_repository_admission(cache, reviewed))
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -468,6 +482,7 @@ def execute_worker(store: OperationStore, policy: dict[str, Any], command_id: st
                     input_value=record["command"]["input"],
                     caller_id=policy["platform_operation_provider"]["caller_id"],
                     operator_id=policy["platform_operation_provider"]["operator_id"],
+                    inventory_reader=lambda: source_inventory_snapshot(policy),
                 )
                 returncode = 0
                 log.write("Exact source-intent credential operation completed; secret-free receipt retained.\n")

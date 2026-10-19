@@ -14,6 +14,7 @@ from pathlib import Path
 import stat
 import threading
 import unittest
+import yaml
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from unittest.mock import patch
@@ -48,6 +49,30 @@ def source_input(*, prototype: bool = False) -> dict:
     }}
 
 
+def admission_snapshot() -> intents.identity.RepositoryInventorySnapshot:
+    """Small closed test schema, not an assertion of full Workspace validation."""
+    binding = {"provider": "github", "provider_repository_id": "123456789",
+               "full_name": "mfshaf7-workspace/sample-owner"}
+    inventory = {"schema_version": 2, "repos": {"sample-owner": {
+        "lifecycle": "active", "posture": "active", "provider_repository": binding,
+        "record": {"id": "repo:sample-owner", "lineage": {
+            "source": "workspace-intake", "source_ref": "repo:sample-owner", "intake_entry_version": 2,
+        }},
+    }}, "retired_repos": {}}
+    intake = {"schema_version": 2, "repos": {"sample-owner": {
+        "status": "admitted", "provider_repository": binding,
+        "record": {"id": "repo:sample-owner", "version": 2},
+    }}}
+    schema = {"type": "object", "required": ["schema_version", "repos"], "properties": {
+        "schema_version": {"const": 2}, "repos": {"type": "object"}, "retired_repos": {"type": "object"},
+    }, "additionalProperties": False}
+    return intents.identity.RepositoryInventorySnapshot(
+        inventory=yaml.safe_dump(inventory).encode(), inventory_schema=schema,
+        intake=yaml.safe_dump(intake).encode(), intake_schema=schema,
+        revision="d" * 40, reviewed_revision="e" * 40,
+    )
+
+
 class SourceIntentTests(unittest.TestCase):
     setUpClass = classmethod(fixture.AgentSourceIdentityTests.setUpClass.__func__)
     tearDownClass = classmethod(fixture.AgentSourceIdentityTests.tearDownClass.__func__)
@@ -61,12 +86,13 @@ class SourceIntentTests(unittest.TestCase):
             vault_command="vault", private_key_file=self.private_key,
         )
 
-    def operate(self, action="issue", *, value=None, command="command:credential:1") -> dict:
+    def operate(self, action="issue", *, value=None, command="command:credential:1", inventory_reader=None) -> dict:
         if value is None:
             value = self.value
         return intents.operate(
             self.args(), state_root=self.work / "provider", action=f"agent-source.{action}",
             command_id=command, input_value=value, caller_id=CALLER, operator_id=OPERATOR,
+            inventory_reader=inventory_reader,
         )
 
     def credential(self) -> tuple[Path, dict]:
@@ -90,12 +116,130 @@ class SourceIntentTests(unittest.TestCase):
         self.assertNotIn("token", result)
         self.assertFalse(any(self.work.rglob(".git")))
 
+    def organization_source(self):
+        self.value = source_input()
+        self.value["source_intent"].update(repository="mfshaf7-workspace/sample-owner",
+            repository_id=123456789, installation_id=172173010)
+        self.state.installation_id = 172173010
+        self.state.account_login = "mfshaf7-workspace"
+        self.state.account_id = 322605984
+        self.state.account_type = "Organization"
+        self.state.workflow_granted = True
+
+    def test_organization_installation_is_not_the_app_owner_and_token_stays_ordinary(self):
+        self.organization_source()
+        result = self.operate(inventory_reader=admission_snapshot)
+        _, credential = self.credential()
+        self.assertEqual(self.state.issued, [("sample-owner",)])
+        self.assertEqual(result["installation_id"], 172173010)
+        self.assertEqual(credential["repository"], "mfshaf7-workspace/sample-owner")
+        self.assertNotIn("workflows", result["permissions"])
+        self.assertNotIn("workflows", self.state.issued_permissions[-1])
+        self.assertNotIn("purpose", credential)
+
+    def test_selected_organization_repository_without_canonical_admission_cannot_issue(self):
+        self.organization_source()
+        with self.assertRaises(intents.identity.IdentityError):
+            self.operate()
+        self.assertEqual(self.state.issued, [])
+
+    def test_active_inventory_alone_or_proposed_intake_never_authorizes_ordinary_source(self):
+        self.organization_source()
+        for status in ("proposed", "out-of-scope", "missing"):
+            with self.subTest(status=status):
+                snapshot = admission_snapshot()
+                intake = yaml.safe_load(snapshot.intake)
+                if status == "missing":
+                    intake["repos"] = {}
+                else:
+                    intake["repos"]["sample-owner"]["status"] = status
+                snapshot = intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode())
+                with self.assertRaisesRegex(intents.identity.IdentityError, "exact admitted Intake"):
+                    self.operate(inventory_reader=lambda: snapshot)
+                self.assertEqual(self.state.issued, [])
+
+    def test_canonical_provider_binding_lineage_and_lifecycle_must_match(self):
+        self.organization_source()
+        for mode in ("suspended", "retired", "provider-id", "lineage", "stale-version", "duplicate-retired", "schema"):
+            with self.subTest(mode=mode):
+                snapshot = admission_snapshot()
+                inventory = yaml.safe_load(snapshot.inventory)
+                item = inventory["repos"]["sample-owner"]
+                if mode in {"suspended", "retired"}:
+                    item["posture"] = mode
+                elif mode == "provider-id":
+                    item["provider_repository"]["provider_repository_id"] = "987654321"
+                elif mode == "lineage":
+                    item["record"]["lineage"]["source_ref"] = "repo:other"
+                elif mode == "stale-version":
+                    item["record"]["lineage"]["intake_entry_version"] = 3
+                elif mode == "duplicate-retired":
+                    inventory["retired_repos"]["another-key"] = deepcopy(item)
+                else:
+                    inventory["schema_version"] = 3
+                snapshot = intents.identity.replace(snapshot, inventory=yaml.safe_dump(inventory).encode())
+                with self.assertRaises(intents.identity.IdentityError):
+                    self.operate(inventory_reader=lambda: snapshot)
+                self.assertEqual(self.state.issued, [])
+
+    def test_wrong_installation_account_or_numeric_provider_id_is_denied(self):
+        self.organization_source()
+        self.state.account_id += 1
+        with self.assertRaisesRegex(intents.identity.IdentityError, "installation account"):
+            self.operate(inventory_reader=admission_snapshot)
+        self.assertEqual(self.state.issued, [])
+        self.state.account_id -= 1
+        self.value["source_intent"]["repository_id"] += 1
+        with self.assertRaisesRegex(intents.identity.IdentityError, "exact Platform provider"):
+            self.operate(inventory_reader=admission_snapshot)
+        self.assertEqual(self.state.issued, [])
+
+    def test_new_owner_revoke_survives_inventory_loss_and_retirement_without_minting(self):
+        self.organization_source()
+        self.operate(inventory_reader=admission_snapshot)
+        def unavailable():
+            raise AssertionError("revocation must not require current inventory or freshness")
+        result = self.operate("revoke", command="command:credential:revoke", inventory_reader=unavailable)
+        self.assertEqual(result["outcome"], "revoked")
+        self.assertEqual(len(self.state.issued), 1)
+        self.assertEqual(self.state.revoked, ["agent-source-secret-1"])
+        with self.assertRaisesRegex(intents.identity.IdentityError, "revoked source intent"):
+            self.operate("renew", command="command:credential:renew", inventory_reader=admission_snapshot)
+
+    def test_admission_is_rechecked_after_custody_preflight_before_remote_mint(self):
+        self.organization_source()
+        calls = []
+        def reader():
+            calls.append(True)
+            snapshot = admission_snapshot()
+            if len(calls) > 1:
+                inventory = yaml.safe_load(snapshot.inventory)
+                inventory["repos"]["sample-owner"]["posture"] = "suspended"
+                snapshot = intents.identity.replace(snapshot, inventory=yaml.safe_dump(inventory).encode())
+            return snapshot
+        with self.assertRaises(intents.identity.IdentityError):
+            self.operate(inventory_reader=reader)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(self.state.issued, [])
+
     def test_real_prototype_subject_is_not_disguised_as_delivery(self):
         self.value = source_input(prototype=True)
         result = self.operate()
         self.assertEqual(result["subject"], self.value["source_intent"]["subject"])
         self.assertNotIn("work_item_ref", result["subject"])
         self.assertNotEqual(result["subject"]["registry_revision"], result["subject"]["source_revision"])
+
+    def test_ordinary_intent_cannot_adopt_workflow_maintenance_projection(self):
+        self.state.workflow_granted = True
+        self.value = source_input()
+        self.operate()
+        path, credential = self.credential()
+        credential.update(purpose="workflow-maintenance", approval_ref="operator:workflow-approval")
+        intents.identity.write_json_atomic(path, credential)
+        issued = len(self.state.issued)
+        with self.assertRaisesRegex(intents.identity.IdentityError, "differs from the approved source intent"):
+            self.operate(action="renew", command="command:credential:renew")
+        self.assertEqual(issued, len(self.state.issued))
 
     def test_lost_ack_and_concurrent_issue_replay_do_not_mint_again(self):
         self.value = source_input()
@@ -274,8 +418,32 @@ class SourceIntentTests(unittest.TestCase):
         spec.loader.exec_module(fixtures)
         provider = fixtures.provider
         policy = fixtures.accepted_policy(self.work)
+        # Real Git producer -> immutable current canonical records -> actual
+        # authenticated provider -> actual one-repository issuer. No inventory
+        # caller assertions or stubbed freshness/schema checks.
+        snapshot = admission_snapshot()
+        source = self.work / "canonical-source"
+        source.mkdir()
+        git = provider.record_authority.git
+        git(source, "init", "-b", "main")
+        git(source, "config", "user.name", "Synthetic reviewed source")
+        git(source, "config", "user.email", "synthetic@example.invalid")
+        files = {"contracts/repos.yaml": snapshot.inventory,
+                 "contracts/intake-register.yaml": snapshot.intake,
+                 "contracts/schemas/repos.schema.json": json.dumps(snapshot.inventory_schema).encode(),
+                 "contracts/schemas/intake-register.schema.json": json.dumps(snapshot.intake_schema).encode()}
+        for name, content in files.items():
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        git(source, "add", ".")
+        git(source, "commit", "-m", "synthetic reviewed owner admission")
+        reviewed = git(source, "rev-parse", "HEAD")
+        policy["security"]["reviewed_revisions"]["workspace-governance"] = reviewed
+        cache = Path(policy["runtime_state_root"]) / "record-authority"
+        provider.record_authority.refresh_snapshot(cache, source, "workspace-governance", reviewed, remote_for_test=source)
         marker = Path(policy["runtime_state_root"]) / "active.json"
-        marker.parent.mkdir(parents=True)
+        marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(json.dumps({
             "schema_version": 1, "platform_revision": fixtures.SOURCE, "platform_tree": provider.git_tree(),
             "security_decision_digest": policy["security"]["decision_digest"],
@@ -283,7 +451,7 @@ class SourceIntentTests(unittest.TestCase):
             "activated_at": datetime.now(timezone.utc).isoformat(),
         }))
         caller = policy["platform_operation_provider"]["caller_id"]
-        self.value = source_input()
+        self.organization_source()
         self.value["source_intent"]["caller_id"] = caller
         command = fixtures.command(policy, action="agent-source.issue", input_value=self.value)
         command["capability_id"] = "agent-source.issue"
@@ -422,6 +590,28 @@ class SourceIntentTests(unittest.TestCase):
         with self.assertRaises(intents.identity.IdentityError):
             self.operate(value=next_value, command="command:next:wrong-subject")
         self.assertEqual(len(self.state.issued), 1)
+
+    def test_fresh_approval_can_reauthorize_unchanged_work_without_source_or_branch_churn(self):
+        self.value = source_input()
+        self.value["session_id"] = "source-session:sample:existing"
+        first = self.operate()
+        original = deepcopy(self.value)
+        self.operate("revoke", command="command:first:explicit-revoke")
+        self.value["source_intent"].update({
+            "intent_id": "source-intent:sample:reauthorized",
+            "supersedes_intent_digest": first["source_intent_digest"],
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat().replace("+00:00", "Z"),
+        })
+        second = self.operate(command="command:reauthorized:explicit-issue")
+        self.assertEqual(second["source_start_digest"], first["source_start_digest"])
+        self.assertEqual(second["branch"], first["branch"])
+        self.assertEqual(second["session_id"], first["session_id"])
+        self.assertNotEqual(second["source_intent_digest"], first["source_intent_digest"])
+        self.assertEqual(len(self.state.issued), 2)
+        self.assertEqual(self.operate(value=original), first)
+        with self.assertRaisesRegex(intents.identity.IdentityError, "superseded"):
+            self.operate("renew", value=original, command="command:old:late-renew")
+        self.assertEqual(len(self.state.issued), 2)
 
 
 if __name__ == "__main__":

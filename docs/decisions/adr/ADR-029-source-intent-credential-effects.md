@@ -40,8 +40,14 @@ token lifetime, with a machine-readable not-before time. Revocation persists
 the tombstone before contacting the provider. Running credential operations are
 not killed using generic cancel; cancel the source intent with explicit revoke.
 Known custody failures before the actual mint remain immediately retryable.
-An approved recovery generation preserves its logical Landing Unit, binds the
-exact revoked predecessor and new start digest, and may rotate branch/base.
+An explicitly approved successor preserves its logical Landing Unit and binds
+the exact revoked predecessor. Fresh authorization of unchanged, still-valid
+canonical work may retain its start digest, branch and session; expiry alone
+does not require invented source or branch churn. Actual source recovery binds
+its changed canonical start digest and may rotate branch/base. Neither case is
+automatic renewal after approval expiry: the new intent needs fresh explicit
+operator approval, current OOS canonical verification and no unresolved prior
+credential. The intent identity remains immutable.
 Retain predecessor command history; late old commands cannot touch its successor.
 
 Credentials are repository-scoped at GitHub, **not branch-scoped by GitHub**.
@@ -49,6 +55,18 @@ Branch/base, source-start and session restrictions are enforced by OOS and its
 executor, plus existing native main protection and human review. OOS must check
 approval expiry on every source action; provider token expiry alone is not
 approval authority. Bootstrap remains a different purpose and is rejected here.
+
+Separate the App owner from its two approved installation accounts. For normal
+Console issuance, reuse the existing composition's canonical record reader:
+one current immutable Inventory/Intake snapshot under the exact accepted WG
+control revision and reviewed schemas. Preserve legacy owner provider IDs;
+new owners require matching admitted Intake and active Inventory provider
+coordinates and lineage. Repeat readback immediately before remote minting.
+Do not hardcode every future product repository in Platform, accept an HTTP
+inventory assertion, widen the selected installation set, or add another
+freshness engine. Revocation uses retained exact intent/projection truth even
+after admission/freshness is withdrawn. Engineering delivery remains the old
+fixed-set recovery surface, not a bypass for proposed or unadmitted targets.
 
 ## Consequences
 

@@ -85,6 +85,57 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         with self.assertRaises(RecordAuthorityError):
             snapshot_status(self.cache, self.owner, self.reviewed, now=self.now + timedelta(minutes=6))
 
+    def admission_source(self):
+        self.write("contracts/repos.yaml", "schema_version: 2\nrepos: {}\nretired_repos: {}\n")
+        self.write("contracts/intake-register.yaml", "schema_version: 2\nrepos: {}\n")
+        for name in ("repos", "intake-register"):
+            self.write(f"contracts/schemas/{name}.schema.json", json.dumps({"type": "object"}))
+        self.commit("reviewed admission control and initial data")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+
+    def test_admission_reader_preserves_exact_git_bytes_and_pins_schemas_to_reviewed_code(self):
+        self.admission_source()
+        self.refresh()
+        self.write("contracts/repos.yaml", "schema_version: 2\nrepos: {synthetic: {posture: active}}\nretired_repos: {}\n\n")
+        current = self.commit("reviewed data-only inventory update")
+        self.refresh()
+        result = console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        self.assertEqual(result["revision"], current)
+        self.assertEqual(result["reviewed_revision"], self.reviewed)
+        self.assertEqual(result["inventory"], (self.source / "contracts/repos.yaml").read_bytes())
+        self.assertEqual(result["inventory_schema"], {"type": "object"})
+        # A control/schema delta cannot ride the data-only freshness lane.
+        self.write("contracts/schemas/repos.schema.json", '{"type": "array"}')
+        self.commit("unaccepted schema change")
+        with self.assertRaises(RecordAuthorityError):
+            self.refresh()
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+
+    def test_admission_reader_denies_missing_expired_dirty_and_midread_changed_authority(self):
+        self.admission_source()
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        self.refresh()
+        checkpoint = self.clone / ".git" / CHECKPOINT
+        saved = checkpoint.read_text()
+        value = json.loads(saved)
+        value["valid_until"] = "2020-01-01T00:00:00+00:00"
+        checkpoint.write_text(json.dumps(value))
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        checkpoint.write_text(saved)
+        (self.clone / "contracts/repos.yaml").write_text("unproven local inventory")
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        # Restore only this test's own disposable synthetic file.
+        (self.clone / "contracts/repos.yaml").write_bytes((self.source / "contracts/repos.yaml").read_bytes())
+        original = snapshot_status(self.cache, self.owner, self.reviewed)
+        changed = {**original, "record_revision": "f" * 40}
+        with patch.object(console_record_authority, "snapshot_status", side_effect=[original, changed]):
+            with self.assertRaisesRegex(RecordAuthorityError, "changed during"):
+                console_record_authority.read_repository_admission(self.cache, self.reviewed)
+
     def test_unchanged_refresh_keeps_prior_valid_checkpoint_readable_during_provider_fetch(self):
         self.refresh()
         original = console_record_authority.git

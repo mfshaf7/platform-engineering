@@ -6,6 +6,76 @@ registry:
     repo: security-architecture
     path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
 model_profiles:
+  prototype-source-authoring-v1:
+    status: suspended
+    purpose: bounded-prototype-source-authoring
+    invocation_path: governed-ai-gateway
+    selected_binding_by_environment:
+      dev-integration: local-ollama-qwen3-8b
+    bindings:
+      local-ollama-qwen3-8b:
+        status: active
+        environments: [dev-integration]
+        provider: ollama
+        provider_route: ollama-local-host
+        upstream_model: qwen3:8b
+        model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+        runtime_version: 0.40.5
+        selection:
+          selected_at: "2026-10-18"
+          selected_by: operator:workspace-owner
+          basis: reuse-existing-local-binding-with-separate-inactive-prototype-purpose
+          documentation_ref: https://ollama.com/library/qwen3:8b
+    allowed_callers:
+      - operator-orchestration-service/prototype-source-authoring
+    allowed_data_scope:
+      - CGG receipt-bound selected Prototype app and design context only
+      - exact real Prototype session, source commit, objective and context digest bindings
+      - OOS-owned bounded task instruction; no raw context or repository credentials
+    runtime_limits:
+      max_request_bytes: 300000
+      max_output_tokens: 4096
+      timeout_seconds: 180
+      retry_count: 0
+      max_concurrency: 1
+    task_contracts:
+      default_task_kind: prototype_source_authoring
+      allowed:
+        prototype_source_authoring:
+          contract_ref: oos.prototype.source-authoring.v1
+          contract_version: "1.0"
+          contract_source_ref:
+            repo: operator-orchestration-service
+            path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+          instruction_owner_repo: operator-orchestration-service
+          instruction_source: caller
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/source-realization-change-set.schema.json
+          input_contract:
+            allowed_fields: [task_instruction, model_safe_packet, source_binding]
+            required_fields: [task_instruction, model_safe_packet, source_binding]
+            model_safe_packet_required_fields: [content, packet_ref, redaction_receipt_ref, projection_receipt_ref, artifact_digest]
+    provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/source-realization-change-set.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+    human_approval_required: true
+    direct_provider_access_allowed: false
+    security_review_ref:
+      repo: security-architecture
+      path: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
+    notes: >-
+      Inactive source preparation using the existing model, route, bounded
+      change-set wire and native lifecycle controls. The cited baseline is an
+      architectural anchor, not acceptance of this new Prototype purpose.
+      Fresh exact composed Security acceptance and explicit profile activation
+      are required before use. OOS independently binds the real canonical
+      Prototype, app/design paths, source base and exact human-accepted draft;
+      no fabricated Delivery identity, owner controls, tools, provider secret,
+      publication, merge or runtime activation authority enters the model.
   source-realization-v1:
     status: active
     purpose: bounded-source-realization

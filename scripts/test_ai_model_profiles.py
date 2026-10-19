@@ -405,11 +405,13 @@ class ModelProfileResolverTests(unittest.TestCase):
                     "delivery-refinement-advisor-v1",
                     "agent-console-assistant-v1",
                     "source-realization-v1",
+                    "prototype-source-authoring-v1",
                 },
             )
             self.assertTrue(
                 result["profiles"]["intake-classifier-v1"]["activation_eligible"]
             )
+            self.assertFalse(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
             self.assertTrue(
                 result["profiles"]["delivery-work-design-advisor-v1"][
                     "activation_eligible"

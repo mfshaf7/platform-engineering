@@ -16,6 +16,15 @@ identity:
     slug: mfshaf7-agent-gary
     id: 4907049
     installation_id: 160815600
+  installation_accounts:
+    - login: mfshaf7
+      id: 244414185
+      type: User
+      installation_id: 160815600
+    - login: mfshaf7-workspace
+      id: 322605984
+      type: Organization
+      installation_id: 172173010
   repository_selection: selected
   repositories:
     - full_name: mfshaf7/workspace-governance

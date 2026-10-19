@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -39,12 +39,54 @@ DEFAULT_CONTRACT = ROOT / "security/agent-source-identity.yaml"
 SCHEMA = ROOT / "security/schemas/agent-source-identity.schema.json"
 REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 LANDING_UNIT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,127}$")
+WORKFLOW_PURPOSE = "workflow-maintenance"
+
+
+def delivery_purpose(args: argparse.Namespace) -> dict[str, str]:
+    purpose = getattr(args, "purpose", "ordinary-source")
+    approval = getattr(args, "approval_ref", None)
+    if purpose == "ordinary-source" and approval is None:
+        return {}
+    if purpose != WORKFLOW_PURPOSE or not isinstance(approval, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:/._#-]{2,255}", approval):
+        raise IdentityError("workflow maintenance requires its explicit operator approval reference")
+    return {"purpose": purpose, "approval_ref": approval}
+
+
+def purpose_contract(contract: Contract, purpose: dict[str, str]) -> Contract:
+    if not purpose:
+        return contract
+    return replace(contract, required_permissions={**contract.required_permissions, "workflows": "write"})
 
 
 @dataclass(frozen=True)
 class Repository:
     full_name: str
     provider_repository_id: int
+
+
+@dataclass(frozen=True)
+class InstallationAccount:
+    login: str
+    account_id: int
+    account_type: str
+    installation_id: int
+
+
+@dataclass(frozen=True)
+class RepositoryInventorySnapshot:
+    """Immutable Git content returned by a trusted Platform record reader.
+
+    This is an internal owner interface, never an HTTP input or CLI override.
+    The caller owns freshness/ancestry/provider checks; this issuer validates
+    the canonical schemas and admission/provider binding before minting.
+    """
+
+    inventory: bytes
+    inventory_schema: dict[str, Any]
+    intake: bytes
+    intake_schema: dict[str, Any]
+    revision: str
+    reviewed_revision: str
 
 
 @dataclass(frozen=True)
@@ -61,6 +103,8 @@ class Contract:
     app_slug: str
     app_id: int
     installation_id: int
+    installation_accounts: tuple[InstallationAccount, ...]
+    installation_account: InstallationAccount
     repositories: tuple[Repository, ...]
     required_permissions: dict[str, str]
     maximum_token_lifetime_seconds: int
@@ -130,6 +174,13 @@ def load_contract(path: Path) -> Contract:
         app_slug=identity["app"]["slug"],
         app_id=identity["app"]["id"],
         installation_id=identity["app"]["installation_id"],
+        installation_accounts=tuple(InstallationAccount(
+            item["login"], item["id"], item["type"], item["installation_id"],
+        ) for item in identity["installation_accounts"]),
+        installation_account=InstallationAccount(
+            identity["account"]["login"], identity["account"]["id"],
+            identity["account"]["type"], identity["app"]["installation_id"],
+        ),
         repositories=repositories,
         required_permissions=dict(identity["required_permissions"]),
         maximum_token_lifetime_seconds=identity["maximum_token_lifetime_seconds"],
@@ -188,8 +239,81 @@ def workspace_repository_inventory_path(args: argparse.Namespace) -> Path | None
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
-def load_operating_contract(args: argparse.Namespace) -> Contract:
+def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInventorySnapshot) -> Contract:
+    if not REVISION_PATTERN.fullmatch(snapshot.revision) or not REVISION_PATTERN.fullmatch(snapshot.reviewed_revision):
+        raise IdentityError("canonical inventory source revisions are invalid")
+    documents = []
+    for source, schema in ((snapshot.inventory, snapshot.inventory_schema), (snapshot.intake, snapshot.intake_schema)):
+        if len(source) > 4 * 1024 * 1024:
+            raise IdentityError("canonical inventory content exceeds its bound")
+        value = yaml.safe_load(source)
+        Draft202012Validator.check_schema(schema)
+        if not isinstance(value, dict) or not Draft202012Validator(schema).is_valid(value):
+            raise IdentityError("canonical inventory or Intake does not match its reviewed schema")
+        documents.append(value)
+    inventory, intake = documents
+    legacy = {item.full_name.split("/", 1)[1]: item for item in contract.repositories}
+    repositories = []
+    physical_ids: set[int] = set()
+    coordinates: set[str] = set()
+    for section in ("repos", "retired_repos"):
+        for name, entry in inventory.get(section, {}).items():
+            binding = entry.get("provider_repository")
+            fallback = legacy.get(name)
+            if binding is None:
+                if fallback is None:
+                    continue  # Unbound legacy records are not credential authority.
+                repository = fallback
+            else:
+                if (set(binding) != {"provider", "provider_repository_id", "full_name"}
+                    or binding["provider"] != "github"
+                    or not re.fullmatch(r"[1-9][0-9]*", str(binding["provider_repository_id"]))
+                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+", str(binding["full_name"]))):
+                    raise IdentityError("canonical repository provider binding is invalid")
+                repository = Repository(binding["full_name"], int(binding["provider_repository_id"]))
+                if fallback and repository.provider_repository_id != fallback.provider_repository_id:
+                    raise IdentityError("canonical repository cannot replace a legacy provider identity")
+            folded = repository.full_name.casefold()
+            if repository.provider_repository_id in physical_ids or folded in coordinates:
+                raise IdentityError("canonical repository provider identity is reused")
+            physical_ids.add(repository.provider_repository_id)
+            coordinates.add(folded)
+            if section != "repos" or entry.get("lifecycle") != "active" or entry.get("posture") != "active":
+                continue
+            if fallback is None:
+                lineage = entry.get("record", {}).get("lineage", {})
+                admitted = intake.get("repos", {}).get(name, {})
+                if (binding is None or admitted.get("status") != "admitted"
+                    or admitted.get("provider_repository") != binding
+                    or lineage.get("source") != "workspace-intake"
+                    or lineage.get("source_ref") != admitted.get("record", {}).get("id")
+                    or type(lineage.get("intake_entry_version")) is not int
+                    or type(admitted.get("record", {}).get("version")) is not int
+                    or admitted["record"]["version"] < lineage["intake_entry_version"]):
+                    raise IdentityError("ordinary source requires the exact admitted Intake and active Inventory binding")
+            repositories.append(repository)
+    return replace(contract, repositories=tuple(repositories), repository_inventory_ref={
+        **contract.repository_inventory_ref, "revision": snapshot.revision,
+        "reviewed_revision": snapshot.reviewed_revision,
+        "digest": f"sha256:{hashlib.sha256(snapshot.inventory).hexdigest()}",
+    })
+
+
+def select_installation(contract: Contract, repository_name: str) -> Contract:
+    owner = repository_name.split("/", 1)[0]
+    matches = [item for item in contract.installation_accounts if item.login.casefold() == owner.casefold()]
+    if len(matches) != 1:
+        raise IdentityError("repository account has no approved source App installation")
+    account = matches[0]
+    return replace(contract, installation_id=account.installation_id, installation_account=account)
+
+
+def load_operating_contract(
+    args: argparse.Namespace, *, inventory_reader: Callable[[], RepositoryInventorySnapshot] | None = None,
+) -> Contract:
     contract = load_contract(args.contract)
+    if inventory_reader is not None:
+        return contract_from_record_snapshot(contract, inventory_reader())
     inventory_path = workspace_repository_inventory_path(args)
     if inventory_path is None:
         if not getattr(args, "sandbox", False):
@@ -307,17 +431,26 @@ def verify_provider_identity(
     ):
         raise IdentityError("provider App identity does not match the Agent source contract")
     installation = client.installation(contract.installation_id, app_jwt)
+    # An approved App-level workflow grant must not broaden ordinary tokens.
+    # Only this source App may carry that one additional installation permission;
+    # the shared read-only provider verifier remains strict and unchanged.
+    observed_permissions = installation.get("permissions")
+    ordinary_permissions = {key: value for key, value in contract.required_permissions.items() if key != "workflows"}
+    if observed_permissions not in (ordinary_permissions, {**ordinary_permissions, "workflows": "write"}):
+        raise IdentityError("provider installation permissions exceed the approved source App boundary")
+    if "workflows" in contract.required_permissions and observed_permissions != contract.required_permissions:
+        raise IdentityError("workflow maintenance permission has not been accepted by the installation")
     verify_installation(
         installation,
         app_id=contract.app_id,
         installation_id=contract.installation_id,
-        required_permissions=contract.required_permissions,
+        required_permissions=observed_permissions,
     )
     account = installation.get("account") or {}
     if (
-        str(account.get("login") or "").casefold() != contract.account_login.casefold()
-        or account.get("id") != contract.account_id
-        or account.get("type") != contract.account_type
+        str(account.get("login") or "").casefold() != contract.installation_account.login.casefold()
+        or account.get("id") != contract.installation_account.account_id
+        or account.get("type") != contract.installation_account.account_type
     ):
         raise IdentityError("provider installation account does not match the Agent source contract")
     return app_jwt
@@ -337,7 +470,7 @@ def issue_repository_token(
     repository: Repository,
 ) -> tuple[IssuedToken, ProviderRepository]:
     owner, name = repository.full_name.split("/", 1)
-    if owner.casefold() != contract.account_login.casefold():
+    if owner.casefold() != contract.installation_account.login.casefold():
         raise IdentityError("repository owner does not match the Agent source account")
     token = client.issue_token(
         contract.installation_id,
@@ -452,6 +585,9 @@ def read_credential(contract: Contract, directory: Path) -> dict[str, Any] | Non
         "token",
         "token_expires_at",
     }
+    if isinstance(payload, dict) and payload.get("purpose") == WORKFLOW_PURPOSE:
+        required |= {"purpose", "approval_ref"}
+        delivery_purpose(argparse.Namespace(purpose=payload.get("purpose"), approval_ref=payload.get("approval_ref")))
     if not isinstance(payload, dict) or set(payload) != required or not payload.get("token"):
         raise IdentityError("runtime credential projection has an invalid shape")
     return payload
@@ -611,7 +747,8 @@ def _validate_session_inputs(
 
 
 def command_deliver(args: argparse.Namespace) -> int:
-    contract = load_operating_contract(args)
+    purpose = delivery_purpose(args)
+    contract = purpose_contract(load_operating_contract(args), purpose)
     repository = _validate_session_inputs(
         contract,
         landing_unit_id=args.landing_unit_id,
@@ -627,18 +764,15 @@ def command_deliver(args: argparse.Namespace) -> int:
             raise IdentityError("Agent source token issuance is suspended")
         current = read_credential(contract, directory)
         credential = deliver_locked(contract, args, repository, directory, current)
+    result = receipt(
+        contract, action="deliver", outcome="rotated" if current is not None else "delivered",
+        repository=repository, landing_unit_id=args.landing_unit_id, branch=args.branch,
+        fetched_base=args.fetched_base, token_expires_at=credential["token_expires_at"],
+    )
+    result.update(purpose)
     write_receipt(
         args.receipt,
-        receipt(
-            contract,
-            action="deliver",
-            outcome="rotated" if current is not None else "delivered",
-            repository=repository,
-            landing_unit_id=args.landing_unit_id,
-            branch=args.branch,
-            fetched_base=args.fetched_base,
-            token_expires_at=credential["token_expires_at"],
-        ),
+        result,
     )
     print(
         f"Agent source credential delivered; landing_unit={args.landing_unit_id} "
@@ -669,6 +803,10 @@ def deliver_locked(
         "fetched_base": args.fetched_base,
         "human_reviewer_id": args.human_reviewer_id,
     }
+    purpose = delivery_purpose(args)
+    if current is not None and any(current.get(key) != purpose.get(key) for key in ("purpose", "approval_ref")):
+        raise IdentityError("existing runtime credential has a different source purpose or approval")
+    immutable.update(purpose)
     if current is not None and any(current.get(key) != value for key, value in immutable.items()):
         raise IdentityError("existing runtime credential is bound to different session truth")
     with private_key_file(
@@ -726,9 +864,7 @@ def command_revoke(args: argparse.Namespace) -> int:
             repository = expected_repository(contract, credential["repository"])
             outcome = safe_revoke(client, credential["token"])
             _remove_session(directory)
-    write_receipt(
-        args.receipt,
-        receipt(
+    result = receipt(
             contract,
             action="revoke",
             outcome=outcome,
@@ -737,8 +873,11 @@ def command_revoke(args: argparse.Namespace) -> int:
             branch=credential.get("branch") if credential else None,
             fetched_base=credential.get("fetched_base") if credential else None,
             token_expires_at=credential.get("token_expires_at") if credential else None,
-        ),
-    )
+        )
+    if credential and credential.get("purpose") == WORKFLOW_PURPOSE:
+        result.update({"purpose": credential["purpose"], "approval_ref": credential["approval_ref"],
+                       "permissions": {**contract.required_permissions, "workflows": "write"}})
+    write_receipt(args.receipt, result)
     print(f"Agent source credential revoked; receipt={args.receipt}")
     return 0
 
@@ -812,6 +951,8 @@ def parser() -> argparse.ArgumentParser:
     deliver.add_argument("--branch", required=True)
     deliver.add_argument("--fetched-base", required=True)
     deliver.add_argument("--human-reviewer-id", required=True)
+    deliver.add_argument("--purpose", choices=("ordinary-source", WORKFLOW_PURPOSE), default="ordinary-source")
+    deliver.add_argument("--approval-ref")
     deliver.set_defaults(handler=command_deliver)
 
     revoke = commands.add_parser("revoke", help="revoke one Landing Unit credential and remove its projection")

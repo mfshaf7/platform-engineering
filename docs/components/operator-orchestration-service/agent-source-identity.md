@@ -32,8 +32,12 @@ The closed intent contains `schema_version: 1`, `purpose: ordinary-source`,
 `installation_id`, `landing_unit_id`, non-default `branch`, exact40hex
 `fetched_base`, `human_reviewer_id` and timezone-qualified `expires_at`.
 The required `supersedes_intent_digest` is null initially. An explicitly approved
-recovery generation names its exact revoked predecessor instead; it keeps the
-logical Landing Unit and may rotate branch/base under a new source-start digest.
+successor names its exact revoked predecessor instead. Fresh explicit operator
+approval may reauthorize the same still-valid canonical start/session without
+changing its branch or start digest. Real source recovery keeps the logical
+Landing Unit and binds its actual changed start, with branch/base rotation only
+when that recovery requires it. Expired approval never authorizes automatic
+successor creation or an implicit extension of its deadline.
 Platform requires the same canonical subject, operator and repository, no live
 predecessor projection and no unresolved predecessor issuance. Old command
 receipts remain readable; old revoke/retry cannot mutate a successor credential.
@@ -77,6 +81,40 @@ them at work start and every source action and revoke on terminal close/cancel.
 Read-only status/preflight never invokes these actions. Bootstrap, organization
 admission and App permissions are separate; this ordinary-source producer does
 not authorize them. See [ADR-029](../../decisions/adr/ADR-029-source-intent-credential-effects.md).
+
+### Canonical Owner Admission And Installation Selection
+
+App ownership remains `mfshaf7`/User. Its two independently verified selected
+installations are the original personal account and `mfshaf7-workspace`/
+Organization. An installation is not repository admission. Platform selects
+the installation from the canonical repository's owner, never from a model,
+browser, current directory or an arbitrary installation ID. The request's
+numeric repository/installation IDs must match those independently resolved
+coordinates and actual GitHub token readback.
+
+Normal Console issuance reads the existing composition's private canonical
+record clone, not the primary checkout or a caller-supplied inventory. Its
+current checkpoint must bind the exact Security-reviewed Workspace Governance
+control revision, unchanged code/schema and record-only main advancement.
+Inventory and Intake bytes are read from one immutable Git commit; their
+schemas come from the reviewed control commit. Missing, expired, dirty,
+rewritten or concurrently changed authority denies issuance. This reuses the
+existing record refresher; credential actions do not fetch or alter inventory.
+
+The original eleven legacy owners retain their exact fallback provider IDs.
+A new owner additionally requires explicit matching `provider_repository`
+coordinates in admitted Intake and active/non-suspended Inventory, with the
+Inventory lineage bound to that Intake record/version. Duplicate physical
+provider IDs across active and retired records are denied. Platform repeats
+admission readback immediately before minting after custody preflight. Newly
+admitted data therefore does not require another Platform source edit, while
+changes to accepted schemas, installation accounts or privileges still do.
+
+The engineering `deliver` recovery command retains its original exact-digest
+legacy inventory path; it is not an alternative admission mechanism. Exact
+source-intent revocation remains available after inventory retirement or
+freshness loss using its retained immutable intent/projection, without minting.
+Proposed-only bootstrap remains separate and is not authorized by this reader.
 
 ## Primary Operator Path
 
@@ -127,6 +165,33 @@ revokes the prior token before publishing the replacement while holding the
 projection lock. OOS #1137 must make the source executor take the same lock and
 re-read the credential for every bounded action.
 
+### Explicit Workflow Maintenance
+
+The operator approved Gary's additional App-level Workflows write permission
+on October19, 2026. This does not enlarge ordinary-source tokens, the admitted
+repository set, or model authority. The source App installation verifier accepts
+only the original permission set or that exact set plus Workflows write;
+unrelated permission expansion still fails closed. Read-only provider identity
+verification is unchanged.
+
+For a reviewed CI/workflow-file change only, add
+`--purpose workflow-maintenance --approval-ref <operator-approval-ref>` to
+the same `deliver` command above. The installation must actually have accepted
+Workflows write. The receipt records the exact elevated permissions, purpose,
+approval reference and existing repository/Landing Unit/branch/base binding.
+GitHub restricts the token to one repository; non-default branch and exact base
+remain executor controls, not provider-native branch restrictions.
+
+Use the same two purpose arguments on the existing OOS `maintenance prepare`
+and `maintenance publish` commands, using the reviewed matching consumer.
+Ordinary runtime and source-intent callers reject this separately marked private
+projection; an ordinary delivery cannot silently rotate or adopt it. Revoke the
+exact Landing Unit when publication finishes. A purpose change requires revoking
+the previous projection first. No new service, human publication fallback,
+installation-selection change or blanket workflow access for models is enabled.
+Pending source is validated as engineering evidence before coherent activation;
+it is not already commissioned Console operating evidence.
+
 `suspend` records the issuance stop before revoking projected tokens. `revoke`
 is idempotent for one exact Landing Unit. Resume requires another successful
 commission with `--resume-issuance`; removing the suspension marker by hand is
@@ -135,13 +200,15 @@ not an operator procedure.
 ## Authority And Least Privilege
 
 This issuer's admitted target set is the active governed owner repositories
-recorded in the Workspace Governance repository inventory. The Platform
-definition resolves that inventory to exact provider repository ids and fails
-closed when the two sets differ. Retired, proposed, external and unclassified
+recorded in Workspace Governance, as resolved above. Engineering recovery
+retains the original pinned legacy set; normal Console issuance consumes fresh
+canonical admitted-owner data under the accepted control revision. Retired,
+proposed, external and unclassified
 repositories remain outside this issuance set; an App installation elsewhere
 is not source admission. Each issued token exposes
-exactly one admitted repository and only Metadata read, Contents write, Pull
-requests write, and Checks read. Platform does not accept a repository from
+exactly one admitted repository and, for ordinary source, only Metadata read,
+Contents write, Pull requests write, and Checks read. The explicitly approved
+workflow-maintenance exception above is separate. Platform does not accept a repository from
 the current directory, remote URL, branch name, or ambient `gh` session.
 
 Agent Gary authors and pushes an admitted non-default review branch and may

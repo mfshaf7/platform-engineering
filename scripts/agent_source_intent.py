@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import re
 import stat
-from typing import Any
+from typing import Any, Callable
 
 import agent_source_identity as identity
 
@@ -125,6 +125,7 @@ def validate_input(value: Any, *, caller_id: str, operator_id: str) -> dict[str,
 def operate(
     args: argparse.Namespace, *, state_root: Path, action: str, command_id: str,
     input_value: dict[str, Any], caller_id: str, operator_id: str,
+    inventory_reader: Callable[[], identity.RepositoryInventorySnapshot] | None = None,
 ) -> dict[str, Any]:
     """Execute only after authenticated provider command authorization.
 
@@ -138,7 +139,15 @@ def operate(
     value = validate_input(input_value, caller_id=caller_id, operator_id=operator_id)
     intent, session_id = value["source_intent"], value["session_id"]
     # Revocation must remain possible after inventory retirement or suspension.
-    contract = identity.load_contract(args.contract) if action == "agent-source.revoke" else identity.load_operating_contract(args)
+    if action == "agent-source.revoke":
+        contract = identity.load_contract(args.contract)
+        # Revocation uses immutable retained intent/projection bindings below,
+        # never current admission. It cannot mint or broaden a token.
+        repository = identity.Repository(intent["repository"], intent["repository_id"])
+        contract = identity.replace(contract, repositories=(repository,))
+    else:
+        contract = identity.load_operating_contract(args, inventory_reader=inventory_reader)
+    contract = identity.select_installation(contract, intent["repository"])
     repository = identity._validate_session_inputs(
         contract, landing_unit_id=intent["landing_unit_id"], repository_name=intent["repository"],
         branch=intent["branch"], fetched_base=intent["fetched_base"], human_reviewer_id=intent["human_reviewer_id"],
@@ -181,8 +190,7 @@ def operate(
                 if (action not in {"agent-source.issue", "agent-source.revoke"} or state["state"] != "revoked" or state["pending"] is not None or current is not None
                         or intent["supersedes_intent_digest"] != state["intent_digest"]
                         or intent["intent_id"] == previous["intent_id"] or not same_subject
-                        or any(intent[key] != previous[key] for key in unchanged)
-                        or intent["source_start_digest"] == previous["source_start_digest"]):
+                        or any(intent[key] != previous[key] for key in unchanged)):
                     raise identity.IdentityError("Landing Unit is already bound to another approved source intent; an exact revoked predecessor is required")
                 history_path = state_root / "source-intent-history" / f"{state['intent_digest'].removeprefix('sha256:')}.json"
                 identity.write_json_atomic(history_path, state)
@@ -220,7 +228,7 @@ def operate(
         }
         credential_identity = {"identity_id": contract.identity_id, "logical_agent_id": contract.logical_agent_id,
                                "provider_principal": contract.provider_principal, "app_id": contract.app_id}
-        if current is not None and any(current.get(key) != expected for key, expected in {**binding, **credential_identity}.items()):
+        if current is not None and ("purpose" in current or any(current.get(key) != expected for key, expected in {**binding, **credential_identity}.items())):
             raise identity.IdentityError("projected credential differs from the approved source intent")
         if not alias.exists():
             identity.write_json_atomic(alias, alias_value)
@@ -274,6 +282,13 @@ def operate(
                         # before Vault or provider-identity preflight.
                         if timestamp(intent["expires_at"]) <= datetime.now(timezone.utc):
                             raise SourceIntentError("platform_source_intent_expired", "The approved source intent has expired.")
+                        if inventory_reader is not None:
+                            current_contract = identity.select_installation(
+                                identity.load_operating_contract(args, inventory_reader=inventory_reader), intent["repository"],
+                            )
+                            current_repository = identity.expected_repository(current_contract, intent["repository"])
+                            if (current_repository != repository or current_contract.installation_id != contract.installation_id):
+                                raise identity.IdentityError("canonical source admission changed before credential issuance")
                         state["pending"]["stage"] = "issuing"
                         state["pending"]["started_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
                         identity.write_json_atomic(path, state)

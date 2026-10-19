@@ -29,6 +29,7 @@ SPEC.loader.exec_module(module)
 
 
 REPOSITORY_IDS = {
+    "sample-owner": 123456789,
     "workspace-governance": 1212447211,
     "workspace-governance-control-fabric": 1225028095,
     "context-governance-gateway": 1229561793,
@@ -51,6 +52,11 @@ class ProviderState:
         self.serial = 0
         self.revoked: list[str] = []
         self.issued: list[tuple[str, ...]] = []
+        self.workflow_granted = False
+        self.issued_permissions: list[dict[str, str]] = []
+        self.account_login = "mfshaf7"
+        self.account_id = 244414185
+        self.account_type = "User"
 
 
 class ProviderHandler(BaseHTTPRequestHandler):
@@ -86,6 +92,8 @@ class ProviderHandler(BaseHTTPRequestHandler):
             }
             if state.mode == "overprivileged":
                 permissions["administration"] = "write"
+            if state.workflow_granted:
+                permissions["workflows"] = "write"
             self._json(
                 200,
                 {
@@ -95,7 +103,9 @@ class ProviderHandler(BaseHTTPRequestHandler):
                     "permissions": permissions,
                     "events": [],
                     "suspended_at": None,
-                    "account": {"login": "mfshaf7", "id": 244414185, "type": "User"},
+                    "account": {"login": self.server.state.account_login,
+                                "id": self.server.state.account_id,
+                                "type": self.server.state.account_type},
                 },
             )
             return
@@ -104,7 +114,7 @@ class ProviderHandler(BaseHTTPRequestHandler):
             if state.mode == "broad-token":
                 requested = ["platform-engineering", "security-architecture"]
             repositories = [
-                {"full_name": f"mfshaf7/{name}", "id": REPOSITORY_IDS[name]}
+                {"full_name": f"{state.account_login}/{name}", "id": REPOSITORY_IDS[name]}
                 for name in requested
             ]
             self._json(200, {"total_count": len(repositories), "repositories": repositories})
@@ -118,6 +128,7 @@ class ProviderHandler(BaseHTTPRequestHandler):
         requested = tuple(payload.get("repositories") or ())
         self.server.requested = list(requested)
         state.issued.append(requested)
+        state.issued_permissions.append(payload.get("permissions"))
         state.serial += 1
         expiry = datetime.now(timezone.utc) + timedelta(minutes=45)
         if state.mode == "expired":
@@ -129,7 +140,7 @@ class ProviderHandler(BaseHTTPRequestHandler):
                 "expires_at": expiry.isoformat().replace("+00:00", "Z"),
                 "permissions": payload.get("permissions"),
                 "repositories": [
-                    {"full_name": f"mfshaf7/{name}", "id": REPOSITORY_IDS[name]}
+                    {"full_name": f"{state.account_login}/{name}", "id": REPOSITORY_IDS[name]}
                     for name in requested
                 ],
             },
@@ -215,7 +226,7 @@ class AgentSourceIdentityTests(unittest.TestCase):
             "mfshaf7/platform-engineering",
         ]
 
-    def deliver(self, receipt: str = "deliver.json") -> int:
+    def deliver(self, receipt: str = "deliver.json", extra: tuple[str, ...] = ()) -> int:
         return module.main(
             [
                 *self.session("deliver", receipt),
@@ -227,6 +238,7 @@ class AgentSourceIdentityTests(unittest.TestCase):
                 "a" * 40,
                 "--human-reviewer-id",
                 "mfshaf7",
+                *extra,
             ]
         )
 
@@ -351,6 +363,38 @@ class AgentSourceIdentityTests(unittest.TestCase):
         receipt = (self.work / "deliver.json").read_text(encoding="utf-8")
         self.assertNotIn(credential["token"], receipt)
         self.assertEqual("delivered", json.loads(receipt)["outcome"])
+
+    def test_app_workflow_grant_does_not_broaden_ordinary_token(self) -> None:
+        self.state.workflow_granted = True
+        self.assertEqual(0, self.deliver())
+        self.assertNotIn("workflows", self.state.issued_permissions[-1])
+        self.assertNotIn("purpose", self.credential()[1])
+
+    def test_workflow_maintenance_requires_approval_and_installation_grant(self) -> None:
+        purpose = ("--purpose", "workflow-maintenance")
+        self.assertEqual(1, self.deliver(extra=purpose))
+        approved = (*purpose, "--approval-ref", "operator:2026-10-19-gary-workflows")
+        self.assertEqual(1, self.deliver(extra=approved))
+        self.assertEqual([], self.state.issued)
+        self.state.workflow_granted = True
+        self.assertEqual(0, self.deliver(extra=approved))
+        self.assertEqual("write", self.state.issued_permissions[-1]["workflows"])
+        credential = self.credential()[1]
+        self.assertEqual("workflow-maintenance", credential["purpose"])
+        self.assertEqual("operator:2026-10-19-gary-workflows", credential["approval_ref"])
+        receipt = json.loads((self.work / "deliver.json").read_text())
+        self.assertEqual("write", receipt["permissions"]["workflows"])
+        self.assertNotIn(credential["token"], json.dumps(receipt))
+        issued = len(self.state.issued)
+        self.assertEqual(1, self.deliver("ordinary.json"))
+        self.assertEqual(issued, len(self.state.issued))
+        changed = (*purpose, "--approval-ref", "operator:other-approval")
+        self.assertEqual(1, self.deliver("changed.json", extra=changed))
+        self.assertEqual(issued, len(self.state.issued))
+        self.assertEqual(0, module.main(self.session("revoke", "revoke.json")))
+        revoked = json.loads((self.work / "revoke.json").read_text())
+        self.assertEqual(receipt["purpose"], revoked["purpose"])
+        self.assertEqual(receipt["permissions"], revoked["permissions"])
 
     def test_delivery_rejects_wrong_repository_branch_or_reviewer_before_issue(self) -> None:
         cases = (

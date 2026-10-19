@@ -480,6 +480,7 @@ validate:
 	python3 scripts/test_prototype_closure_evidence.py
 	python3 scripts/agent_source_identity.py validate
 	python3 scripts/test_agent_source_identity.py
+	python3 scripts/test_agent_source_intent.py
 	python3 scripts/test_dev_integration.py
 	python3 scripts/test_dev_integration_compositions.py
 	python3 scripts/test_dev_integration_preflight.py

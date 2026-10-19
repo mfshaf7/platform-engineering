@@ -31,7 +31,7 @@ class RecordAuthorityError(RuntimeError):
     """A current approved data snapshot cannot be established."""
 
 
-def git(root: Path, *args: str, timeout: int = 45) -> str:
+def git(root: Path, *args: str, timeout: int = 45, preserve_output: bool = False) -> str:
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     env.update({"GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0",
         "GIT_NO_REPLACE_OBJECTS": "1", "GIT_GRAFT_FILE": os.devnull,
@@ -42,7 +42,7 @@ def git(root: Path, *args: str, timeout: int = 45) -> str:
             check=True, encoding="utf-8", umask=0o022)
         if len(result.stdout.encode()) > 4 * 1024 * 1024:
             raise RecordAuthorityError("record refresh Git output exceeded its bound")
-        return result.stdout.rstrip("\n")
+        return result.stdout if preserve_output else result.stdout.rstrip("\n")
     except (OSError, subprocess.SubprocessError, UnicodeError):
         # Do not project Git arguments, endpoints or credential diagnostics.
         raise RecordAuthorityError("canonical record Git operation failed") from None
@@ -241,3 +241,25 @@ def snapshot_status(cache_root: Path, owner: str, reviewed: str,
             "record_revision": value["record_revision"], "valid_until": value["valid_until"]}
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         raise RecordAuthorityError("current Platform canonical record snapshot is unavailable") from None
+
+
+def read_repository_admission(cache_root: Path, reviewed: str) -> dict[str, Any]:
+    """Read immutable admission data and reviewed schemas from the existing clone.
+
+    No fetch, refresh or caller-selected source. A concurrent refresh may cause
+    a safe retry, but cannot mix schema, inventory and Intake revisions.
+    """
+    owner = "workspace-governance"
+    before = snapshot_status(cache_root, owner, reviewed)
+    root = cache_root / owner
+    revision = before["record_revision"]
+    paths = ("contracts/repos.yaml", "contracts/intake-register.yaml")
+    sources = {path: git(root, "show", f"{revision}:{path}", preserve_output=True).encode() for path in paths}
+    schemas = {name: json.loads(git(root, "show", f"{reviewed}:contracts/schemas/{name}.schema.json"))
+        for name in ("repos", "intake-register")}
+    after = snapshot_status(cache_root, owner, reviewed)
+    if after["record_revision"] != revision:
+        raise RecordAuthorityError("canonical admission changed during source credential preparation; retry readback")
+    return {"revision": revision, "reviewed_revision": reviewed,
+        "inventory": sources[paths[0]], "intake": sources[paths[1]],
+        "inventory_schema": schemas["repos"], "intake_schema": schemas["intake-register"]}

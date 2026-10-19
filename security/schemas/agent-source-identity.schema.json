@@ -9,7 +9,7 @@
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "display_name", "logical_agent_id", "role", "provider", "provider_principal", "credential_kind", "api_base_url", "account", "app", "repository_selection", "repositories", "repositories_per_token", "required_permissions", "maximum_token_lifetime_seconds", "rotate_before_expiry_seconds", "events"],
+      "required": ["id", "display_name", "logical_agent_id", "role", "provider", "provider_principal", "credential_kind", "api_base_url", "account", "app", "installation_accounts", "repository_selection", "repositories", "repositories_per_token", "required_permissions", "maximum_token_lifetime_seconds", "rotate_before_expiry_seconds", "events"],
       "properties": {
         "id": {"const": "agent-source-github-app-v1"},
         "display_name": {"const": "Agent Gary"},
@@ -21,6 +21,10 @@
         "api_base_url": {"const": "https://api.github.com"},
         "account": {"const": {"login": "mfshaf7", "id": 244414185, "type": "User"}},
         "app": {"const": {"slug": "mfshaf7-agent-gary", "id": 4907049, "installation_id": 160815600}},
+        "installation_accounts": {"const": [
+          {"login": "mfshaf7", "id": 244414185, "type": "User", "installation_id": 160815600},
+          {"login": "mfshaf7-workspace", "id": 322605984, "type": "Organization", "installation_id": 172173010}
+        ]},
         "repository_selection": {"const": "selected"},
         "repositories": {
           "const": [

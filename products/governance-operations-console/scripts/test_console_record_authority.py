@@ -246,6 +246,9 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
             provider_remote(self.source, self.owner)
         for path in ["scripts/run.py", "schemas/product.json", "contracts/intake-policy.yaml", "../products.yaml"]:
             self.assertFalse(data_path(self.owner, path))
+        for path in ["workspace-root/AGENTS.md", "contracts/repo-rules/sample.yaml",
+                     "contracts/context-behavior.yaml", "generated/resolved-owner-map.json"]:
+            self.assertFalse(data_path(self.owner, path), "Registration companions must never become general data paths")
         self.assertTrue(data_path("workspace-prototype-studio", "prototypes/todo/index.html"))
         self.assertTrue(data_path("workspace-prototype-studio", "records/prototype-preview-profiles/todo.yaml"))
         self.assertTrue(data_path(self.owner, "reviews/improvement-candidates/sample.yaml"))
@@ -254,6 +257,46 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         self.assertFalse(data_path(self.owner, "reviews/delegations/authority.yaml"))
         for path in ["scripts/prototype_preview.py", "packages/prototype_preview/runtime.py", "prototypes/todo/.git/config", "prototypes/todo/.gitattributes"]:
             self.assertFalse(data_path("workspace-prototype-studio", path))
+
+    def test_registration_companions_require_reviewed_projector_and_semantic_verification(self):
+        self.write("workspace-root/AGENTS.md", "unreviewed index")
+        candidate = self.commit("companion without reviewed control")
+        with self.assertRaisesRegex(RecordAuthorityError, "reviewed owner control"):
+            admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.write("workspace-root/AGENTS.md", "changed index")
+        candidate = self.commit("candidate registration")
+        with patch.object(console_record_authority, "_validate_registration_companions") as verify:
+            admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+            verify.assert_called_once_with(self.source, self.reviewed, candidate)
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=RecordAuthorityError("protected policy")):
+            with self.assertRaisesRegex(RecordAuthorityError, "protected policy"):
+                admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+
+    def test_inventory_only_candidate_cannot_omit_companion_verification_after_control_review(self):
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.write("contracts/products.yaml", "products: {sample: {lifecycle: active}}")
+        candidate = self.commit("inventory without required generated output")
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=RecordAuthorityError("missing companion")):
+            with self.assertRaisesRegex(RecordAuthorityError, "missing companion"):
+                admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+
+    def test_registration_verifier_failure_invalidates_checkpoint_without_publishing_candidate(self):
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.refresh()
+        self.write("contracts/products.yaml", "products: {sample: {lifecycle: active}}")
+        self.commit("candidate registration")
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=subprocess.TimeoutExpired("synthetic verifier", 60)):
+            with self.assertRaisesRegex(RecordAuthorityError, "unavailable"):
+                self.refresh()
+        self.assertFalse((self.clone / ".git" / CHECKPOINT).exists())
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD"), self.reviewed)
 
     def test_complete_landing_output_advances_records_and_fixture_changes_without_code(self):
         self.owner = "workspace-prototype-studio"

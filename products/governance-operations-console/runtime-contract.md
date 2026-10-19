@@ -100,6 +100,18 @@ from the reviewed control revision. Policy, schemas, control code, executable
 modes, symlinks and rewritten history remain denied. Primary execution-source
 checkouts are never pulled or reset by refresh.
 
+Source-owner registration companions are a narrow semantic exception, not
+general data paths: the exact derived owner rule, bounded routing-index region,
+conservative context declarations and existing generated metadata must match
+the reviewed WG projector and pass the complete owner contract model. Core or
+custom policies and instructions outside the index remain unchanged. Candidate
+code is never imported; code paths/modes/history are frozen before bounded
+snapshots are verified using the reviewed owner's code. Missing companions,
+raw-projection grants, altered instructions, extra rules or verification failure
+withhold freshness. Legacy reviewed control without this projector cannot admit
+these companion paths. This source extension remains uncommissioned until exact
+composed Security acceptance and the normal complete-runtime activation.
+
 The existing credential timer refreshes records every minute and atomically
 publishes a five-minute owner/ref/revision checkpoint. A failed refresh
 invalidates both owners while credential maintenance continues. OOS, WGCF and

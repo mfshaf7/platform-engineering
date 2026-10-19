@@ -60,8 +60,10 @@ Separate the App owner from its two approved installation accounts. For normal
 Console issuance, reuse the existing composition's canonical record reader:
 one current immutable Inventory/Intake snapshot under the exact accepted WG
 control revision and reviewed schemas. Preserve legacy owner provider IDs;
-new owners require matching admitted Intake and active Inventory provider
-coordinates and lineage. Repeat readback immediately before remote minting.
+new owners require active Inventory provider coordinates and canonical promotion
+lineage. Promotion atomically consumes the admitted Intake entry; its id,
+version and digest remain in Inventory rather than a coexisting Intake record.
+Repeat readback immediately before remote minting.
 Do not hardcode every future product repository in Platform, accept an HTTP
 inventory assertion, widen the selected installation set, or add another
 freshness engine. Revocation uses retained exact intent/projection truth even

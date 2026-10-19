@@ -57,12 +57,10 @@ def admission_snapshot() -> intents.identity.RepositoryInventorySnapshot:
         "lifecycle": "active", "posture": "active", "provider_repository": binding,
         "record": {"id": "repo:sample-owner", "lineage": {
             "source": "workspace-intake", "source_ref": "repo:sample-owner", "intake_entry_version": 2,
+            "source_digest": "sha256:" + "f" * 64,
         }},
     }}, "retired_repos": {}}
-    intake = {"schema_version": 2, "repos": {"sample-owner": {
-        "status": "admitted", "provider_repository": binding,
-        "record": {"id": "repo:sample-owner", "version": 2},
-    }}}
+    intake = {"schema_version": 2, "repos": {}}
     schema = {"type": "object", "required": ["schema_version", "repos"], "properties": {
         "schema_version": {"const": 2}, "repos": {"type": "object"}, "retired_repos": {"type": "object"},
     }, "additionalProperties": False}
@@ -143,24 +141,22 @@ class SourceIntentTests(unittest.TestCase):
             self.operate()
         self.assertEqual(self.state.issued, [])
 
-    def test_active_inventory_alone_or_proposed_intake_never_authorizes_ordinary_source(self):
+    def test_intake_and_active_inventory_cannot_coexist_after_atomic_promotion(self):
         self.organization_source()
-        for status in ("proposed", "out-of-scope", "missing"):
+        for status in ("proposed", "out-of-scope", "admitted"):
             with self.subTest(status=status):
                 snapshot = admission_snapshot()
                 intake = yaml.safe_load(snapshot.intake)
-                if status == "missing":
-                    intake["repos"] = {}
-                else:
-                    intake["repos"]["sample-owner"]["status"] = status
+                intake["repos"]["sample-owner"] = {"status": status,
+                    "provider_repository": yaml.safe_load(snapshot.inventory)["repos"]["sample-owner"]["provider_repository"]}
                 snapshot = intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode())
-                with self.assertRaisesRegex(intents.identity.IdentityError, "exact admitted Intake"):
+                with self.assertRaises(intents.identity.IdentityError):
                     self.operate(inventory_reader=lambda: snapshot)
                 self.assertEqual(self.state.issued, [])
 
     def test_canonical_provider_binding_lineage_and_lifecycle_must_match(self):
         self.organization_source()
-        for mode in ("suspended", "retired", "provider-id", "lineage", "stale-version", "duplicate-retired", "schema"):
+        for mode in ("suspended", "retired", "provider-id", "lineage", "missing-source-digest", "duplicate-retired", "schema"):
             with self.subTest(mode=mode):
                 snapshot = admission_snapshot()
                 inventory = yaml.safe_load(snapshot.inventory)
@@ -171,8 +167,8 @@ class SourceIntentTests(unittest.TestCase):
                     item["provider_repository"]["provider_repository_id"] = "987654321"
                 elif mode == "lineage":
                     item["record"]["lineage"]["source_ref"] = "repo:other"
-                elif mode == "stale-version":
-                    item["record"]["lineage"]["intake_entry_version"] = 3
+                elif mode == "missing-source-digest":
+                    item["record"]["lineage"].pop("source_digest")
                 elif mode == "duplicate-retired":
                     inventory["retired_repos"]["another-key"] = deepcopy(item)
                 else:

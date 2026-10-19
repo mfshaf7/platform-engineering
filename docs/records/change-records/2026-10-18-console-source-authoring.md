@@ -67,8 +67,13 @@ installation accounts. Extend the existing Console canonical record reader
 with immutable same-commit Inventory/Intake reads and reviewed-schema lookup;
 the shared issuer takes this internal trusted reader without importing product
 runtime code or accepting HTTP-selected authority. Legacy owners retain their
-provider IDs. New ordinary owners require matching admitted Intake, active
-Inventory, provider coordinates and lineage; installation alone is insufficient.
+provider IDs. New ordinary owners require active Inventory, exact provider
+coordinates and canonical promotion lineage; installation alone is insufficient.
+Native contract inspection caught an incorrect staged coexistence requirement:
+the actual owner promotion atomically removes Intake and retains its id,
+version and digest in active Inventory. Correct both consumers and use actual
+promotion output in their tests. Do not resurrect Intake or add a runtime proof
+mechanism; current canonical Inventory is the owning admission authority.
 Retired/suspended or duplicate bindings fail closed, including a fresh recheck
 after custody preflight immediately before minting. Retained exact revocation
 does not depend on current Inventory availability. The legacy engineering

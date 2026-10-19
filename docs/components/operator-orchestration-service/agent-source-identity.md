@@ -102,10 +102,12 @@ rewritten or concurrently changed authority denies issuance. This reuses the
 existing record refresher; credential actions do not fetch or alter inventory.
 
 The original eleven legacy owners retain their exact fallback provider IDs.
-A new owner additionally requires explicit matching `provider_repository`
-coordinates in admitted Intake and active/non-suspended Inventory, with the
-Inventory lineage bound to that Intake record/version. Duplicate physical
-provider IDs across active and retired records are denied. Platform repeats
+A new owner additionally requires explicit `provider_repository` coordinates
+in active/non-suspended Inventory and canonical promotion lineage binding the
+consumed admitted Intake record's id, version and digest. Promotion removes
+the Intake entry atomically: requiring it still to coexist is incorrect.
+Contradictory Intake/Inventory or duplicate physical provider IDs across
+Intake, active and retired records are denied. Platform repeats
 admission readback immediately before minting after custody preflight. Newly
 admitted data therefore does not require another Platform source edit, while
 changes to accepted schemas, installation accounts or privileges still do.

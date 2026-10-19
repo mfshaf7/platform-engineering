@@ -256,6 +256,11 @@ def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInvent
     repositories = []
     physical_ids: set[int] = set()
     coordinates: set[str] = set()
+    for entry in intake.get("repos", {}).values():
+        binding = entry.get("provider_repository")
+        if binding is not None:
+            physical_ids.add(int(binding["provider_repository_id"]))
+            coordinates.add(binding["full_name"].casefold())
     for section in ("repos", "retired_repos"):
         for name, entry in inventory.get(section, {}).items():
             binding = entry.get("provider_repository")
@@ -282,15 +287,16 @@ def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInvent
                 continue
             if fallback is None:
                 lineage = entry.get("record", {}).get("lineage", {})
-                admitted = intake.get("repos", {}).get(name, {})
-                if (binding is None or admitted.get("status") != "admitted"
-                    or admitted.get("provider_repository") != binding
+                # Promotion consumes Intake atomically; current active Inventory
+                # is the authority and retains the accepted classification lineage.
+                if (binding is None or name in intake.get("repos", {})
+                    or entry.get("record", {}).get("id") != f"repo:{name}"
                     or lineage.get("source") != "workspace-intake"
-                    or lineage.get("source_ref") != admitted.get("record", {}).get("id")
+                    or lineage.get("source_ref") != f"repo:{name}"
+                    or not re.fullmatch(r"sha256:[0-9a-f]{64}", str(lineage.get("source_digest")))
                     or type(lineage.get("intake_entry_version")) is not int
-                    or type(admitted.get("record", {}).get("version")) is not int
-                    or admitted["record"]["version"] < lineage["intake_entry_version"]):
-                    raise IdentityError("ordinary source requires the exact admitted Intake and active Inventory binding")
+                    or lineage["intake_entry_version"] < 1):
+                    raise IdentityError("ordinary source requires active Inventory with canonical promotion lineage")
             repositories.append(repository)
     return replace(contract, repositories=tuple(repositories), repository_inventory_ref={
         **contract.repository_inventory_ref, "revision": snapshot.revision,

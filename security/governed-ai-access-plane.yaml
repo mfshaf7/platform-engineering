@@ -182,10 +182,10 @@ access_plane:
   activation_state:
     profile_activations:
       prototype-source-authoring-v1:
-        activation_allowed: false
+        activation_allowed: true
         environment: dev-integration
         binding: local-ollama-qwen3-8b
-        reason: source-prepared-awaiting-exact-composed-security-and-reviewed-activation
+        reason: source-admitted-prototype-authoring-operating-gated-by-exact-console-composition
       source-realization-v1:
         activation_allowed: true
         environment: dev-integration

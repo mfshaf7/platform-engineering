@@ -54,13 +54,17 @@ review. Atomic state writes also fsync their parent directory. Unknown issuance
 is not reminted or falsely called revoked; only safe typed failure metadata
 crosses the provider. No source branch/worktree is created by these actions.
 
-Prepare a separate suspended `prototype-source-authoring-v1` profile using the
+Prepare a separate `prototype-source-authoring-v1` deployment profile using the
 existing local model/binding, limits, route and bounded source change-set wire.
 The native resolver requires a profile's callers to share its exact task set;
 a separate existing-style profile preserves Delivery/Prototype caller isolation
-without changing that resolver or broadening Delivery purpose. Baseline review
-is only an anchor. Activation remains false pending fresh exact composed
-Security acceptance and the existing reviewed profile lifecycle procedure.
+without changing that resolver or broadening Delivery purpose. The proposed
+source selection is now active like the existing source-realization deployment
+configuration; baseline review remains only an anchor, not its live authority.
+Do not load or deploy it before fresh exact composed Security acceptance and
+explicit gateway commissioning. Keep Platform primary and running gateway at
+their accepted configuration until that decision; other source-only producers
+may align inside the announced merge window. No new model or download is needed.
 
 Separate fixed App ownership from the personal and approved organization
 installation accounts. Extend the existing Console canonical record reader

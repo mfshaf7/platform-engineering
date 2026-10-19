@@ -411,7 +411,7 @@ class ModelProfileResolverTests(unittest.TestCase):
             self.assertTrue(
                 result["profiles"]["intake-classifier-v1"]["activation_eligible"]
             )
-            self.assertFalse(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
+            self.assertTrue(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
             self.assertTrue(
                 result["profiles"]["delivery-work-design-advisor-v1"][
                     "activation_eligible"

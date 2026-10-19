@@ -33,7 +33,7 @@ def caller(profile_id: str, caller_id: str) -> dict:
 
 
 class GatewayPolicyTests(unittest.TestCase):
-    def test_prototype_source_profile_is_inactive_and_cannot_borrow_delivery_authority(self) -> None:
+    def test_prototype_source_profile_is_separate_and_suspension_still_denies_it(self) -> None:
         resolved = selections()
         request = {
             "profile_id": "prototype-source-authoring-v1",
@@ -47,16 +47,17 @@ class GatewayPolicyTests(unittest.TestCase):
                 "source_binding": {"session_id": "prototype-source-session:example", "base_commit": "b" * 40,
                     "objective_digest": "sha256:" + "c" * 64, "context_digest": "sha256:" + "d" * 64}},
         }
-        denied = GatewayPolicy(resolved).evaluate(request)
+        inactive = copy.deepcopy(resolved)
+        inactive_profile = inactive["profiles"]["prototype-source-authoring-v1"]
+        inactive_profile["profile_status"] = "suspended"
+        inactive_profile["profile_activation_allowed"] = False
+        inactive_profile["activation_eligible"] = False
+        denied = GatewayPolicy(inactive).evaluate(request)
         self.assertFalse(denied.allowed)
         self.assertIn("profile-not-active", denied.reasons)
         self.assertIn("profile-activation-not-allowed", denied.reasons)
 
-        # Sandbox policy proof only: no source activation or model invocation.
-        profile = resolved["profiles"]["prototype-source-authoring-v1"]
-        profile["profile_status"] = "active"
-        profile["profile_activation_allowed"] = True
-        profile["activation_eligible"] = True
+        # Actual proposed source selection, without live deployment/inference.
         policy = GatewayPolicy(resolved)
         decision = policy.evaluate(request)
         self.assertTrue(decision.allowed, decision.reasons)

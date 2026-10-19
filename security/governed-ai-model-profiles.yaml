@@ -7,7 +7,7 @@ registry:
     path: docs/reviews/platform/2026-04-18-governed-ai-intake-assist-and-model-profiles.md
 model_profiles:
   prototype-source-authoring-v1:
-    status: suspended
+    status: active
     purpose: bounded-prototype-source-authoring
     invocation_path: governed-ai-gateway
     selected_binding_by_environment:
@@ -24,7 +24,7 @@ model_profiles:
         selection:
           selected_at: "2026-10-18"
           selected_by: operator:workspace-owner
-          basis: reuse-existing-local-binding-with-separate-inactive-prototype-purpose
+          basis: reuse-existing-local-binding-for-composed-security-gated-prototype-purpose
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
       - operator-orchestration-service/prototype-source-authoring
@@ -68,11 +68,13 @@ model_profiles:
       repo: security-architecture
       path: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
     notes: >-
-      Inactive source preparation using the existing model, route, bounded
+      Proposed deployment configuration using the existing model, route, bounded
       change-set wire and native lifecycle controls. The cited baseline is an
       architectural anchor, not acceptance of this new Prototype purpose.
-      Fresh exact composed Security acceptance and explicit profile activation
-      are required before use. OOS independently binds the real canonical
+      Active here is reviewed desired source configuration, not a live grant.
+      Fresh exact composed Security acceptance and explicit gateway commissioning
+      are required before use; keep the running gateway unchanged until then.
+      OOS independently binds the real canonical
       Prototype, app/design paths, source base and exact human-accepted draft;
       no fabricated Delivery identity, owner controls, tools, provider secret,
       publication, merge or runtime activation authority enters the model.

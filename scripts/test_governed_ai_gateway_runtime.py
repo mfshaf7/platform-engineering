@@ -311,6 +311,7 @@ class GatewayRuntimeTests(unittest.TestCase):
                 "agent-console-assistant-v1",
                 "delivery-refinement-advisor-v1",
                 "delivery-work-design-advisor-v1",
+                "prototype-source-authoring-v1",
                 "source-realization-v1",
             ],
         )
@@ -361,7 +362,7 @@ class GatewayRuntimeTests(unittest.TestCase):
                 self.assertFalse(observed["ready"])
                 if eligible:
                     self.assertEqual(observed["failure"], code)
-            self.assertFalse(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
+            self.assertTrue(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
 
 
     @staticmethod

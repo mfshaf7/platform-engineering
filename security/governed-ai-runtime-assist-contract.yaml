@@ -21,6 +21,7 @@ contract:
     - agent-console-assistant-v1
   consumers:
     allowed_callers:
+      - operator-orchestration-service/prototype-source-authoring
       - operator-orchestration-service/source-realization
       - workspace-governance/intake-assist
       - operator-orchestration-service/work-design-assist

@@ -262,6 +262,7 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
         raise RuntimeError("complete runtime repository OOS state binding is invalid")
     security = policy["security"]
     required_repos = {
+        "context-governance-gateway",
         "governance-operations-console",
         "operator-orchestration-service",
         "platform-engineering",

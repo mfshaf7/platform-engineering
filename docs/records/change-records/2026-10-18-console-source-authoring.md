@@ -99,6 +99,17 @@ acceptance must be completed before activation.
 
 ## Artifact And Deployment Evidence
 
+Final composition reuses the existing exact-source acceptance set for the
+changed CGG context producer as well as the six prior implementation owners.
+The existing lifecycle-context source boundary now selects actual merged CGG
+`f80c06d9ece3b8706211c0be536407e610ef13e0`, without relaxing its exact rule.
+Its older Security reference remains an architecture anchor, not acceptance of
+this new source. The final composed decision must explicitly bind all seven
+implementation owners and the actual Platform tree. No new activation manifest,
+identity, source-purpose grant or ART child is introduced. Missing CGG binding
+fails the existing policy validator before activation; prior accepted runtime
+and new-purpose suspension are preserved until coherent reacceptance.
+
 Base: ac854a4e08a6d075bd1842127513c55de59f3997. Candidate validation and exact
 review head will be recorded with this Landing Unit. No image, Argo revision,
 stage/prod change or new runtime acceptance exists. Existing exact Platform

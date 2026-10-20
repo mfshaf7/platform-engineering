@@ -135,6 +135,19 @@ old commands remain isolated from the successor.
 
 ## Live Verification
 
+- October20 the original approved Console issue reached its owner worker but
+  failed before mint: retained phase `preparing`, no credential projection.
+  The actual service could not resolve the installed user-local Vault binary;
+  OpenSSL, Git and k3s resolved. Read-only actual Vault custody and App/installation
+  verification passed under the controlled local-bin/system PATH without token
+  issuance. Landing Unit `maintenance-1275-provider-issuer-tools` extends only
+  the existing provider unit PATH and early activation prerequisite check;
+  Platform and dependent Security use separate reviewed rollback boundaries.
+  No global environment, package install, new service, grant or secret logging.
+  Preserve exact original request, approval, command and scope. Native missing-tool
+  early denial, committed CI, exact Security reacceptance, normal activation and
+  original Console retry are required; source checks alone are not operating proof.
+
 - October20 actual issuance exposed a stale provider after otherwise successful
   activation: the process from boot still advertised72c3b13 rather than the
   accepted/current7acd3eb and correctly withheld source issuance. Exact existing

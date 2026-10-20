@@ -1109,6 +1109,21 @@ def credential() -> str:
     return secret
 
 
+def provider_service_path() -> str:
+    # User-installed issuer tools must resolve in the service as well as the
+    # operator shell. Never inherit arbitrary shell/manager PATH entries.
+    return ":".join((str(Path.home() / ".local/bin"), "/usr/local/sbin",
+                     "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"))
+
+
+def require_provider_tools() -> None:
+    path = provider_service_path()
+    missing = [name for name in ("vault", "openssl", "git", "k3s")
+               if not shutil.which(name, path=path)]
+    if missing:
+        raise RuntimeError("Platform provider required tools unavailable: " + ", ".join(missing))
+
+
 def write_provider_unit(policy: dict[str, Any], gateway: str, secret: str) -> None:
     ensure_private(STATE_ROOT)
     ensure_private(PRIVATE_ROOT)
@@ -1128,6 +1143,7 @@ After=network.target k3s.service
 [Service]
 WorkingDirectory={runtime_repo}
 EnvironmentFile={env_path}
+Environment=PATH={provider_service_path()}
 Environment=VAULT_ADDR=http://127.0.0.1:32200
 Environment=XDG_RUNTIME_DIR=%t
 ExecStart={python} {runtime_repo / 'products' / 'governance-operations-console' / 'scripts' / 'platform_operation_provider.py'} --policy {RESOLVED_POLICY_PATH} --state-root {state} serve --listen-host {gateway} --listen-port {policy['runtime']['provider_port']}
@@ -1638,8 +1654,9 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
 
 def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
-    write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    require_provider_tools()
+    write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
     refresh_record_authorities(policy)
     run(composition_command(policy, "up"))
@@ -1993,6 +2010,7 @@ def main() -> int:
             require_activation_allowed(resolved)
             if args.policy.resolve() != POLICY_PATH.resolve():
                 raise RuntimeError("normal activation requires the canonical complete-runtime policy")
+            require_provider_tools()
             write_composition_supervisor(resolved)
             run(["systemctl", "--user", "restart", composition_supervisor_unit(resolved)])
             result = status(policy, action="activate")

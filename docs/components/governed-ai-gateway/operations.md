@@ -68,6 +68,21 @@ target that already passes every registry, caller, route, model, audit, and
 access-plane validator. A request cannot add an unreviewed provider route or
 model. `suspend` and `retire` close activation in the same source transaction.
 
+Retirement keeps the canonical registry row, selected binding and task/caller
+history, but removes its access-plane, route and caller grants and retires every
+binding. Resolved history is ineligible for invocation; it must not be granted
+access merely to make resolution pass. The launcher requires at least one
+eligible profile, not an active legacy intake profile. Other active profiles
+remain independently usable when intake or Work Design is suspended or retired;
+an all-inactive registry cannot launch. The intake/Work Design `smoke` remains a
+route-specific inference exercise requiring those two profiles active, not a
+generic readiness check or a reason to reactivate a deliberately disabled route.
+
+Behavior unit tests use explicitly synthetic frozen fixtures under
+`scripts/fixtures/governed-ai/`; runtime sources never load them. Native source
+validation and rendered-registry conformance instead check the actual declared
+configuration, without requiring today's profile IDs or active states forever.
+
 If validation or post-apply review fails, restore only from the exact receipt
 and rollback bundle while the source still matches the applied result:
 

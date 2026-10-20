@@ -40,6 +40,7 @@ shared_paths:
       - test_dev_integration_preflight.py
       - test_dev_integration_host_services.py
       - test_ai_model_profiles.py
+      - governed_ai_test_support.py
       - model_profile_lifecycle.py
       - test_model_profile_lifecycle.py
       - test_governed_ai_gateway_policy.py

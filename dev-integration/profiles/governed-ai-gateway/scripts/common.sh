@@ -276,8 +276,8 @@ require_active_profile() {
 }
 
 require_active_model_binding() {
-  if [[ "${MODEL_ACTIVATION_ELIGIBLE}" != "true" ]]; then
-    echo "refused: selected model binding ${MODEL_SELECTION_REF} is not activation eligible." >&2
+  if ! python3 -c 'import json,sys; sys.exit(0 if any(p["activation_eligible"] for p in json.load(sys.stdin)["profiles"].values()) else 2)' <<<"${MODEL_SELECTIONS_JSON}"; then
+    echo "refused: no governed model profile is activation eligible." >&2
     exit 2
   fi
 }

@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -15,6 +16,7 @@ from pathlib import Path
 import yaml
 
 import model_profile_lifecycle as lifecycle
+from governed_ai_test_support import prepare_contracts
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -24,15 +26,154 @@ OOS_ROOT = Path(os.environ["OOS_REPO_ROOT"]) if os.environ.get("OOS_REPO_ROOT") 
     if (ancestor / "operator-orchestration-service").is_dir()
 )
 PROFILE_ID = "delivery-refinement-advisor-v1"
+sys.path.insert(0, str(REPO_ROOT / "dev-integration/profiles/governed-ai-gateway/runtime"))
+from model_profile_resolver import ModelProfileResolutionError, resolve_model_profile_registry
+from gateway_app import GatewayRuntime
+
+
+class NoInferenceAdapter:
+    def verify_binding(self):
+        return {"synthetic": True}
+
+    def invoke(self, **kwargs):
+        raise AssertionError("inactive profile reached provider inference")
+
+
+class ModelProfileConsumerCoherenceTests(unittest.TestCase):
+    """Real lifecycle output crosses actual consumers, with no live side effects."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="model-profile-consumers-")
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name) / "platform-engineering"
+        prepare_contracts(self.root)
+        self.root.joinpath("dev-integration").unlink()  # disposable fixture symlink
+        profile_path = Path("dev-integration/profiles/governed-ai-gateway")
+        shutil.copytree(REPO_ROOT / profile_path, self.root / profile_path)
+        self.documents = self.read_documents()
+
+    def read_documents(self):
+        return [yaml.safe_load((self.root / path).read_text()) for path in (
+            lifecycle.REGISTRY, lifecycle.ACCESS_PLANE, lifecycle.RUNTIME_ASSIST
+        )]
+
+    def resolve(self):
+        return resolve_model_profile_registry(self.root / lifecycle.REGISTRY,
+            self.root / lifecycle.ACCESS_PLANE, environment="dev-integration")
+
+    def transition(self, profile_id, intent, target=None):
+        documents = self.read_documents()
+        before = copy.deepcopy(documents[0]["model_profiles"])
+        decision = {"intent": intent, "profile_id": profile_id,
+            "decision_id": "synthetic-consumer-coherence", "activation_environment": None,
+            "target_profile": target}
+        lifecycle.mutate_sources(*documents, decision)
+        rendered = [lifecycle.render_yaml(value) for value in documents]
+        lifecycle.validate_candidate(self.root, *rendered)
+        for path, content in zip((lifecycle.REGISTRY, lifecycle.ACCESS_PLANE, lifecycle.RUNTIME_ASSIST), rendered):
+            lifecycle.write_atomic(self.root / path, content)
+        after = documents[0]["model_profiles"]
+        self.assertEqual({key: value for key, value in before.items() if key != profile_id},
+            {key: value for key, value in after.items() if key != profile_id})
+        return self.resolve()
+
+    def launch_check(self):
+        return subprocess.run(["bash", "-c",
+            "source dev-integration/profiles/governed-ai-gateway/scripts/common.sh; require_active_model_binding"],
+            cwd=self.root, env={"PATH": os.environ["PATH"], "DEVINT_PROFILE_LIFECYCLE": "active"},
+            capture_output=True, text=True, check=False)
+
+    def assert_inactive_without_inference(self, selections, profile_id):
+        selected = selections["profiles"][profile_id]
+        self.assertFalse(selected["activation_eligible"])
+        caller_id = selected["allowed_callers"][0]
+        repo, workflow = caller_id.split("/", 1)
+        runtime = GatewayRuntime(selections=selections, audit_root=self.root / "audit",
+            compatibility_profile_id="intake-classifier-v1",
+            adapters={key: NoInferenceAdapter() for key in selections["profiles"]})
+        status, result = runtime.invoke({"profile_id": profile_id,
+            "caller_identity": {"caller_id": caller_id, "caller_repo": repo,
+                "caller_workflow": workflow, "requested_profile_id": profile_id,
+                "decision_or_correlation_id": "synthetic-lifecycle"},
+            "operator_identity": {"operator_id": "synthetic/operator"}, "input": {}})
+        self.assertEqual(status, 403)
+        self.assertIn("profile-not-active", result["reasons"])
+        return runtime.readiness()
+
+    def test_each_profile_can_suspend_reactivate_and_retire_without_disabling_others(self):
+        originals = self.documents[0]["model_profiles"]
+        for profile_id, original in originals.items():
+            with self.subTest(profile_id=profile_id):
+                # Reset only the disposable contracts between independent cases.
+                for path, document in zip((lifecycle.REGISTRY, lifecycle.ACCESS_PLANE, lifecycle.RUNTIME_ASSIST), self.documents):
+                    lifecycle.write_atomic(self.root / path, lifecycle.render_yaml(document))
+                suspended = self.transition(profile_id, "suspend")
+                readiness = self.assert_inactive_without_inference(suspended, profile_id)
+                self.assertTrue(readiness["ready"])
+                self.assertNotIn(profile_id, readiness["ready_profile_ids"])
+                self.assertEqual(self.launch_check().returncode, 0)
+                activated = self.transition(profile_id, "activate", copy.deepcopy(original))
+                self.assertTrue(activated["profiles"][profile_id]["activation_eligible"])
+                retired = self.transition(profile_id, "retire")
+                self.assertEqual(retired["profiles"][profile_id]["profile_status"], "retired")
+                self.assertTrue(self.assert_inactive_without_inference(retired, profile_id)["ready"])
+                self.assertEqual(self.launch_check().returncode, 0)
+
+    def test_create_amend_and_retire_use_the_same_consumer_contract(self):
+        profile_id = "synthetic-lifecycle-profile-v1"
+        target = copy.deepcopy(self.documents[0]["model_profiles"][PROFILE_ID])
+        target["allowed_callers"] = ["synthetic/lifecycle"]
+        target["status"] = "suspended"
+        for binding in target["bindings"].values():
+            binding["status"] = "selected-not-active"
+        created = self.transition(profile_id, "create", target)
+        self.assert_inactive_without_inference(created, profile_id)
+        target["purpose"] = "synthetic-amended-purpose"
+        amended = self.transition(profile_id, "amend", target)
+        self.assertEqual(amended["profiles"][profile_id]["purpose"], target["purpose"])
+        self.assert_inactive_without_inference(self.transition(profile_id, "retire"), profile_id)
+
+    def test_all_retired_is_valid_history_but_cannot_launch_or_invoke(self):
+        for profile_id in self.documents[0]["model_profiles"]:
+            resolved = self.transition(profile_id, "retire")
+        self.assertEqual(self.read_documents()[1]["access_plane"]["allowed_profiles"], [])
+        self.assertFalse(self.assert_inactive_without_inference(resolved, PROFILE_ID)["ready"])
+        result = self.launch_check()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("no governed model profile is activation eligible", result.stderr)
+
+    def test_retired_history_cannot_retain_live_grants_or_activation(self):
+        self.transition(PROFILE_ID, "retire")
+        retired_documents = self.read_documents()
+        for kind in ("plane", "route", "caller", "activation", "binding"):
+            with self.subTest(kind=kind):
+                documents = copy.deepcopy(retired_documents)
+                registry, access, _ = documents
+                plane = access["access_plane"]
+                if kind == "plane":
+                    plane["allowed_profiles"].append(PROFILE_ID)
+                elif kind == "route":
+                    plane["provider_routes"][0]["allowed_profiles"].append(PROFILE_ID)
+                elif kind == "caller":
+                    plane["allowed_callers"].append(next(value for value in self.documents[1]["access_plane"]["allowed_callers"] if value["required_profile"] == PROFILE_ID))
+                elif kind == "activation":
+                    plane["activation_state"]["profile_activations"][PROFILE_ID]["activation_allowed"] = True
+                else:
+                    next(iter(registry["model_profiles"][PROFILE_ID]["bindings"].values()))["status"] = "active"
+                rendered = [lifecycle.render_yaml(value) for value in documents]
+                with self.assertRaises(lifecycle.LifecycleError):
+                    lifecycle.validate_candidate(self.root, *rendered)
+                for path, content in zip((lifecycle.REGISTRY, lifecycle.ACCESS_PLANE, lifecycle.RUNTIME_ASSIST), rendered):
+                    lifecycle.write_atomic(self.root / path, content)
+                with self.assertRaises(ModelProfileResolutionError):
+                    self.resolve()
 
 
 class ModelProfileLifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="model-profile-lifecycle-test-")
         self.root = Path(self.temporary.name) / "platform-engineering"
-        shutil.copytree(REPO_ROOT / "security", self.root / "security")
-        for name in ("docs", "dev-integration"):
-            (self.root / name).symlink_to(REPO_ROOT / name, target_is_directory=True)
+        prepare_contracts(self.root)
         self.work = Path(self.temporary.name) / "work"
         self.work.mkdir()
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
@@ -58,13 +199,13 @@ class ModelProfileLifecycleTests(unittest.TestCase):
                 binding["status"] = "selected-not-active"
         return profile
 
-    def projection(self, *, state: str = "implementing", recorded_at: str = "2026-10-09T00:00:00Z") -> dict:
+    def projection(self, *, state: str = "implementing", recorded_at: str = "2026-10-09T00:00:00Z", intent: str = "amend") -> dict:
         source = lifecycle.source_state(self.root, source_version=self.base_version)
         profile = self.profile()
         request = {
             "schema_version": 1,
             "request_id": "model-profile-request:test-amend",
-            "intent": "amend",
+            "intent": intent,
             "requested_at": "2026-10-08T23:58:00Z",
             "operator_id": "operator:workspace-owner",
             "profile_intent": {
@@ -110,7 +251,7 @@ class ModelProfileLifecycleTests(unittest.TestCase):
             "receipt_id": "model-profile-receipt:111111111111111111111111",
             "request_id": request["request_id"],
             "request_revision": 5,
-            "intent": "amend",
+            "intent": intent,
             "review_state": "approved",
             "fulfillment_state": state,
             "profile_id": PROFILE_ID,
@@ -186,12 +327,12 @@ class ModelProfileLifecycleTests(unittest.TestCase):
             "request_id": projection["request_id"],
             "request_revision": projection["revision"],
             "request_receipt_digest": projection["latest_receipt"]["digest"],
-            "intent": "amend",
+            "intent": projection["request"]["intent"],
             "actor_id": lifecycle.ACTOR_ID,
             "recorded_at": "2026-10-09T00:01:00Z",
             "expected_sources": lifecycle.source_state(self.root, source_version=self.base_version),
             "profile_id": PROFILE_ID,
-            "target_profile": self.profile(),
+            "target_profile": None if projection["request"]["intent"] in {"suspend", "retire"} else self.profile(),
             "activation_environment": None,
             "security_decision_ref": None,
             "idempotency_key": "platform-test-amend",
@@ -240,6 +381,25 @@ class ModelProfileLifecycleTests(unittest.TestCase):
             "--rollback-bundle", str(rollback),
         )
         return completed, receipt, rollback
+
+    def assert_lifecycle_cli_consumers(self, intent):
+        completed, receipt, rollback = self.apply(self.projection(intent=intent))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        resolved = resolve_model_profile_registry(self.root / lifecycle.REGISTRY,
+            self.root / lifecycle.ACCESS_PLANE, environment="dev-integration")
+        selected = resolved["profiles"][PROFILE_ID]
+        self.assertEqual(selected["profile_status"], "retired" if intent == "retire" else "suspended")
+        self.assertFalse(selected["activation_eligible"])
+        restored = self.run_cli("restore", "--receipt", str(receipt), "--rollback-bundle", str(rollback),
+            "--recorded-at", "2026-10-09T00:02:00Z", "--output", str(self.work / "restore.json"))
+        self.assertEqual(restored.returncode, 0, restored.stderr)
+        self.assertEqual(lifecycle.clean_git_head(self.root), self.base_version)
+
+    def test_native_suspend_cli_output_resolves_and_restores(self):
+        self.assert_lifecycle_cli_consumers("suspend")
+
+    def test_native_retire_cli_output_resolves_and_restores(self):
+        self.assert_lifecycle_cli_consumers("retire")
 
     def test_apply_project_restore_and_cleanup_are_exact(self) -> None:
         before = lifecycle.source_state(self.root, source_version=self.base_version)

@@ -17,15 +17,12 @@ sys.path.insert(0, str(RUNTIME_ROOT))
 
 from gateway_app import GatewayRuntime  # noqa: E402
 from model_profile_resolver import resolve_model_profile_registry  # noqa: E402
+from governed_ai_test_support import fixture_selections
 from ollama_adapter import ProviderResult, ProviderIntegrityError, ProviderUnavailable  # noqa: E402
 
 
 def selections() -> dict:
-    return resolve_model_profile_registry(
-        REPO_ROOT / "security/governed-ai-model-profiles.yaml",
-        REPO_ROOT / "security/governed-ai-access-plane.yaml",
-        environment="dev-integration",
-    )
+    return fixture_selections()
 
 
 def caller(profile_id: str, caller_id: str) -> dict:

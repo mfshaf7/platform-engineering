@@ -521,34 +521,20 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             selections = json.loads(
                 gateway_config["data"]["model-profile-selections.json"]
             )
-            self.assertEqual(
-                set(selections["profiles"]),
-                {
-                    "intake-classifier-v1",
-                    "delivery-work-design-advisor-v1",
-                    "delivery-refinement-advisor-v1",
-                    "agent-console-assistant-v1",
-                    "source-realization-v1",
-                    "prototype-source-authoring-v1",
-                },
-            )
-            self.assertTrue(
-                selections["profiles"]["delivery-work-design-advisor-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(selections["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
-            self.assertTrue(
-                selections["profiles"]["delivery-refinement-advisor-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(
-                selections["profiles"]["agent-console-assistant-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(selections["profiles"]["source-realization-v1"]["activation_eligible"])
+            # Actual configuration conformance, not a permanent active-ID list.
+            registry = yaml.safe_load((REPO_ROOT / "security/governed-ai-model-profiles.yaml").read_text())
+            access = yaml.safe_load((REPO_ROOT / "security/governed-ai-access-plane.yaml").read_text())["access_plane"]
+            self.assertEqual(set(selections["profiles"]), set(registry["model_profiles"]))
+            routes = {route["route_id"]: route for route in access["provider_routes"]}
+            for profile_id, declared in registry["model_profiles"].items():
+                selected = selections["profiles"][profile_id]
+                binding = declared["bindings"][declared["selected_binding_by_environment"]["dev-integration"]]
+                self.assertEqual(selected["profile_status"], declared["status"])
+                self.assertEqual(selected["activation_eligible"], all((
+                    declared["status"] == "active", binding["status"] == "active",
+                    access["status"] == "active", routes[binding["provider_route"]]["status"] == "active",
+                    access["activation_state"]["profile_activations"][profile_id]["activation_allowed"],
+                )))
             gateway = next(
                 document
                 for document in documents

@@ -24,6 +24,7 @@ from model_profile_resolver import (
     resolve_model_profile_registry,
 )
 from strict_output_schema import OutputSchemaError, validate_output
+from governed_ai_test_support import contract_source
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -45,12 +46,15 @@ LOCAL_REFERENCE_PATHS = (
 
 
 class GovernedAiModelProfileTests(unittest.TestCase):
+    def test_actual_declared_source_is_valid_independently_of_fixture_state(self) -> None:
+        self.assertEqual(validate(REPO_ROOT), [])
+
     def prepare_repo(self, root: Path) -> Path:
         repo_root = root / "platform-engineering"
         for relative_path in CONTRACT_PATHS:
             target = repo_root / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(REPO_ROOT / relative_path, target)
+            shutil.copy2(contract_source(relative_path), target)
         for relative_path in LOCAL_REFERENCE_PATHS:
             target = repo_root / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -65,9 +69,9 @@ class GovernedAiModelProfileTests(unittest.TestCase):
             repo_root = self.prepare_repo(Path(temp_dir))
             self.assertEqual(validate(repo_root), [])
 
-    def test_active_local_ollama_bindings_share_reviewed_runtime_version(self) -> None:
+    def test_synthetic_local_ollama_bindings_share_fixture_runtime_version(self) -> None:
         registry = yaml.safe_load(
-            (REPO_ROOT / "security/governed-ai-model-profiles.yaml").read_text(
+            contract_source("security/governed-ai-model-profiles.yaml").read_text(
                 encoding="utf-8"
             )
         )
@@ -184,8 +188,8 @@ class ModelProfileResolverTests(unittest.TestCase):
     def prepare_contracts(self, root: Path) -> tuple[Path, Path]:
         profile_path = root / "governed-ai-model-profiles.yaml"
         access_path = root / "governed-ai-access-plane.yaml"
-        shutil.copy2(REPO_ROOT / "security/governed-ai-model-profiles.yaml", profile_path)
-        shutil.copy2(REPO_ROOT / "security/governed-ai-access-plane.yaml", access_path)
+        shutil.copy2(contract_source("security/governed-ai-model-profiles.yaml"), profile_path)
+        shutil.copy2(contract_source("security/governed-ai-access-plane.yaml"), access_path)
         for schema_name in (
             "intake-classification-result.schema.json",
             "delivery-work-design-advice.schema.json",

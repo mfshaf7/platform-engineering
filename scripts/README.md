@@ -161,6 +161,9 @@ The default shared drill profile and evidence template live under:
 - `migrate_k8s_secret_to_vault.py`
 - `validate_ai_model_profiles.py`
 - `test_ai_model_profiles.py`
+- `governed_ai_test_support.py`
+  - prepares isolated synthetic behavior inputs from `fixtures/governed-ai/`;
+    never loaded by runtime or substituted for actual source/operating proof
 - `model_profile_lifecycle.py`
 - `test_model_profile_lifecycle.py`
 - `test_governed_ai_gateway_policy.py`

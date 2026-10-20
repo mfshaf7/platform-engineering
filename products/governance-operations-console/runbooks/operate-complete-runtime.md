@@ -239,6 +239,14 @@ path. No additional daemon, service family or browser authority is introduced.
 The Console web service restarts on successful unexpected process exit as well
 as nonzero exit; an explicit systemd stop still leaves it stopped.
 
+After writing the accepted active marker, activation also checks the existing
+provider's exact Platform revision and finite executable capabilities. A
+current provider is untouched, including a same-source start callback. A
+stale provider is restarted once through its existing unit, then readiness is
+polled for at most thirty seconds. Failure is explicit, not repeated restart
+or successful activation. Status enforces the same exact catalog checks; an
+old process saying `freshness: current` is not proof of current source.
+
 Recover the admitted services and re-prove current readback:
 
 ```bash

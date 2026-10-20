@@ -1290,6 +1290,45 @@ def provider_catalog(policy: dict[str, Any], secret: str) -> dict[str, Any]:
     return value
 
 
+def require_current_provider(policy: dict[str, Any]) -> dict[str, Any]:
+    catalog = provider_catalog(policy, credential())
+    expected = policy["security"]["platform_revision"]
+    subjects = catalog.get("subjects", [])
+    if not isinstance(subjects, list):
+        raise RuntimeError("Platform provider subjects are malformed")
+    matching = [item for item in subjects if isinstance(item, dict)
+                and item.get("ref") == policy["platform_operation_provider"]["subject_ref"]]
+    capabilities = matching[0].get("capabilities", []) if len(matching) == 1 else []
+    if not isinstance(capabilities, list):
+        raise RuntimeError("Platform provider capabilities are malformed")
+    if (catalog.get("source_version") != expected or len(matching) != 1
+        or matching[0].get("source_version") != expected
+        or len(capabilities) != len(provider.ALLOWED_ACTIONS)
+        or any(not isinstance(item, dict) for item in capabilities)
+        or any(not isinstance(item.get("action"), str) for item in capabilities)
+        or {item.get("action") for item in capabilities} != provider.ALLOWED_ACTIONS
+        or any(item.get("available") is not True for item in capabilities)):
+        raise RuntimeError("Platform provider has not loaded the accepted source and active capabilities")
+    return catalog
+
+
+def refresh_stale_provider(policy: dict[str, Any]) -> None:
+    try:
+        require_current_provider(policy)
+        return  # Same-source provider callbacks must not restart their owner.
+    except RuntimeError:
+        pass
+    run(["systemctl", "--user", "restart", UNIT_NAME])
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            require_current_provider(policy)
+            return
+        except RuntimeError:
+            time.sleep(0.25)
+    raise RuntimeError("Platform provider did not load the accepted composition after bounded refresh")
+
+
 def console_operations(policy: dict[str, Any]) -> dict[str, Any]:
     try:
         with urlopen(
@@ -1617,6 +1656,7 @@ def activate(policy: dict[str, Any]) -> Path:
     apply_record_authority_binding(policy)
     run(cross_domain_command("activate"))
     write_active_marker(policy)
+    refresh_stale_provider(policy)
     write_repository_refresh_units()
     return status(policy, action="activate")
 
@@ -1631,7 +1671,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     if run(["systemctl", "--user", "is-active", "--quiet", REPOSITORY_REFRESH_TIMER], check=False).returncode:
         raise RuntimeError("repository credential renewal timer is not active")
     run(cross_domain_command("status"))
-    catalog = provider_catalog(policy, credential())
+    catalog = require_current_provider(policy)
     console = console_operations(policy)
     repository = repository_provisioning_status(policy)
     workflows = workflow_credential_manager(policy).status()

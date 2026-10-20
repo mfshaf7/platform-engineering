@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import tempfile
 from datetime import timedelta
+from contextlib import ExitStack
 import unittest
 import uuid
 from unittest.mock import patch
@@ -24,6 +25,67 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_current_provider_is_not_restarted_during_same_source_callback(self):
+        policy = self.accepted_policy()
+        catalog = runtime.provider.capability_catalog(policy, policy["security"]["platform_revision"], activated=True)
+        with patch.object(runtime, "credential", return_value="synthetic-secret"), patch.object(runtime, "provider_catalog", return_value=catalog), patch.object(runtime, "run") as commands:
+            self.assertEqual(runtime.require_current_provider(policy), catalog)
+            runtime.refresh_stale_provider(policy)
+            commands.assert_not_called()
+
+    def test_self_declared_current_catalog_does_not_hide_wrong_source_or_unavailable_capabilities(self):
+        policy = self.accepted_policy()
+        current = runtime.provider.capability_catalog(policy, policy["security"]["platform_revision"], activated=True)
+        stale = runtime.provider.capability_catalog(policy, "9" * 40, activated=True)
+        unavailable = runtime.provider.capability_catalog(policy, policy["security"]["platform_revision"], activated=False)
+        missing = json.loads(json.dumps(current)); missing["subjects"][0]["capabilities"].pop()
+        malformed = json.loads(json.dumps(current)); malformed["subjects"][0]["capabilities"] = None
+        for catalog in (stale, unavailable, missing, malformed):
+            with self.subTest(catalog=catalog), patch.object(runtime, "credential", return_value="synthetic-secret"), patch.object(runtime, "provider_catalog", return_value=catalog):
+                with self.assertRaises(runtime.RuntimeError):
+                    runtime.require_current_provider(policy)
+
+    def test_stale_provider_refreshes_once_and_waits_for_real_ready_readback(self):
+        policy = self.accepted_policy()
+        current = runtime.provider.capability_catalog(policy, policy["security"]["platform_revision"], activated=True)
+        stale = runtime.provider.capability_catalog(policy, "9" * 40, activated=True)
+        with (patch.object(runtime, "credential", return_value="synthetic-secret"),
+              patch.object(runtime, "provider_catalog", side_effect=[stale, runtime.RuntimeError("starting"), current]),
+              patch.object(runtime, "run") as commands,
+              patch.object(runtime.time, "monotonic", side_effect=[0, 1, 2]),
+              patch.object(runtime.time, "sleep")):
+            runtime.refresh_stale_provider(policy)
+            commands.assert_called_once_with(["systemctl", "--user", "restart", runtime.UNIT_NAME])
+
+    def test_persistent_stale_provider_is_bounded_failure_not_an_endless_restart_loop(self):
+        policy = self.accepted_policy()
+        stale = runtime.provider.capability_catalog(policy, "9" * 40, activated=True)
+        with (patch.object(runtime, "credential", return_value="synthetic-secret"),
+              patch.object(runtime, "provider_catalog", return_value=stale),
+              patch.object(runtime, "run") as commands,
+              patch.object(runtime.time, "monotonic", side_effect=[0, 1, 31]),
+              patch.object(runtime.time, "sleep")):
+            with self.assertRaisesRegex(runtime.RuntimeError, "bounded refresh"):
+                runtime.refresh_stale_provider(policy)
+            commands.assert_called_once_with(["systemctl", "--user", "restart", runtime.UNIT_NAME])
+
+    def test_activation_refreshes_after_current_marker_and_before_success_status(self):
+        policy = self.accepted_policy(); events = []
+        ignored = ("write_resolved_policies", "require_activation_allowed", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
+        with ExitStack() as stack:
+            for name in ignored: stack.enter_context(patch.object(runtime, name))
+            stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
+            stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
+            stack.enter_context(patch.object(runtime, "cross_domain_command", return_value=[]))
+            stack.enter_context(patch.object(runtime, "deliver_repository_provisioning_identity", return_value={"token_expires_at": "synthetic-expiry"}))
+            stack.enter_context(patch.object(runtime, "workflow_credential_manager"))
+            stack.enter_context(patch.object(runtime, "credential", return_value="synthetic-secret"))
+            stack.enter_context(patch.object(runtime, "cni_gateway", return_value="127.0.0.1"))
+            for name in ("write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"):
+                stack.enter_context(patch.object(runtime, name, side_effect=lambda *args, _name=name, **kwargs: events.append(_name)))
+            runtime.activate(policy)
+        self.assertEqual(events, ["write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+
     def test_current_operator_policies_match_native_source_identity_without_aliases(self):
         policy = runtime.validate_policy()
         identity = runtime.require_operator_policy(policy)

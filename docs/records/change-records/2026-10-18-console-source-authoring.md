@@ -135,6 +135,19 @@ old commands remain isolated from the successor.
 
 ## Live Verification
 
+- October20 actual issuance exposed a stale provider after otherwise successful
+  activation: the process from boot still advertised72c3b13 rather than the
+  accepted/current7acd3eb and correctly withheld source issuance. Exact existing
+  service restart restored current source and availability; no credential was
+  issued by the failed409 command. Reuse the existing activation/catalog/unit
+  path to refresh only a stale provider once after its accepted active marker,
+  poll bounded readiness and require the same source/capability postcondition
+  in status. Preserve current same-source callbacks and ordinary operation
+  recovery. No new service, reload protocol, worker lifecycle, credential,
+  identity, model or permission. The original c2aef request and prepared994e4ce3
+  scope remain unchanged. Source review, exact Security acceptance and normal
+  operating proof remain required before this containment is a durable repair.
+
 - October20 actual Console source-scope preparation failed403 with
   `prototype_source_authoring_identity_forbidden` after full runtime recovery.
   Protected live comparison proved source work and Agent Console bind the

@@ -7,6 +7,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import console_complete_runtime as complete_runtime
+from console_record_authority import git
 
 
 SCRIPT = Path(__file__).with_name("console_cross_domain_activation.py")
@@ -42,6 +44,64 @@ class CrossDomainActivationTests(unittest.TestCase):
             "workspace-intake-or-inventory-operating-readiness",
             self.policy["proof_scope"]["excludes"],
         )
+
+    def test_complete_policy_to_nested_record_admission_uses_native_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.name", "Synthetic authority fixture")
+            git(root, "config", "user.email", "authority@example.invalid")
+            (root / "contracts").mkdir()
+            (root / "scripts").mkdir()
+            register = root / "contracts/intake-register.yaml"
+            register.write_text("schema_version: 2\nrepos: {}\n")
+            control = root / "scripts/control.py"
+            control.write_text("# reviewed control\n")
+            git(root, "add", "."); git(root, "commit", "-m", "reviewed source")
+            reviewed = git(root, "rev-parse", "HEAD")
+            policy = complete_runtime.validate_policy()
+            revisions = {name: "1" * 40 for name in policy["security"]["required_reviewed_repos"]}
+            revisions["workspace-governance"] = reviewed
+            policy["security"].update({"reviewed_revisions": revisions, "security_revision": reviewed})
+            generated = complete_runtime.resolved_activation_policy(policy)
+            authority = generated["authority"]
+            self.assertEqual(authority["workspace_governance_binding"], "reviewed-record-only")
+
+            register.write_text("schema_version: 2\nrepos: {sample-tool: {status: proposed}}\n")
+            git(root, "add", "."); git(root, "commit", "-m", "native reviewed record descendant")
+            current = git(root, "rev-parse", "HEAD")
+            git(root, "update-ref", "refs/remotes/origin/main", current)
+            with patch.object(activation, "REPO_PATH_OVERRIDES", {"workspace-governance": root}):
+                # Execute the actual nested consumer, not a copy of its check.
+                activation.require_workspace_authority(authority)
+                with self.assertRaises(activation.ActivationError):
+                    activation.require_workspace_authority({"workspace_governance_revision": reviewed})
+                register.write_text(register.read_text() + "# uncommitted\n")
+                with self.assertRaises(activation.ActivationError):
+                    activation.require_workspace_authority(authority)
+                git(root, "restore", "--", "contracts/intake-register.yaml")
+                git(root, "checkout", "-b", "unreviewed-branch")
+                with self.assertRaises(activation.ActivationError):
+                    activation.require_workspace_authority(authority)
+                git(root, "checkout", "main")
+                for name in ("scripts/control.py", "contracts/schemas/intake-register.schema.json"):
+                    git(root, "checkout", "-B", "main", current)
+                    file = root / name; file.parent.mkdir(parents=True, exist_ok=True)
+                    file.write_text("unaccepted executable or schema delta\n")
+                    git(root, "add", "."); git(root, "commit", "-m", "unaccepted control fixture")
+                    git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+                    with self.assertRaises(activation.ActivationError):
+                        activation.require_workspace_authority(authority)
+                git(root, "checkout", "--orphan", "unrelated-history")
+                git(root, "commit", "-m", "unrelated source root")
+                git(root, "checkout", "-B", "main")
+                git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+                with self.assertRaises(activation.ActivationError):
+                    activation.require_workspace_authority(authority)
+                # Other owners remain exact even for a data-shaped delta.
+                with patch.object(activation, "REPO_PATH_OVERRIDES", {"operator-orchestration-service": root}):
+                    with self.assertRaises(activation.ActivationError):
+                        activation.require_revision("operator-orchestration-service", reviewed)
 
     def test_policy_pins_exact_architecture_supersession(self) -> None:
         architecture = self.policy["architecture"]

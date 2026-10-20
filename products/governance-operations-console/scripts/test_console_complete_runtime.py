@@ -441,6 +441,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             policy["repository_provisioning"]["credential_binding_ref"],
         )
         self.assertEqual(activation["authority"]["security_revision"], "f" * 40)
+        self.assertEqual(activation["authority"]["workspace_governance_binding"], "reviewed-record-only")
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())
 

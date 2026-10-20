@@ -135,6 +135,17 @@ old commands remain isolated from the successor.
 
 ## Live Verification
 
+- October20 post-reboot provider drift: actual configured Ollama metadata now
+  reports0.40.6; the selected qwen3:8b digest500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+  is unchanged. Gateway correctly rejects the old0.40.5 binding. Align all six
+  existing bindings to that installed physical runtime patch; retain model,
+  purpose/caller/route grants, concurrency, budgets, exact-version/digest guards
+  and frozen synthetic unit fixtures. No inference, download, model switch,
+  host update policy change or crash-resolution claim. Existing failed
+  auto-resume is stopped while source is reconciled. Native source tests,
+  actual metadata-only adapter proof, exact composed Security reacceptance and
+  normal activation remain required before live recovery is declared complete.
+
 Public provider metadata confirms the newly approved App permission. Installation
 acceptance and exact one-repository workflow-token readback are separate issuance
 checks, not inferred from that metadata. Source tests cover ordinary permission

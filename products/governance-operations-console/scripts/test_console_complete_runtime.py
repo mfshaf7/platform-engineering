@@ -265,6 +265,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             patch.object(runtime, "inside_composition_supervisor", return_value=False),
             patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
             patch.object(runtime, "require_activation_allowed"),
+            patch.object(runtime, "require_provider_tools") as tools,
             patch.object(runtime, "write_composition_supervisor") as install,
             patch.object(runtime, "composition_supervisor_unit", return_value="workspace-devint-accepted-idea-delivery-synthetic.service"),
             patch.object(runtime, "run") as commands,
@@ -272,6 +273,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             patch.object(runtime, "operating_proof_lock", side_effect=AssertionError("outer delegate must not hold the inner unit's lock")),
         ):
             self.assertEqual(runtime.main(), 0)
+            tools.assert_called_once_with()
             install.assert_called_once_with(policy)
             commands.assert_called_once_with(["systemctl", "--user", "restart", "workspace-devint-accepted-idea-delivery-synthetic.service"])
 

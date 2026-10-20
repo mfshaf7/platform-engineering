@@ -85,6 +85,57 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         with self.assertRaises(RecordAuthorityError):
             snapshot_status(self.cache, self.owner, self.reviewed, now=self.now + timedelta(minutes=6))
 
+    def admission_source(self):
+        self.write("contracts/repos.yaml", "schema_version: 2\nrepos: {}\nretired_repos: {}\n")
+        self.write("contracts/intake-register.yaml", "schema_version: 2\nrepos: {}\n")
+        for name in ("repos", "intake-register"):
+            self.write(f"contracts/schemas/{name}.schema.json", json.dumps({"type": "object"}))
+        self.commit("reviewed admission control and initial data")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+
+    def test_admission_reader_preserves_exact_git_bytes_and_pins_schemas_to_reviewed_code(self):
+        self.admission_source()
+        self.refresh()
+        self.write("contracts/repos.yaml", "schema_version: 2\nrepos: {synthetic: {posture: active}}\nretired_repos: {}\n\n")
+        current = self.commit("reviewed data-only inventory update")
+        self.refresh()
+        result = console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        self.assertEqual(result["revision"], current)
+        self.assertEqual(result["reviewed_revision"], self.reviewed)
+        self.assertEqual(result["inventory"], (self.source / "contracts/repos.yaml").read_bytes())
+        self.assertEqual(result["inventory_schema"], {"type": "object"})
+        # A control/schema delta cannot ride the data-only freshness lane.
+        self.write("contracts/schemas/repos.schema.json", '{"type": "array"}')
+        self.commit("unaccepted schema change")
+        with self.assertRaises(RecordAuthorityError):
+            self.refresh()
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+
+    def test_admission_reader_denies_missing_expired_dirty_and_midread_changed_authority(self):
+        self.admission_source()
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        self.refresh()
+        checkpoint = self.clone / ".git" / CHECKPOINT
+        saved = checkpoint.read_text()
+        value = json.loads(saved)
+        value["valid_until"] = "2020-01-01T00:00:00+00:00"
+        checkpoint.write_text(json.dumps(value))
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        checkpoint.write_text(saved)
+        (self.clone / "contracts/repos.yaml").write_text("unproven local inventory")
+        with self.assertRaises(RecordAuthorityError):
+            console_record_authority.read_repository_admission(self.cache, self.reviewed)
+        # Restore only this test's own disposable synthetic file.
+        (self.clone / "contracts/repos.yaml").write_bytes((self.source / "contracts/repos.yaml").read_bytes())
+        original = snapshot_status(self.cache, self.owner, self.reviewed)
+        changed = {**original, "record_revision": "f" * 40}
+        with patch.object(console_record_authority, "snapshot_status", side_effect=[original, changed]):
+            with self.assertRaisesRegex(RecordAuthorityError, "changed during"):
+                console_record_authority.read_repository_admission(self.cache, self.reviewed)
+
     def test_unchanged_refresh_keeps_prior_valid_checkpoint_readable_during_provider_fetch(self):
         self.refresh()
         original = console_record_authority.git
@@ -195,6 +246,9 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
             provider_remote(self.source, self.owner)
         for path in ["scripts/run.py", "schemas/product.json", "contracts/intake-policy.yaml", "../products.yaml"]:
             self.assertFalse(data_path(self.owner, path))
+        for path in ["workspace-root/AGENTS.md", "contracts/repo-rules/sample.yaml",
+                     "contracts/context-behavior.yaml", "generated/resolved-owner-map.json"]:
+            self.assertFalse(data_path(self.owner, path), "Registration companions must never become general data paths")
         self.assertTrue(data_path("workspace-prototype-studio", "prototypes/todo/index.html"))
         self.assertTrue(data_path("workspace-prototype-studio", "records/prototype-preview-profiles/todo.yaml"))
         self.assertTrue(data_path(self.owner, "reviews/improvement-candidates/sample.yaml"))
@@ -203,6 +257,46 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
         self.assertFalse(data_path(self.owner, "reviews/delegations/authority.yaml"))
         for path in ["scripts/prototype_preview.py", "packages/prototype_preview/runtime.py", "prototypes/todo/.git/config", "prototypes/todo/.gitattributes"]:
             self.assertFalse(data_path("workspace-prototype-studio", path))
+
+    def test_registration_companions_require_reviewed_projector_and_semantic_verification(self):
+        self.write("workspace-root/AGENTS.md", "unreviewed index")
+        candidate = self.commit("companion without reviewed control")
+        with self.assertRaisesRegex(RecordAuthorityError, "reviewed owner control"):
+            admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.write("workspace-root/AGENTS.md", "changed index")
+        candidate = self.commit("candidate registration")
+        with patch.object(console_record_authority, "_validate_registration_companions") as verify:
+            admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+            verify.assert_called_once_with(self.source, self.reviewed, candidate)
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=RecordAuthorityError("protected policy")):
+            with self.assertRaisesRegex(RecordAuthorityError, "protected policy"):
+                admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+
+    def test_inventory_only_candidate_cannot_omit_companion_verification_after_control_review(self):
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.write("contracts/products.yaml", "products: {sample: {lifecycle: active}}")
+        candidate = self.commit("inventory without required generated output")
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=RecordAuthorityError("missing companion")):
+            with self.assertRaisesRegex(RecordAuthorityError, "missing companion"):
+                admit_record_delta(self.source, self.owner, self.reviewed, candidate)
+
+    def test_registration_verifier_failure_invalidates_checkpoint_without_publishing_candidate(self):
+        self.write("scripts/workspace_repo_registration.py", "reviewed projector test marker")
+        self.commit("test reviewed projector baseline")
+        self.reviewed = git(self.source, "rev-parse", "HEAD")
+        self.refresh()
+        self.write("contracts/products.yaml", "products: {sample: {lifecycle: active}}")
+        self.commit("candidate registration")
+        with patch.object(console_record_authority, "_validate_registration_companions", side_effect=subprocess.TimeoutExpired("synthetic verifier", 60)):
+            with self.assertRaisesRegex(RecordAuthorityError, "unavailable"):
+                self.refresh()
+        self.assertFalse((self.clone / ".git" / CHECKPOINT).exists())
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD"), self.reviewed)
 
     def test_complete_landing_output_advances_records_and_fixture_changes_without_code(self):
         self.owner = "workspace-prototype-studio"

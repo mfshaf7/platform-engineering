@@ -12,14 +12,11 @@ sys.path.insert(0, str(RUNTIME_ROOT))
 
 from gateway_policy import GatewayPolicy  # noqa: E402
 from model_profile_resolver import resolve_model_profile_registry  # noqa: E402
+from governed_ai_test_support import fixture_selections
 
 
 def selections() -> dict:
-    return resolve_model_profile_registry(
-        REPO_ROOT / "security/governed-ai-model-profiles.yaml",
-        REPO_ROOT / "security/governed-ai-access-plane.yaml",
-        environment="dev-integration",
-    )
+    return fixture_selections()
 
 
 def caller(profile_id: str, caller_id: str) -> dict:
@@ -33,6 +30,47 @@ def caller(profile_id: str, caller_id: str) -> dict:
 
 
 class GatewayPolicyTests(unittest.TestCase):
+    def test_prototype_source_profile_is_separate_and_suspension_still_denies_it(self) -> None:
+        resolved = selections()
+        request = {
+            "profile_id": "prototype-source-authoring-v1",
+            "caller_identity": caller("prototype-source-authoring-v1", "operator-orchestration-service/prototype-source-authoring"),
+            "operator_identity": {"operator_id": "operator:sample"},
+            "task": {"kind": "prototype_source_authoring", "contract_ref": "oos.prototype.source-authoring.v1", "version": "1.0"},
+            "provider_output_schema_ref": "platform-engineering/security/schemas/source-realization-change-set.schema.json",
+            "input": {"task_instruction": "Draft only selected Prototype app/design source; no commands or authority.",
+                "model_safe_packet": {"content": "Synthetic redacted Prototype packet", "packet_ref": "cgg://packet/example",
+                    "redaction_receipt_ref": "cgg://redaction/example", "projection_receipt_ref": "cgg://projection/example", "artifact_digest": "sha256:" + "a" * 64},
+                "source_binding": {"session_id": "prototype-source-session:example", "base_commit": "b" * 40,
+                    "objective_digest": "sha256:" + "c" * 64, "context_digest": "sha256:" + "d" * 64}},
+        }
+        inactive = copy.deepcopy(resolved)
+        inactive_profile = inactive["profiles"]["prototype-source-authoring-v1"]
+        inactive_profile["profile_status"] = "suspended"
+        inactive_profile["profile_activation_allowed"] = False
+        inactive_profile["activation_eligible"] = False
+        denied = GatewayPolicy(inactive).evaluate(request)
+        self.assertFalse(denied.allowed)
+        self.assertIn("profile-not-active", denied.reasons)
+        self.assertIn("profile-activation-not-allowed", denied.reasons)
+
+        # Synthetic active behavior, independent of deployment configuration.
+        policy = GatewayPolicy(resolved)
+        decision = policy.evaluate(request)
+        self.assertTrue(decision.allowed, decision.reasons)
+        self.assertEqual(decision.profile["upstream_model"], "qwen3:8b")
+        self.assertEqual(decision.profile["runtime_limits"]["max_concurrency"], 1)
+        for mutate in (
+            lambda value: value.update(profile_id="source-realization-v1"),
+            lambda value: value.update(caller_identity=caller("prototype-source-authoring-v1", "operator-orchestration-service/source-realization")),
+            lambda value: value.update(task={"kind": "source_realization", "contract_ref": "oos.delivery-art.source-realization.v1", "version": "1.0"}),
+            lambda value: value["input"].update(raw_context="Unadmitted source"),
+            lambda value: value["input"].update(provider_url="http://unapproved.invalid"),
+        ):
+            wrong = copy.deepcopy(request)
+            mutate(wrong)
+            self.assertFalse(policy.evaluate(wrong).allowed)
+
     def test_bounded_realization_matches_the_existing_oos_contract_and_local_model_only(self) -> None:
         policy = GatewayPolicy(selections())
         request = {

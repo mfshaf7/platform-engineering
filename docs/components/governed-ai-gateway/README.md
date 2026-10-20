@@ -69,6 +69,15 @@ Its source configuration must not be reported as operating readiness before
 the exact Console complete-runtime Security decision and commissioning proof.
 The complete-runtime runbook is the activation and recovery surface.
 
+`prototype-source-authoring-v1` proposes the same existing local model and
+bounded change-set wire for its separate Prototype caller/task. Its active
+source selection is desired deployment configuration, not current runtime
+availability. Fresh complete-runtime Security acceptance must bind the changed
+CGG producer and all seven implementation owners before explicit gateway
+commissioning. The currently running gateway is not changed by source review
+or merge. Suspension still denies the purpose; Delivery callers/tasks cannot
+borrow it, and it grants no tools, credentials or direct source mutation.
+
 The dev-integration launcher resolves every configured logical profile for one
 environment, verifies each matching access-plane route, and emits
 content-addressed non-secret selection references. Requests must name an exact

@@ -15,6 +15,7 @@ access_plane:
     repo: platform-engineering
     path: security/governed-ai-runtime-assist-contract.yaml
   allowed_profiles:
+    - prototype-source-authoring-v1
     - intake-classifier-v1
     - delivery-work-design-advisor-v1
     - delivery-refinement-advisor-v1
@@ -29,6 +30,7 @@ access_plane:
       status: active
       credential_required: false
       allowed_profiles:
+        - prototype-source-authoring-v1
         - intake-classifier-v1
         - delivery-work-design-advisor-v1
         - delivery-refinement-advisor-v1
@@ -48,6 +50,16 @@ access_plane:
       allowed_models:
         - gpt-5.6-terra
   allowed_callers:
+    - caller_id: operator-orchestration-service/prototype-source-authoring
+      purpose: bounded-prototype-source-authoring
+      required_profile: prototype-source-authoring-v1
+      required_provider_output_schema_ref:
+        repo: platform-engineering
+        path: security/schemas/source-realization-change-set.schema.json
+      accepted_record_schema_ref:
+        repo: operator-orchestration-service
+        path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+      allowed_task_kinds: [prototype_source_authoring]
     - caller_id: operator-orchestration-service/source-realization
       purpose: bounded-source-realization
       required_profile: source-realization-v1
@@ -169,6 +181,11 @@ access_plane:
     path: security/governed-ai-devint-egress-policy.yaml
   activation_state:
     profile_activations:
+      prototype-source-authoring-v1:
+        activation_allowed: true
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: source-admitted-prototype-authoring-operating-gated-by-exact-console-composition
       source-realization-v1:
         activation_allowed: true
         environment: dev-integration

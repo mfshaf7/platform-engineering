@@ -86,8 +86,8 @@ def require_non_empty_mapping(value: object, *, label: str, errors: list[str]) -
     return value
 
 
-def require_non_empty_list(value: object, *, label: str, errors: list[str]) -> list | None:
-    if not isinstance(value, list) or not value:
+def require_non_empty_list(value: object, *, label: str, errors: list[str], allow_empty: bool = False) -> list | None:
+    if not isinstance(value, list) or (not value and not allow_empty):
         errors.append(f"{label} must be a non-empty list")
         return None
     return value
@@ -455,6 +455,7 @@ def validate_access_plane_contract(
         access_plane.get("allowed_profiles"),
         label=f"{ACCESS_PLANE_PATH}: access_plane.allowed_profiles",
         errors=errors,
+        allow_empty=True,
     )
     if allowed_profiles:
         for profile_id in allowed_profiles:
@@ -504,6 +505,7 @@ def validate_access_plane_contract(
                     route.get(field_name),
                     label=f"{ACCESS_PLANE_PATH}: provider route {route_id}.{field_name}",
                     errors=errors,
+                    allow_empty=field_name == "allowed_profiles",
                 )
                 if entries and any(not isinstance(entry, str) or not entry for entry in entries):
                     errors.append(
@@ -513,6 +515,19 @@ def validate_access_plane_contract(
     for profile_id, profile in profiles.items():
         if not isinstance(profile, dict):
             continue
+        retired = profile.get("status") == "retired"
+        if retired:
+            if profile_id in (allowed_profiles or []) or any(
+                profile_id in (route.get("allowed_profiles") or [])
+                for route in provider_routes_by_id.values()
+            ) or any(
+                caller.get("required_profile") == profile_id
+                for caller in (access_plane.get("allowed_callers") or [])
+                if isinstance(caller, dict)
+            ):
+                errors.append(f"{ACCESS_PLANE_PATH}: retired profile {profile_id} must have no access grants")
+        elif profile_id not in (allowed_profiles or []):
+            errors.append(f"{ACCESS_PLANE_PATH}: access plane must allow profile {profile_id}")
         bindings = profile.get("bindings") or {}
         selected_bindings = set(
             (profile.get("selected_binding_by_environment") or {}).values()
@@ -520,6 +535,9 @@ def validate_access_plane_contract(
         for binding_id, binding in bindings.items():
             if not isinstance(binding, dict):
                 continue
+            if retired:
+                if binding.get("status") != "retired":
+                    errors.append(f"{PROFILE_PATH}: retired profile {profile_id} must retire every binding")
             route_id = binding.get("provider_route")
             route = provider_routes_by_id.get(route_id)
             if route is None:
@@ -533,6 +551,9 @@ def validate_access_plane_contract(
                     f"{ACCESS_PLANE_PATH}: provider route {route_id} provider must match "
                     f"profile {profile_id} binding {binding_id}"
                 )
+            if retired:
+                # Historical binding metadata is not a live route authorization.
+                continue
             if profile_id not in (route.get("allowed_profiles") or []):
                 errors.append(
                     f"{ACCESS_PLANE_PATH}: provider route {route_id} must allow profile {profile_id}"
@@ -552,6 +573,7 @@ def validate_access_plane_contract(
         access_plane.get("allowed_callers"),
         label=f"{ACCESS_PLANE_PATH}: access_plane.allowed_callers",
         errors=errors,
+        allow_empty=True,
     )
     if allowed_callers:
         for idx, caller in enumerate(allowed_callers, start=1):

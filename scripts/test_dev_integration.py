@@ -411,22 +411,34 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
-            self.assertIn("access plane activation allowed: true", result.stdout)
-            self.assertIn("model profile: intake-classifier-v1", result.stdout)
-            self.assertIn("model environment: dev-integration", result.stdout)
-            self.assertIn("model binding: local-ollama-qwen3-8b", result.stdout)
-            self.assertIn("model binding status: active", result.stdout)
+            # Status must report the declared lifecycle, not require activation.
+            selection = json.loads(subprocess.check_output([
+                sys.executable,
+                str(REPO_ROOT / "dev-integration/profiles/governed-ai-gateway/runtime/model_profile_resolver.py"),
+                "--profile-registry", str(REPO_ROOT / "security/governed-ai-model-profiles.yaml"),
+                "--access-plane", str(REPO_ROOT / "security/governed-ai-access-plane.yaml"),
+                "--profile-id", "intake-classifier-v1", "--environment", "dev-integration",
+            ], text=True))
+            for label, field in (
+                ("access plane activation allowed", "profile_activation_allowed"),
+                ("model profile", "profile_id"), ("model profile status", "profile_status"),
+                ("model environment", "environment"), ("model binding", "binding_id"),
+                ("model binding status", "binding_status"),
+                ("model activation eligible", "activation_eligible"),
+                ("upstream provider", "provider"), ("provider route", "provider_route"),
+                ("upstream model", "upstream_model"),
+            ):
+                value = selection[field]
+                if isinstance(value, bool):
+                    value = str(value).lower()
+                self.assertIn(f"{label}: {value}\n", result.stdout)
             self.assertIn(
                 "model fallback mode: fail-closed-no-implicit-fallback", result.stdout
             )
-            self.assertIn("model activation eligible: true", result.stdout)
             self.assertRegex(
                 result.stdout,
                 r"model selection ref: model-binding-selection:[0-9a-f]{64}",
             )
-            self.assertIn("upstream provider: ollama", result.stdout)
-            self.assertIn("provider route: ollama-local-host", result.stdout)
-            self.assertIn("upstream model: qwen3:8b", result.stdout)
             self.assertFalse(state_root.exists())
 
     def test_governed_ai_runtime_requires_both_activation_gates(self) -> None:
@@ -521,32 +533,20 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             selections = json.loads(
                 gateway_config["data"]["model-profile-selections.json"]
             )
-            self.assertEqual(
-                set(selections["profiles"]),
-                {
-                    "intake-classifier-v1",
-                    "delivery-work-design-advisor-v1",
-                    "delivery-refinement-advisor-v1",
-                    "agent-console-assistant-v1",
-                    "source-realization-v1",
-                },
-            )
-            self.assertTrue(
-                selections["profiles"]["delivery-work-design-advisor-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(
-                selections["profiles"]["delivery-refinement-advisor-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(
-                selections["profiles"]["agent-console-assistant-v1"][
-                    "activation_eligible"
-                ]
-            )
-            self.assertTrue(selections["profiles"]["source-realization-v1"]["activation_eligible"])
+            # Actual configuration conformance, not a permanent active-ID list.
+            registry = yaml.safe_load((REPO_ROOT / "security/governed-ai-model-profiles.yaml").read_text())
+            access = yaml.safe_load((REPO_ROOT / "security/governed-ai-access-plane.yaml").read_text())["access_plane"]
+            self.assertEqual(set(selections["profiles"]), set(registry["model_profiles"]))
+            routes = {route["route_id"]: route for route in access["provider_routes"]}
+            for profile_id, declared in registry["model_profiles"].items():
+                selected = selections["profiles"][profile_id]
+                binding = declared["bindings"][declared["selected_binding_by_environment"]["dev-integration"]]
+                self.assertEqual(selected["profile_status"], declared["status"])
+                self.assertEqual(selected["activation_eligible"], all((
+                    declared["status"] == "active", binding["status"] == "active",
+                    access["status"] == "active", routes[binding["provider_route"]]["status"] == "active",
+                    access["activation_state"]["profile_activations"][profile_id]["activation_allowed"],
+                )))
             gateway = next(
                 document
                 for document in documents
@@ -1277,6 +1277,15 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                     {"platform-engineering": selected_root},
                     workspace_root=Path("/original/workspace"),
                 )
+
+
+def load_tests(loader, tests, pattern):
+    # This admitted owner suite is also the normal bounded-runtime conformance
+    # entrypoint. Run the actual new Platform credential API/issuer cases here;
+    # matching profile metadata alone cannot prove their behavior.
+    import test_agent_source_intent
+    tests.addTests(loader.loadTestsFromModule(test_agent_source_intent))
+    return tests
 
 
 if __name__ == "__main__":

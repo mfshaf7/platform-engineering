@@ -32,7 +32,7 @@ source_boundary:
     reviewed_revision: 041f167dfbb19c0da0b12707b035a4fa36ad96d9
     selected_revision_rule: reviewed-revision-or-descendant
   cgg:
-    reviewed_revision: f57423379aceb28d0072b977e43ee0f18590ae20
+    reviewed_revision: f80c06d9ece3b8706211c0be536407e610ef13e0
     selected_revision_rule: exact
 security_review:
   repository: security-architecture

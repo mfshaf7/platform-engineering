@@ -24,6 +24,8 @@ class LifecycleContextCompositionTest(unittest.TestCase):
         self.assertTrue(definition["runtime_boundary"]["console_calls_oos_only"])
         self.assertFalse(definition["runtime_boundary"]["stage_or_production_authority"])
         self.assertEqual("1167", definition["commissioning_proof"]["work_item_id"])
+        self.assertEqual("f80c06d9ece3b8706211c0be536407e610ef13e0", definition["source_boundary"]["cgg"]["reviewed_revision"])
+        self.assertEqual("exact", definition["source_boundary"]["cgg"]["selected_revision_rule"])
 
     def test_private_state_and_receipt_never_embed_secret(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

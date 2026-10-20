@@ -79,6 +79,7 @@ security:
   decision_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml
   review_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.md
   required_reviewed_repos:
+    - context-governance-gateway
     - governance-operations-console
     - operator-orchestration-service
     - platform-engineering

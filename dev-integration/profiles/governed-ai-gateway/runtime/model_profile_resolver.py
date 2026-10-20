@@ -41,8 +41,8 @@ def _optional_non_empty_string(value: Any, label: str) -> str | None:
     return _non_empty_string(value, label)
 
 
-def _string_list(value: Any, label: str) -> list[str]:
-    if not isinstance(value, list) or not value:
+def _string_list(value: Any, label: str, *, allow_empty: bool = False) -> list[str]:
+    if not isinstance(value, list) or (not value and not allow_empty):
         raise ModelProfileResolutionError(f"{label} must be a non-empty list")
     values = [_non_empty_string(item, f"{label} entry") for item in value]
     if len(values) != len(set(values)):
@@ -203,9 +203,9 @@ def _canonical_digest(payload: dict[str, Any]) -> str:
 
 
 def _index_mappings(
-    value: Any, label: str, key_name: str
+    value: Any, label: str, key_name: str, *, allow_empty: bool = False
 ) -> dict[str, dict[str, Any]]:
-    if not isinstance(value, list) or not value:
+    if not isinstance(value, list) or (not value and not allow_empty):
         raise ModelProfileResolutionError(f"{label} must be a non-empty list")
     indexed: dict[str, dict[str, Any]] = {}
     for index, item in enumerate(value, start=1):
@@ -274,6 +274,9 @@ def resolve_model_profile(
     profile_status = _non_empty_string(
         profile.get("status"), f"profile {profile_id} status"
     )
+    retired = profile_status == "retired"
+    if retired and any(value.get("status") != "retired" for value in bindings.values()):
+        raise ModelProfileResolutionError(f"retired profile {profile_id} must retire every binding")
     binding_status = _non_empty_string(
         binding.get("status"), f"binding {binding_id} status"
     )
@@ -364,14 +367,23 @@ def resolve_model_profile(
             f"{access_plane_id}"
         )
     allowed_profiles = _string_list(
-        access_plane.get("allowed_profiles"), "access_plane.allowed_profiles"
+        access_plane.get("allowed_profiles"), "access_plane.allowed_profiles", allow_empty=True
     )
-    if profile_id not in allowed_profiles:
+    if not retired and profile_id not in allowed_profiles:
         raise ModelProfileResolutionError(f"access plane does not allow profile {profile_id}")
 
     routes = _index_mappings(
         access_plane.get("provider_routes"), "access_plane.provider_routes", "route_id"
     )
+    caller_contracts = _index_mappings(
+        access_plane.get("allowed_callers"), "access_plane.allowed_callers", "caller_id", allow_empty=True
+    )
+    if retired and (
+        profile_id in allowed_profiles
+        or any(profile_id in (route.get("allowed_profiles") or []) for route in routes.values())
+        or any(caller.get("required_profile") == profile_id for caller in caller_contracts.values())
+    ):
+        raise ModelProfileResolutionError(f"retired profile {profile_id} must have no access grants")
     if provider_route not in routes:
         raise ModelProfileResolutionError(f"unknown provider route: {provider_route}")
     route = routes[provider_route]
@@ -385,13 +397,13 @@ def resolve_model_profile(
         raise ModelProfileResolutionError(
             f"binding provider {provider} does not match route provider {route_provider}"
         )
-    if profile_id not in _string_list(
-        route.get("allowed_profiles"), f"provider route {provider_route} allowed_profiles"
+    if not retired and profile_id not in _string_list(
+        route.get("allowed_profiles"), f"provider route {provider_route} allowed_profiles", allow_empty=True
     ):
         raise ModelProfileResolutionError(
             f"provider route {provider_route} does not allow profile {profile_id}"
         )
-    if upstream_model not in _string_list(
+    if not retired and upstream_model not in _string_list(
         route.get("allowed_models"), f"provider route {provider_route} allowed_models"
     ):
         raise ModelProfileResolutionError(
@@ -412,10 +424,8 @@ def resolve_model_profile(
             f"provider route {provider_route} credential_required must be boolean"
         )
 
-    caller_contracts = _index_mappings(
-        access_plane.get("allowed_callers"), "access_plane.allowed_callers", "caller_id"
-    )
-    for caller_id in allowed_callers:
+    # Registry callers on retired rows are retained history, never live grants.
+    for caller_id in ([] if retired else allowed_callers):
         caller = caller_contracts.get(caller_id)
         if caller is None:
             raise ModelProfileResolutionError(
@@ -467,6 +477,8 @@ def resolve_model_profile(
         raise ModelProfileResolutionError(
             f"access_plane activation for {profile_id} must be boolean"
         )
+    if retired and activation_allowed:
+        raise ModelProfileResolutionError(f"retired profile {profile_id} must not allow activation")
     active_environment = _non_empty_string(
         profile_activation.get("environment"),
         f"access_plane activation for {profile_id} environment",

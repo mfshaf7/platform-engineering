@@ -1,12 +1,34 @@
 ---
 security_evidence:
-  review_areas: [identity, secrets, runtime, delivery]
+  review_areas: [identity, secrets, runtime, delivery, ai]
   findings: []
   risks: []
   workstreams: [WS-003, WS-005]
 ---
 
 # Governance Console Complete Runtime
+
+## October20 Model-Profile Lifecycle Consumer Repair
+
+The same approved `maintenance-1275-prototype-authoring-platform` Landing Unit
+repairs native retirement output being rejected by the validator/resolver:
+retired registry history must retain no live plane, route or caller grants,
+all its bindings must retire, and activation must remain false. Other active
+profiles must remain independently usable, including when the legacy intake
+profile retires. All-retired history validates but cannot launch or invoke.
+This extends the existing lifecycle implementation, not a new architecture,
+model, permission, ART child or runtime activation mechanism.
+
+Policy, runtime and lifecycle behavior tests now use frozen synthetic contracts,
+while native actual-source validation and rendered-registry checks remain
+independent. Tests exercise real mutator output through validation, resolution,
+the launcher and gateway denial/readiness, plus the native CLI and exact
+receipt-bound restore. These are disposable engineering checks, not live model
+or Console operating acceptance. Current commissioning remains held until the
+fresh exact seven-owner Security acceptance and explicit normal activation.
+Rollback remains the existing source Landing Unit and lifecycle rollback bundle;
+no live profile or service is changed by the tests. The existing improvement
+candidate records the missed whole-lifecycle proof and remains open.
 
 ## Summary
 

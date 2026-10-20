@@ -184,6 +184,7 @@ class CompleteRuntimeTests(unittest.TestCase):
     def accepted_policy(self) -> dict:
         policy = runtime.validate_policy()
         revisions = {
+            "context-governance-gateway": "3" * 40,
             "governance-operations-console": "a" * 40,
             "operator-orchestration-service": "b" * 40,
             "platform-engineering": "c" * 40,
@@ -252,6 +253,7 @@ class CompleteRuntimeTests(unittest.TestCase):
     def test_security_decision_materializes_exact_runtime_without_source_pin_update(self) -> None:
         policy = runtime.validate_policy()
         revisions = {
+            "context-governance-gateway": "3" * 40,
             "governance-operations-console": "a" * 40,
             "operator-orchestration-service": "b" * 40,
             "platform-engineering": "c" * 40,
@@ -280,6 +282,14 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(activation["authority"]["security_revision"], "f" * 40)
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())
+
+    def test_current_composed_boundary_requires_the_changed_context_producer(self) -> None:
+        policy = runtime.validate_policy()
+        self.assertIn("context-governance-gateway", policy["security"]["required_reviewed_repos"])
+        policy["security"]["required_reviewed_repos"].remove("context-governance-gateway")
+        with patch.object(runtime.provider, "load_policy", return_value=policy):
+            with self.assertRaisesRegex(runtime.RuntimeError, "Security decision selector is invalid"):
+                runtime.validate_policy()
 
     def test_merged_identical_source_survives_worktree_retirement(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -418,6 +428,8 @@ class CompleteRuntimeTests(unittest.TestCase):
                 unit = (root / "units" / runtime.UNIT_NAME).read_text(encoding="utf-8")
                 env = root / "state" / "private" / "provider.env"
             self.assertIn(f"EnvironmentFile={env}", unit)
+            self.assertIn("Environment=VAULT_ADDR=http://127.0.0.1:32200", unit)
+            self.assertIn("Environment=XDG_RUNTIME_DIR=%t", unit)
             self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", unit)
             self.assertEqual(env.stat().st_mode & 0o777, 0o600)
 

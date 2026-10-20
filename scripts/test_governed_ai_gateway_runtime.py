@@ -17,15 +17,12 @@ sys.path.insert(0, str(RUNTIME_ROOT))
 
 from gateway_app import GatewayRuntime  # noqa: E402
 from model_profile_resolver import resolve_model_profile_registry  # noqa: E402
+from governed_ai_test_support import fixture_selections
 from ollama_adapter import ProviderResult, ProviderIntegrityError, ProviderUnavailable  # noqa: E402
 
 
 def selections() -> dict:
-    return resolve_model_profile_registry(
-        REPO_ROOT / "security/governed-ai-model-profiles.yaml",
-        REPO_ROOT / "security/governed-ai-access-plane.yaml",
-        environment="dev-integration",
-    )
+    return fixture_selections()
 
 
 def caller(profile_id: str, caller_id: str) -> dict:
@@ -311,6 +308,7 @@ class GatewayRuntimeTests(unittest.TestCase):
                 "agent-console-assistant-v1",
                 "delivery-refinement-advisor-v1",
                 "delivery-work-design-advisor-v1",
+                "prototype-source-authoring-v1",
                 "source-realization-v1",
             ],
         )
@@ -355,8 +353,13 @@ class GatewayRuntimeTests(unittest.TestCase):
             result = runtime.readiness()
             self.assertFalse(result["ready"])
             self.assertEqual(result["ready_profile_ids"], [])
-            self.assertTrue(all(p["activation_eligible"] and not p["ready"]
-                and p["failure"] == code for p in result["profiles"].values()))
+            for name, observed in result["profiles"].items():
+                eligible = resolved["profiles"][name]["activation_eligible"]
+                self.assertEqual(observed["activation_eligible"], eligible)
+                self.assertFalse(observed["ready"])
+                if eligible:
+                    self.assertEqual(observed["failure"], code)
+            self.assertTrue(result["profiles"]["prototype-source-authoring-v1"]["activation_eligible"])
 
 
     @staticmethod

@@ -135,6 +135,21 @@ old commands remain isolated from the successor.
 
 ## Live Verification
 
+- October20 actual Console source-scope preparation failed403 with
+  `prototype_source_authoring_identity_forbidden` after full runtime recovery.
+  Protected live comparison proved source work and Agent Console bind the
+  caller to `operator:mfshaf7`, while Platform Operations, Publication and the
+  session principal still used the generic `operator:workspace-owner`.
+  Align the existing five current policies and compare them before effects;
+  preserve roles, permissions, caller set and historical receipts. Rebind only
+  the already-commissioned Publication Console entry, preserving other callers
+  and its enabled posture. Readiness must verify boolean matches for all four
+  live OOS maps. Preserve the original prepared c2aef request and its actor;
+  no source intent, credential or session had been issued. Native positive and
+  wrong-operator/missing-map denial, exact source review/Security acceptance
+  and same-request actual Console proof remain required. No authorization
+  guard weakening, aliases, model invocation or new identity subsystem.
+
 - October20 post-reboot provider drift: actual configured Ollama metadata now
   reports0.40.6; the selected qwen3:8b digest500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
   is unchanged. Gateway correctly rejects the old0.40.5 binding. Align all six

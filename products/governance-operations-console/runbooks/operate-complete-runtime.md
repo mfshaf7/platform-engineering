@@ -168,6 +168,20 @@ models and a merely healthy homepage are not readiness. Work Design and
 governed source realization execute through Delivery's existing work session;
 Prototype exploration and baseline approval do not replace Delivery execution.
 
+The existing session principal and all current Console commissioning policies
+must name the same accountable actor as the admitted native source profile.
+For this operator that is `operator:mfshaf7`, not the historical generic
+`operator:workspace-owner` reference. No role, permission or alias is added.
+Activation rejects another selected dev-integration operator before effects;
+status reads only boolean matches for the Console actor in the four existing
+OOS operator maps (Agent Console, source work, Platform Operations and Product
+Publication). A missing or mismatched map is not readiness. Activation rebinds
+the already-commissioned Publication Console entry while preserving its other
+callers and without enabling publication. Prior receipts keep their original
+actor; they are historical evidence, not approval for a differently bound new
+source intent. Original source requests already bound to the actual operator
+are preserved unchanged.
+
 The `source-realization-v1` profile reuses the admitted local Ollama model.
 The gateway validates Platform's bounded structural output schema; OOS then
 validates its stricter change-set semantics and exact operator digest

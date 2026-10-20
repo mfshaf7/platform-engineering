@@ -560,7 +560,7 @@ class CrossDomainActivationTests(unittest.TestCase):
                 )
             value = path.read_text(encoding="utf-8")
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            self.assertIn("GOVERNANCE_CONSOLE_OPERATOR_ID=operator:workspace-owner", value)
+            self.assertIn(f"GOVERNANCE_CONSOLE_OPERATOR_ID={policy['session']['operator_id']}", value)
             self.assertIn("GOVERNANCE_CONSOLE_SESSION_PROJECTION_PATH=", value)
             self.assertIn(
                 "REPOSITORY_CUSTODY_POLICY_PROFILE_DIGEST=sha256:" + "1" * 64,

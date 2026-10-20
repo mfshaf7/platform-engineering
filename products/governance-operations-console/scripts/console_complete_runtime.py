@@ -29,6 +29,7 @@ import yaml
 import platform_operation_provider as provider
 import console_workflow_credentials as workflow_credentials
 import console_record_authority as record_authority
+import console_session_projection as session_projection
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +48,13 @@ REPOSITORY_REFRESH_TIMER = "governance-console-repository-credentials.timer"
 SECRET_NAME = "governance-console-platform-operation-provider"
 SERVICE_NAME = "governance-console-platform-operation-provider"
 PROVIDER_PORT = 38491
+CONSOLE_CALLER = "governance-operations-console"
+CONSOLE_OPERATOR_FAMILIES = (
+    "OOS_AGENT_CONSOLE_CALLER_OPERATOR_BINDINGS_JSON",
+    "OOS_DELIVERY_WORK_SESSION_CALLER_OPERATOR_BINDINGS_JSON",
+    "OOS_PLATFORM_OPERATION_CALLER_OPERATOR_BINDINGS_JSON",
+    "OOS_PRODUCT_PUBLICATION_CALLER_OPERATOR_BINDINGS_JSON",
+)
 OOS_STATE_VOLUME_NAME = "governance-console-platform-operation-state"
 OOS_STATE_MOUNT_PATH = "/var/lib/oos/platform-operation"
 OOS_STATE_ROOT = STATE_ROOT / "oos-platform-operation"
@@ -191,13 +199,14 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     provider_policy = policy["platform_operation_provider"]
     if provider_policy != {
         "caller_id": "operator-orchestration-service",
-        "operator_id": "operator:workspace-owner",
+        "operator_id": provider_policy.get("operator_id"),
         "profile_id": "accepted-idea-delivery",
         "composition_id": "refinement-catalog",
         "subject_ref": "profile:accepted-idea-delivery",
         "security_gate_id": "gate:platform-operation-security",
     }:
         raise RuntimeError("complete runtime Platform-operation boundary is invalid")
+    require_operator_policy(policy)
     repository = policy.get("repository_provisioning")
     if not isinstance(repository, dict) or repository.get("enabled") is not True:
         raise RuntimeError("complete runtime repository provisioning is not enabled")
@@ -539,6 +548,41 @@ def require_activation_allowed(policy: dict[str, Any]) -> None:
         provider.require_security_activation(policy, provider.git_head(REPO_ROOT))
     except provider.ProviderError as exc:
         raise RuntimeError(str(exc)) from None
+    if policy["platform_operation_provider"]["operator_id"] != f"operator:{operator()}":
+        raise RuntimeError("the selected dev-integration operator does not match the admitted Console principal")
+
+
+def require_operator_policy(policy: dict[str, Any]) -> str:
+    """Compare existing authorities; never alias a role to a source actor."""
+    identity = policy["platform_operation_provider"].get("operator_id")
+    principals = session_projection.load_policy(PRODUCT_ROOT / "session-projection-policy.yaml").principals
+    matches = [value for value in principals.values() if value.reference == identity]
+    if len(matches) != 1 or matches[0].kind != "human" or identity != f"operator:{matches[0].operator}":
+        raise RuntimeError("Console principal and native source operator bindings disagree")
+    for filename in ("product-publication-commissioning-policy.yaml",
+                     "proposal-target-commissioning-policy.yaml",
+                     "repository-catalog-commissioning-policy.yaml"):
+        other = yaml.safe_load((PRODUCT_ROOT / filename).read_text(encoding="utf-8"))
+        if other.get("session", {}).get("operator_id") != identity:
+            raise RuntimeError(f"Console operator binding disagrees in {filename}")
+    return identity
+
+
+def require_console_operator_bindings(policy: dict[str, Any]) -> dict[str, Any]:
+    identity = require_operator_policy(policy)
+    # Inspect only the closed binding maps inside the existing process. Tokens,
+    # environment dumps and unrelated values never leave the workload.
+    script = "const names=" + json.dumps(CONSOLE_OPERATOR_FAMILIES) + ";const caller=" + json.dumps(CONSOLE_CALLER) + ";const expected=" + json.dumps(identity) + ";const checks=Object.fromEntries(names.map(n=>{try{return [n,JSON.parse(process.env[n]||'{}')[caller]===expected]}catch{return [n,false]}}));console.log(JSON.stringify(checks));"
+    result = run(["k3s", "kubectl", "-n", namespace(policy), "exec",
+                  f"deployment/{policy['runtime']['oos_deployment']}", "-c",
+                  policy["runtime"]["oos_deployment"], "--", "node", "-e", script])
+    try:
+        checks = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        raise RuntimeError("Console operator binding readback is unavailable") from None
+    if not isinstance(checks, dict) or set(checks) != set(CONSOLE_OPERATOR_FAMILIES) or any(value is not True for value in checks.values()):
+        raise RuntimeError("the live Console workflow operator bindings disagree")
+    return {"caller_id": CONSOLE_CALLER, "operator_id": identity, "families": checks, "consistent": True}
 
 
 def operator() -> str:
@@ -1129,6 +1173,22 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
         "OOS_PLATFORM_OPERATION_SECURITY_DECISION_URI": security["decision_uri"],
         "OOS_PLATFORM_OPERATION_STATE_ROOT": OOS_STATE_MOUNT_PATH,
     }
+    # Publication is already commissioned independently. Rebind its existing
+    # Console actor without enabling a workflow or changing any other caller.
+    current = run(["k3s", "kubectl", "-n", ns, "exec",
+        f"deployment/{runtime['oos_deployment']}", "-c", runtime["oos_deployment"],
+        "--", "node", "-e",
+        "const k='OOS_PRODUCT_PUBLICATION_CALLER_OPERATOR_BINDINGS_JSON';const v=process.env[k];console.log(JSON.stringify({enabled:process.env.OOS_PRODUCT_PUBLICATION_ENABLED==='true',bindings:v?JSON.parse(v):null}));"])
+    try:
+        publication = json.loads(current.stdout)
+    except (json.JSONDecodeError, TypeError):
+        raise RuntimeError("existing Publication operator binding is unavailable") from None
+    if publication.get("enabled") is True:
+        bindings = publication.get("bindings")
+        if not isinstance(bindings, dict) or CONSOLE_CALLER not in bindings:
+            raise RuntimeError("the commissioned Publication Console caller binding is missing")
+        bindings[CONSOLE_CALLER] = policy["platform_operation_provider"]["operator_id"]
+        secret_values["OOS_PRODUCT_PUBLICATION_CALLER_OPERATOR_BINDINGS_JSON"] = json.dumps(bindings, separators=(",", ":"))
     secret_manifest = {
         "apiVersion": "v1",
         "kind": "Secret",
@@ -1578,6 +1638,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     records = record_binding_status(policy)
     realization = require_source_realization_profile(policy)
     primary_records = require_console_primary_records(policy)
+    operator_bindings = require_console_operator_bindings(policy)
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1592,6 +1653,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "record_authority": records,
         "source_realization": realization,
         "primary_records": primary_records,
+        "operator_bindings": operator_bindings,
     })
 
 

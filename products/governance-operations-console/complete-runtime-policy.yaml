@@ -18,7 +18,7 @@ runtime:
   session_profile: accepted-idea-delivery
 platform_operation_provider:
   caller_id: operator-orchestration-service
-  operator_id: operator:workspace-owner
+  operator_id: operator:mfshaf7
   profile_id: accepted-idea-delivery
   composition_id: refinement-catalog
   subject_ref: profile:accepted-idea-delivery

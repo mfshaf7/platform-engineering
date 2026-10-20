@@ -411,22 +411,34 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
             )
             self.assertIn("launchable: false", result.stdout)
-            self.assertIn("access plane activation allowed: true", result.stdout)
-            self.assertIn("model profile: intake-classifier-v1", result.stdout)
-            self.assertIn("model environment: dev-integration", result.stdout)
-            self.assertIn("model binding: local-ollama-qwen3-8b", result.stdout)
-            self.assertIn("model binding status: active", result.stdout)
+            # Status must report the declared lifecycle, not require activation.
+            selection = json.loads(subprocess.check_output([
+                sys.executable,
+                str(REPO_ROOT / "dev-integration/profiles/governed-ai-gateway/runtime/model_profile_resolver.py"),
+                "--profile-registry", str(REPO_ROOT / "security/governed-ai-model-profiles.yaml"),
+                "--access-plane", str(REPO_ROOT / "security/governed-ai-access-plane.yaml"),
+                "--profile-id", "intake-classifier-v1", "--environment", "dev-integration",
+            ], text=True))
+            for label, field in (
+                ("access plane activation allowed", "profile_activation_allowed"),
+                ("model profile", "profile_id"), ("model profile status", "profile_status"),
+                ("model environment", "environment"), ("model binding", "binding_id"),
+                ("model binding status", "binding_status"),
+                ("model activation eligible", "activation_eligible"),
+                ("upstream provider", "provider"), ("provider route", "provider_route"),
+                ("upstream model", "upstream_model"),
+            ):
+                value = selection[field]
+                if isinstance(value, bool):
+                    value = str(value).lower()
+                self.assertIn(f"{label}: {value}\n", result.stdout)
             self.assertIn(
                 "model fallback mode: fail-closed-no-implicit-fallback", result.stdout
             )
-            self.assertIn("model activation eligible: true", result.stdout)
             self.assertRegex(
                 result.stdout,
                 r"model selection ref: model-binding-selection:[0-9a-f]{64}",
             )
-            self.assertIn("upstream provider: ollama", result.stdout)
-            self.assertIn("provider route: ollama-local-host", result.stdout)
-            self.assertIn("upstream model: qwen3:8b", result.stdout)
             self.assertFalse(state_root.exists())
 
     def test_governed_ai_runtime_requires_both_activation_gates(self) -> None:

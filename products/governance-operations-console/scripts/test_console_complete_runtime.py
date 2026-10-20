@@ -24,6 +24,65 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_current_operator_policies_match_native_source_identity_without_aliases(self):
+        policy = runtime.validate_policy()
+        identity = runtime.require_operator_policy(policy)
+        principals = runtime.session_projection.load_policy().principals
+        self.assertEqual([p.operator for p in principals.values() if p.reference == identity], ["mfshaf7"])
+        self.assertEqual(identity, "operator:mfshaf7")
+        wrong = json.loads(json.dumps(policy))
+        wrong["platform_operation_provider"]["operator_id"] = "operator:workspace-owner"
+        with self.assertRaisesRegex(runtime.RuntimeError, "bindings disagree"):
+            runtime.require_operator_policy(wrong)
+        with patch.object(runtime.provider, "require_security_activation"), patch.object(runtime.provider, "git_head", return_value="a" * 40):
+            with patch.object(runtime, "operator", return_value="mfshaf7"):
+                runtime.require_activation_allowed(policy)
+            with patch.object(runtime, "operator", return_value="someone-else"):
+                with self.assertRaisesRegex(runtime.RuntimeError, "selected dev-integration operator"):
+                    runtime.require_activation_allowed(policy)
+
+    def test_each_commissioned_operator_policy_is_checked_against_the_principal(self):
+        policy = runtime.validate_policy()
+        files = ("session-projection-policy.yaml", "product-publication-commissioning-policy.yaml",
+                 "proposal-target-commissioning-policy.yaml", "repository-catalog-commissioning-policy.yaml")
+        for changed in files:
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for filename in files:
+                    runtime.shutil.copyfile(runtime.PRODUCT_ROOT / filename, root / filename)
+                path = root / changed
+                value = runtime.yaml.safe_load(path.read_text())
+                if changed == "session-projection-policy.yaml":
+                    value["principals"]["mfshaf7"]["reference"] = "operator:workspace-owner"
+                else:
+                    value["session"]["operator_id"] = "operator:workspace-owner"
+                path.write_text(runtime.yaml.safe_dump(value))
+                with patch.object(runtime, "PRODUCT_ROOT", root):
+                    with self.assertRaisesRegex(runtime.RuntimeError, "disagree"):
+                        runtime.require_operator_policy(policy)
+
+    def test_actual_node_readback_checks_every_operator_family_without_environment_values(self):
+        policy = runtime.validate_policy()
+        identity = runtime.require_operator_policy(policy)
+        maps = {name: json.dumps({runtime.CONSOLE_CALLER: identity}) for name in runtime.CONSOLE_OPERATOR_FAMILIES}
+        def execute_node(args, **kwargs):
+            self.assertEqual(args[:2], ["k3s", "kubectl"])
+            self.assertIn("exec", args)
+            self.assertNotIn("caller-secret", args[-1])
+            return runtime.subprocess.run(["node", "-e", args[-1]], env={"PATH": os.environ["PATH"], **maps}, capture_output=True, text=True, check=True)
+        with patch.object(runtime, "run", side_effect=execute_node):
+            proof = runtime.require_console_operator_bindings(policy)
+            self.assertTrue(proof["consistent"])
+            self.assertEqual(set(proof["families"]), set(runtime.CONSOLE_OPERATOR_FAMILIES))
+            for name in runtime.CONSOLE_OPERATOR_FAMILIES:
+                original = maps[name]
+                for invalid in (json.dumps({runtime.CONSOLE_CALLER: "operator:workspace-owner"}), "{", "{}"):
+                    with self.subTest(name=name, invalid=invalid):
+                        maps[name] = invalid
+                        with self.assertRaisesRegex(runtime.RuntimeError, "live Console workflow operator bindings disagree"):
+                            runtime.require_console_operator_bindings(policy)
+                maps[name] = original
+
     def test_record_group_keeps_unchanged_checkpoints_and_invalidates_peers_on_change_or_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -208,7 +267,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         provider = policy["platform_operation_provider"]
         self.assertEqual(provider["composition_id"], "refinement-catalog")
         self.assertEqual(provider["profile_id"], "accepted-idea-delivery")
-        self.assertEqual(provider["operator_id"], "operator:workspace-owner")
+        self.assertEqual(provider["operator_id"], runtime.require_operator_policy(policy))
         self.assertEqual(policy["delivery"]["work_item_ref"], "openproject://work_packages/1291")
         self.assertEqual(policy["security"]["status"], "pending")
         self.assertTrue(policy["repository_provisioning"]["enabled"])
@@ -336,6 +395,10 @@ class CompleteRuntimeTests(unittest.TestCase):
 
         def fake_run(args, **kwargs):
             calls.append((args, kwargs))
+            if "-e" in args:
+                return runtime.subprocess.CompletedProcess(args, 0, stdout=json.dumps({
+                    "enabled": True, "bindings": {runtime.CONSOLE_CALLER: "operator:workspace-owner", "retained-caller": "operator:retained"},
+                }), stderr="")
             return runtime.subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -351,9 +414,14 @@ class CompleteRuntimeTests(unittest.TestCase):
             self.assertEqual(state_root.stat().st_mode & 0o777, 0o700)
         serialized_args = json.dumps([item[0] for item in calls])
         self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", serialized_args)
-        manifest = calls[0][1]["input_value"]
+        manifest = next(kwargs["input_value"] for _args, kwargs in calls if kwargs.get("input_value"))
         self.assertIn("OOS_PLATFORM_OPERATION_PROVIDER_CALLER_SECRET", manifest)
         self.assertIn("secret-value-with-at-least-thirty-two-bytes", manifest)
+        document = next(item for item in runtime.yaml.safe_load_all(manifest) if item["kind"] == "Secret")
+        publication = json.loads(document["stringData"]["OOS_PRODUCT_PUBLICATION_CALLER_OPERATOR_BINDINGS_JSON"])
+        self.assertEqual(publication[runtime.CONSOLE_CALLER], policy["platform_operation_provider"]["operator_id"])
+        self.assertEqual(publication["retained-caller"], "operator:retained")
+        self.assertNotIn("OOS_PRODUCT_PUBLICATION_ENABLED", document["stringData"])
         patch_call = next(args for args, _kwargs in calls if "patch" in args)
         state_patch = json.loads(patch_call[patch_call.index("--patch") + 1])
         pod = state_patch["spec"]["template"]["spec"]

@@ -22,6 +22,8 @@ SOURCE = "a" * 40
 
 def accepted_policy(root: Path) -> dict:
     value = provider.load_policy()
+    # Stable synthetic actor, independent of the installed human principal.
+    value["platform_operation_provider"]["operator_id"] = "operator:workspace-owner"
     value["workspace_root"] = str(root)
     value["runtime_state_root"] = str(root / "runtime")
     value["security"].update({

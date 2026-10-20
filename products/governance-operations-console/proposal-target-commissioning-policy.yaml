@@ -70,7 +70,7 @@ credentials:
   browser_credentials_allowed: false
 session:
   policy: session-projection-policy.yaml
-  operator_id: operator:workspace-owner
+  operator_id: operator:mfshaf7
   profile: accepted-idea-delivery
   projection: private/operator-identity.json
   issue_receipt: receipts/operator-identity-issue.json

@@ -16,7 +16,7 @@ admission:
 principals:
   mfshaf7:
     kind: human
-    reference: operator:workspace-owner
+    reference: operator:mfshaf7
     display_name: mfshaf7
     roles:
       - Operator

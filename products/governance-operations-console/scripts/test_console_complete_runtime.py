@@ -25,6 +25,44 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_provider_tools_use_only_the_controlled_service_path(self):
+        with patch.object(runtime.Path, "home", return_value=Path("/operator")), patch.dict(os.environ, {"PATH": "/untrusted"}):
+            path = runtime.provider_service_path()
+            self.assertEqual(path, "/operator/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+            with patch.object(runtime.shutil, "which", return_value="/resolved/tool") as which:
+                runtime.require_provider_tools()
+            self.assertEqual(which.call_args_list, [unittest.mock.call(name, path=path) for name in ("vault", "openssl", "git", "k3s")])
+
+    def test_missing_provider_tools_deny_activation_before_runtime_effects(self):
+        policy = self.accepted_policy()
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
+            admission = stack.enter_context(patch.object(runtime, "require_activation_allowed"))
+            effects = [stack.enter_context(patch.object(runtime, name)) for name in
+                       ("write_resolved_policies", "write_composition_supervisor", "refresh_record_authorities", "run", "credential", "deliver_repository_provisioning_identity", "write_provider_unit")]
+            stack.enter_context(patch.object(runtime.shutil, "which", side_effect=lambda name, **kwargs: None if name == "vault" else "/resolved/tool"))
+            with self.assertRaisesRegex(runtime.RuntimeError, "required tools unavailable: vault"):
+                runtime.activate(policy)
+            admission.assert_called_once_with(policy)
+            for effect in effects:
+                effect.assert_not_called()
+
+    def test_missing_provider_tools_deny_normal_activation_before_supervisor_restart(self):
+        policy = self.accepted_policy()
+        with (patch.object(runtime.sys, "argv", ["complete-runtime", "activate"]),
+              patch.object(runtime, "validate_policy", return_value=policy),
+              patch.object(runtime, "resolve_security_decision", return_value=(policy, {})),
+              patch.object(runtime, "require_activation_allowed"),
+              patch.object(runtime, "inside_composition_supervisor", return_value=False),
+              patch.object(runtime.shutil, "which", return_value=None),
+              patch.object(runtime, "write_composition_supervisor") as supervisor,
+              patch.object(runtime, "run") as commands,
+              patch.object(runtime.sys, "stderr", io.StringIO()) as errors):
+            self.assertEqual(runtime.main(), 1)
+            self.assertIn("required tools unavailable", errors.getvalue())
+            supervisor.assert_not_called()
+            commands.assert_not_called()
+
     def test_current_provider_is_not_restarted_during_same_source_callback(self):
         policy = self.accepted_policy()
         catalog = runtime.provider.capability_catalog(policy, policy["security"]["platform_revision"], activated=True)
@@ -71,7 +109,7 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def test_activation_refreshes_after_current_marker_and_before_success_status(self):
         policy = self.accepted_policy(); events = []
-        ignored = ("write_resolved_policies", "require_activation_allowed", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
+        ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
         with ExitStack() as stack:
             for name in ignored: stack.enter_context(patch.object(runtime, name))
             stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
@@ -558,6 +596,7 @@ class CompleteRuntimeTests(unittest.TestCase):
                 unit = (root / "units" / runtime.UNIT_NAME).read_text(encoding="utf-8")
                 env = root / "state" / "private" / "provider.env"
             self.assertIn(f"EnvironmentFile={env}", unit)
+            self.assertIn(f"Environment=PATH={runtime.provider_service_path()}", unit)
             self.assertIn("Environment=VAULT_ADDR=http://127.0.0.1:32200", unit)
             self.assertIn("Environment=XDG_RUNTIME_DIR=%t", unit)
             self.assertNotIn("secret-value-with-at-least-thirty-two-bytes", unit)

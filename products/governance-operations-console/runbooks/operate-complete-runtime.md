@@ -247,6 +247,15 @@ polled for at most thirty seconds. Failure is explicit, not repeated restart
 or successful activation. Status enforces the same exact catalog checks; an
 old process saying `freshness: current` is not proof of current source.
 
+Before activation changes runtime state, it verifies that Vault, OpenSSL, Git
+and k3s resolve under the provider's controlled service PATH: the selected
+operator's `.local/bin` plus the standard system binary directories. The unit
+uses that same explicit PATH, not the caller shell or user-manager environment.
+A missing tool stops activation before composition or credential effects. Keep
+installed operator tooling in those directories; do not inject credentials,
+alter global manager PATH or issue a replacement source scope to bypass a
+missing tool. After recovery, reconcile the original Console source operation.
+
 Recover the admitted services and re-prove current readback:
 
 ```bash

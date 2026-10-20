@@ -495,6 +495,7 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
         },
         "authority": {
             "workspace_governance_revision": revisions["workspace-governance"],
+            "workspace_governance_binding": "reviewed-record-only",
             "security_revision": policy["security"]["security_revision"],
             "security_review_ref": policy["security"]["review_ref"],
         },

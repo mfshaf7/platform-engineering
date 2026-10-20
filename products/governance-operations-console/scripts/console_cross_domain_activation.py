@@ -21,6 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import yaml
+import console_record_authority as record_authority
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -118,6 +119,29 @@ def require_revision(name: str, revision: str) -> None:
         raise ActivationError(f"{name} is not at the Security-approved revision {revision}")
     if run(["git", "-C", str(path), "status", "--porcelain"]).stdout.strip():
         raise ActivationError(f"{name} must be clean before activation")
+
+
+def require_workspace_authority(authority: dict[str, Any]) -> None:
+    revision = authority["workspace_governance_revision"]
+    binding = authority.get("workspace_governance_binding")
+    if binding == "minimum-merged-main":
+        require_source_authority({"repo": "workspace-governance", "minimum_revision": revision})
+    elif binding == "reviewed-record-only":
+        root = repo_path("workspace-governance")
+        try:
+            if record_authority.git(root, "status", "--porcelain"):
+                raise ActivationError("workspace-governance must be clean before activation")
+            current = record_authority.git(root, "rev-parse", "HEAD")
+            if current != revision:
+                if record_authority.git(root, "symbolic-ref", "--short", "HEAD") != "main":
+                    raise ActivationError("workspace-governance record advancement is not on main")
+                record_authority.git(root, "merge-base", "--is-ancestor", current, "refs/remotes/origin/main")
+            record_authority.admit_record_delta(root, "workspace-governance", revision, current)
+        except record_authority.RecordAuthorityError as exc:
+            raise ActivationError(f"workspace-governance record advancement rejected: {exc}") from None
+    else:
+        # Existing standalone policies retain their exact-source requirement.
+        require_revision("workspace-governance", revision)
 
 
 def require_source_authority(source: dict[str, Any]) -> None:
@@ -295,14 +319,7 @@ def validate(policy: dict[str, Any]) -> None:
     for owner in policy["owners"].values():
         require_revision(owner["repo"], owner["revision"])
         require_manifest(owner)
-    workspace_revision = policy["authority"]["workspace_governance_revision"]
-    if policy["authority"].get("workspace_governance_binding") == "minimum-merged-main":
-        require_source_authority({
-            "repo": "workspace-governance",
-            "minimum_revision": workspace_revision,
-        })
-    else:
-        require_revision("workspace-governance", workspace_revision)
+    require_workspace_authority(policy["authority"])
     for source in policy.get("source_authorities", {}).values():
         require_source_authority(source)
     if policy.get("session"):

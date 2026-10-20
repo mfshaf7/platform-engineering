@@ -19,6 +19,16 @@ routes, or operating readiness.
 - the Console dependencies are installed
 - Security review exists at the pinned Security revision
 
+When launched by the complete-runtime coordinator, its generated authority
+binding explicitly selects `reviewed-record-only` for Workspace Governance.
+The nested launcher reuses the same existing bounded record classifier: only
+approved record descendants on clean tracked main may differ from reviewed
+control source. Executable, schema, policy and file-mode deltas remain denied;
+the classifier also checks any Inventory registration companions. This is not
+the older broader `minimum-merged-main` binding. Standalone exact policies and
+all other exact owner pins retain their existing behavior. Normal business
+record merges do not require repinning Security's executable-source baseline.
+
 If a primary checkout contains preserved unrelated local state, select a clean
 exact-revision worktree explicitly instead of moving or deleting that state:
 

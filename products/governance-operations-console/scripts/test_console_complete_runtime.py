@@ -208,8 +208,10 @@ class CompleteRuntimeTests(unittest.TestCase):
                 return {"record_revision": reviewed}
             with (patch.object(runtime, "RECORD_AUTHORITY_ROOT", root),
                   patch.object(runtime, "repo_path", side_effect=lambda owner: root / owner),
+                  patch.object(runtime.record_authority, "refresh_intake_owner_sources", return_value={}) as source_refresh,
                   patch.object(runtime.record_authority, "refresh_snapshot", side_effect=refresh)):
                 runtime.refresh_record_authorities(policy)
+                source_refresh.assert_called_once_with(root, runtime.WORKSPACE_ROOT, "a" * 40)
                 self.assertEqual(calls, owners)
                 change = True
                 calls.clear()
@@ -734,6 +736,9 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(len(deployments), 2)
         original = deployments[f"deployment/{policy['runtime']['oos_deployment']}"]
         self.assertEqual(len(original["spec"]["template"]["spec"]["containers"][0]["volumeMounts"]), 5)
+        wgcf = deployments["deployment/workspace-governance-control-fabric-api"]["spec"]["template"]["spec"]
+        source_mount = next(item for item in wgcf["containers"][0]["volumeMounts"] if item["name"] == runtime.INTAKE_OWNER_SOURCE_VOLUME)
+        self.assertEqual(source_mount, {"name": runtime.INTAKE_OWNER_SOURCE_VOLUME, "mountPath": "/sources", "readOnly": True})
         def readback(values):
             return lambda args, **kwargs: runtime.subprocess.CompletedProcess(args, 0,
                 stdout=json.dumps(values[next(item for item in args if item.startswith("deployment/"))]), stderr="")
@@ -742,7 +747,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             patch.object(runtime, "record_authority_status", return_value={"status": "current"}),
         ):
             self.assertEqual(runtime.record_binding_status(policy), {"status": "current"})
-        for failure in ("missing", "wrong-owner", "writable", "wrong-path", "subpath", "sidecar-only", "guard-off", "wrong-profile", "old-generation", "not-updated", "not-available"):
+        for failure in ("missing", "wrong-owner", "writable", "wrong-path", "subpath", "sidecar-only", "guard-off", "wrong-profile", "old-generation", "not-updated", "not-available", "owner-parent-missing", "owner-parent-writable", "owner-parent-wrong-path"):
             with self.subTest(failure=failure):
                 values = json.loads(json.dumps(deployments))
                 deployment = values[f"deployment/{policy['runtime']['oos_deployment']}"]
@@ -769,6 +774,15 @@ class CompleteRuntimeTests(unittest.TestCase):
                     deployment["status"]["updatedReplicas"] = 0
                 elif failure == "not-available":
                     deployment["status"]["availableReplicas"] = 0
+                elif failure.startswith("owner-parent-"):
+                    source_pod = values["deployment/workspace-governance-control-fabric-api"]["spec"]["template"]["spec"]
+                    source_mount = next(item for item in source_pod["containers"][0]["volumeMounts"] if item["name"] == runtime.INTAKE_OWNER_SOURCE_VOLUME)
+                    if failure == "owner-parent-missing":
+                        source_pod["containers"][0]["volumeMounts"].remove(source_mount)
+                    elif failure == "owner-parent-writable":
+                        source_mount["readOnly"] = False
+                    else:
+                        source_pod["volumes"][-1]["hostPath"]["path"] = str(runtime.WORKSPACE_ROOT)
                 with (
                     patch.object(runtime, "run", side_effect=readback(values)),
                     patch.object(runtime, "record_authority_status", return_value={"status": "current"}),
@@ -784,11 +798,14 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(len(patches), 2)
         for pod in patches:
             for volume in pod["volumes"]:
+                if volume.get("$patch") == "delete":
+                    self.assertEqual(volume, {"name": runtime.INTAKE_OWNER_SOURCE_VOLUME, "$patch": "delete"})
+                    continue
                 self.assertIn(volume["hostPath"]["path"], [str(runtime.repo_path(owner)) for owner in runtime.record_authority.OWNERS])
             for item in pod["containers"][0]["env"]:
                 if item["name"].endswith("REQUIRED") or item["name"] == "OOS_SOURCE_REALIZATION_ENABLED":
                     self.assertEqual(item["value"], "false")
-            self.assertTrue(all(item["readOnly"] for item in pod["containers"][0]["volumeMounts"]))
+            self.assertTrue(all(item.get("readOnly") is True or item == {"name": runtime.INTAKE_OWNER_SOURCE_VOLUME, "mountPath": "/sources", "$patch": "delete"} for item in pod["containers"][0]["volumeMounts"]))
         with patch.object(runtime, "run", return_value=runtime.subprocess.CompletedProcess([], 1, "", "")) as commands:
             runtime.apply_record_authority_binding(self.accepted_policy(), enabled=False)
             self.assertFalse(any("patch" in call.args[0] for call in commands.call_args_list))

@@ -92,6 +92,10 @@ complete-runtime runbook rather than calling either script directly.
 not another operator command or daemon. It maintains only two fixed private
 record snapshots and expiring checkpoints while preserving reviewed control
 code and primary checkouts. Its native Git tests cover allowed records,
+physical post-bootstrap source snapshots and admitted-to-active continuity,
+absence/dirty/provider/ref/symlink denials and preserving generated residue.
+One fixed read-only WGCF parent consumes only these committed-source clones,
+not the private record cache or live host app directories. Tests also cover
 disallowed code/modes, provider failure, history rewrite, interrupted refresh,
 expiry and different-UID read access. Set
 `CONSOLE_NATIVE_RECORD_IMAGE_PROOF=1` when running

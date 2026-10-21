@@ -161,6 +161,28 @@ group, blocks authority-dependent writes and remains visible. It must not skip
 existing credential renewal. Dirty or unique cache contents are preserved,
 never reset. The next valid timer tick can recover without manual `git pull`.
 
+The same minute refresh also projects physical source-only owners selected from
+the fresh WG Intake/Inventory snapshot. A proposed or admitted entrant, or an
+active owner, needs explicit provider identity and owner-local validation. A
+matching clean canonical host `main`, exact provider origin and regular owner
+guidance are required before a committed-source clone appears under the fixed
+read-only WGCF `/sources` parent. Existing specific WG, Studio and Console
+mounts remain unchanged. This exposes neither the whole host workspace nor
+ignored app files, host Git credentials or runtime directories. No per-owner
+code repin, manual clone or workload rollout is needed after native bootstrap.
+Missing/unready owners remain absent; admission must still prove their controls.
+Only attributed generated snapshots are moved out of the visible cache when
+obsolete. Dirty/unattributed snapshots are preserved and fail closed, never
+reset or deleted. Ordinary record/credential renewal retains its original
+authority and credentials; source visibility is not app or runtime acceptance.
+
+The Ollama runtime version remains an exact integrity pin. After an operator
+host update, compare its actual `/api/version` and selected model digest with
+all active bindings before recovery. A version-only source correction preserves
+the model, task permissions and fail-closed check, passes normal owner review
+and exact-source Security acceptance, then uses the same activation command.
+Do not downgrade host software or relax version equality to make startup pass.
+
 Complete status now checks actual workload mounts, read-only flags, selected
 profile and consumed deployment generations, then reads both Console primary
 registers. A successful empty live register is valid; fixture data, missing

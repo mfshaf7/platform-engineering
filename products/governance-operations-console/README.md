@@ -102,6 +102,10 @@ Console and the short-lived provider credential is current.
 The complete-runtime extension separates reviewed execution source from fresh
 canonical business records. Its existing renewal timer maintains two fixed
 private owner snapshots; OOS, WGCF and the Studio Preview adapter require
+freshness. The same timer projects bounded source-only owners as committed Git
+snapshots beneath a fixed read-only WGCF source parent after native bootstrap;
+ignored local files and host credentials are not projected. Source visibility
+does not admit the owner or accept its app. Consumers still require
 short-lived checkpoints. Normal startup reuses the retained composition unit,
 and status checks live Prototype and Delivery registers plus the selected
 source-realization profile. See the complete-runtime runbook for the exact

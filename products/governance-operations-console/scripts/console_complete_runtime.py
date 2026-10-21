@@ -64,6 +64,8 @@ REPOSITORY_PROVISIONING_REVOKE_RECEIPT = RECEIPT_ROOT / "repository-provisioning
 REPO_PATH_OVERRIDES: dict[str, Path] = {}
 OPERATING_PROOF_LOCK_PATH = STATE_ROOT / "verify-operating.lock"
 RECORD_AUTHORITY_ROOT = STATE_ROOT / "record-authority"
+INTAKE_OWNER_SOURCE_ROOT = STATE_ROOT / "intake-owner-sources"
+INTAKE_OWNER_SOURCE_VOLUME = "intake-owner-source-snapshots"
 
 
 class RuntimeError(RuntimeError):
@@ -952,11 +954,13 @@ def refresh_record_authorities(policy: dict[str, Any]) -> dict[str, Any]:
             if not (RECORD_AUTHORITY_ROOT / owner / ".git" / record_authority.CHECKPOINT).is_file():
                 values[owner] = record_authority.refresh_snapshot(RECORD_AUTHORITY_ROOT,
                     repo_path(owner), owner, revisions[owner], before_change=before_change)
+        owner_sources = record_authority.refresh_intake_owner_sources(
+            RECORD_AUTHORITY_ROOT, WORKSPACE_ROOT, revisions["workspace-governance"])
     except Exception:
         for owner in sorted(record_authority.OWNERS):
             record_authority.invalidate_snapshot(RECORD_AUTHORITY_ROOT, owner)
         raise record_authority.RecordAuthorityError("canonical record refresh failed; restore the approved owner source") from None
-    return {"status": "current", "owners": values}
+    return {"status": "current", "owners": values, "physical_owner_sources": owner_sources}
 
 
 def record_authority_status(policy: dict[str, Any]) -> dict[str, Any]:
@@ -995,6 +999,19 @@ def apply_record_authority_binding(policy: dict[str, Any], *, enabled: bool = Tr
                 "env": [{"name": name, "value": value} for name, value in environment.items()]}],
             "volumes": [{"name": name, "hostPath": {"path": value[0], "type": "Directory"}} for name, value in mounts.items()],
         }}}}
+        if container == "api":
+            # One fixed, read-only parent exposes only sanitized committed-source
+            # clones. More-specific reviewed WG/Studio/Console mounts stay intact.
+            spec = patch["spec"]["template"]["spec"]
+            if enabled:
+                spec["volumes"].append({"name": INTAKE_OWNER_SOURCE_VOLUME,
+                    "hostPath": {"path": str(INTAKE_OWNER_SOURCE_ROOT), "type": "Directory"}})
+                spec["containers"][0]["volumeMounts"].append({"name": INTAKE_OWNER_SOURCE_VOLUME,
+                    "mountPath": "/sources", "readOnly": True})
+            else:
+                spec["volumes"].append({"name": INTAKE_OWNER_SOURCE_VOLUME, "$patch": "delete"})
+                spec["containers"][0]["volumeMounts"].append({"name": INTAKE_OWNER_SOURCE_VOLUME,
+                    "mountPath": "/sources", "$patch": "delete"})
         run(["k3s", "kubectl", "-n", ns, "patch", f"deployment/{deployment}",
             "--type=strategic", "--patch", json.dumps(patch, separators=(",", ":"))])
         run(["k3s", "kubectl", "-n", ns, "rollout", "status", f"deployment/{deployment}", "--timeout=300s"])
@@ -1036,6 +1053,13 @@ def record_binding_status(policy: dict[str, Any]) -> dict[str, Any]:
                 or mounts.get(volume_name, {}).get("subPath")
                 or mounts.get(volume_name, {}).get("subPathExpr")):
                 raise RuntimeError("canonical record runtime mount is missing, swapped or not read-only")
+        if not realization:
+            volume = volumes.get(INTAKE_OWNER_SOURCE_VOLUME, {})
+            mount = mounts.get(INTAKE_OWNER_SOURCE_VOLUME, {})
+            if (volume.get("hostPath") != {"path": str(INTAKE_OWNER_SOURCE_ROOT), "type": "Directory"}
+                or mount.get("mountPath") != "/sources" or mount.get("readOnly") is not True
+                or mount.get("subPath") or mount.get("subPathExpr")):
+                raise RuntimeError("physical owner source snapshots are missing, swapped or writable")
         replicas = value["spec"].get("replicas", 1)
         state = value.get("status", {})
         if (not replicas or state.get("observedGeneration") != value.get("metadata", {}).get("generation")

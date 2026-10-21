@@ -18,6 +18,8 @@ import tempfile
 import tarfile
 from typing import Any
 
+import yaml
+
 
 OWNERS = {"workspace-governance", "workspace-prototype-studio"}
 TRUSTED_REF = "refs/remotes/origin/main"
@@ -35,10 +37,129 @@ WG_REGISTRATION_COMPANIONS = {
     "generated/governance-engine-boundary-map.json", "generated/console-operational-capabilities.json",
 }
 REGISTRATION_VALIDATOR = "scripts/workspace_repo_registration.py"
+INTAKE_OWNER_MARKER = "console-intake-owner-source.json"
 
 
 class RecordAuthorityError(RuntimeError):
     """A current approved data snapshot cannot be established."""
+
+
+def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewed: str) -> dict[str, Any]:
+    """Project committed owner source for physical-presence checks, never execute it.
+
+    The fixed WG checkpoint authorizes the selection, not application execution.
+    Only generated clones are retired; real owner checkouts are never modified.
+    """
+    state = snapshot_status(cache_root, "workspace-governance", reviewed)
+    visible_root = cache_root.parent / "intake-owner-sources"
+    if visible_root.is_symlink():
+        raise RecordAuthorityError("physical owner source projection root is unsafe")
+    visible_root.mkdir(mode=0o755, exist_ok=True)
+    if not visible_root.is_dir() or visible_root.stat().st_uid != os.geteuid():
+        raise RecordAuthorityError("physical owner source projection root is unsafe")
+    visible_root.chmod(0o755)
+    authority = cache_root / "workspace-governance"
+    revision = state["record_revision"]
+    inventory = yaml.safe_load(git(authority, "show", f"{revision}:contracts/repos.yaml"))
+    intake = yaml.safe_load(git(authority, "show", f"{revision}:contracts/intake-register.yaml"))
+    selected = {name: record for name, record in inventory["repos"].items()
+                if record.get("lifecycle") == "active"}
+    selected.update({name: record for name, record in intake["repos"].items()
+                     if record.get("status") in {"proposed", "admitted"}})
+    selected = {name: record for name, record in selected.items()
+                if record.get("requires_security_bindings") is False
+                and record.get("provider_repository")
+                and record.get("validation_behavior", {}).get("posture") == "covered-by-owner-repo"
+                and record.get("validation_behavior", {}).get("wgcf_graph_role") == "product-runtime-source"}
+    if len(selected) > 64:
+        raise RecordAuthorityError("physical owner source projection exceeds its bound")
+    projected, unavailable = {}, []
+    for name, record in sorted(selected.items()):
+        binding = record["provider_repository"]
+        full_name = binding.get("full_name", "")
+        if (not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", name)
+            or name in OWNERS | {"governance-operations-console"}
+            or binding.get("provider") != "github"
+            or not re.fullmatch(r"[1-9][0-9]*", str(binding.get("provider_repository_id", "")))
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*", full_name)):
+            raise RecordAuthorityError("physical owner source selection is invalid")
+        source = workspace_root / name
+        try:
+            if (source.is_symlink() or source.resolve().parent != workspace_root.resolve()
+                or not source.is_dir() or (source / ".git").is_symlink()
+                or not (source / ".git").is_dir()
+                or any((source / path).is_symlink() or not (source / path).is_file()
+                       for path in ("AGENTS.md", "README.md", ".git/config", ".git/HEAD"))):
+                raise RecordAuthorityError("owner controls are not present")
+            head = git(source, "rev-parse", "HEAD")
+            remote = git(source, "remote", "get-url", "origin")
+            if (not COMMIT.fullmatch(head) or head != git(source, "rev-parse", TRUSTED_REF)
+                or git(source, "symbolic-ref", "--short", "HEAD") != "main"
+                or git(source, "rev-parse", "--show-toplevel") != str(source.resolve())
+                or git(source, "status", "--porcelain", "--untracked-files=all")
+                or remote not in {f"https://github.com/{full_name}.git", f"git@github.com:{full_name}.git"}
+                or (source / ".git/objects/info/alternates").exists()):
+                raise RecordAuthorityError("owner source binding is not current")
+            entries = git(source, "ls-tree", "-rl", "--full-tree", head).splitlines()
+            sizes = [line.split("\t", 1)[0].split() for line in entries]
+            if (len(entries) > 8192 or any(len(row) != 4 or row[1] != "blob"
+                    or row[0] not in {"100644", "100755"} or not row[3].isdigit()
+                    or int(row[3]) > 4 * 1024 * 1024 for row in sizes)
+                or sum(int(row[3]) for row in sizes) > 32 * 1024 * 1024):
+                raise RecordAuthorityError("owner source exceeds its regular-file or size bound")
+            projected[name] = {"head": head, "provider_repository": binding}
+        except RecordAuthorityError:
+            unavailable.append(name)
+
+    def retire(target: Path) -> None:
+        marker = target / ".git" / INTAKE_OWNER_MARKER
+        if (target.is_symlink() or marker.is_symlink() or not marker.is_file()
+            or git(target, "status", "--porcelain", "--untracked-files=all")):
+            raise RecordAuthorityError("unattributed or dirty owner snapshot is preserved")
+        attribution = json.loads(marker.read_text(encoding="utf-8"))
+        if attribution.get("owner_repo") != target.name or attribution.get("head") != git(target, "rev-parse", "HEAD"):
+            raise RecordAuthorityError("owner snapshot attribution is invalid")
+        retired = cache_root.parent / "retired-intake-owner-sources"
+        retired.mkdir(mode=0o700, exist_ok=True)
+        if retired.is_symlink():
+            raise RecordAuthorityError("retired owner snapshot root is unsafe")
+        destination = retired / f"{target.name}-{time_token()}"
+        target.rename(destination)
+
+    for target in visible_root.iterdir():
+        if target.name not in projected and not (target / ".git" / INTAKE_OWNER_MARKER).is_file():
+            raise RecordAuthorityError("unattributed source projection content is preserved")
+        if target.name not in projected and (target / ".git" / INTAKE_OWNER_MARKER).exists():
+            retire(target)
+    for name, observation in projected.items():
+        target, source = visible_root / name, workspace_root / name
+        marker = target / ".git" / INTAKE_OWNER_MARKER
+        if target.exists():
+            if target.is_symlink() or (target / ".git").is_symlink() or not marker.is_file() or marker.is_symlink():
+                raise RecordAuthorityError("unattributed owner snapshot is preserved")
+            previous = json.loads(marker.read_text(encoding="utf-8"))
+            if (previous == {"owner_repo": name, **observation}
+                and git(target, "rev-parse", "HEAD") == observation["head"]
+                and git(target, "remote", "get-url", "origin") == f"https://github.com/{observation['provider_repository']['full_name']}.git"
+                and not git(target, "status", "--porcelain", "--untracked-files=all")):
+                continue
+            retire(target)
+        with tempfile.TemporaryDirectory(prefix="intake-owner-", dir=cache_root.parent) as temporary:
+            staged = Path(temporary) / name
+            git(cache_root, "clone", "--local", "--no-hardlinks", "--no-checkout", "--single-branch", "--branch", "main", "--", str(source), str(staged))
+            git(staged, "remote", "set-url", "origin", f"https://github.com/{observation['provider_repository']['full_name']}.git")
+            git(staged, "checkout", "--detach", observation["head"])
+            if git(staged, "rev-parse", "HEAD") != observation["head"] or git(staged, "status", "--porcelain"):
+                raise RecordAuthorityError("committed owner snapshot readback differs")
+            (staged / ".git" / INTAKE_OWNER_MARKER).write_text(json.dumps({"owner_repo": name, **observation}), encoding="utf-8")
+            staged.rename(target)
+    if snapshot_status(cache_root, "workspace-governance", reviewed)["record_revision"] != revision:
+        raise RecordAuthorityError("physical owner selection changed during refresh")
+    return {"owners": projected, "unavailable": unavailable, "authority_revision": revision}
+
+
+def time_token() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def git(root: Path, *args: str, timeout: int = 45, preserve_output: bool = False) -> str:

@@ -361,5 +361,157 @@ class ConsoleRecordAuthorityTests(unittest.TestCase):
                 git(self.source, "revert", "--no-edit", rejected)
 
 
+class IntakeOwnerSourceTests(unittest.TestCase):
+    """Real Git bootstrap-to-admission projection; no canonical owner writes."""
+
+    write = ConsoleRecordAuthorityTests.write
+    commit = ConsoleRecordAuthorityTests.commit
+    refresh = ConsoleRecordAuthorityTests.refresh
+
+    def setUp(self):
+        ConsoleRecordAuthorityTests.setUp(self)
+        self.workspace = self.root / "workspace"
+        self.workspace.mkdir()
+        self.owner_name = "sample-owner"
+        self.owner_source = self.workspace / self.owner_name
+        self.entry = {"status": "proposed", "requires_security_bindings": False,
+            "provider_repository": {"provider": "github", "provider_repository_id": "42", "full_name": "synthetic/sample-owner"},
+            "validation_behavior": {"posture": "covered-by-owner-repo", "wgcf_graph_role": "product-runtime-source"}}
+        self.write("contracts/repos.yaml", "repos: {}")
+        self.write("contracts/intake-register.yaml", console_record_authority.yaml.safe_dump({"repos": {self.owner_name: self.entry}}))
+        self.reviewed = self.commit("reviewed source-only entrant")
+        self.refresh()
+        self.visible = self.cache.parent / "intake-owner-sources" / self.owner_name
+
+    def project(self):
+        return console_record_authority.refresh_intake_owner_sources(self.cache, self.workspace, self.reviewed)
+
+    def bootstrap(self):
+        self.owner_source.mkdir()
+        git(self.owner_source, "init", "-b", "main")
+        git(self.owner_source, "config", "user.name", "Synthetic source author")
+        git(self.owner_source, "config", "user.email", "test@example.invalid")
+        for name in ("AGENTS.md", "README.md"):
+            (self.owner_source / name).write_text("Reviewed owner guidance\n")
+        (self.owner_source / ".gitignore").write_text(".env\n")
+        (self.owner_source / ".env").write_text("SYNTHETIC_LOCAL_ONLY=never-project\n")
+        git(self.owner_source, "add", ".")
+        git(self.owner_source, "commit", "-m", "reviewed native bootstrap controls")
+        git(self.owner_source, "remote", "add", "origin", "https://github.com/synthetic/sample-owner.git")
+        head = git(self.owner_source, "rev-parse", "HEAD")
+        git(self.owner_source, "update-ref", TRUSTED_REF, head)
+        return head
+
+    def test_missing_then_completed_bootstrap_appears_without_new_mount_or_ignored_data(self):
+        self.assertEqual(self.project()["unavailable"], [self.owner_name])
+        self.assertFalse(self.visible.exists())
+        head = self.bootstrap()
+        git(self.owner_source, "config", "credential.helper", "synthetic-do-not-copy")
+        result = self.project()
+        self.assertEqual(result["owners"][self.owner_name]["head"], head)
+        self.assertEqual(result["unavailable"], [])
+        self.assertEqual(git(self.visible, "rev-parse", "HEAD"), head)
+        self.assertEqual(git(self.visible, "rev-parse", "--show-toplevel"), str(self.visible))
+        self.assertFalse((self.visible / ".env").exists())
+        self.assertNotIn("synthetic-do-not-copy", (self.visible / ".git/config").read_text())
+        self.assertEqual((self.owner_source / ".env").read_text(), "SYNTHETIC_LOCAL_ONLY=never-project\n")
+        inode = self.visible.stat().st_ino
+        self.project()
+        self.assertEqual(self.visible.stat().st_ino, inode, "Unchanged timer ticks must not rewrite source")
+
+    def test_changed_canonical_source_advances_real_commit_and_preserves_old_snapshot(self):
+        old = self.bootstrap()
+        self.project()
+        (self.owner_source / "app.mjs").write_text("export const value = 1;\n")
+        git(self.owner_source, "add", "app.mjs")
+        git(self.owner_source, "commit", "-m", "reviewed application")
+        head = git(self.owner_source, "rev-parse", "HEAD")
+        git(self.owner_source, "update-ref", TRUSTED_REF, head)
+        self.assertEqual(self.project()["owners"][self.owner_name]["head"], head)
+        self.assertEqual(git(self.visible, "rev-parse", "HEAD"), head)
+        retired = list((self.cache.parent / "retired-intake-owner-sources").iterdir())
+        self.assertEqual(len(retired), 1)
+        self.assertEqual(git(retired[0], "rev-parse", "HEAD"), old)
+
+    def test_admitted_to_active_inventory_keeps_same_physical_source(self):
+        head = self.bootstrap()
+        self.project()
+        inode = self.visible.stat().st_ino
+        self.entry["status"] = "admitted"
+        self.write("contracts/intake-register.yaml", console_record_authority.yaml.safe_dump({"repos": {self.owner_name: self.entry}}))
+        self.commit("reviewed admitted classification")
+        self.refresh()
+        self.assertEqual(self.project()["owners"][self.owner_name]["head"], head)
+        active = {**self.entry, "lifecycle": "active"}
+        active.pop("status")
+        self.write("contracts/intake-register.yaml", "repos: {}")
+        self.write("contracts/repos.yaml", console_record_authority.yaml.safe_dump({"repos": {self.owner_name: active}}))
+        self.commit("reviewed active Inventory")
+        self.refresh()
+        self.assertEqual(self.project()["owners"][self.owner_name]["head"], head)
+        self.assertEqual(self.visible.stat().st_ino, inode)
+
+    def test_dirty_wrong_provider_stale_ref_and_symlink_are_not_projected(self):
+        head = self.bootstrap()
+        for failure in ("dirty", "provider", "stale-ref", "guidance-symlink"):
+            with self.subTest(failure=failure):
+                if failure == "dirty":
+                    (self.owner_source / "unique.txt").write_text("retain")
+                elif failure == "provider":
+                    git(self.owner_source, "remote", "set-url", "origin", "https://github.com/other/sample-owner.git")
+                elif failure == "stale-ref":
+                    git(self.owner_source, "update-ref", "-d", TRUSTED_REF)
+                else:
+                    (self.owner_source / "AGENTS.md").unlink()
+                    (self.owner_source / "AGENTS.md").symlink_to("README.md")
+                self.assertEqual(self.project()["unavailable"], [self.owner_name])
+                self.assertFalse(self.visible.exists())
+                if failure == "dirty":
+                    self.assertEqual((self.owner_source / "unique.txt").read_text(), "retain")
+                    (self.owner_source / "unique.txt").unlink()
+                elif failure == "provider":
+                    git(self.owner_source, "remote", "set-url", "origin", "https://github.com/synthetic/sample-owner.git")
+                elif failure == "stale-ref":
+                    git(self.owner_source, "update-ref", TRUSTED_REF, head)
+                else:
+                    (self.owner_source / "AGENTS.md").unlink()
+                    (self.owner_source / "AGENTS.md").write_text("Reviewed owner guidance\n")
+        original = self.workspace / "preserved-owner"
+        self.owner_source.rename(original)
+        self.owner_source.symlink_to(original, target_is_directory=True)
+        self.assertEqual(self.project()["unavailable"], [self.owner_name])
+        self.assertTrue((original / "README.md").is_file())
+
+    def test_obsolete_snapshot_moves_out_of_visible_root_and_unique_data_is_never_deleted(self):
+        self.bootstrap()
+        self.project()
+        self.entry["status"] = "out-of-scope"
+        self.write("contracts/intake-register.yaml", console_record_authority.yaml.safe_dump({"repos": {self.owner_name: self.entry}}))
+        self.commit("reviewed retirement")
+        self.refresh()
+        (self.visible / "unique.txt").write_text("retain")
+        with self.assertRaisesRegex(RecordAuthorityError, "dirty owner snapshot"):
+            self.project()
+        self.assertEqual((self.visible / "unique.txt").read_text(), "retain")
+        (self.visible / "unique.txt").unlink()
+        self.assertEqual(self.project()["owners"], {})
+        self.assertFalse(self.visible.exists())
+        self.assertTrue(self.owner_source.is_dir())
+
+    def test_unattributed_collision_and_excessive_selection_fail_closed(self):
+        self.bootstrap()
+        self.visible.mkdir(parents=True)
+        (self.visible / "unique.txt").write_text("retain")
+        with self.assertRaisesRegex(RecordAuthorityError, "unattributed"):
+            self.project()
+        self.assertEqual((self.visible / "unique.txt").read_text(), "retain")
+        entries = {f"source-{index}": self.entry for index in range(65)}
+        self.write("contracts/intake-register.yaml", console_record_authority.yaml.safe_dump({"repos": entries}))
+        self.commit("bounded source selection fixture")
+        self.refresh()
+        with self.assertRaisesRegex(RecordAuthorityError, "exceeds its bound"):
+            self.project()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -105,6 +105,13 @@ private owner snapshots; OOS, WGCF and the Studio Preview adapter require
 freshness. The same timer projects bounded source-only owners as committed Git
 snapshots beneath a fixed read-only WGCF source parent after native bootstrap;
 ignored local files and host credentials are not projected. Source visibility
+reserves three empty directories for the existing reviewed WG, Studio and
+Console child mounts; OCI must not create targets beneath a read-only parent.
+Non-empty, symlinked or otherwise unsafe reserved targets are preserved and
+deny refresh, not silently erased or treated as repository evidence. The
+native image regression check exercises the complete nested read-only mount
+topology at the runtime UID, not just the parent snapshot.
+Source visibility
 does not admit the owner or accept its app. Consumers still require
 short-lived checkpoints. Normal startup reuses the retained composition unit,
 and status checks live Prototype and Delivery registers plus the selected

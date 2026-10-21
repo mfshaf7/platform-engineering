@@ -423,6 +423,61 @@ class IntakeOwnerSourceTests(unittest.TestCase):
             self.project()
         self.assertEqual((self.visible / ".env").read_text(), "SYNTHETIC_UNPROVEN_RESIDUE=retain\n")
 
+    def test_reviewed_nested_mountpoints_are_empty_readable_stable_and_not_owner_evidence(self):
+        self.project()
+        expected = {"workspace-governance", "workspace-prototype-studio", "governance-operations-console"}
+        self.assertEqual(console_record_authority.INTAKE_SOURCE_MOUNTPOINTS, expected)
+        root = self.visible.parent
+        observed = {name: (root / name).stat().st_ino for name in expected}
+        for name in expected:
+            self.assertEqual(list((root / name).iterdir()), [])
+            self.assertEqual((root / name).stat().st_mode & 0o777, 0o755)
+            self.assertFalse((root / name / ".git").exists())
+        self.bootstrap()
+        self.project()
+        self.project()
+        self.assertEqual({name: (root / name).stat().st_ino for name in expected}, observed)
+        self.assertEqual(len(list(root.iterdir())), 4)
+
+    def test_reviewed_mountpoint_content_file_and_symlink_are_preserved_and_denied(self):
+        self.project()
+        root = self.visible.parent
+        for name in sorted(console_record_authority.INTAKE_SOURCE_MOUNTPOINTS):
+            path = root / name
+            marker = path / "unproven.txt"
+            marker.write_text("preserve")
+            with self.assertRaisesRegex(RecordAuthorityError, "mountpoint is preserved"):
+                self.project()
+            self.assertEqual(marker.read_text(), "preserve")
+            marker.unlink()  # This test's own disposable content only.
+        path.rmdir()
+        path.symlink_to(self.source, target_is_directory=True)
+        with self.assertRaisesRegex(RecordAuthorityError, "mountpoint is preserved"):
+            self.project()
+        self.assertTrue(path.is_symlink())
+        path.unlink()
+        path.write_text("preserve file")
+        with self.assertRaisesRegex(RecordAuthorityError, "mountpoint is preserved"):
+            self.project()
+        self.assertEqual(path.read_text(), "preserve file")
+
+    @unittest.skipUnless(os.environ.get("CONSOLE_NATIVE_RECORD_IMAGE_PROOF") == "1", "explicit local nested OCI mount proof")
+    def test_actual_container_accepts_parent_and_all_reviewed_child_mounts_read_only(self):
+        self.bootstrap()
+        self.project()
+        command = ["docker", "run", "--rm", "--network", "none", "--read-only", "--user", "10001:10001",
+            "--mount", f"type=bind,source={self.visible.parent},target=/sources,readonly"]
+        for name in sorted(console_record_authority.INTAKE_SOURCE_MOUNTPOINTS):
+            command.extend(["--mount", f"type=bind,source={self.owner_source},target=/sources/{name},readonly"])
+        probe = "from pathlib import Path; import os; assert os.getuid()==10001; "
+        probe += "roots=[Path('/sources')/n for n in ['sample-owner','workspace-governance','workspace-prototype-studio','governance-operations-console']]; "
+        probe += "assert all((r/'AGENTS.md').is_file() and (r/'README.md').is_file() for r in roots); "
+        probe += "assert all(not os.access(r,os.W_OK) for r in roots); print('nested readonly mounts accepted')"
+        command.extend([os.environ.get("CONSOLE_NATIVE_WGCF_IMAGE", "wgcf-api:journey-1275-proof"), "python", "-B", "-c", probe])
+        result = subprocess.run(command, capture_output=True, text=True, timeout=45)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("nested readonly mounts accepted", result.stdout)
+
     def test_changed_canonical_source_advances_real_commit_and_preserves_old_snapshot(self):
         old = self.bootstrap()
         self.project()

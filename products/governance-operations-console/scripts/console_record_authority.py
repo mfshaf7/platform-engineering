@@ -38,6 +38,7 @@ WG_REGISTRATION_COMPANIONS = {
 }
 REGISTRATION_VALIDATOR = "scripts/workspace_repo_registration.py"
 INTAKE_OWNER_MARKER = "console-intake-owner-source.json"
+INTAKE_SOURCE_MOUNTPOINTS = OWNERS | {"governance-operations-console"}
 
 
 class RecordAuthorityError(RuntimeError):
@@ -78,7 +79,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
         binding = record["provider_repository"]
         full_name = binding.get("full_name", "")
         if (not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", name)
-            or name in OWNERS | {"governance-operations-console"}
+            or name in INTAKE_SOURCE_MOUNTPOINTS
             or binding.get("provider") != "github"
             or not re.fullmatch(r"[1-9][0-9]*", str(binding.get("provider_repository_id", "")))
             or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*", full_name)):
@@ -126,7 +127,23 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
         destination = retired / f"{target.name}-{time_token()}"
         target.rename(destination)
 
+    # OCI cannot create nested bind targets inside a read-only parent mount.
+    # Reserve only the existing reviewed source mountpoints; these empty
+    # directories are not owner snapshots or evidence of repository presence.
+    for name in sorted(INTAKE_SOURCE_MOUNTPOINTS):
+        target = visible_root / name
+        if target.is_symlink() or (target.exists() and (
+            not target.is_dir() or target.stat().st_uid != os.geteuid()
+            or any(target.iterdir())
+        )):
+            raise RecordAuthorityError("non-empty or unsafe reviewed source mountpoint is preserved")
+    for name in sorted(INTAKE_SOURCE_MOUNTPOINTS):
+        target = visible_root / name
+        target.mkdir(mode=0o755, exist_ok=True)
+        target.chmod(0o755)
     for target in visible_root.iterdir():
+        if target.name in INTAKE_SOURCE_MOUNTPOINTS:
+            continue
         if target.name not in projected and not (target / ".git" / INTAKE_OWNER_MARKER).is_file():
             raise RecordAuthorityError("unattributed source projection content is preserved")
         if target.name not in projected and (target / ".git" / INTAKE_OWNER_MARKER).exists():

@@ -114,7 +114,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
     def retire(target: Path) -> None:
         marker = target / ".git" / INTAKE_OWNER_MARKER
         if (target.is_symlink() or marker.is_symlink() or not marker.is_file()
-            or git(target, "status", "--porcelain", "--untracked-files=all")):
+            or git(target, "status", "--porcelain", "--untracked-files=all", "--ignored=matching")):
             raise RecordAuthorityError("unattributed or dirty owner snapshot is preserved")
         attribution = json.loads(marker.read_text(encoding="utf-8"))
         if attribution.get("owner_repo") != target.name or attribution.get("head") != git(target, "rev-parse", "HEAD"):
@@ -141,7 +141,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
             if (previous == {"owner_repo": name, **observation}
                 and git(target, "rev-parse", "HEAD") == observation["head"]
                 and git(target, "remote", "get-url", "origin") == f"https://github.com/{observation['provider_repository']['full_name']}.git"
-                and not git(target, "status", "--porcelain", "--untracked-files=all")):
+                and not git(target, "status", "--porcelain", "--untracked-files=all", "--ignored=matching")):
                 continue
             retire(target)
         with tempfile.TemporaryDirectory(prefix="intake-owner-", dir=cache_root.parent) as temporary:

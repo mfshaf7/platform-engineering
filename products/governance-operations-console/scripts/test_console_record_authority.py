@@ -418,6 +418,10 @@ class IntakeOwnerSourceTests(unittest.TestCase):
         inode = self.visible.stat().st_ino
         self.project()
         self.assertEqual(self.visible.stat().st_ino, inode, "Unchanged timer ticks must not rewrite source")
+        (self.visible / ".env").write_text("SYNTHETIC_UNPROVEN_RESIDUE=retain\n")
+        with self.assertRaisesRegex(RecordAuthorityError, "dirty owner snapshot"):
+            self.project()
+        self.assertEqual((self.visible / ".env").read_text(), "SYNTHETIC_UNPROVEN_RESIDUE=retain\n")
 
     def test_changed_canonical_source_advances_real_commit_and_preserves_old_snapshot(self):
         old = self.bootstrap()

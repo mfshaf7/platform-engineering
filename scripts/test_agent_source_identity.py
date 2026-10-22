@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import importlib.util
+import argparse
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -42,6 +44,80 @@ REPOSITORY_IDS = {
     "openclaw-telegram-enhanced": 1191638177,
     "operator-orchestration-service": 1213863054,
 }
+
+
+class CurrentWorkspaceInventoryTests(unittest.TestCase):
+    """Real Git CLI-reader seam; no credential issuance or provider mutation."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "workspace-governance"
+        self.root.mkdir()
+        self.git("init", "-b", "main")
+        self.git("config", "user.name", "Synthetic governance author")
+        self.git("config", "user.email", "test@example.invalid")
+        self.git("remote", "add", "origin", "https://github.com/mfshaf7/workspace-governance.git")
+        self.inventory = self.root / "contracts/repos.yaml"
+        self.inventory.parent.mkdir()
+        self.records = {"schema_version": 2, "repos": {"workspace-governance": {"posture": "active", "lifecycle": "active"}}, "retired_repos": {}}
+        self.inventory.write_text(yaml.safe_dump(self.records))
+        (self.inventory.parent / "intake-register.yaml").write_text("schema_version: 2\nrepos: {}\n")
+        schemas = self.inventory.parent / "schemas"
+        schemas.mkdir()
+        for name in ("repos", "intake-register"):
+            (schemas / f"{name}.schema.json").write_text('{"type":"object"}')
+        self.git("add", ".")
+        self.git("commit", "-m", "reviewed initial source fixture")
+        self.base = self.git("rev-parse", "HEAD")
+        definition = module.load_contract(module.DEFAULT_CONTRACT)
+        self.contract = replace(definition, repository_inventory_ref={**definition.repository_inventory_ref, "revision": self.base})
+        self.git("update-ref", "refs/remotes/origin/main", self.base)
+
+    def git(self, *args):
+        return subprocess.check_output(["git", "-c", "core.hooksPath=/dev/null", "-C", str(self.root), *args],
+            text=True, stderr=subprocess.DEVNULL).strip()
+
+    def promote(self):
+        self.records["repos"]["sample-app"] = {"posture": "active", "lifecycle": "active",
+            "provider_repository": {"provider": "github", "provider_repository_id": "900", "full_name": "sample-org/sample-app"},
+            "record": {"id": "repo:sample-app", "version": 1, "lineage": {"source": "workspace-intake",
+                "source_ref": "repo:sample-app", "source_digest": "sha256:" + "a" * 64, "intake_entry_version": 1}}}
+        self.inventory.write_text(yaml.safe_dump(self.records))
+        self.git("add", ".")
+        self.git("commit", "-m", "native promoted owner fixture")
+        head = self.git("rev-parse", "HEAD")
+        self.git("update-ref", "refs/remotes/origin/main", head)
+        return head
+
+    def test_normal_cli_reuses_record_mode_after_native_promotion_without_definition_repin(self):
+        head = self.promote()
+        args = argparse.Namespace(contract=module.DEFAULT_CONTRACT, workspace_repo_inventory=self.inventory, sandbox=False)
+        with mock.patch.object(module, "load_contract", return_value=self.contract), mock.patch.object(
+            module, "observe_public_repository_main", return_value=head) as observe:
+            operating = module.load_operating_contract(args)
+        self.assertEqual(operating.repository_inventory_ref["revision"], head)
+        self.assertEqual(operating.contract_digest, self.contract.contract_digest)
+        self.assertEqual([repo.full_name for repo in operating.repositories], ["mfshaf7/workspace-governance"])
+        with self.assertRaises(module.IdentityError): module.expected_repository(operating, "sample-org/sample-app")
+        self.assertEqual(observe.call_count, 2)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_dirty_unfetched_wrong_provider_and_midread_changed_source_are_denied(self):
+        head = self.promote()
+        with mock.patch.object(module, "observe_public_repository_main", return_value="f" * 40):
+            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        with mock.patch.object(module, "observe_public_repository_main", side_effect=[head, "f" * 40]):
+            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        self.git("update-ref", "refs/remotes/origin/main", self.base)
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        self.git("update-ref", "refs/remotes/origin/main", head)
+        dirty = self.root / "preserve.txt"
+        dirty.write_text("unique operator work")
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        self.assertEqual(dirty.read_text(), "unique operator work")
+        dirty.unlink()
+        self.git("remote", "set-url", "origin", "https://github.com/foreign/workspace-governance.git")
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
 
 
 class ProviderState:

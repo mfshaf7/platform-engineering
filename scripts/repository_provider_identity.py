@@ -8,6 +8,7 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -31,6 +32,50 @@ MIN_REMAINING_TOKEN_SECONDS = 300
 
 class IdentityError(RuntimeError):
     pass
+
+
+def observe_public_repository_main(binding: dict[str, Any]) -> str:
+    """Bounded fixed-host anonymous source observation, never an issuance token.
+
+    The public synthetic source route deliberately has no netrc, credential
+    helper, proxy, caller-selected host, redirect or application execution.
+    """
+    full_name, identifier = binding.get("full_name"), str(binding.get("provider_repository_id", ""))
+    if (binding.get("provider") != "github" or not re.fullmatch(r"[1-9][0-9]*", identifier)
+        or not isinstance(full_name, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*", full_name)):
+        raise IdentityError("public repository identity is invalid")
+
+    def read(route: str) -> dict[str, Any]:
+        connection = http.client.HTTPSConnection("api.github.com", timeout=5)
+        try:
+            connection.request("GET", route, headers={"Accept": "application/vnd.github+json",
+                "User-Agent": "platform-public-source-observer", "X-GitHub-Api-Version": GITHUB_API_VERSION})
+            response = connection.getresponse()
+            if response.status != 200:
+                raise IdentityError("public source observation is unavailable")
+            raw = response.read(262145)
+            if len(raw) > 262144:
+                raise IdentityError("public source observation exceeds its bound")
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                raise ValueError("invalid provider object")
+            return value
+        except (OSError, http.client.HTTPException, ValueError):
+            raise IdentityError("public source observation is unavailable") from None
+        finally:
+            connection.close()
+
+    repository = read(f"/repositories/{identifier}")
+    if (str(repository.get("id")) != identifier or repository.get("full_name") != full_name
+        or repository.get("private") is not False or repository.get("visibility") != "public"
+        or repository.get("archived") is not False or repository.get("disabled") is True
+        or repository.get("default_branch") != "main"):
+        raise IdentityError("only the exact active public main-based repository is qualified")
+    head = read(f"/repos/{full_name}/commits/main").get("sha")
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise IdentityError("public canonical main is unavailable")
+    return head
 
 
 class NoRedirect(request.HTTPRedirectHandler):

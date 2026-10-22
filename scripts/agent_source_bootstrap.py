@@ -19,7 +19,7 @@ DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 PATHS = frozenset({"AGENTS.md", "README.md", "Makefile", ".gitignore", "scripts/validate_owner.py",
     "tests/test_owner_bootstrap.py", "contracts/delivery-art-work-session/evidence-profile.json",
     "contracts/delivery-art-work-session/evidence-profile.schema.json", "contracts/delivery-art-work-session/source-bootstrap.json",
-    ".github/workflows/validate.yaml"})
+    ".github/workflows/validate.yaml", ".github/CODEOWNERS", ".github/pull_request_template.md"})
 PROJECTION_FIELDS = frozenset({"purpose", "approval_ref", "bootstrap_plan_digest", "bootstrap_template_digest", "workflow_write"})
 
 
@@ -89,12 +89,12 @@ def contract_from_snapshot(contract: identity.Contract, snapshot: identity.Repos
     record = entry.get("record", {})
     behavior = entry.get("validation_behavior", {})
     binding = entry.get("provider_repository", {})
-    if (entry.get("status") != "proposed" or entry.get("requires_security_bindings") is not False
+    if (entry.get("status") not in {"proposed", "admitted"} or entry.get("requires_security_bindings") is not False
             or entry.get("security_review_subject", False) is not False
             or behavior.get("posture") != "covered-by-owner-repo" or behavior.get("wgcf_graph_role") != "product-runtime-source"
             or subject["intake_entry_ref"] != {"id": record.get("id"), "version": record.get("version"), "digest": digest(entry)}
             or record.get("id") != f"repo:{owner}"):
-        raise identity.IdentityError("bootstrap requires current proposed source-only Intake with exact entry version/digest")
+        raise identity.IdentityError("bootstrap requires current proposed or admitted source-only Intake with exact entry version/digest")
     if (set(binding) != {"provider", "provider_repository_id", "full_name"} or binding.get("provider") != "github"
             or binding.get("full_name") != intent["repository"] or str(binding.get("provider_repository_id")) != str(intent["repository_id"])):
         raise identity.IdentityError("bootstrap provider identity differs from the exact proposed owner")

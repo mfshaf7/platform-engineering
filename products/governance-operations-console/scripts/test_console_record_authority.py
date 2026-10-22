@@ -402,6 +402,61 @@ class IntakeOwnerSourceTests(unittest.TestCase):
         git(self.owner_source, "update-ref", TRUSTED_REF, head)
         return head
 
+    def register_product(self):
+        record = {key: value for key, value in self.entry.items() if key != "status"}
+        record.update(posture="active", lifecycle="active")
+        self.write("contracts/repos.yaml", console_record_authority.yaml.safe_dump({"repos": {self.owner_name: record}}))
+        self.write("contracts/intake-register.yaml", "repos: {}\n")
+        self.write("contracts/products.yaml", console_record_authority.yaml.safe_dump({"products": {
+            "sample-app": {"posture": "active", "source_owners": [self.owner_name]}}}))
+        self.commit("native registered product fixture")
+        self.refresh()
+
+    def test_registered_source_freshness_refreshes_existing_marker_without_recloning_or_host_changes(self):
+        head = self.bootstrap()
+        with patch.object(console_record_authority, "public_owner_main", side_effect=AssertionError("Intake has no Publication authority")):
+            self.project()
+        self.register_product()
+        original_inode = self.visible.stat().st_ino
+        with patch.object(console_record_authority, "public_owner_main", return_value=head) as observe:
+            result = self.project()
+            first = json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes())
+            self.project()
+            second = json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes())
+        self.assertEqual(result["publication_unavailable"], [])
+        self.assertEqual(observe.call_count, 1, "Unchanged timer ticks reuse only the existing unexpired observation")
+        self.assertEqual(first["schema_version"], 1)
+        self.assertGreater(datetime.fromisoformat(first["valid_until"]), datetime.fromisoformat(first["observed_at"]))
+        self.assertEqual(second["observed_at"], first["observed_at"])
+        self.assertEqual(second["valid_until"], first["valid_until"], "Local ticks cannot renew remote freshness")
+        self.assertEqual(self.visible.stat().st_ino, original_inode)
+        self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
+        self.assertEqual(git(self.owner_source, "status", "--porcelain"), "")
+
+    def test_public_failure_or_stale_host_cannot_keep_publication_freshness_but_presence_is_preserved(self):
+        head = self.bootstrap()
+        self.register_product()
+        for observation in [head, "f" * 40, RecordAuthorityError("provider unavailable"), head]:
+            if self.visible.exists():
+                marker_path = self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER
+                retained = json.loads(marker_path.read_bytes())
+                if "valid_until" in retained:
+                    retained["valid_until"] = "2000-01-01T00:00:00+00:00"
+                    marker_path.write_text(json.dumps(retained))
+            with patch.object(console_record_authority, "public_owner_main", side_effect=(
+                observation if isinstance(observation, Exception) else None),
+                return_value=observation):
+                result = self.project()
+            marker = json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes())
+            self.assertEqual(marker["head"], head)
+            if observation == head:
+                self.assertIn("valid_until", marker)
+                self.assertEqual(result["publication_unavailable"], [])
+            else:
+                self.assertNotIn("valid_until", marker)
+                self.assertEqual(result["publication_unavailable"], [self.owner_name])
+            self.assertEqual(git(self.visible, "status", "--porcelain"), "")
+
     def test_missing_then_completed_bootstrap_appears_without_new_mount_or_ignored_data(self):
         self.assertEqual(self.project()["unavailable"], [self.owner_name])
         self.assertFalse(self.visible.exists())

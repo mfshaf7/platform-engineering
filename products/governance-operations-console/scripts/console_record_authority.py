@@ -14,11 +14,15 @@ from pathlib import Path, PurePosixPath
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 import tarfile
 from typing import Any
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from repository_provider_identity import IdentityError, observe_public_repository_main
 
 
 OWNERS = {"workspace-governance", "workspace-prototype-studio"}
@@ -45,8 +49,53 @@ class RecordAuthorityError(RuntimeError):
     """A current approved data snapshot cannot be established."""
 
 
+def public_owner_main(binding: dict[str, Any]) -> str:
+    """Reuse Platform's fixed-host anonymous observer, never a source token."""
+    try:
+        return observe_public_repository_main(binding)
+    except IdentityError:
+        raise RecordAuthorityError("public owner observation is unavailable") from None
+
+
+def _write_owner_attribution(root: Path, value: dict[str, Any]) -> None:
+    with tempfile.NamedTemporaryFile(mode="w", dir=root / ".git", prefix="owner-attribution-", delete=False) as stream:
+        json.dump(value, stream, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+        pending = Path(stream.name)
+    pending.chmod(0o644)
+    os.replace(pending, root / ".git" / INTAKE_OWNER_MARKER)
+
+
+def _current_owner_observation(root: Path, name: str, head: str, binding: dict[str, Any]) -> dict[str, Any] | None:
+    """Reuse only the existing short-lived observation, never renew its age.
+
+    Repeated unchanged timer ticks must not burn anonymous provider quota or
+    turn one provider response into permanently current source authority.
+    """
+    marker = root / ".git" / INTAKE_OWNER_MARKER
+    try:
+        if (root.is_symlink() or (root / ".git").is_symlink() or marker.is_symlink()
+            or not marker.is_file() or marker.stat().st_size > 4096):
+            return None
+        value = json.loads(marker.read_bytes())
+        now = datetime.now(timezone.utc)
+        observed, expires = datetime.fromisoformat(value["observed_at"]), datetime.fromisoformat(value["valid_until"])
+        if (set(value) == {"schema_version", "owner_repo", "head", "provider_repository", "observed_at", "valid_until"}
+            and type(value["schema_version"]) is int and value["schema_version"] == 1
+            and value["owner_repo"] == name and value["head"] == head and value["provider_repository"] == binding
+            and observed.tzinfo is not None and expires.tzinfo is not None
+            and observed <= now + timedelta(seconds=30) and expires > now + timedelta(seconds=30)
+            and timedelta(0) < expires - observed <= timedelta(minutes=5)):
+            return {key: value[key] for key in ("schema_version", "observed_at", "valid_until")}
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
 def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewed: str) -> dict[str, Any]:
-    """Project committed owner source for physical-presence checks, never execute it.
+    """Project committed owner source, never execute it.
 
     The fixed WG checkpoint authorizes the selection, not application execution.
     Only generated clones are retired; real owner checkouts are never modified.
@@ -63,6 +112,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
     revision = state["record_revision"]
     inventory = yaml.safe_load(git(authority, "show", f"{revision}:contracts/repos.yaml"))
     intake = yaml.safe_load(git(authority, "show", f"{revision}:contracts/intake-register.yaml"))
+    products = yaml.safe_load(git(authority, "show", f"{revision}:contracts/products.yaml"))
     selected = {name: record for name, record in inventory["repos"].items()
                 if record.get("lifecycle") == "active"}
     selected.update({name: record for name, record in intake["repos"].items()
@@ -74,7 +124,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
                 and record.get("validation_behavior", {}).get("wgcf_graph_role") == "product-runtime-source"}
     if len(selected) > 64:
         raise RecordAuthorityError("physical owner source projection exceeds its bound")
-    projected, unavailable = {}, []
+    projected, unavailable, publication_unavailable = {}, [], []
     for name, record in sorted(selected.items()):
         binding = record["provider_repository"]
         full_name = binding.get("full_name", "")
@@ -109,6 +159,22 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
                 or sum(int(row[3]) for row in sizes) > 32 * 1024 * 1024):
                 raise RecordAuthorityError("owner source exceeds its regular-file or size bound")
             projected[name] = {"head": head, "provider_repository": binding}
+            if (name in inventory["repos"] and record.get("posture") == "active"
+                and any(product.get("posture") == "active" and name in product.get("source_owners", [])
+                        for product in products.get("products", {}).values())):
+                try:
+                    current_observation = _current_owner_observation(visible_root / name, name, head, binding)
+                    if current_observation is None:
+                        if public_owner_main(binding) != head:
+                            raise RecordAuthorityError("canonical public main differs from the clean owner checkout")
+                        observed = datetime.now(timezone.utc)
+                        current_observation = dict(schema_version=1, observed_at=observed.isoformat(),
+                            valid_until=(observed + timedelta(minutes=5)).isoformat())
+                    projected[name].update(current_observation)
+                except RecordAuthorityError:
+                    # Keep physical-presence projection but remove Publication
+                    # freshness immediately; unavailable remote is not custody.
+                    publication_unavailable.append(name)
         except RecordAuthorityError:
             unavailable.append(name)
 
@@ -155,10 +221,13 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
             if target.is_symlink() or (target / ".git").is_symlink() or not marker.is_file() or marker.is_symlink():
                 raise RecordAuthorityError("unattributed owner snapshot is preserved")
             previous = json.loads(marker.read_text(encoding="utf-8"))
-            if (previous == {"owner_repo": name, **observation}
+            if ({key: previous.get(key) for key in ("owner_repo", "head", "provider_repository")} ==
+                {"owner_repo": name, "head": observation["head"], "provider_repository": observation["provider_repository"]}
                 and git(target, "rev-parse", "HEAD") == observation["head"]
                 and git(target, "remote", "get-url", "origin") == f"https://github.com/{observation['provider_repository']['full_name']}.git"
                 and not git(target, "status", "--porcelain", "--untracked-files=all", "--ignored=matching")):
+                if previous != {"owner_repo": name, **observation}:
+                    _write_owner_attribution(target, {"owner_repo": name, **observation})
                 continue
             retire(target)
         with tempfile.TemporaryDirectory(prefix="intake-owner-", dir=cache_root.parent) as temporary:
@@ -168,11 +237,12 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
             git(staged, "checkout", "--detach", observation["head"])
             if git(staged, "rev-parse", "HEAD") != observation["head"] or git(staged, "status", "--porcelain"):
                 raise RecordAuthorityError("committed owner snapshot readback differs")
-            (staged / ".git" / INTAKE_OWNER_MARKER).write_text(json.dumps({"owner_repo": name, **observation}), encoding="utf-8")
+            _write_owner_attribution(staged, {"owner_repo": name, **observation})
             staged.rename(target)
     if snapshot_status(cache_root, "workspace-governance", reviewed)["record_revision"] != revision:
         raise RecordAuthorityError("physical owner selection changed during refresh")
-    return {"owners": projected, "unavailable": unavailable, "authority_revision": revision}
+    return {"owners": projected, "unavailable": unavailable, "publication_unavailable": publication_unavailable,
+            "authority_revision": revision}
 
 
 def time_token() -> str:

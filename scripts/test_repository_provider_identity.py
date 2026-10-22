@@ -14,6 +14,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).with_name("repository_provider_identity.py")
@@ -22,6 +23,52 @@ module = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 sys.modules[SPEC.name] = module
 SPEC.loader.exec_module(module)
+
+
+class PublicSourceObservationTests(unittest.TestCase):
+    def test_fixed_anonymous_gets_verify_both_identity_and_public_canonical_main(self):
+        binding = {"provider": "github", "provider_repository_id": "42", "full_name": "synthetic/sample-app"}
+        repository = {"id": 42, "full_name": binding["full_name"], "private": False, "visibility": "public",
+            "archived": False, "disabled": False, "default_branch": "main"}
+        calls = []
+
+        def run(change=None):
+            responses = [repository.copy(), {"sha": "a" * 40}]
+            if change: change(responses)
+            index = iter(responses)
+            def connect(host, timeout):
+                self.assertEqual(host, "api.github.com")
+                self.assertEqual(timeout, 5)
+                response = mock.Mock(status=200)
+                response.read.side_effect = lambda limit: json.dumps(next(index)).encode()
+                connection = mock.Mock()
+                connection.request.side_effect = lambda method, route, headers: calls.append((method, route, headers))
+                connection.getresponse.return_value = response
+                return connection
+            with mock.patch.object(module.http.client, "HTTPSConnection", side_effect=connect):
+                return module.observe_public_repository_main(binding)
+
+        self.assertEqual(run(), "a" * 40)
+        self.assertEqual([entry[:2] for entry in calls], [("GET", "/repositories/42"), ("GET", "/repos/synthetic/sample-app/commits/main")])
+        self.assertTrue(all("authorization" not in {key.lower() for key in headers} for _, _, headers in calls))
+        for mutate in [
+            lambda rows: rows[0].update(id=99), lambda rows: rows[0].update(full_name="foreign/sample-app"),
+            lambda rows: rows[0].update(private=True), lambda rows: rows[0].update(visibility="private"),
+            lambda rows: rows[0].update(archived=True), lambda rows: rows[0].update(disabled=True),
+            lambda rows: rows[0].update(default_branch="other"), lambda rows: rows[1].update(sha="not-a-commit"),
+        ]:
+            with self.assertRaises(module.IdentityError): run(mutate)
+
+    def test_redirect_oversized_or_invalid_response_never_falls_back_to_ambient_identity(self):
+        binding = {"provider": "github", "provider_repository_id": "42", "full_name": "synthetic/sample-app"}
+        for status, raw in [(302, b"redirect"), (401, b"private"), (403, b"rate limited"),
+                            (200, b" " * 262145), (200, b"invalid-json"), (200, b"[]")]:
+            connection = mock.Mock()
+            connection.getresponse.return_value = mock.Mock(status=status)
+            connection.getresponse.return_value.read.return_value = raw
+            with mock.patch.object(module.http.client, "HTTPSConnection", return_value=connection):
+                with self.assertRaises(module.IdentityError): module.observe_public_repository_main(binding)
+            connection.close.assert_called_once()
 
 
 class ProviderState:

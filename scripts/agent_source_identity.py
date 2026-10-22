@@ -31,6 +31,7 @@ from repository_provider_identity import (
     create_app_jwt,
     verify_installation,
     verify_token,
+    observe_public_repository_main,
 )
 
 
@@ -245,6 +246,63 @@ def workspace_repository_inventory_path(args: argparse.Namespace) -> Path | None
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
+def read_current_workspace_inventory(contract: Contract, inventory_path: Path) -> RepositoryInventorySnapshot:
+    """CLI maintenance's normal committed-data reader, independent of Console.
+
+    The CLI chooses no schema/commit from caller JSON. It proves the canonical
+    WG primary against its fixed provider and live public main, then reads all
+    data and schemas from that exact reviewed Git authority. The runtime's
+    existing injected Platform record-reader mode is unchanged.
+    """
+    root = inventory_path.parent.parent
+    owner = contract.repository_inventory_ref["repository"]
+    expected = next((item for item in contract.repositories if item.full_name == f"{contract.account_login}/{owner}"), None)
+    if expected is None or inventory_path.name != "repos.yaml" or inventory_path.parent.name != "contracts" or root.name != owner:
+        raise IdentityError("current inventory must be the canonical Workspace Governance owner file")
+    env = {"PATH": os.environ.get("PATH", ""), "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1", "GIT_GRAFT_FILE": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"}
+
+    def git(*args: str) -> bytes:
+        try:
+            value = subprocess.run(["git", "-c", f"core.hooksPath={os.devnull}", "-C", str(root), *args],
+                check=True, capture_output=True, timeout=15, env=env)
+            if len(value.stdout) > 4 * 1024 * 1024:
+                raise IdentityError("current inventory exceeds its read bound")
+            return value.stdout
+        except (OSError, subprocess.SubprocessError):
+            raise IdentityError("current committed Workspace Governance inventory is unavailable") from None
+
+    def text(*args: str) -> str:
+        return git(*args).decode("utf-8").strip()
+
+    if (root.is_symlink() or inventory_path.is_symlink() or inventory_path.parent.is_symlink()
+        or (root / ".git").is_symlink() or not (root / ".git").is_dir()
+        or (root / ".git/objects/info/alternates").exists()
+        or text("rev-parse", "--show-toplevel") != str(root.resolve())
+        or text("symbolic-ref", "--short", "HEAD") != "main"
+        or text("status", "--porcelain", "--untracked-files=normal")
+        or text("remote", "get-url", "origin") not in {
+            f"https://github.com/{expected.full_name}.git", f"git@github.com:{expected.full_name}.git"}):
+        raise IdentityError("current inventory requires the clean canonical main checkout and fixed provider")
+    revision = text("rev-parse", "HEAD")
+    binding = {"provider": "github", "full_name": expected.full_name,
+        "provider_repository_id": str(expected.provider_repository_id)}
+    if (not REVISION_PATTERN.fullmatch(revision) or text("rev-parse", "refs/remotes/origin/main") != revision
+        or observe_public_repository_main(binding) != revision):
+        raise IdentityError("fetch and fast-forward Workspace Governance to current canonical main before source issuance")
+    git("merge-base", "--is-ancestor", contract.repository_inventory_ref["revision"], revision)
+    inventory = git("show", f"{revision}:contracts/repos.yaml")
+    intake = git("show", f"{revision}:contracts/intake-register.yaml")
+    inventory_schema = json.loads(git("show", f"{revision}:contracts/schemas/repos.schema.json"))
+    intake_schema = json.loads(git("show", f"{revision}:contracts/schemas/intake-register.schema.json"))
+    if (text("rev-parse", "HEAD") != revision or text("status", "--porcelain", "--untracked-files=normal")
+        or observe_public_repository_main(binding) != revision):
+        raise IdentityError("canonical inventory changed during maintenance source admission; retry readback")
+    return RepositoryInventorySnapshot(inventory=inventory, intake=intake, inventory_schema=inventory_schema,
+        intake_schema=intake_schema, revision=revision, reviewed_revision=revision)
+
+
 def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInventorySnapshot) -> Contract:
     if not REVISION_PATTERN.fullmatch(snapshot.revision) or not REVISION_PATTERN.fullmatch(snapshot.reviewed_revision):
         raise IdentityError("canonical inventory source revisions are invalid")
@@ -331,6 +389,18 @@ def load_operating_contract(
         if not getattr(args, "sandbox", False):
             raise IdentityError("Workspace repository inventory is required for Agent source issuance")
     else:
+        if (inventory_path.name == "repos.yaml" and inventory_path.parent.name == "contracts"
+            and inventory_path.parent.parent.name == contract.repository_inventory_ref["repository"]):
+            current = contract_from_record_snapshot(contract, read_current_workspace_inventory(contract, inventory_path))
+            # Maintenance CLI retains its original commissioned legacy-core
+            # installation scope. Newly promoted owners use the normal native
+            # source-intent path, including its installation selection, exact
+            # intent and terminal revocation. Current records are not a CLI
+            # grant to bypass those controls.
+            legacy = {item.full_name for item in contract.repositories}
+            return replace(current, repositories=tuple(item for item in current.repositories if item.full_name in legacy))
+        # Immutable pinned-blob compatibility remains for explicit legacy-core
+        # bootstrap/recovery; it cannot admit newly registered repositories.
         verify_workspace_repository_inventory(contract, inventory_path)
     return contract
 
@@ -779,7 +849,12 @@ def command_deliver(args: argparse.Namespace) -> int:
         if (root / contract.suspension_filename).exists():
             raise IdentityError("Agent source token issuance is suspended")
         current = read_credential(contract, directory)
-        credential = deliver_locked(contract, args, repository, directory, current)
+        def recheck_admission() -> None:
+            observed = purpose_contract(load_operating_contract(args), purpose)
+            if (observed.repository_inventory_ref != contract.repository_inventory_ref
+                or expected_repository(observed, repository.full_name) != repository):
+                raise IdentityError("current maintenance source admission changed before issuance; retry readback")
+        credential = deliver_locked(contract, args, repository, directory, current, before_issue=recheck_admission)
     result = receipt(
         contract, action="deliver", outcome="rotated" if current is not None else "delivered",
         repository=repository, landing_unit_id=args.landing_unit_id, branch=args.branch,

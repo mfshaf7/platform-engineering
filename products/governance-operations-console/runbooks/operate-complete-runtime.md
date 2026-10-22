@@ -176,6 +176,22 @@ obsolete. Dirty/unattributed snapshots are preserved and fail closed, never
 reset or deleted. Ordinary record/credential renewal retains its original
 authority and credentials; source visibility is not app or runtime acceptance.
 
+Once native Inventory registers an active product with a typed active
+source-only owner, the same projection can supply Publication's committed
+owner manifest. It anonymously verifies the exact public provider repository
+and canonical `main`, and atomically adds observation/expiry to the existing
+owner-attribution marker. No new mount, service or manual owner-root map is
+needed. The existing five-minute observation may be reused only for the same
+clean source/provider binding; unchanged local timer ticks never extend its
+expiry. Near expiry, a fresh provider observation is required. Provider denial
+or a stale host checkout removes Publication freshness while preserving valid
+physical source presence. Intake-only or unregistered-product owners retain
+presence-only markers. The WGCF consumer independently checks current
+registration, provider/custody attribution, freshness, regular Git source and
+manifest ancestry; a local directory alone is not authority. This is the
+public synthetic source qualification, not private/client source admission,
+application execution, hosting or operational acceptance.
+
 The Ollama runtime version remains an exact integrity pin. After an operator
 host update, compare its actual `/api/version` and selected model digest with
 all active bindings before recovery. A version-only source correction preserves

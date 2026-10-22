@@ -112,8 +112,24 @@ admission readback immediately before minting after custody preflight. Newly
 admitted data therefore does not require another Platform source edit, while
 changes to accepted schemas, installation accounts or privileges still do.
 
-The engineering `deliver` recovery command retains its original exact-digest
-legacy inventory path; it is not an alternative admission mechanism. Exact
+The engineering maintenance `deliver` command now consumes current committed
+Inventory when given the canonical `workspace-governance/contracts/repos.yaml`
+path. It proves clean primary `main`, fetched-base equality, exact original WG
+provider identity and its freshly observed public canonical main, then reads
+Inventory, Intake and schemas from that exact Git commit. It uses the same
+record-admission validator as the native producer and repeats eligibility
+immediately before minting. No definition repin, schema override, Console
+private-policy dependency or new installation is required. A stale checkout,
+private/unavailable WG source, dirty source or concurrent advancement denies
+issuance without rewriting files. This qualification is the existing public
+synthetic workspace, not a new private-workspace admission claim.
+
+Maintenance CLI scope remains the original eleven legacy owners, filtered by
+their current active eligibility and unchanged provider IDs. Newly promoted
+owners still use the native Console source-intent path with its installation,
+approval, session and terminal-revocation controls. An explicitly supplied
+original immutable pinned Inventory blob remains supported for bounded
+legacy-core bootstrap/outage recovery; it cannot admit new owners. Exact
 source-intent revocation remains available after inventory retirement or
 freshness loss using its retained immutable intent/projection, without minting.
 Pre-Inventory bootstrap remains separate and is not authorized by this ordinary

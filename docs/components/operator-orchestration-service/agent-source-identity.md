@@ -116,7 +116,14 @@ The engineering `deliver` recovery command retains its original exact-digest
 legacy inventory path; it is not an alternative admission mechanism. Exact
 source-intent revocation remains available after inventory retirement or
 freshness loss using its retained immutable intent/projection, without minting.
-Proposed-only bootstrap remains separate and is not authorized by this reader.
+Pre-Inventory bootstrap remains separate and is not authorized by this ordinary
+source reader. Its existing `trusted-owner-bootstrap` issuer admits proposed or
+admitted source-only Intake only while absent from active/retired Inventory,
+with exact current entry/custody/provider/plan/template bindings. The finite
+owner paths include CODEOWNERS, the PR template and digest-bound append-only
+AGENTS review guidance repair. OOS reproduces approved bytes and forbids app
+edits; Platform does not grant ordinary source or model authority. Separate
+workflow permission is needed only for an actual workflow file write.
 
 ## Primary Operator Path
 

@@ -666,6 +666,22 @@ class BootstrapSourceIntentTests(unittest.TestCase):
         for record in (self.work / "provider").rglob("*.json"):
             self.assertNotIn(credential["token"], record.read_text())
 
+    def test_admitted_preinventory_owner_gets_only_control_repair_paths_not_ordinary_source(self):
+        snapshot = self.bootstrap_source()
+        intake = yaml.safe_load(snapshot.intake)
+        entry = intake["repos"]["sample-owner"]
+        entry["status"] = "admitted"
+        entry["record"]["version"] += 1
+        subject = self.value["source_intent"]["subject"]
+        subject["intake_entry_ref"] = {"id": entry["record"]["id"], "version": entry["record"]["version"], "digest": intents.digest(entry)}
+        subject["allowed_paths"] = sorted(["AGENTS.md", ".github/CODEOWNERS", ".github/pull_request_template.md"])
+        snapshot = intents.identity.replace(snapshot, intake=yaml.safe_dump(intake).encode())
+        self.assertEqual(self.operate(inventory_reader=lambda: snapshot)["purpose"], "trusted-owner-bootstrap")
+        self.assertEqual(set(self.state.issued_permissions[-1]), {"metadata", "contents", "pull_requests", "checks"})
+        self.assertFalse(self.credential()[1]["workflow_write"])
+        checked = intents.identity.contract_from_record_snapshot(intents.identity.load_contract(self.args().contract), snapshot)
+        self.assertNotIn("sample-owner", [item.full_name.rsplit("/", 1)[-1] for item in checked.repositories])
+
     def test_ordinary_parser_and_ordinary_issuance_cannot_borrow_proposed_bootstrap(self):
         snapshot = self.bootstrap_source()
         with self.assertRaisesRegex(intents.identity.IdentityError, "ordinary source"):
@@ -713,12 +729,12 @@ class BootstrapSourceIntentTests(unittest.TestCase):
         self.assertEqual(len(self.state.issued), 1)
 
     def test_bootstrap_refuses_status_security_provider_and_finite_path_substitution(self):
-        for mode in ("admitted", "out-of-scope", "security", "control-owner", "entry-version", "provider", "inventory", "retired", "duplicate"):
+        for mode in ("out-of-scope", "security", "control-owner", "entry-version", "provider", "inventory", "retired", "duplicate"):
             with self.subTest(mode=mode):
                 snapshot = self.bootstrap_source()
                 intake, inventory = yaml.safe_load(snapshot.intake), yaml.safe_load(snapshot.inventory)
                 entry = intake["repos"]["sample-owner"]
-                if mode in {"admitted", "out-of-scope"}: entry["status"] = mode
+                if mode == "out-of-scope": entry["status"] = mode
                 elif mode == "security": entry["requires_security_bindings"] = True
                 elif mode == "control-owner": entry["validation_behavior"]["wgcf_graph_role"] = "control-owner"
                 elif mode == "entry-version": entry["record"]["version"] += 1

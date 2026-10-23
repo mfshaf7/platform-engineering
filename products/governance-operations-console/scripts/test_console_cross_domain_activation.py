@@ -632,6 +632,38 @@ class CrossDomainActivationTests(unittest.TestCase):
             )
             self.assertNotIn("BROWSER", value)
 
+    def test_publication_metadata_preserves_other_private_bindings(self) -> None:
+        policy = complete_runtime.validate_policy()
+        policy["security"].update({"reviewed_revisions": {name: "a" * 40 for name in policy["security"]["required_reviewed_repos"]}, "security_revision": "b" * 40})
+        generated = complete_runtime.resolved_activation_policy(policy)
+        self.assertEqual(activation.publication_console_environment(self.policy), [])
+        with tempfile.TemporaryDirectory() as directory, patch.object(activation, "PRIVATE_ROOT", Path(directory) / "private"):
+            path = activation.write_private_env(generated, "synthetic-oos", "synthetic-wgcf")
+            values = dict(line.split("=", 1) for line in path.read_text().splitlines())
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(values["OOS_CALLER_SECRET"], "synthetic-oos")
+            self.assertEqual(values["WGCF_CALLER_SECRET"], "synthetic-wgcf")
+            self.assertEqual(values["GOVERNANCE_CONSOLE_OPERATOR_ID"], generated["session"]["operator_id"])
+            self.assertIn("REPOSITORY_CUSTODY_POLICY_PROFILE_URI", values)
+            self.assertIn("GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_OWNER_REPO_ROOT", values)
+            self.assertEqual(values["GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_AUTHORITY_REVISION"], "a" * 40)
+            self.assertEqual(len([name for name in values if "PRODUCT_PUBLICATION" in name]), 4)
+            self.assertFalse(any(name.startswith("NEXT_PUBLIC_") for name in values))
+
+    def test_invalid_publication_metadata_fails_before_replacing_environment(self) -> None:
+        binding = {"authority_revision": "a" * 40, "security_decision_revision": "b" * 40,
+                   "security_decision_digest": "sha256:" + "c" * 64,
+                   "security_decision_uri": "security-architecture://product-publication/decisions/example"}
+        for changed in ({}, {**binding, "extra": "value"}, {**binding, "authority_revision": "short"},
+                        {**binding, "security_decision_uri": binding["security_decision_uri"] + "\nINJECTED=value"},
+                        {**binding, "security_decision_digest": None}):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); env = root / "console.env"; env.write_text("retained environment\n")
+                with patch.object(activation, "PRIVATE_ROOT", root):
+                    with self.assertRaisesRegex(activation.ActivationError, "metadata is incomplete"):
+                        activation.write_private_env({**self.policy, "console_publication": changed}, "synthetic-oos", "synthetic-wgcf")
+                self.assertEqual(env.read_text(), "retained environment\n")
+
     def test_catalog_command_separates_first_use_from_existing_reference(self) -> None:
         record = {
             "id": "workspace-registry-record:repo:context-governance-gateway",

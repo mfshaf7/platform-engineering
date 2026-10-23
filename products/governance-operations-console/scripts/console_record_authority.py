@@ -94,6 +94,16 @@ def _current_owner_observation(root: Path, name: str, head: str, binding: dict[s
     return None
 
 
+def require_bounded_owner_tree(root: Path, revision: str) -> None:
+    entries = git(root, "ls-tree", "-rl", "--full-tree", revision).splitlines()
+    sizes = [line.split("\t", 1)[0].split() for line in entries]
+    if (len(entries) > 8192 or any(len(row) != 4 or row[1] != "blob"
+            or row[0] not in {"100644", "100755"} or not row[3].isdigit()
+            or int(row[3]) > 4 * 1024 * 1024 for row in sizes)
+        or sum(int(row[3]) for row in sizes) > 32 * 1024 * 1024):
+        raise RecordAuthorityError("owner source exceeds its regular-file or size bound")
+
+
 def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewed: str) -> dict[str, Any]:
     """Project committed owner source, never execute it.
 
@@ -151,26 +161,29 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
                 or remote not in {f"https://github.com/{full_name}.git", f"git@github.com:{full_name}.git"}
                 or (source / ".git/objects/info/alternates").exists()):
                 raise RecordAuthorityError("owner source binding is not current")
-            entries = git(source, "ls-tree", "-rl", "--full-tree", head).splitlines()
-            sizes = [line.split("\t", 1)[0].split() for line in entries]
-            if (len(entries) > 8192 or any(len(row) != 4 or row[1] != "blob"
-                    or row[0] not in {"100644", "100755"} or not row[3].isdigit()
-                    or int(row[3]) > 4 * 1024 * 1024 for row in sizes)
-                or sum(int(row[3]) for row in sizes) > 32 * 1024 * 1024):
-                raise RecordAuthorityError("owner source exceeds its regular-file or size bound")
+            require_bounded_owner_tree(source, head)
             projected[name] = {"head": head, "provider_repository": binding}
             if (name in inventory["repos"] and record.get("posture") == "active"
                 and any(product.get("posture") == "active" and name in product.get("source_owners", [])
                         for product in products.get("products", {}).values())):
                 try:
-                    current_observation = _current_owner_observation(visible_root / name, name, head, binding)
+                    target = visible_root / name
+                    observed_head = head
+                    if target.is_dir() and not target.is_symlink():
+                        try:
+                            observed_head = git(target, "rev-parse", "HEAD")
+                            git(target, "merge-base", "--is-ancestor", head, observed_head)
+                        except RecordAuthorityError:
+                            observed_head = head
+                    current_observation = _current_owner_observation(target, name, observed_head, binding)
                     if current_observation is None:
-                        if public_owner_main(binding) != head:
-                            raise RecordAuthorityError("canonical public main differs from the clean owner checkout")
+                        observed_head = public_owner_main(binding)
+                        if not COMMIT.fullmatch(observed_head):
+                            raise RecordAuthorityError("public owner revision is invalid")
                         observed = datetime.now(timezone.utc)
                         current_observation = dict(schema_version=1, observed_at=observed.isoformat(),
                             valid_until=(observed + timedelta(minutes=5)).isoformat())
-                    projected[name].update(current_observation)
+                    projected[name].update(head=observed_head, **current_observation)
                 except RecordAuthorityError:
                     # Keep physical-presence projection but remove Publication
                     # freshness immediately; unavailable remote is not custody.
@@ -234,6 +247,23 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
             staged = Path(temporary) / name
             git(cache_root, "clone", "--local", "--no-hardlinks", "--no-checkout", "--single-branch", "--branch", "main", "--", str(source), str(staged))
             git(staged, "remote", "set-url", "origin", f"https://github.com/{observation['provider_repository']['full_name']}.git")
+            local_head = git(source, "rev-parse", "HEAD")
+            if observation["head"] != local_head:
+                try:
+                    # Only the generated, credential-free source clone changes.
+                    # Observe the same canonical main and require forward history.
+                    git(staged, "fetch", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main")
+                    if git(staged, "rev-parse", TRUSTED_REF) != observation["head"]:
+                        raise RecordAuthorityError("canonical owner changed during source observation")
+                    git(staged, "merge-base", "--is-ancestor", local_head, observation["head"])
+                    require_bounded_owner_tree(staged, observation["head"])
+                except RecordAuthorityError:
+                    # Presence remains valid, but stale or rewritten public source
+                    # cannot retain a Publication freshness attestation.
+                    observation.clear()
+                    observation.update(head=local_head, provider_repository=selected[name]["provider_repository"])
+                    if name not in publication_unavailable:
+                        publication_unavailable.append(name)
             git(staged, "checkout", "--detach", observation["head"])
             if git(staged, "rev-parse", "HEAD") != observation["head"] or git(staged, "status", "--porcelain"):
                 raise RecordAuthorityError("committed owner snapshot readback differs")

@@ -131,6 +131,45 @@ OOS caller consumption and authenticated, non-mutating WGCF readiness reads
 for all three families; valid provider tokens alone are not workflow health.
 Credential values never enter arguments, output, receipts or the browser.
 
+## Existing Product Publication binding
+
+Complete activation preserves the already commissioned OOS/WGCF Publication
+composition. It reads the exact reviewed OOS manifest and verifies the existing
+owner enablement and the same accepted Publication Security decision before
+continuing. It does not enable a disabled owner. The allowed targets remain
+`unlisted`, `internal` and `archived`; this adds no client/public exposure.
+
+The ordinary Console environment writer projects only the four existing
+server-side Publication metadata fields from the accepted source policy:
+reviewed Workspace Governance baseline and Security decision URI, digest and
+revision. All existing caller, session, custody and Preview bindings remain.
+Metadata is validated before replacing the private environment; it carries no
+new credential and is never a `NEXT_PUBLIC_*` value. Each new Console command
+independently reads current Inventory authority through the native Registry
+reader. Historical Publication GETs retain their original authority and receipt.
+
+After activation, `status` requires the actual Console Publication route to
+report live mode, plus the existing OOS and WGCF bindings. A healthy homepage
+or disconnected preview does not pass. Use the Console Publication procedure
+for actual product writes and original-request recovery; a Platform status
+receipt is not proof that a product was published. Restart uses the same
+projection. Existing rollback removes the Console environment without deleting
+or rewriting native owner journals, product state or their independent gates.
+Do not run the legacy dedicated commissioning activation over the complete
+composition to recover missing Console metadata.
+
+For an active source-only public product, the existing generated source
+projection can read a later merged canonical main without requiring an operator
+to update the host checkout. It reuses the fixed-host anonymous provider
+observer and exact provider identity, fetches only into its attributed generated
+clone, requires forward ancestry from the clean local source and the existing
+regular-file/size limits, and never executes app source. A changed main during
+fetch, history rewrite, unsafe tree or unavailable provider removes Publication
+freshness while preserving verified physical presence. The host checkout,
+ignored data, source credentials and work-session resources remain untouched.
+An unchanged unexpired observation retains its original short validity; local
+timer ticks cannot renew remote freshness.
+
 ## Reviewed execution and current records
 
 Execution code, schemas, workflow policy, model selection and owner commands
@@ -184,8 +223,10 @@ owner-attribution marker. No new mount, service or manual owner-root map is
 needed. The existing five-minute observation may be reused only for the same
 clean source/provider binding; unchanged local timer ticks never extend its
 expiry. Near expiry, a fresh provider observation is required. Provider denial
-or a stale host checkout removes Publication freshness while preserving valid
-physical source presence. Intake-only or unregistered-product owners retain
+or an unavailable, rewritten or unsafe canonical source removes Publication
+freshness while preserving valid physical source presence. A clean older host
+checkout can seed the generated clone; verified later public main is read only
+inside that clone, without requiring host checkout alignment. Intake-only or unregistered-product owners retain
 presence-only markers. The WGCF consumer independently checks current
 registration, provider/custody attribution, freshness, regular Git source and
 manifest ancestry; a local directory alone is not authority. This is the

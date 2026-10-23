@@ -109,7 +109,7 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def test_activation_refreshes_after_current_marker_and_before_success_status(self):
         policy = self.accepted_policy(); events = []
-        ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
+        ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "require_publication_owner_bindings", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
         with ExitStack() as stack:
             for name in ignored: stack.enter_context(patch.object(runtime, name))
             stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
@@ -123,6 +123,64 @@ class CompleteRuntimeTests(unittest.TestCase):
                 stack.enter_context(patch.object(runtime, name, side_effect=lambda *args, _name=name, **kwargs: events.append(_name)))
             runtime.activate(policy)
         self.assertEqual(events, ["write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+
+    def test_publication_projection_uses_the_existing_decision_and_reviewed_authority(self):
+        policy = self.accepted_policy()
+        binding = runtime.publication_console_binding(policy)
+        self.assertEqual(binding["authority_revision"], policy["security"]["reviewed_revisions"]["workspace-governance"])
+        decision = runtime.yaml.safe_load((runtime.PRODUCT_ROOT / "product-publication-commissioning-policy.yaml").read_text())["product_publication"]["security_decision"]
+        self.assertEqual(binding["security_decision_uri"], decision["uri"])
+        self.assertEqual(binding["security_decision_digest"], decision["digest"])
+        self.assertEqual(binding["security_decision_revision"], decision["revision"])
+        self.assertEqual(runtime.resolved_activation_policy(policy)["console_publication"], binding)
+        changed = {"product_publication": {"security_decision": {**decision, "approved_target_postures": ["public"]}}}
+        with patch.object(runtime.yaml, "safe_load", return_value=changed):
+            with self.assertRaisesRegex(runtime.RuntimeError, "target boundary"):
+                runtime.publication_console_binding(policy)
+
+    @patch.object(runtime, "repo_path", return_value=Path("/synthetic/oos"))
+    def test_publication_readback_requires_both_existing_gates_and_exact_source_decision(self, _repo):
+        policy = self.accepted_policy()
+        binding = runtime.publication_console_binding(policy)
+        source = {"runtime_activation": True, "allowed_target_postures": ["unlisted", "internal", "archived"],
+                  "security_authority": {"decision_uri": binding["security_decision_uri"],
+                    "decision_digest": binding["security_decision_digest"], "decision_revision": binding["security_decision_revision"]}}
+        with patch.object(runtime, "_git_file", return_value=json.dumps(source)) as git_read:
+            for oos, wgcf in ((True, True), (False, True), (True, False)):
+                with self.subTest(oos=oos, wgcf=wgcf), patch.object(runtime, "run", side_effect=[
+                    SimpleNamespace(stdout=json.dumps({"matched": oos})), SimpleNamespace(stdout=json.dumps({"enabled": wgcf}))]) as commands:
+                    if oos and wgcf:
+                        self.assertEqual(runtime.require_publication_owner_bindings(policy), {"oos_enabled_and_bound": True, "wgcf_enabled": True})
+                    else:
+                        with self.assertRaisesRegex(runtime.RuntimeError, "enablement or exact Security binding"):
+                            runtime.require_publication_owner_bindings(policy)
+                    for call in commands.call_args_list:
+                        self.assertIn("exec", call.args[0])
+                        self.assertNotIn("apply", call.args[0])
+                        self.assertNotIn("patch", call.args[0])
+            self.assertEqual(git_read.call_args.args[1:], (policy["security"]["reviewed_revisions"]["operator-orchestration-service"], "contracts/product-publication/manifest.json"))
+        for changed in ({**source, "runtime_activation": False}, {**source, "allowed_target_postures": ["public"]},
+                        {**source, "security_authority": {**source["security_authority"], "decision_digest": "sha256:" + "0" * 64}}):
+            with self.subTest(changed=changed), patch.object(runtime, "_git_file", return_value=json.dumps(changed)), patch.object(runtime, "run") as commands:
+                with self.assertRaisesRegex(runtime.RuntimeError, "reviewed OOS Publication source"):
+                    runtime.require_publication_owner_bindings(policy)
+                commands.assert_not_called()
+
+    def test_publication_mode_cannot_certify_preview_or_malformed_state(self):
+        policy = self.accepted_policy()
+        for value in ({"mode": "live", "reason_code": None}, {"mode": "disconnected-preview", "reason_code": "console_product_publication_not_selected"},
+                      {"mode": "live"}, {"mode": "live", "reason_code": "invalid"}, {}):
+            response = unittest.mock.MagicMock()
+            response.__enter__.return_value.read.return_value = json.dumps(value).encode()
+            with self.subTest(value=value), patch.object(runtime, "urlopen", return_value=response):
+                if value == {"mode": "live", "reason_code": None}:
+                    self.assertEqual(runtime.require_console_publication_mode(policy), {"console_mode": "live"})
+                else:
+                    with self.assertRaisesRegex(runtime.RuntimeError, "preview is not readiness"):
+                        runtime.require_console_publication_mode(policy)
+        with patch.object(runtime, "urlopen", side_effect=runtime.URLError("unavailable")):
+            with self.assertRaisesRegex(runtime.RuntimeError, "route is unavailable"):
+                runtime.require_console_publication_mode(policy)
 
     def test_current_operator_policies_match_native_source_identity_without_aliases(self):
         policy = runtime.validate_policy()

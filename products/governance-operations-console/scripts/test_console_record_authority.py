@@ -433,7 +433,67 @@ class IntakeOwnerSourceTests(unittest.TestCase):
         self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
         self.assertEqual(git(self.owner_source, "status", "--porcelain"), "")
 
-    def test_public_failure_or_stale_host_cannot_keep_publication_freshness_but_presence_is_preserved(self):
+    def test_merged_public_source_refreshes_generated_clone_without_updating_host_checkout(self):
+        head = self.bootstrap(); self.register_product()
+        with patch.object(console_record_authority, "public_owner_main", return_value=head):
+            self.project()
+        remote = self.root / "public-owner"
+        git(self.root, "clone", "--no-hardlinks", "--", str(self.owner_source), str(remote))
+        (remote / "manifest.json").write_text('{"synthetic": true}\n')
+        git(remote, "add", ".")
+        git(remote, "-c", "user.name=Synthetic author", "-c", "user.email=test@example.invalid", "commit", "-m", "later merged owner manifest")
+        merged = git(remote, "rev-parse", "HEAD")
+        def native_git(root, *args, **kwargs):
+            if args[:3] == ("fetch", "--no-tags", "origin"):
+                return git(root, "fetch", "--no-tags", str(remote), *args[3:], **kwargs)
+            return git(root, *args, **kwargs)
+        # Expire the original remote observation so this observes merged main.
+        marker = self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER
+        value = json.loads(marker.read_bytes()); value["valid_until"] = "2000-01-01T00:00:00+00:00"; marker.write_text(json.dumps(value))
+        with patch.object(console_record_authority, "public_owner_main", return_value=merged) as observe, patch.object(console_record_authority, "git", side_effect=native_git):
+            result = self.project()
+            self.project()
+        self.assertEqual(observe.call_count, 1)
+        self.assertEqual(result["publication_unavailable"], [])
+        self.assertEqual(git(self.visible, "rev-parse", "HEAD"), merged)
+        self.assertEqual(json.loads(marker.read_bytes())["head"], merged)
+        self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
+        self.assertEqual(git(self.owner_source, "rev-parse", TRUSTED_REF), head)
+        self.assertFalse((self.owner_source / "manifest.json").exists())
+        self.assertTrue((self.owner_source / ".env").exists())
+        self.assertFalse((self.visible / ".env").exists())
+
+    def test_remote_rewrite_or_unsafe_tree_cannot_gain_publication_freshness(self):
+        head = self.bootstrap(); self.register_product()
+        remote = self.root / "public-owner"
+        git(self.root, "clone", "--no-hardlinks", "--", str(self.owner_source), str(remote))
+        def native_git(root, *args, **kwargs):
+            if args[:3] == ("fetch", "--no-tags", "origin"):
+                return git(root, "fetch", "--no-tags", str(remote), *args[3:], **kwargs)
+            return git(root, *args, **kwargs)
+        for unsafe in ("observed-mismatch", "symlink", "rewritten"):
+            with self.subTest(unsafe=unsafe):
+                if unsafe == "observed-mismatch":
+                    (remote / "manifest.json").write_text('{"synthetic": true}\n')
+                elif unsafe == "symlink":
+                    (remote / "manifest.json").unlink()
+                    (remote / "manifest.json").symlink_to("README.md")
+                else:
+                    git(remote, "checkout", "--orphan", "unrelated")
+                    git(remote, "read-tree", "--empty")
+                    (remote / "manifest.json").unlink()
+                    (remote / "README.md").write_text("unrelated history\n")
+                git(remote, "add", ".")
+                git(remote, "-c", "user.name=Synthetic author", "-c", "user.email=test@example.invalid", "commit", "-m", unsafe)
+                git(remote, "branch", "-f", "main", "HEAD") if unsafe == "rewritten" else None
+                with patch.object(console_record_authority, "public_owner_main", return_value="f" * 40 if unsafe == "observed-mismatch" else git(remote, "rev-parse", "HEAD")), patch.object(console_record_authority, "git", side_effect=native_git):
+                    result = self.project()
+                self.assertEqual(result["publication_unavailable"], [self.owner_name])
+                self.assertEqual(git(self.visible, "rev-parse", "HEAD"), head)
+                self.assertNotIn("valid_until", json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes()))
+                self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
+
+    def test_public_failure_or_unavailable_revision_cannot_keep_publication_freshness_but_presence_is_preserved(self):
         head = self.bootstrap()
         self.register_product()
         for observation in [head, "f" * 40, RecordAuthorityError("provider unavailable"), head]:
@@ -445,7 +505,8 @@ class IntakeOwnerSourceTests(unittest.TestCase):
                     marker_path.write_text(json.dumps(retained))
             with patch.object(console_record_authority, "public_owner_main", side_effect=(
                 observation if isinstance(observation, Exception) else None),
-                return_value=observation):
+                return_value=observation), patch.object(console_record_authority, "git", side_effect=lambda root, *args, **kwargs:
+                    (_ for _ in ()).throw(RecordAuthorityError("synthetic unavailable fetch")) if args[:1] == ("fetch",) else git(root, *args, **kwargs)):
                 result = self.project()
             marker = json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes())
             self.assertEqual(marker["head"], head)

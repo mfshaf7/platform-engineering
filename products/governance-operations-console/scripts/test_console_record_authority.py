@@ -456,6 +456,7 @@ class IntakeOwnerSourceTests(unittest.TestCase):
         self.assertEqual(observe.call_count, 1)
         self.assertEqual(result["publication_unavailable"], [])
         self.assertEqual(git(self.visible, "rev-parse", "HEAD"), merged)
+        self.assertEqual(git(self.visible, "rev-parse", TRUSTED_REF), merged)
         self.assertEqual(json.loads(marker.read_bytes())["head"], merged)
         self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
         self.assertEqual(git(self.owner_source, "rev-parse", TRUSTED_REF), head)
@@ -490,6 +491,7 @@ class IntakeOwnerSourceTests(unittest.TestCase):
                     result = self.project()
                 self.assertEqual(result["publication_unavailable"], [self.owner_name])
                 self.assertEqual(git(self.visible, "rev-parse", "HEAD"), head)
+                self.assertEqual(git(self.visible, "rev-parse", TRUSTED_REF), head)
                 self.assertNotIn("valid_until", json.loads((self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER).read_bytes()))
                 self.assertEqual(git(self.owner_source, "rev-parse", "HEAD"), head)
 

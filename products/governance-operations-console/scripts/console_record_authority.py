@@ -262,6 +262,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
                     # cannot retain a Publication freshness attestation.
                     observation.clear()
                     observation.update(head=local_head, provider_repository=selected[name]["provider_repository"])
+                    git(staged, "update-ref", TRUSTED_REF, local_head)
                     if name not in publication_unavailable:
                         publication_unavailable.append(name)
             git(staged, "checkout", "--detach", observation["head"])

@@ -495,6 +495,12 @@ class AgentSourceIdentityTests(unittest.TestCase):
             self.assertEqual(1, self.deliver())
         self.assertEqual([], self.state.issued)
 
+    def test_absent_legacy_revocation_stays_available_without_current_inventory(self):
+        with mock.patch.object(module, "load_operating_contract", side_effect=module.IdentityError("inventory offline")):
+            self.assertEqual(0, module.main(self.session("revoke", "absent-legacy.json")))
+        self.assertEqual("already-absent", json.loads((self.work / "absent-legacy.json").read_text())["outcome"])
+        self.assertEqual([], self.state.issued)
+
     def test_app_workflow_grant_does_not_broaden_ordinary_token(self) -> None:
         self.state.workflow_granted = True
         self.assertEqual(0, self.deliver())

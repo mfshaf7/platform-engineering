@@ -955,8 +955,10 @@ def command_revoke(args: argparse.Namespace) -> int:
         credential = read_credential(contract, directory)
         if credential is None:
             outcome = "already-absent"
-            contract = load_operating_contract(args, maintenance=True)
-            repository = expected_repository(contract, args.repository)
+            repository = next((item for item in contract.repositories if item.full_name == args.repository), None)
+            if repository is None:
+                contract = load_operating_contract(args, maintenance=True)
+                repository = expected_repository(contract, args.repository)
             contract = select_installation(contract, repository.full_name)
         else:
             if credential["landing_unit_id"] != args.landing_unit_id or credential["repository"] != args.repository:

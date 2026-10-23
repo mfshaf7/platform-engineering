@@ -461,6 +461,7 @@ validate:
 	python3 products/governance-operations-console/scripts/test_product_publication_platform.py
 	python3 products/governance-operations-console/scripts/console_complete_runtime.py validate
 	python3 products/governance-operations-console/scripts/test_platform_operation_provider.py
+	python3 products/governance-operations-console/scripts/test_prototype_closure_disposition.py
 	python3 products/governance-operations-console/scripts/test_console_complete_runtime.py
 	python3 products/governance-operations-console/scripts/test_console_record_authority.py
 	python3 scripts/repository_provider_identity.py validate

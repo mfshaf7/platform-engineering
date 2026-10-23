@@ -5,6 +5,9 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import threading
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import unittest
 from unittest.mock import patch
 
@@ -315,6 +318,66 @@ class PlatformOperationProviderTests(unittest.TestCase):
                     self.assertEqual(provider.execute_worker(store, candidate_policy, exact["command_id"]), 1)
                     issuer.assert_not_called()
                 self.assertEqual(store.read(exact["command_id"])["receipt"]["effect"], "none")
+
+
+class ClosureDispositionProtocolTests(unittest.TestCase):
+    def test_authenticated_owner_lookup_records_existing_proof_without_a_runtime_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = accepted_policy(root)
+            service = provider.ProviderService(policy, root / "policy.yaml",
+                provider.OperationStore(root / "state"), SOURCE)
+            evidence = root / "platform-evidence.json"
+            evidence.write_text(json.dumps({"schema_version": 1, "records": []}))
+            evidence.chmod(0o600)
+            lookup = {"prototype_id": "sample-tool", "merged_source_revision": "d" * 40,
+                "source_event_ref": "prototype-closure:sample-tool:0002"}
+            observed = {key: lookup[key] for key in ("prototype_id", "merged_source_revision")}
+            observed["disposition"] = "absent"
+            handler = provider.handler_for(service, "oos", "synthetic-owner-secret")
+            with provider.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    target = f"http://127.0.0.1:{server.server_port}/v1/console-operations/prototype-closure-dispositions"
+                    request = lambda secret: Request(target, data=json.dumps(lookup).encode(),
+                        headers={"x-platform-caller-id": "oos", "x-platform-caller-secret": secret})
+                    with patch.object(provider, "activation_is_current", return_value=True), \
+                         patch.object(provider, "closure_evidence_path", return_value=evidence), \
+                         patch.object(provider.closure_disposition, "absent", return_value=observed) as reader, \
+                         patch.object(provider, "spawn_worker") as worker:
+                        with self.assertRaises(HTTPError) as denied:
+                            urlopen(request("wrong"), timeout=2)
+                        self.assertEqual(denied.exception.code, 403)
+                        reader.assert_not_called()
+                        with urlopen(request("synthetic-owner-secret"), timeout=2) as response:
+                            proof = json.load(response)
+                        reader.assert_called_once_with(policy, lookup)
+                        self.assertEqual(json.loads(evidence.read_text())["records"], [proof])
+                        self.assertEqual(proof["disposition"], "absent")
+                        self.assertEqual(proof["field"], "post_merge_runtime_disposition")
+                        worker.assert_not_called()
+                finally:
+                    server.shutdown()
+                    thread.join()
+
+    def test_stale_activation_or_failed_owner_observation_never_records_a_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = accepted_policy(root)
+            service = provider.ProviderService(policy, root / "policy.yaml",
+                provider.OperationStore(root / "state"), SOURCE)
+            with patch.object(provider, "activation_is_current", return_value=False), \
+                 patch.object(provider.closure_disposition, "absent") as reader:
+                with self.assertRaises(provider.ProviderError):
+                    service.closure_disposition({})
+                reader.assert_not_called()
+            with patch.object(provider, "activation_is_current", return_value=True), \
+                 patch.object(provider.closure_disposition, "absent", side_effect=ValueError("unproven")), \
+                 patch.object(provider.closure_evidence, "record") as record:
+                with self.assertRaises(provider.ProviderError):
+                    service.closure_disposition({})
+                record.assert_not_called()
 
 
 if __name__ == "__main__":

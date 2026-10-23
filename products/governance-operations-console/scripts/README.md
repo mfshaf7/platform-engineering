@@ -83,6 +83,13 @@ suspension and revocation leave source and review evidence intact.
 recovery, rollback, and teardown command for the complete local Console
 composition. `platform_operation_provider.py` implements the authenticated
 finite owner protocol OOS already consumes. Both remain gated by the external
+Security acceptance described in the product runbook. The internal
+`prototype_closure_disposition.py` reader verifies current exact graduation
+and managed Preview absence for the same provider; it adds no runtime action
+or independently callable operator workflow. It reuses the existing
+Platform Closure evidence recorder and denies uncertain state.
+
+The complete runtime remains gated by the external
 exact-tree Security decision; generated policy and credential values stay in
 operator-private state. Use the top-level
 `make governance-console-complete-runtime ACTION=<action>` target and the

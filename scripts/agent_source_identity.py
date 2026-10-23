@@ -380,6 +380,7 @@ def select_installation(contract: Contract, repository_name: str) -> Contract:
 
 def load_operating_contract(
     args: argparse.Namespace, *, inventory_reader: Callable[[], RepositoryInventorySnapshot] | None = None,
+    maintenance: bool = False,
 ) -> Contract:
     contract = load_contract(args.contract)
     if inventory_reader is not None:
@@ -392,11 +393,11 @@ def load_operating_contract(
         if (inventory_path.name == "repos.yaml" and inventory_path.parent.name == "contracts"
             and inventory_path.parent.parent.name == contract.repository_inventory_ref["repository"]):
             current = contract_from_record_snapshot(contract, read_current_workspace_inventory(contract, inventory_path))
-            # Maintenance CLI retains its original commissioned legacy-core
-            # installation scope. Newly promoted owners use the normal native
-            # source-intent path, including its installation selection, exact
-            # intent and terminal revocation. Current records are not a CLI
-            # grant to bypass those controls.
+            # Explicit engineering maintenance uses the same admitted owners
+            # and selected installations as the native issuer. Commissioning
+            # and immutable pinned-blob recovery retain their legacy scope.
+            if maintenance:
+                return current
             legacy = {item.full_name for item in contract.repositories}
             return replace(current, repositories=tuple(item for item in current.repositories if item.full_name in legacy))
         # Immutable pinned-blob compatibility remains for explicit legacy-core
@@ -834,7 +835,9 @@ def _validate_session_inputs(
 
 def command_deliver(args: argparse.Namespace) -> int:
     purpose = delivery_purpose(args)
-    contract = purpose_contract(load_operating_contract(args), purpose)
+    contract = purpose_contract(load_operating_contract(args, maintenance=True), purpose)
+    admitted_repository = expected_repository(contract, args.repository)
+    contract = select_installation(contract, admitted_repository.full_name)
     repository = _validate_session_inputs(
         contract,
         landing_unit_id=args.landing_unit_id,
@@ -850,8 +853,12 @@ def command_deliver(args: argparse.Namespace) -> int:
             raise IdentityError("Agent source token issuance is suspended")
         current = read_credential(contract, directory)
         def recheck_admission() -> None:
-            observed = purpose_contract(load_operating_contract(args), purpose)
+            observed = select_installation(
+                purpose_contract(load_operating_contract(args, maintenance=True), purpose),
+                repository.full_name,
+            )
             if (observed.repository_inventory_ref != contract.repository_inventory_ref
+                or observed.installation_id != contract.installation_id
                 or expected_repository(observed, repository.full_name) != repository):
                 raise IdentityError("current maintenance source admission changed before issuance; retry readback")
         credential = deliver_locked(contract, args, repository, directory, current, before_issue=recheck_admission)
@@ -948,11 +955,37 @@ def command_revoke(args: argparse.Namespace) -> int:
         credential = read_credential(contract, directory)
         if credential is None:
             outcome = "already-absent"
-            repository = expected_repository(contract, args.repository)
+            repository = next((item for item in contract.repositories if item.full_name == args.repository), None)
+            if repository is None:
+                contract = load_operating_contract(args, maintenance=True)
+                repository = expected_repository(contract, args.repository)
+            contract = select_installation(contract, repository.full_name)
         else:
             if credential["landing_unit_id"] != args.landing_unit_id or credential["repository"] != args.repository:
                 raise IdentityError("revocation request does not match the projected credential")
-            repository = expected_repository(contract, credential["repository"])
+            # Stopping an exact retained projection must remain possible after
+            # its owner is suspended/retired or current admission is offline.
+            contract = select_installation(contract, credential["repository"])
+            expected_identity = {
+                "schema_version": 1,
+                "identity_id": contract.identity_id,
+                "logical_agent_id": contract.logical_agent_id,
+                "provider_principal": contract.provider_principal,
+                "app_id": contract.app_id,
+                "installation_id": contract.installation_id,
+                "human_reviewer_id": contract.human_reviewer_id,
+            }
+            if (any(credential[key] != value for key, value in expected_identity.items())
+                or type(credential["repository_id"]) is not int or credential["repository_id"] <= 0):
+                raise IdentityError("retained revocation identity does not match the source contract")
+            repository = Repository(credential["repository"], credential["repository_id"])
+            legacy = next((item for item in contract.repositories if item.full_name == repository.full_name), None)
+            if legacy is not None and legacy != repository:
+                raise IdentityError("retained revocation cannot replace a legacy provider identity")
+            contract = replace(contract, repositories=(repository,))
+            _validate_session_inputs(contract, landing_unit_id=args.landing_unit_id,
+                repository_name=repository.full_name, branch=credential["branch"],
+                fetched_base=credential["fetched_base"], human_reviewer_id=credential["human_reviewer_id"])
             outcome = safe_revoke(client, credential["token"])
             _remove_session(directory)
     result = receipt(

@@ -119,3 +119,9 @@ source-realization profile. See the complete-runtime runbook for the exact
 Security gate, record-only boundaries, commissioning and rollback. Source
 implementation is not a claim that the final Console-created app journey has
 passed.
+
+The complete-runtime path also preserves the already commissioned Product
+Publication owner bindings and projects their existing server-only metadata.
+Its status requires the actual Console Publication route to be live. Product
+publication remains an explicit Console/OOS action with native owner evidence;
+see [the complete-runtime procedure](runbooks/operate-complete-runtime.md#existing-product-publication-binding).

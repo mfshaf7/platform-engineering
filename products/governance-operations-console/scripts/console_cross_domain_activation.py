@@ -493,7 +493,29 @@ def unit_name(role: str) -> str:
     return f"{UNIT_PREFIX}-{role}.service"
 
 
+def publication_console_environment(policy: dict[str, Any]) -> list[str]:
+    """Project reviewed server metadata, never activate an owner or copy old env."""
+    binding = policy.get("console_publication")
+    if binding is None:
+        return []
+    names = {
+        "authority_revision": "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_AUTHORITY_REVISION",
+        "security_decision_uri": "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_URI",
+        "security_decision_digest": "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST",
+        "security_decision_revision": "GOVERNANCE_CONSOLE_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION",
+    }
+    if (not isinstance(binding, dict) or set(binding) != set(names)
+            or not all(isinstance(value, str) for value in binding.values())
+            or not re.fullmatch(r"[0-9a-f]{40}", binding["authority_revision"])
+            or not re.fullmatch(r"[0-9a-f]{40}", binding["security_decision_revision"])
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", binding["security_decision_digest"])
+            or not re.fullmatch(r"security-architecture://product-publication/decisions/[a-z0-9._-]+", binding["security_decision_uri"])):
+        raise ActivationError("Console Publication metadata is incomplete or outside its existing authority boundary")
+    return [f"{name}={binding[key]}" for key, name in names.items()]
+
+
 def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: str) -> Path:
+    publication_values = publication_console_environment(policy)
     ensure_private_directory(PRIVATE_ROOT)
     path = PRIVATE_ROOT / "console.env"
     values = [
@@ -527,6 +549,7 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
             f"GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_STATE_ROOT={preview['state_root']}",
             "GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_RECORD_AUTHORITY_FRESHNESS_REQUIRED=true",
         ])
+    values.extend(publication_values)
     path.write_text(
         "\n".join(values) + "\n",
         encoding="utf-8",

@@ -110,3 +110,9 @@ expiry and different-UID read access. Set
 WGCF readers accept fresh checkpoints and deny expired ones with read-only
 mounts and no network. The default unit suite skips only that image-dependent
 case. The complete operating proof remains separately required.
+
+The complete runtime reuses the existing Product Publication gates and decision,
+projects only their four server metadata fields through the normal private
+environment writer, and checks the real Console route mode. It does not enable
+an owner, mutate a publication or copy stale environment values. Recovery and
+rollback remain part of the same complete-runtime command.

@@ -522,8 +522,66 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
             "state_root": str(STATE_ROOT / "prototype-preview"),
             "record_authority_freshness_required": True,
         },
+        "console_publication": publication_console_binding(policy),
         "receipts": {"directory": "governance-console-complete-runtime/receipts", "maximum_age_seconds": 120},
     }
+
+
+def publication_console_binding(policy: dict[str, Any]) -> dict[str, str]:
+    """Reuse the existing accepted Publication decision; this is not enablement."""
+    publication_policy = yaml.safe_load((PRODUCT_ROOT / "product-publication-commissioning-policy.yaml").read_text(encoding="utf-8"))
+    decision = publication_policy["product_publication"]["security_decision"]
+    if decision.get("approved_target_postures") != ["unlisted", "internal", "archived"]:
+        raise RuntimeError("the existing Publication target boundary is not the accepted scope")
+    return {
+        # The Console obtains current mutable Inventory from its native Registry
+        # for each new command; this stable value retains reviewed source binding.
+        "authority_revision": policy["security"]["reviewed_revisions"]["workspace-governance"],
+        "security_decision_uri": decision["uri"],
+        "security_decision_digest": decision["digest"],
+        "security_decision_revision": decision["revision"],
+    }
+
+
+def require_publication_owner_bindings(policy: dict[str, Any]) -> dict[str, bool]:
+    """Read existing gates and exact decision without modifying either owner."""
+    binding = publication_console_binding(policy)
+    source = json.loads(_git_file(repo_path("operator-orchestration-service"),
+        policy["security"]["reviewed_revisions"]["operator-orchestration-service"], "contracts/product-publication/manifest.json"))
+    authority = source.get("security_authority", {})
+    if (source.get("runtime_activation") is not True
+            or source.get("allowed_target_postures") != ["unlisted", "internal", "archived"]
+            or any(authority.get(key) != binding[value] for key, value in (
+                ("decision_uri", "security_decision_uri"), ("decision_digest", "security_decision_digest"),
+                ("decision_revision", "security_decision_revision")))):
+        raise RuntimeError("the exact reviewed OOS Publication source does not accept this decision")
+    expected = {
+        "OOS_PRODUCT_PUBLICATION_ENABLED": "true",
+        "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_URI": binding["security_decision_uri"],
+        "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_DIGEST": binding["security_decision_digest"],
+        "OOS_PRODUCT_PUBLICATION_SECURITY_DECISION_REVISION": binding["security_decision_revision"],
+    }
+    script = "const expected=" + json.dumps(expected) + ";console.log(JSON.stringify({matched:Object.entries(expected).every(([k,v])=>process.env[k]===v)}));"
+    actual = json.loads(run(["k3s", "kubectl", "-n", namespace(policy), "exec",
+        f"deployment/{policy['runtime']['oos_deployment']}", "-c", policy["runtime"]["oos_deployment"],
+        "--", "node", "-e", script]).stdout)
+    wgcf = json.loads(run(["k3s", "kubectl", "-n", f"devint-governance-control-fabric-{operator()}",
+        "exec", "deployment/workspace-governance-control-fabric-api", "-c", "api", "--", "python3", "-c",
+        "import json,os; print(json.dumps({'enabled':os.environ.get('WGCF_PRODUCT_PUBLICATION_READINESS_ENABLED')=='true'}))"]).stdout)
+    if actual != {"matched": True} or wgcf != {"enabled": True}:
+        raise RuntimeError("existing Publication owner enablement or exact Security binding is unavailable")
+    return {"oos_enabled_and_bound": True, "wgcf_enabled": True}
+
+
+def require_console_publication_mode(policy: dict[str, Any]) -> dict[str, str]:
+    try:
+        with urlopen(f"http://127.0.0.1:{policy['runtime']['console_port']}/api/product-portfolio/publications", timeout=15) as response:
+            value = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError, HTTPError, URLError) as exc:
+        raise RuntimeError("the Console Publication owner route is unavailable") from exc
+    if value != {"mode": "live", "reason_code": None}:
+        raise RuntimeError("the Console Publication owner route is not selected; preview is not readiness")
+    return {"console_mode": "live"}
 
 
 def write_resolved_policies(policy: dict[str, Any], activation: dict[str, Any]) -> None:
@@ -1696,6 +1754,7 @@ def activate(policy: dict[str, Any]) -> Path:
     write_provider_unit(policy, gateway, secret)
     apply_kubernetes_binding(policy, gateway, secret)
     apply_record_authority_binding(policy)
+    require_publication_owner_bindings(policy)
     run(cross_domain_command("activate"))
     write_active_marker(policy)
     refresh_stale_provider(policy)
@@ -1721,6 +1780,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     realization = require_source_realization_profile(policy)
     primary_records = require_console_primary_records(policy)
     operator_bindings = require_console_operator_bindings(policy)
+    publication = {**require_publication_owner_bindings(policy), **require_console_publication_mode(policy)}
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1736,6 +1796,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "source_realization": realization,
         "primary_records": primary_records,
         "operator_bindings": operator_bindings,
+        "product_publication": publication,
     })
 
 

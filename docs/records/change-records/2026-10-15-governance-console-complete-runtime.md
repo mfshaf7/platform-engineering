@@ -8,6 +8,30 @@ security_evidence:
 
 # Governance Console Complete Runtime
 
+## October23 Native Graduation Runtime Disposition
+
+Landing Unit Decision: feature_single_landing_unit, owner-repo maintenance
+maintenance-1275-graduation-tail-platform. Actual graduation passed source
+review and merge, but its normal OOS completion still depended on an operator
+manually recording Platform absence evidence. The existing authenticated
+Platform provider now accepts a finite exact-event lookup, verifies current
+canonical Studio custody and real Git merge ancestry, and observes the existing
+native Preview status, retained process metadata and loopback endpoint. It
+records the existing content-addressed absence proof only after these checks.
+It never accepts a caller-selected disposition, host path, command or proof,
+and never stops or creates a runtime. Active, stale, ambiguous, occupied and
+unavailable states fail closed.
+
+The OOS owner reader consumes this producer on the same retained Continue
+path. Console resumes pending Closure independently of Studio's terminal
+lifecycle. Merge Platform, then OOS and Console, refresh the existing composed
+Security review/decision and generated index, and perform normal activation
+before actual use. This section is source intent, not operating acceptance.
+Exact reviewed consumers are the composed Security Platform tree and OOS/
+Console pins, materialized provider policy, and existing activation/renewal
+services. Rollback uses those owners' prior accepted sources; preserve the
+existing request, merged event, app source, evidence file and ART history.
+
 ## October20 Model-Profile Lifecycle Consumer Repair
 
 The same approved `maintenance-1275-prototype-authoring-platform` Landing Unit

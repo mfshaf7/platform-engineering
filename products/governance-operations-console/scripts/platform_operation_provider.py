@@ -28,6 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agent_source_intent as source_credentials
 import console_record_authority as record_authority
+import prototype_closure_disposition as closure_disposition
+import prototype_closure_evidence as closure_evidence
+import prototype_closure_identity as closure_identity
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +55,18 @@ class ProviderError(RuntimeError):
         super().__init__(message)
         self.status = status
         self.code = code
+
+
+def closure_evidence_path(policy: dict[str, Any]) -> Path:
+    contract = closure_identity.load_contract(REPO_ROOT / "security/prototype-closure-identity.yaml")
+    account = policy["platform_operation_provider"]["operator_id"].removeprefix("operator:")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", account) or not contract.platform_evidence_filename:
+        raise ProviderError(503, "platform_closure_disposition_unavailable", "Closure owner binding is invalid.")
+    session = Path(policy["workspace_root"]) / ".dev-integration" / policy["runtime"]["session_profile"] / account
+    state = session / contract.workflow_slug / "state"
+    if state.resolve().parent.parent != session.resolve():
+        raise ProviderError(503, "platform_closure_disposition_unavailable", "Closure owner state escapes its session.")
+    return state / contract.platform_evidence_filename
 
 
 def now() -> str:
@@ -550,6 +565,22 @@ class ProviderService:
         active = activation_is_current(self.policy, self.source_version)
         return capability_catalog(self.policy, self.source_version, activated=active)
 
+    def closure_disposition(self, body: Any) -> dict[str, Any]:
+        if not activation_is_current(self.policy, self.source_version):
+            raise ProviderError(503, "platform_closure_disposition_unavailable",
+                "The current reviewed Console runtime is required.")
+        try:
+            observed = closure_disposition.absent(self.policy, body)
+            proof = closure_evidence.post_merge_disposition(argparse.Namespace(**observed))
+            # The mounted file belongs to the existing Closure identity, not
+            # the provider's command journal or caller-selected storage.
+            evidence = closure_evidence_path(self.policy)
+            closure_evidence.record(evidence, proof)
+            return proof
+        except Exception:
+            raise ProviderError(503, "platform_closure_disposition_unavailable",
+                "Exact current graduation and managed runtime absence are not proven.") from None
+
     def submit(self, body: Any) -> tuple[int, dict[str, Any]]:
         command = validate_command(body.get("command") if isinstance(body, dict) else None, self.policy, self.source_version)
         with self.store.lock(command["command_id"]):
@@ -724,6 +755,9 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                 if self.command == "POST" and path == "/v1/console-operations/commands":
                     status, value = service.submit(self.body())
                     self.respond(status, value)
+                    return
+                if self.command == "POST" and path == "/v1/console-operations/prototype-closure-dispositions":
+                    self.respond(200, service.closure_disposition(self.body()))
                     return
                 control = re.fullmatch(r"/v1/console-operations/([^/]+)/controls", path)
                 if self.command == "POST" and control:

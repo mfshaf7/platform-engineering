@@ -42,6 +42,18 @@ durable-owner source, and the local Platform evidence ledger.
 
 ## Runtime Evidence
 
+In the accepted complete Console composition, OOS obtains post-graduation
+absence proof through the existing authenticated Platform provider at
+`POST /v1/console-operations/prototype-closure-dispositions`. Input is exactly
+`prototype_id`, `merged_source_revision`, and `source_event_ref`; none grants
+runtime control. Platform checks the fresh reviewed Studio record snapshot,
+actual event introduction and current custody, native Preview status, retained
+process state and an unoccupied loopback endpoint, then records the same
+content-addressed proof below. Missing or uncertain evidence fails closed.
+Normal Console completion therefore needs no manual proof insertion. The
+recorder remains the explicit engineering/recovery path; it does not by itself
+establish current runtime truth.
+
 Use `make prototype-closure-evidence` to record owner evidence after the
 corresponding Platform runtime inspection or cleanup has actually completed:
 

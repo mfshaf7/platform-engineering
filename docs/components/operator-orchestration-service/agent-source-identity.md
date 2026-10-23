@@ -124,12 +124,19 @@ private/unavailable WG source, dirty source or concurrent advancement denies
 issuance without rewriting files. This qualification is the existing public
 synthetic workspace, not a new private-workspace admission claim.
 
-Maintenance CLI scope remains the original eleven legacy owners, filtered by
-their current active eligibility and unchanged provider IDs. Newly promoted
-owners still use the native Console source-intent path with its installation,
-approval, session and terminal-revocation controls. An explicitly supplied
-original immutable pinned Inventory blob remains supported for bounded
-legacy-core bootstrap/outage recovery; it cannot admit new owners. Exact
+Explicit owner-repo maintenance also admits a newly promoted owner from that
+same current committed Inventory. It independently selects the repository's
+already-approved App installation, verifies actual provider scope and repeats
+admission immediately before minting. This repairs owner controls that can
+themselves block normal Delivery source preflight; it does not replace native
+Console source-intent approval/session/terminal-revocation controls for app work.
+No App installation, repository selection or token permission is expanded.
+Commissioning and an explicitly supplied original immutable pinned Inventory
+blob retain the original eleven-owner boundary; they cannot admit new owners.
+Exact maintenance revocation uses the existing private projection's validated
+identity, repository, installation and Landing Unit even after the owner is
+retired or current admission is unavailable. With no retained projection,
+an already-absent receipt requires current provable admission. Exact
 source-intent revocation remains available after inventory retirement or
 freshness loss using its retained immutable intent/projection, without minting.
 Pre-Inventory bootstrap remains separate and is not authorized by this ordinary
@@ -161,7 +168,7 @@ make agent-source-identity ACTION=commission ARGS="\
 
 make agent-source-identity ACTION=deliver ARGS="\
   --landing-unit-id <landing-unit-id> \
-  --repository mfshaf7/<approved-repository> \
+  --repository <canonical-account>/<admitted-owner-repository> \
   --branch <non-default-branch> \
   --fetched-base <40-character-commit> \
   --human-reviewer-id mfshaf7 \
@@ -169,7 +176,7 @@ make agent-source-identity ACTION=deliver ARGS="\
 
 make agent-source-identity ACTION=revoke ARGS="\
   --landing-unit-id <landing-unit-id> \
-  --repository mfshaf7/<approved-repository> \
+  --repository <canonical-account>/<admitted-owner-repository> \
   --receipt <revocation-receipt.json>"
 
 make agent-source-identity ACTION=suspend ARGS="\

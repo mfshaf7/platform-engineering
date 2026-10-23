@@ -102,6 +102,24 @@ class CurrentWorkspaceInventoryTests(unittest.TestCase):
         self.assertEqual(observe.call_count, 2)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
+    def test_explicit_maintenance_admits_promoted_owner_but_commission_stays_legacy(self):
+        head = self.promote()
+        args = argparse.Namespace(contract=module.DEFAULT_CONTRACT, workspace_repo_inventory=self.inventory, sandbox=False)
+        with mock.patch.object(module, "load_contract", return_value=self.contract), mock.patch.object(
+            module, "observe_public_repository_main", return_value=head):
+            maintenance = module.load_operating_contract(args, maintenance=True)
+            commission = module.load_operating_contract(args)
+        self.assertEqual(module.expected_repository(maintenance, "sample-org/sample-app").provider_repository_id, 900)
+        with self.assertRaises(module.IdentityError): module.expected_repository(commission, "sample-org/sample-app")
+        with self.assertRaises(module.IdentityError): module.select_installation(maintenance, "sample-org/sample-app")
+        self.records["repos"]["sample-app"]["posture"] = "suspended"
+        self.inventory.write_text(yaml.safe_dump(self.records)); self.git("add", "."); self.git("commit", "-m", "suspend fixture owner")
+        head = self.git("rev-parse", "HEAD"); self.git("update-ref", "refs/remotes/origin/main", head)
+        with mock.patch.object(module, "load_contract", return_value=self.contract), mock.patch.object(
+            module, "observe_public_repository_main", return_value=head):
+            with self.assertRaises(module.IdentityError):
+                module.expected_repository(module.load_operating_contract(args, maintenance=True), "sample-org/sample-app")
+
     def test_dirty_unfetched_wrong_provider_and_midread_changed_source_are_denied(self):
         head = self.promote()
         with mock.patch.object(module, "observe_public_repository_main", return_value="f" * 40):
@@ -439,6 +457,43 @@ class AgentSourceIdentityTests(unittest.TestCase):
         receipt = (self.work / "deliver.json").read_text(encoding="utf-8")
         self.assertNotIn(credential["token"], receipt)
         self.assertEqual("delivered", json.loads(receipt)["outcome"])
+
+    def test_promoted_org_maintenance_selects_exact_installation_and_revokes_without_admission(self):
+        contract = module.load_contract(module.DEFAULT_CONTRACT)
+        account = next(a for a in contract.installation_accounts if a.login == "mfshaf7-workspace")
+        repository = module.Repository("mfshaf7-workspace/sample-owner", REPOSITORY_IDS["sample-owner"])
+        admitted = replace(contract, repositories=(*contract.repositories, repository))
+        self.state.installation_id = account.installation_id
+        self.state.account_login, self.state.account_id, self.state.account_type = account.login, account.account_id, account.account_type
+        args = [*self.session("deliver", "org-deliver.json"), "--private-key-file", str(self.private_key),
+            "--branch", "fix/profile-baseline", "--fetched-base", "a" * 40, "--human-reviewer-id", "mfshaf7"]
+        args[args.index("--repository") + 1] = repository.full_name
+        # Admission and Git-reader behavior is independently exercised above;
+        # this loopback witness uses the actual issuer, provider and projection.
+        with mock.patch.object(module, "load_operating_contract", return_value=admitted) as read:
+            self.assertEqual(0, module.main(args))
+            self.assertTrue(all(call.kwargs.get("maintenance") is True for call in read.call_args_list))
+        path, credential = self.credential()
+        self.assertEqual(account.installation_id, credential["installation_id"])
+        self.assertEqual(repository.provider_repository_id, credential["repository_id"])
+        self.assertEqual([("sample-owner",)], self.state.issued)
+        self.assertEqual(contract.required_permissions, self.state.issued_permissions[0])
+        revoke = self.session("revoke", "org-revoke.json")
+        revoke[revoke.index("--repository") + 1] = repository.full_name
+        with mock.patch.object(module, "load_operating_contract", side_effect=module.IdentityError("retired admission unavailable")):
+            self.assertEqual(0, module.main(revoke))
+        self.assertFalse(path.exists())
+        self.assertIn(credential["token"], self.state.revoked)
+        receipt = json.loads((self.work / "org-revoke.json").read_text())
+        self.assertEqual(account.installation_id, receipt["installation_id"])
+        self.assertEqual(repository.provider_repository_id, receipt["repository_id"])
+        self.assertNotIn(credential["token"], json.dumps(receipt))
+
+    def test_promoted_maintenance_rechecks_admission_before_minting(self):
+        contract = module.load_contract(module.DEFAULT_CONTRACT)
+        with mock.patch.object(module, "load_operating_contract", side_effect=[contract, module.IdentityError("admission changed")]):
+            self.assertEqual(1, self.deliver())
+        self.assertEqual([], self.state.issued)
 
     def test_app_workflow_grant_does_not_broaden_ordinary_token(self) -> None:
         self.state.workflow_granted = True

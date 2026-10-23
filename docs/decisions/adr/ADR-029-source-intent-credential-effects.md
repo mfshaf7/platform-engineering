@@ -67,8 +67,14 @@ Repeat readback immediately before remote minting.
 Do not hardcode every future product repository in Platform, accept an HTTP
 inventory assertion, widen the selected installation set, or add another
 freshness engine. Revocation uses retained exact intent/projection truth even
-after admission/freshness is withdrawn. Engineering delivery remains the old
-fixed-set recovery surface, not a bypass for proposed or unadmitted targets.
+after admission/freshness is withdrawn. Explicit engineering owner maintenance
+uses the same current active Inventory admission and already-approved selected
+installation for a promoted owner, so a broken owner baseline can be repaired
+through Gary rather than human publication. Its exact Landing Unit, branch,
+base, reviewer, short-lived repository scope and revocation remain enforced.
+Normal Console work retains the native source-intent path; engineering
+maintenance does not authorize proposed, suspended, retired or unadmitted
+targets. Commissioning and immutable pinned-blob recovery remain legacy-only.
 
 ## Consequences
 

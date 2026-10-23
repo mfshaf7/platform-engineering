@@ -45,6 +45,20 @@ fills the producer seam; it does not classify all existing publication as broken
 
 ## Source Changes
 
+October23 owner-maintenance follow-up uses the existing current committed
+Inventory admission for an already-active promoted owner, selects its existing
+approved installation and repeats admission/installation binding before minting.
+Commissioning and immutable pinned-blob recovery remain legacy-only. Retained
+exact revocation validates identity/provider coordinates without requiring
+current eligibility. Native Console source-intent controls, App permissions,
+repository installation selection and human review requirements remain intact.
+This fixes the baseline-profile self-repair deadlock; human publication is
+withdrawn and no repository rule is weakened. Real Git admission and loopback
+issuer/projection tests cover promotion, suspension, unapproved installation,
+single-repository permissions, pre-mint admission change and post-retirement
+revocation. Final exact Security review and actual Gary app-repair publication
+remain required; source tests do not claim these operating outcomes.
+
 Reuse the exact issuer transaction from engineering deliver in the finite
 provider. Add closed real Delivery/Prototype bindings, pre-session intent,
 single session binding, serialized issue/renew/revoke, private durable intent

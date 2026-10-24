@@ -291,6 +291,26 @@ class TaskRoutingTests(unittest.TestCase):
 
 
 class CodexTransportTests(unittest.TestCase):
+    def test_post_completion_account_failure_cannot_be_classified_as_fallback_availability(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            account = root / "auth.json"; account.write_text('{"synthetic":true}')
+            turns = []
+            class Protocol:
+                def __init__(self, **kwargs): self.account_path = account
+                def initialize(self, deadline): pass
+                def models(self, deadline): return [{"model": "synthetic", "supported_efforts": ["low"], "runtime_version": "sandbox"}]
+                def turn(self, **kwargs): turns.append(kwargs); return {"ok": True}
+                def close(self): pass
+            def fail_custody(raw): raise ProviderUnavailable("Synthetic post-completion Vault failure")
+            adapter = CodexAdapter(executable=root / "unused", executable_digest="0" * 64,
+                                   home=root, model="synthetic", effort="low", protocol_factory=Protocol, account_sink=fail_custody)
+            with self.assertRaises(ProviderIntegrityError) as error:
+                adapter.invoke(input_payload={}, output_schema=PROBE_SCHEMA, system_prompt="Synthetic", prompt_version="test")
+            self.assertEqual(len(turns), 1)
+            self.assertEqual(error.exception.code, "provider-integrity-failed")
+            self.assertNotIsInstance(error.exception, ProviderUnavailable)
+
     def test_real_subprocess_uses_isolated_home_native_effort_and_strict_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary); home = root / "account"; home.mkdir()

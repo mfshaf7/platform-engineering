@@ -25,6 +25,15 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        # The evidence executor intentionally removes ambient USER/DEVINT
+        # identity. Unit tests bind their fixture principal explicitly instead
+        # of depending on the developer terminal or a CI runner account.
+        identity = runtime.validate_policy()["platform_operation_provider"]["operator_id"]
+        environment = patch.dict(os.environ, {"DEVINT_OPERATOR": identity.removeprefix("operator:")})
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_model_management_status_uses_authenticated_console_read_and_no_previous_request(self):
         policy = runtime.validate_policy()
         config = {"backends": {}, "models": {}, "default": None, "overrides": {}}

@@ -73,6 +73,16 @@ limit, one CPU and bounded temporary storage. Native provider processes and
 local model inference retain their existing single-slot limits. Management
 reads and readiness never infer or claim ongoing provider entitlement.
 
+The managed gateway uses a single-writer Recreate cutover. Before serving, its
+nonroot startup preserves the exact legacy audit bytes and, where the previous
+root-run container owned the file, atomically hands that file to UID1000 using
+the volume's existing directory-write permission. No root container, recursive
+ownership command or deleted history is needed. Unsafe or unwritable audit
+storage prevents startup; later loss of private append storage withholds
+readiness and inference before provider dispatch. Existing uncertain invocation
+identities remain retained. Use their owner readback; never replace them with a
+new successful receipt or silently dispatch another turn after recovery.
+
 Only the gateway gains public IPv4 TLS egress plus the exact Vault service;
 private ranges stay excluded from public egress. Existing DNS and declared
 Ollama access remain. OOS and the consumer probe retain gateway-only provider

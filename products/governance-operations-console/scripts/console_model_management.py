@@ -233,6 +233,9 @@ def patch_manifest(manifest, overlay):
     config = next(row for row in docs if row and row["kind"] == "ConfigMap" and row["metadata"]["name"] == "governed-ai-gateway-app")
     config["data"]["model-management-policy.json"] = json.dumps(overlay["owner_policy"])
     deploy = next(row for row in docs if row and row["kind"] == "Deployment" and row["metadata"]["name"] == "governed-ai-gateway")
+    # The retained journal and provider slots have one process owner. Stop the
+    # preceding writer before handing legacy root-owned audit bytes to UID1000.
+    deploy["spec"]["strategy"] = {"type": "Recreate", "rollingUpdate": None}
     spec = deploy["spec"]["template"]["spec"]
     spec["automountServiceAccountToken"] = False
     spec["securityContext"] = {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000,

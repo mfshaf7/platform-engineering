@@ -60,6 +60,7 @@ class ModelCompositionTests(unittest.TestCase):
     def test_rendered_pod_has_bounded_private_execution_without_project_or_service_account_mounts(self):
         docs = list(yaml.safe_load_all(module.patch_manifest(manifest(), self.overlay())))
         spec = docs[1]["spec"]["template"]["spec"]; main = spec["containers"][0]
+        self.assertEqual(docs[1]["spec"]["strategy"], {"type": "Recreate", "rollingUpdate": None})
         self.assertFalse(spec["automountServiceAccountToken"])
         self.assertEqual(spec["securityContext"]["runAsUser"], 1000)
         self.assertEqual(main["resources"]["limits"], {"cpu": "1", "memory": "1Gi", "ephemeral-storage": "1Gi"})

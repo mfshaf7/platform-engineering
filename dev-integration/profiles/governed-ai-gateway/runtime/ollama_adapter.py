@@ -229,9 +229,14 @@ class OllamaAdapter:
         for attempt in range(self.retry_count + 1):
             try:
                 with self._opener(request, timeout=self.timeout_seconds) as response:
-                    raw = response.read() if self.max_response_bytes is None else response.read(self.max_response_bytes + 1)
-                    if self.max_response_bytes is not None and len(raw) > self.max_response_bytes:
-                        raise ProviderOutputInvalid("provider output exceeds the task byte limit")
+                    # Inventory/version metadata is not model output. Match the
+                    # management catalogue's bounded metadata budget even when a
+                    # tiny registration probe has a smaller output allowance.
+                    byte_limit = 1_000_000 if payload is None else self.max_response_bytes
+                    raw = response.read() if byte_limit is None else response.read(byte_limit + 1)
+                    if byte_limit is not None and len(raw) > byte_limit:
+                        kind = "metadata" if payload is None else "task"
+                        raise ProviderOutputInvalid(f"provider output exceeds the {kind} byte limit")
                     result = json.loads(raw.decode("utf-8"))
                     if not isinstance(result, dict):
                         raise ProviderOutputInvalid("provider returned a non-object response")

@@ -113,6 +113,11 @@ and exception states.
 
 ## Security References
 
+The Epic 1313 commissioning candidate is reviewed through the exact
+[configurable AI routing decision](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-10-24-configurable-ai-routing.md).
+That decision must be accepted and its Platform tree verified before activation;
+the reference is not a claim that review or live qualification has completed.
+
 - [governed AI access model](../../standards/governed-ai-access-model.md)
 - [AI security standard](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)
 - [bounded runtime assist activation review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md)

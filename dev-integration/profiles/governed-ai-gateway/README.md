@@ -46,6 +46,14 @@ files are local dev-integration receipts, not stage or production evidence.
 The current dev-integration instance calls host Ollama with `qwen3:8b`; the
 future paid OpenAI binding remains inactive and unproven.
 
+The Epic 1313 complete-runtime candidate may additionally commission the
+dedicated Codex app-server and managed Ollama model choices after its exact
+composed Security review. It preserves source-selected profile permissions
+and strict outputs while accepting explicit runtime selections within the
+reviewed management policy. The direct OpenAI API binding remains inactive.
+Use the [complete-runtime procedure](../../../products/governance-operations-console/runbooks/operate-complete-runtime.md);
+setting a renderer environment variable is not activation acceptance.
+
 The Work Design profile is active only in local `dev-integration`. Its requests
 must carry the exact OOS-owned typed task contract, model-safe CGG packet
 references, caller identity, operator identity, and strict output schema.

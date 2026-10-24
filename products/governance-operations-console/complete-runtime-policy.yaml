@@ -1,11 +1,11 @@
 schema_version: 1
 delivery:
-  delivery_id: delivery-1275
-  work_item_ref: openproject://work_packages/1291
+  delivery_id: delivery-1313
+  work_item_ref: openproject://work_packages/1320
   architecture:
-    artifact_id: architecture-packet:delivery-1275-v1
-    uri: wgcf://artifacts/delivery-art/sha256/02840790fc36f5f8311d2d66cadec0d5e9ad98184aff3d88c6ff106a2d0afef4
-    digest: sha256:02840790fc36f5f8311d2d66cadec0d5e9ad98184aff3d88c6ff106a2d0afef4
+    artifact_id: architecture-packet:delivery-1313-v1
+    uri: wgcf://artifacts/delivery-art/sha256/7715729bdb3420a790ff816d204c4c9c96a94745265444c517b2d02cb3e316b6
+    digest: sha256:7715729bdb3420a790ff816d204c4c9c96a94745265444c517b2d02cb3e316b6
 workspace_root: /home/mfshaf7/projects
 runtime_state_root: /home/mfshaf7/.local/state/platform-engineering/governance-console-complete-runtime
 runtime:
@@ -22,7 +22,7 @@ platform_operation_provider:
   profile_id: accepted-idea-delivery
   composition_id: refinement-catalog
   subject_ref: profile:accepted-idea-delivery
-  security_gate_id: gate:platform-operation-security
+  security_gate_id: gate:ai-routing-composed-security
 repository_provisioning:
   enabled: true
   security_gate_id: gate:repository-custody-runtime-activation
@@ -72,12 +72,19 @@ source_realization:
   enabled: true
   profile_id: source-realization-v1
   security_review_ref: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
+model_management:
+  enabled: true
+  codex_version: 0.163.0
+  codex_sha256: 399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215
+  base_image: python@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3
+  memory_limit: 1Gi
+  cpu_limit: '1'
 security:
-  gate_id: gate:platform-operation-security
+  gate_id: gate:ai-routing-composed-security
   status: pending
   owner_repo: security-architecture
-  decision_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml
-  review_ref: docs/reviews/components/2026-10-15-governance-console-platform-operation.md
+  decision_ref: docs/reviews/components/2026-10-24-configurable-ai-routing.yaml
+  review_ref: docs/reviews/components/2026-10-24-configurable-ai-routing.md
   required_reviewed_repos:
     - context-governance-gateway
     - governance-operations-console

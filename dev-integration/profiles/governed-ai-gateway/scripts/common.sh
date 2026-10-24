@@ -685,6 +685,11 @@ spec:
         - protocol: TCP
           port: 53
 EOF
+  if [[ -n "${DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY:-}" ]]; then
+    python3 "${OWNER_REPO_ROOT}/products/governance-operations-console/scripts/console_model_management.py" \
+      patch-manifest --manifest "${RENDERED_DIR}/governed-ai-gateway-runtime.yaml" \
+      --overlay "${DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY}"
+  fi
 }
 
 run_consumer_probe() {

@@ -25,13 +25,39 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        # The evidence executor intentionally removes ambient USER/DEVINT
+        # identity. Unit tests bind their fixture principal explicitly instead
+        # of depending on the developer terminal or a CI runner account.
+        identity = runtime.validate_policy()["platform_operation_provider"]["operator_id"]
+        environment = patch.dict(os.environ, {"DEVINT_OPERATOR": identity.removeprefix("operator:")})
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def test_model_management_status_uses_authenticated_console_read_and_no_previous_request(self):
+        policy = runtime.validate_policy()
+        config = {"backends": {}, "models": {}, "default": None, "overrides": {}}
+        value = {"schema_version": 1, "backends": [{"backend_id": "local-ollama"}, {"backend_id": "managed-codex"}],
+                 "configuration": {"revision": 0, "current_revision": 0, "digest": runtime.provider.canonical_digest(config), "configuration": config}}
+        with patch.object(runtime, "urlopen", return_value=io.BytesIO(json.dumps(value).encode())) as read:
+            result = runtime.require_model_management_runtime(policy)
+        self.assertTrue(result["management_api_current"])
+        self.assertEqual(result["verified_registration_count"], 0)
+        self.assertEqual(result["provider_health"], "not-probed")
+        request = read.call_args.args[0]
+        self.assertEqual(request.get_header("Origin"), "http://127.0.0.1:3317")
+        self.assertEqual(request.get_method(), "GET")
+        value["configuration"]["digest"] = "sha256:" + "0" * 64
+        with patch.object(runtime, "urlopen", return_value=io.BytesIO(json.dumps(value).encode())):
+            with self.assertRaises(runtime.RuntimeError): runtime.require_model_management_runtime(policy)
+
     def test_provider_tools_use_only_the_controlled_service_path(self):
         with patch.object(runtime.Path, "home", return_value=Path("/operator")), patch.dict(os.environ, {"PATH": "/untrusted"}):
             path = runtime.provider_service_path()
             self.assertEqual(path, "/operator/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
             with patch.object(runtime.shutil, "which", return_value="/resolved/tool") as which:
                 runtime.require_provider_tools()
-            self.assertEqual(which.call_args_list, [unittest.mock.call(name, path=path) for name in ("vault", "openssl", "git", "k3s")])
+            self.assertEqual(which.call_args_list, [unittest.mock.call(name, path=path) for name in ("vault", "openssl", "git", "k3s", "docker")])
 
     def test_missing_provider_tools_deny_activation_before_runtime_effects(self):
         policy = self.accepted_policy()
@@ -404,6 +430,9 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def accepted_policy(self) -> dict:
         policy = runtime.validate_policy()
+        # These tests isolate the pre-existing complete-runtime controls. The
+        # managed-provider extension has its own admitted composition tests.
+        policy.pop("model_management")
         revisions = {
             "context-governance-gateway": "3" * 40,
             "governance-operations-console": "a" * 40,
@@ -430,7 +459,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(provider["composition_id"], "refinement-catalog")
         self.assertEqual(provider["profile_id"], "accepted-idea-delivery")
         self.assertEqual(provider["operator_id"], runtime.require_operator_policy(policy))
-        self.assertEqual(policy["delivery"]["work_item_ref"], "openproject://work_packages/1291")
+        self.assertEqual(policy["delivery"]["work_item_ref"], "openproject://work_packages/1320")
         self.assertEqual(policy["security"]["status"], "pending")
         self.assertTrue(policy["repository_provisioning"]["enabled"])
         self.assertEqual(
@@ -926,6 +955,7 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def test_rollback_removes_oos_binding_before_cross_domain_waits(self) -> None:
         policy = runtime.validate_policy()
+        policy.pop("model_management")  # Model owner removal is tested separately.
         calls = []
 
         def fake_remove(_policy):
@@ -955,6 +985,7 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def test_incomplete_rollback_fails_without_success_receipt(self) -> None:
         policy = runtime.validate_policy()
+        policy.pop("model_management")  # Isolate the existing binding-removal failure.
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
 

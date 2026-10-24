@@ -30,6 +30,7 @@ import platform_operation_provider as provider
 import console_workflow_credentials as workflow_credentials
 import console_record_authority as record_authority
 import console_session_projection as session_projection
+import console_model_management as model_management
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -172,6 +173,7 @@ def re_full_commit(value: Any) -> bool:
 def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     policy = provider.load_policy(policy_path)
     workflow_credentials.validate_policy(policy)
+    model_management.validate(policy)
     if policy.get("record_authority") != {"enabled": True,
         "owner_repos": ["workspace-governance", "workspace-prototype-studio"]}:
         raise RuntimeError("complete runtime canonical record boundary is invalid")
@@ -180,11 +182,11 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
         raise RuntimeError("complete runtime source realization boundary is invalid")
     delivery = policy.get("delivery", {})
     architecture = delivery.get("architecture", {})
-    if delivery.get("delivery_id") != "delivery-1275" or delivery.get("work_item_ref") != "openproject://work_packages/1291":
+    if delivery.get("delivery_id") != "delivery-1313" or delivery.get("work_item_ref") != "openproject://work_packages/1320":
         raise RuntimeError("complete runtime Delivery binding is invalid")
     digest = architecture.get("digest", "")
     if (
-        architecture.get("artifact_id") != "architecture-packet:delivery-1275-v1"
+        architecture.get("artifact_id") != "architecture-packet:delivery-1313-v1"
         or not provider.DIGEST.fullmatch(str(digest))
         or architecture.get("uri") != f"wgcf://artifacts/delivery-art/sha256/{str(digest).removeprefix('sha256:')}"
     ):
@@ -205,7 +207,7 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
         "profile_id": "accepted-idea-delivery",
         "composition_id": "refinement-catalog",
         "subject_ref": "profile:accepted-idea-delivery",
-        "security_gate_id": "gate:platform-operation-security",
+        "security_gate_id": "gate:ai-routing-composed-security",
     }:
         raise RuntimeError("complete runtime Platform-operation boundary is invalid")
     require_operator_policy(policy)
@@ -283,8 +285,8 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     }
     if (
         security.get("owner_repo") != "security-architecture"
-        or security.get("decision_ref") != "docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml"
-        or security.get("review_ref") != "docs/reviews/components/2026-10-15-governance-console-platform-operation.md"
+        or security.get("decision_ref") != "docs/reviews/components/2026-10-24-configurable-ai-routing.yaml"
+        or security.get("review_ref") != "docs/reviews/components/2026-10-24-configurable-ai-routing.md"
         or set(security.get("required_reviewed_repos", [])) != required_repos
     ):
         raise RuntimeError("complete runtime Security decision selector is invalid")
@@ -340,11 +342,11 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
         raise RuntimeError("the composed-runtime Security decision contract is invalid")
     if (
         decision["schema_version"] != 1
-        or decision["decision_id"] != "delivery-1275-platform-operation"
+        or decision["decision_id"] != "delivery-1313-ai-routing"
         or decision["gate_id"] != security["gate_id"]
         or decision["status"] != "accepted"
-        or decision["delivery_id"] != "delivery-1275"
-        or decision["work_item_ref"] != "openproject://work_packages/1303"
+        or decision["delivery_id"] != "delivery-1313"
+        or decision["work_item_ref"] != "openproject://work_packages/1319"
         or decision["review_ref"] != security["review_ref"]
         or decision["architecture"] != policy["delivery"]["architecture"]
     ):
@@ -456,8 +458,8 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 2,
         "lane": "dev-integration",
         "activation": {
-            "delivery_id": "delivery-1275",
-            "work_item_ref": "openproject://work_packages/1291",
+            "delivery_id": policy["delivery"]["delivery_id"],
+            "work_item_ref": policy["delivery"]["work_item_ref"],
             "security_gate_id": policy["security"]["gate_id"],
         },
         "proof_scope": {
@@ -943,6 +945,8 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
     policy, activation = resolve_security_decision(policy)
     require_materialized_policy(policy, activation)
     require_activation_allowed(policy)
+    if model_management.enabled(policy):
+        model_management.renew_account_lease(state_root=STATE_ROOT, run=run)
     try:
         marker = json.loads((STATE_ROOT / "active.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -1201,7 +1205,7 @@ def provider_service_path() -> str:
 
 def require_provider_tools() -> None:
     path = provider_service_path()
-    missing = [name for name in ("vault", "openssl", "git", "k3s")
+    missing = [name for name in ("vault", "openssl", "git", "k3s", "docker")
                if not shutil.which(name, path=path)]
     if missing:
         raise RuntimeError("Platform provider required tools unavailable: " + ", ".join(missing))
@@ -1741,6 +1745,9 @@ def activate(policy: dict[str, Any]) -> Path:
     require_provider_tools()
     write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
+    model_management.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
+        operator_id=policy["platform_operation_provider"]["operator_id"],
+        gateway_namespace="devint-governed-ai-gateway-" + operator(), run=run, vault_token=vault_token)
     refresh_record_authorities(policy)
     run(composition_command(policy, "up"))
     # Full composition startup may take longer than the data freshness window.
@@ -1754,12 +1761,36 @@ def activate(policy: dict[str, Any]) -> Path:
     write_provider_unit(policy, gateway, secret)
     apply_kubernetes_binding(policy, gateway, secret)
     apply_record_authority_binding(policy)
+    model_management.bind_oos(policy, state_root=STATE_ROOT,
+        namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()),
+        operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
     require_publication_owner_bindings(policy)
     run(cross_domain_command("activate"))
     write_active_marker(policy)
     refresh_stale_provider(policy)
     write_repository_refresh_units()
     return status(policy, action="activate")
+
+
+def require_model_management_runtime(policy: dict[str, Any]) -> dict[str, Any] | None:
+    if not model_management.enabled(policy):
+        return None
+    base = f"http://127.0.0.1:{policy['runtime']['console_port']}"
+    try:
+        with urlopen(Request(base + "/api/model-operations/runtime/registry", headers={"accept": "application/json", "origin": base}), timeout=30) as response:
+            raw = response.read(1_048_577)
+            if len(raw) > 1_048_576:
+                raise ValueError()
+            registry = json.loads(raw)
+        configuration = registry["configuration"]
+        if (registry["schema_version"] != 1 or set(row["backend_id"] for row in registry["backends"]) != {"local-ollama", "managed-codex"}
+                or configuration["revision"] != configuration["current_revision"]
+                or configuration["digest"] != provider.canonical_digest(configuration["configuration"])):
+            raise ValueError()
+        return {"management_api_current": True, "configuration_revision": configuration["revision"],
+                "verified_registration_count": len(configuration["configuration"]["models"]), "provider_health": "not-probed"}
+    except (OSError, ValueError, KeyError, TypeError):
+        raise RuntimeError("The commissioned Console model-management owner projection is unavailable or invalid.") from None
 
 
 def status(policy: dict[str, Any], *, action: str = "status") -> Path:
@@ -1781,6 +1812,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     primary_records = require_console_primary_records(policy)
     operator_bindings = require_console_operator_bindings(policy)
     publication = {**require_publication_owner_bindings(policy), **require_console_publication_mode(policy)}
+    model_runtime = require_model_management_runtime(policy)
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1797,6 +1829,7 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "primary_records": primary_records,
         "operator_bindings": operator_bindings,
         "product_publication": publication,
+        "model_management": model_runtime,
     })
 
 
@@ -1893,6 +1926,11 @@ def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
         if (UNIT_ROOT / unit).is_file():
             if run(["systemctl", "--user", "disable", "--now", unit], check=False).returncode:
                 failures.append("repository-credential-renewal-disable")
+    try:
+        model_management.disable(policy, state_root=STATE_ROOT,
+            namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()), run=run)
+    except (OSError, RuntimeError, model_management.ModelCompositionError):
+        failures.append("model-management-authority-removal")
     try:
         apply_record_authority_binding(policy, enabled=False)
         dropin = UNIT_ROOT / f"{composition_supervisor_unit(policy)}.d" / "console-runtime.conf"
@@ -2109,7 +2147,7 @@ def main() -> int:
                 result = actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
-    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError) as exc:
+    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError, model_management.ModelCompositionError) as exc:
         print(f"complete Console runtime {args.action} failed: {exc}", file=sys.stderr)
         return 1
 

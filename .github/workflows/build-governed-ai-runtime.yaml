@@ -1,0 +1,89 @@
+name: Build Governed AI Runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-governed-ai-runtime.yaml
+      - products/governance-operations-console/scripts/console_model_management.py
+      - products/governance-operations-console/complete-runtime-policy.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-governed-ai-runtime
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out reviewed main
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install YAML dependency
+        run: python -m pip install pyyaml
+      - name: Fetch and verify the exact public executable
+        run: |
+          python - <<'PY'
+          import hashlib, importlib.util, json, os, shutil, tarfile, tempfile
+          import urllib.request
+          from pathlib import Path
+          script = Path('products/governance-operations-console/scripts/console_model_management.py')
+          spec = importlib.util.spec_from_file_location('model_image', script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          policy = module.yaml.safe_load(Path('products/governance-operations-console/complete-runtime-policy.yaml').read_text())
+          value = module.validate(policy)
+          version = value['codex_version']
+          name = 'codex-x86_64-unknown-linux-musl'
+          url = f'https://github.com/openai/codex/releases/download/rust-v{version}/{name}.tar.gz'
+          target = Path.home() / f'.codex/packages/standalone/releases/{version}-x86_64-unknown-linux-musl/bin/codex'
+          target.parent.mkdir(parents=True, exist_ok=True)
+          with urllib.request.urlopen(url, timeout=120) as response, tarfile.open(fileobj=response, mode='r|gz') as archive:
+              for member in archive:
+                  if member.name != name:
+                      continue
+                  if not member.isfile() or not 0 < member.size <= 400 * 1024 * 1024:
+                      raise RuntimeError('Unexpected public executable artifact')
+                  with archive.extractfile(member) as source, target.open('wb') as destination:
+                      shutil.copyfileobj(source, destination, 1024 * 1024)
+                  break
+              else:
+                  raise RuntimeError('The exact executable is absent from the public archive')
+          with target.open('rb') as stream:
+              if hashlib.file_digest(stream, 'sha256').hexdigest() != value['codex_sha256']:
+                  target.unlink()
+                  raise RuntimeError('The public executable differs from the accepted digest')
+          target.chmod(0o555)
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('GOVERNED_IMAGE=' + module.image_name(policy) + '\n')
+          PY
+      - name: Build and verify the accepted executable and base
+        run: python products/governance-operations-console/scripts/console_model_management.py build-image
+      - name: Log in to the existing Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the verified runtime artifact
+        run: docker push "$GOVERNED_IMAGE"
+      - name: Record publication
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          image = os.environ['GOVERNED_IMAGE']
+          digest = subprocess.run(['docker', 'image', 'inspect', image, '--format', '{{json .RepoDigests}}'], check=True, capture_output=True, text=True).stdout.strip()
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as output:
+              output.write(f'Governed AI runtime artifact: `{image}`\n\nImmutable references: `{digest}`\n\nBuild and publication do not activate the composition or qualify provider accounts.\n')
+          PY

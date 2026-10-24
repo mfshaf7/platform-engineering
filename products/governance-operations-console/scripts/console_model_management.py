@@ -18,6 +18,7 @@ ACCOUNT_PATH = "components/governed-ai-gateway/dev-integration/codex-account"
 VAULT_POLICY = "governed-ai-codex-account"
 GATEWAY_SECRET = "governed-ai-model-management"
 OOS_SECRET = "governed-ai-model-management-caller"
+IMAGE_REPOSITORY = "ghcr.io/mfshaf7/governed-ai-runtime"
 TASK_PROFILES = {
     "intake-classifier-v1", "delivery-work-design-advisor-v1",
     "delivery-refinement-advisor-v1", "agent-console-assistant-v1",
@@ -74,22 +75,60 @@ def private_write(path, value):
         stream.write(value)
 
 
-def image_name(repo_root, run):
-    tree = run(["git", "-C", str(repo_root), "rev-parse", "HEAD^{tree}"]).stdout.strip()
-    if len(tree) != 40 or any(c not in "0123456789abcdef" for c in tree):
-        raise ModelCompositionError("The exact model runtime source tree is unavailable.")
-    return "localhost/governed-ai-routing:" + tree
+def image_name(policy):
+    value = validate(policy)
+    inputs = {key: value[key] for key in ("base_image", "codex_version", "codex_sha256")}
+    digest = hashlib.sha256(json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return IMAGE_REPOSITORY + ":inputs-" + digest
+
+
+def image_labels(value):
+    return {"org.opencontainers.image.source": "https://github.com/mfshaf7/platform-engineering",
+            "governed-ai.base-image": value["base_image"],
+            "governed-ai.codex-version": value["codex_version"],
+            "governed-ai.codex-sha256": value["codex_sha256"]}
+
+
+def published_image(value, tag, run):
+    run(["docker", "pull", tag])
+    actual = owner_json(run(["docker", "image", "inspect", tag, "--format", "{{json .}}"]).stdout)
+    labels = actual.get("Config", {}).get("Labels") or {}
+    if any(labels.get(key) != expected for key, expected in image_labels(value).items()):
+        raise ModelCompositionError("The published runtime image has different accepted inputs or source ownership.")
+    digests = [item for item in actual.get("RepoDigests", []) if item.startswith(IMAGE_REPOSITORY + "@sha256:")]
+    if len(digests) != 1 or len(digests[0].rsplit(":", 1)[-1]) != 64 or any(
+            c not in "0123456789abcdef" for c in digests[0].rsplit(":", 1)[-1]):
+        raise ModelCompositionError("The published runtime image has no exact immutable registry digest.")
+    immutable = digests[0]
+    run(["docker", "pull", value["base_image"]])
+    base = owner_json(run(["docker", "image", "inspect", value["base_image"], "--format", "{{json .}}"]).stdout)
+    base_layers = base.get("RootFS", {}).get("Layers")
+    actual_layers = actual.get("RootFS", {}).get("Layers")
+    if not base_layers or not actual_layers or actual_layers[:-1] != base_layers:
+        raise ModelCompositionError("The published runtime image does not extend the exact accepted base with its executable layer.")
+    observed = run(["docker", "run", "--rm", "--network=none", "--read-only", "--cap-drop=ALL", immutable,
+                    "sha256sum", "/usr/local/bin/codex"]).stdout.split()
+    if not observed or observed[0] != value["codex_sha256"]:
+        raise ModelCompositionError("The published runtime executable differs from the accepted digest.")
+    return immutable
 
 
 def build_image(policy, repo_root, run, *, import_image=False):
     value = validate(policy)
+    tag = image_name(policy)
+    if import_image:
+        # This fresh Docker configuration has no provider login or credential
+        # helper. Prove the same anonymous pull that the node must perform.
+        with tempfile.TemporaryDirectory(prefix="governed-image-anonymous-") as directory:
+            def anonymous(command, **kwargs):
+                return run([command[0], "--config", directory, *command[1:]], **kwargs)
+            return published_image(value, tag, anonymous)
     binary = Path.home() / ".codex/packages/standalone/releases" / (value["codex_version"] + "-x86_64-unknown-linux-musl/bin/codex")
     if not binary.is_file():
         raise ModelCompositionError("Install the exact accepted Codex executable before commissioning.")
     with binary.open("rb") as stream:
         if hashlib.file_digest(stream, "sha256").hexdigest() != value["codex_sha256"]:
             raise ModelCompositionError("The installed Codex executable differs from the accepted digest.")
-    tag = image_name(repo_root, run)
     found = run(["docker", "image", "inspect", tag], check=False)
     if found.returncode:
         with tempfile.TemporaryDirectory(prefix="governed-model-image-") as directory:
@@ -98,18 +137,13 @@ def build_image(policy, repo_root, run, *, import_image=False):
             (root / "codex").chmod(0o755)
             (root / "Dockerfile").write_text(
                 "FROM " + value["base_image"] + "\nCOPY --chmod=0555 codex /usr/local/bin/codex\n"
-                "RUN echo '" + value["codex_sha256"] + "  /usr/local/bin/codex' | sha256sum -c - && codex --version\n"
                 "USER 1000:1000\n")
-            run(["docker", "build", "--network=none", "--tag", tag, str(root)])
+            labels = [argument for key, item in image_labels(value).items() for argument in ("--label", key + "=" + item)]
+            run(["docker", "build", "--network=none", *labels, "--tag", tag, str(root)])
     observed = run(["docker", "run", "--rm", "--network=none", "--read-only", "--cap-drop=ALL", tag,
                     "sha256sum", "/usr/local/bin/codex"]).stdout.split()
     if not observed or observed[0] != value["codex_sha256"]:
         raise ModelCompositionError("The actual runtime image executable differs from the accepted digest.")
-    if import_image:
-        with tempfile.TemporaryDirectory(prefix="governed-model-import-") as directory:
-            archive = str(Path(directory) / "runtime.tar")
-            run(["docker", "save", "--output", archive, tag])
-            run(["k3s", "ctr", "images", "import", archive])
     return tag
 
 
@@ -144,6 +178,7 @@ def prepare(policy, *, repo_root, state_root, operator_id, gateway_namespace, ru
     validate(policy)
     if policy.get("security", {}).get("status") != "accepted" or policy["security"].get("gate_id") != "gate:ai-routing-composed-security":
         raise ModelCompositionError("Exact composed Security acceptance is required before model runtime effects.")
+    image = build_image(policy, repo_root, run, import_image=True)
     root = state_root / "private/model-management"
     if root.is_symlink():
         raise ModelCompositionError("Private model-management state must not follow symlinks.")
@@ -181,7 +216,6 @@ def prepare(policy, *, repo_root, state_root, operator_id, gateway_namespace, ru
         account_lease(issued, account_token.read_text().strip())
     else:
         account_lease(owner_json(renewed.stdout))
-    image = build_image(policy, repo_root, run, import_image=True)
     document = secret_document(gateway_namespace, GATEWAY_SECRET, {"management-token": management.read_text(), "vault-token": account_token.read_text()})
     run(["k3s", "kubectl", "apply", "-f", "-"], input_value=json.dumps(document))
     overlay = {"image": image, "owner_policy": owner_policy(repo_root, operator_id),
@@ -204,7 +238,7 @@ def patch_manifest(manifest, overlay):
     spec["securityContext"] = {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 1000, "fsGroup": 1000,
                                "fsGroupChangePolicy": "OnRootMismatch", "seccompProfile": {"type": "RuntimeDefault"}}
     container = spec["containers"][0]
-    container.update(image=overlay["image"], imagePullPolicy="Never", resources={"requests": {"cpu": "100m", "memory": "128Mi"},
+    container.update(image=overlay["image"], imagePullPolicy="IfNotPresent", resources={"requests": {"cpu": "100m", "memory": "128Mi"},
         "limits": {"cpu": overlay["cpu_limit"], "memory": overlay["memory_limit"], "ephemeral-storage": "1Gi"}},
         securityContext={"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}})
     container["env"].append({"name": "GOVERNED_AI_MODEL_MANAGEMENT_POLICY_PATH", "value": "/app/model-management-policy.json"})
@@ -220,7 +254,7 @@ def patch_manifest(manifest, overlay):
     ])
     container["volumeMounts"].extend([{"name": "model-owner-projection", "mountPath": "/run/model-management", "readOnly": True},
                                      {"name": "model-tmp", "mountPath": "/tmp"}])
-    spec["initContainers"] = [{"name": "model-owner-projection", "image": overlay["image"], "imagePullPolicy": "Never",
+    spec["initContainers"] = [{"name": "model-owner-projection", "image": overlay["image"], "imagePullPolicy": "IfNotPresent",
         "command": ["python", "-c", "from pathlib import Path; import os; [(Path('/projection', n).write_bytes(Path('/secret', n).read_bytes()), os.chmod('/projection/'+n, 0o600)) for n in ('management-token','vault-token')]"],
         "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}},
         "resources": {"requests": {"cpu": "10m", "memory": "16Mi"}, "limits": {"cpu": "100m", "memory": "64Mi"}},
@@ -302,7 +336,7 @@ def disable(policy, *, state_root, namespace, run):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["patch-manifest", "build-image"])
+    parser.add_argument("action", choices=["patch-manifest", "build-image", "image-metadata"])
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--overlay", type=Path)
     args = parser.parse_args()
@@ -314,6 +348,9 @@ def main():
         import subprocess
         repo = Path(__file__).resolve().parents[3]
         policy = yaml.safe_load((repo / "products/governance-operations-console/complete-runtime-policy.yaml").read_text())
+        if args.action == "image-metadata":
+            print(json.dumps({"image": image_name(policy), **validate(policy)}))
+            return
         def run(command, *, check=True, **kwargs):
             result = subprocess.run(command, capture_output=True, text=True, **kwargs)
             if check and result.returncode:

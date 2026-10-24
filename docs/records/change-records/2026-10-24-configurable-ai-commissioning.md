@@ -6,6 +6,7 @@ security_evidence:
     - products/governance-operations-console/scripts/console_model_management.py
     - products/governance-operations-console/scripts/console_complete_runtime.py
     - dev-integration/profiles/governed-ai-gateway/scripts/common.sh
+    - .github/workflows/build-governed-ai-runtime.yaml
   findings: []
   risks: []
   workstreams: [WS-007]
@@ -34,28 +35,28 @@ security_evidence:
 
 ## Root Cause
 
-- Immediate failure: None; this is the planned commissioning unit after inactive owner-source implementation.
-- Actual root cause: Source implementation alone does not provide the accepted image, scoped account lease, network/resource controls or management connection.
-- Why it escaped earlier controls: Not applicable; these are explicit remaining deliverables in the accepted architecture.
+- Immediate failure: Initial post-PR336 activation failed because the user-systemd operator could not access the root-only k3s containerd socket for image import.
+- Actual root cause: Commissioning assumed privileged local image-import access after proving only Docker construction and executable integrity. That host prerequisite was neither present nor part of the admitted operator path.
+- Why it escaped earlier controls: Source and synthetic composition checks covered the image, manifest and credentials independently; actual source-image proof did not exercise deployment by the normal unprivileged operator. The repair reuses Platform's existing CI publication and Kubernetes pull path.
 
 ## Source Changes
 
 - Repo: platform-engineering
 - Commit(s): exact candidate and merged tree are bound by the Review Packet and Security decision; no future merge identifier is fabricated here.
-- Guardrail added: admitted composition tests, actual native image digest validation, Kubernetes server dry-run and the primary complete-runtime procedure.
+- Guardrail added: admitted composition tests, actual native image digest validation, Kubernetes server dry-run and the primary complete-runtime procedure. The corrective maintenance also proves immutable registry selection, exact base/executable provenance, and image availability before credential effects, without a host import privilege.
 - Security authority: [exact composed AI review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-10-24-configurable-ai-routing.md); source remains pending until that decision accepts the actual candidate tree.
 
 ## Artifact And Deployment Evidence
 
 - Build workflow run: source-local proof and the exact PR check are recorded in the Review Packet.
-- Published image tag: local tree-derived gateway image; the executable and base image digests are fixed in the source policy.
-- Published digest: actual local image identity is recorded during source/runtime qualification.
+- Published image tag: `ghcr.io/mfshaf7/governed-ai-runtime:inputs-<fixed-input-digest>` from the existing main-only GitHub Actions/GHCR pattern. The executable and base image digests remain fixed in the source policy.
+- Published digest: actual registry digest is resolved and verified before activation; source implementation alone does not claim publication or package visibility.
 - Recorded prod revision: None; no stage or production activation.
 - Argo application revision: None; the existing dev-integration runner owns this composition.
 
 ## Host Or Runtime Recovery
 
-- Required host/runtime action: use the existing complete-runtime activation after Security acceptance, then the Console's dedicated account sign-in.
+- Required host/runtime action: ensure the initial credential-free runtime package is publicly readable, use the existing complete-runtime activation after Security acceptance, then the Console's dedicated account sign-in. No containerd socket grant or sudo image import is required.
 - Why it was environment drift instead of source defect: Not applicable.
 - Recovery command or procedure: [Operate the complete Console runtime](../../../products/governance-operations-console/runbooks/operate-complete-runtime.md).
 

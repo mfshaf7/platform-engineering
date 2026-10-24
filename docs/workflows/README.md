@@ -15,6 +15,7 @@ Use it when the question is:
 | --- | --- | --- | --- |
 | `build-and-validate.yaml` | [build-and-validate.md](build-and-validate.md) | push, pull_request | validates shared repo shape, configuration, source-activation contracts, and source-only Temporal controlled-proof boundaries |
 | `build-gateway-image.yaml` | [build-gateway-image.md](build-gateway-image.md) | manual | builds and pushes the OpenClaw gateway image |
+| `build-governed-ai-runtime.yaml` | [build-governed-ai-runtime.md](build-governed-ai-runtime.md) | main source changes, manual | publishes the fixed governed AI executable/base artifact for ordinary Kubernetes pulls |
 | `build-telegram-overlay-image.yaml` | [build-telegram-overlay-image.md](build-telegram-overlay-image.md) | manual | builds and pushes the OpenClaw Telegram overlay artifact for the current qualified stage lane |
 | `confirm-stage-promotion-readiness.yaml` | [confirm-stage-promotion-readiness.md](confirm-stage-promotion-readiness.md) | manual | records stage verification evidence and approval for the current candidate |
 | `drift-check.yaml` | [drift-check.md](drift-check.md) | schedule, manual | checks for missing platform overlays and app manifests |

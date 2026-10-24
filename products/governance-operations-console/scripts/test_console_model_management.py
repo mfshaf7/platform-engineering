@@ -39,7 +39,7 @@ def manifest():
 
 class ModelCompositionTests(unittest.TestCase):
     def overlay(self):
-        return {"image": "localhost/governed-ai-routing:" + "a" * 40,
+        return {"image": module.IMAGE_REPOSITORY + "@sha256:" + "a" * 64,
                 "owner_policy": module.owner_policy(ROOT, "operator:synthetic"), "memory_limit": "1Gi", "cpu_limit": "1"}
 
     def test_unreviewed_executable_image_and_resource_change_are_rejected(self):
@@ -65,6 +65,9 @@ class ModelCompositionTests(unittest.TestCase):
         self.assertEqual(main["resources"]["limits"], {"cpu": "1", "memory": "1Gi", "ephemeral-storage": "1Gi"})
         self.assertTrue(main["securityContext"]["readOnlyRootFilesystem"])
         self.assertFalse(main["securityContext"]["allowPrivilegeEscalation"])
+        self.assertEqual(main["imagePullPolicy"], "IfNotPresent")
+        self.assertEqual(spec["initContainers"][0]["image"], main["image"])
+        self.assertEqual(spec["initContainers"][0]["imagePullPolicy"], "IfNotPresent")
         self.assertFalse(any("hostPath" in item for item in spec["volumes"]))
         self.assertEqual(spec["volumes"][0]["persistentVolumeClaim"]["claimName"], "retained-owner-state")
         self.assertIn("0o600", spec["initContainers"][0]["command"][-1])
@@ -171,6 +174,62 @@ class ModelCompositionTests(unittest.TestCase):
     def test_invalid_or_broader_lease_evidence_is_not_accepted(self):
         for value in [{}, {"auth": {"renewable": True, "policies": ["root"]}}, {"auth": {"renewable": False, "policies": ["default", module.VAULT_POLICY]}}]:
             with self.assertRaises(module.ModelCompositionError): module.account_lease(value)
+
+    def test_registry_image_is_verified_and_consumed_by_immutable_digest_without_host_import(self):
+        selected = policy(); value = module.validate(selected); calls = []
+        immutable = module.IMAGE_REPOSITORY + "@sha256:" + "a" * 64
+        def execute(command, **kwargs):
+            calls.append(command)
+            self.assertEqual(command[1], "--config")
+            self.assertEqual(list(Path(command[2]).iterdir()), [], "Anonymous verification must not inherit Docker logins or helpers")
+            command = [command[0], *command[3:]]
+            if command[:3] == ["docker", "image", "inspect"]:
+                result = ({"RootFS": {"Layers": ["base-one", "base-two"]}} if command[3] == value["base_image"] else
+                          {"RepoDigests": [immutable], "Config": {"Labels": module.image_labels(value)},
+                           "RootFS": {"Layers": ["base-one", "base-two", "executable"]}})
+                return SimpleNamespace(returncode=0, stdout=json.dumps(result))
+            return SimpleNamespace(returncode=0, stdout=value["codex_sha256"] + "  /usr/local/bin/codex\n")
+        self.assertEqual(module.build_image(selected, ROOT, execute, import_image=True), immutable)
+        self.assertTrue(all(command[0] == "docker" for command in calls))
+        self.assertFalse(any("ctr" in command or "sudo" in command or "import" in command for command in calls))
+        invocation = next(command for command in calls if "run" in command)
+        self.assertIn(immutable, invocation)
+        self.assertNotIn(module.image_name(selected), invocation)
+
+    def test_wrong_registry_provenance_base_digest_or_executable_blocks_consumption(self):
+        selected = policy(); value = module.validate(selected)
+        immutable = module.IMAGE_REPOSITORY + "@sha256:" + "a" * 64
+        for failure in ("source", "missing-digest", "invalid-digest", "base", "extra-layer", "binary"):
+            with self.subTest(failure=failure):
+                actual = {"RepoDigests": [immutable], "Config": {"Labels": module.image_labels(value)},
+                          "RootFS": {"Layers": ["base", "executable"]}}
+                if failure == "source": actual["Config"]["Labels"]["org.opencontainers.image.source"] = "https://example.invalid/other"
+                if failure == "missing-digest": actual["RepoDigests"] = []
+                if failure == "invalid-digest": actual["RepoDigests"] = [module.IMAGE_REPOSITORY + "@sha256:" + "z" * 64]
+                if failure == "base": actual["RootFS"]["Layers"][0] = "different-base"
+                if failure == "extra-layer": actual["RootFS"]["Layers"].append("unreviewed-layer")
+                def execute(command, **kwargs):
+                    command = [command[0], *command[3:]]
+                    if command[:3] == ["docker", "image", "inspect"]:
+                        return SimpleNamespace(returncode=0, stdout=json.dumps(
+                            {"RootFS": {"Layers": ["base"]}} if command[3] == value["base_image"] else actual))
+                    return SimpleNamespace(returncode=0, stdout=("0" * 64 if failure == "binary" else value["codex_sha256"]) + "  /usr/local/bin/codex\n")
+                with self.assertRaises(module.ModelCompositionError):
+                    module.build_image(selected, ROOT, execute, import_image=True)
+
+    def test_registry_unavailability_precedes_new_credential_or_cluster_effects(self):
+        selected = policy(); selected["security"]["status"] = "accepted"; calls = []
+        def execute(command, **kwargs):
+            calls.append(command)
+            raise module.ModelCompositionError("Published runtime is unavailable")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(module.ModelCompositionError, "Published runtime is unavailable"):
+                module.prepare(selected, repo_root=ROOT, state_root=Path(directory), operator_id="operator:synthetic",
+                               gateway_namespace="synthetic", run=execute,
+                               vault_token=lambda: self.fail("An unavailable image must not request an administrator token"))
+            self.assertFalse((Path(directory) / "private/model-management").exists())
+        self.assertEqual(len(calls), 1)
+        self.assertEqual([calls[0][0], calls[0][3]], ["docker", "pull"])
 
 
 if __name__ == "__main__":

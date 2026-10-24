@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import itertools
 import io
@@ -461,6 +461,70 @@ class ProviderAccountTests(unittest.TestCase):
 
 
 class OllamaNativeControlsTests(unittest.TestCase):
+    def test_real_http_registration_separates_inventory_and_output_budgets(self):
+        state = {"inventory_padding": 5242, "output_padding": 0, "chats": 0}
+        class Provider(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def send_json(self, value):
+                raw = json.dumps(value).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def do_GET(self):
+                self.send_json({"version": "sandbox-runtime"} if self.path == "/api/version" else {
+                    "models": [{"name": "synthetic", "digest": "synthetic-digest"}],
+                    "synthetic_padding": "x" * state["inventory_padding"],
+                })
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                if self.path == "/api/show":
+                    self.send_json({"thinking": {"values": [False, True]}})
+                    return
+                state["chats"] += 1
+                assert self.path == "/api/chat" and body["think"] is False
+                assert body["options"]["num_predict"] == 64 and body["keep_alive"] == 0
+                self.send_json({"message": {"content": '{"ok":true}'},
+                                "synthetic_padding": "x" * state["output_padding"]})
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Provider)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            backend = OllamaBackend(f"http://127.0.0.1:{server.server_port}")
+            with tempfile.TemporaryDirectory() as temporary:
+                configuration = ModelConfiguration(Path(temporary), tasks={"synthetic/task"},
+                    backends={"local": {"allowed_tasks": ["synthetic/task"]}})
+                manager = ModelManagement(configuration=configuration, backends={"local": backend})
+                manager.command({"command_id": "backend", "expected_revision": 0,
+                    "action": "backend.register", "input": {"backend_id": "local"}}, actor="operator:test")
+                command = {"command_id": "model", "expected_revision": 1,
+                    "action": "model.register", "input": {"backend_id": "local", "model": "synthetic"}}
+                registered = manager.command(command, actor="operator:test")
+                self.assertEqual(configuration.snapshot()["revision"], 2)
+                self.assertEqual(manager.command(command, actor="operator:test"), registered)
+                self.assertEqual(state["chats"], 1, "Receipt replay must not repeat verification.")
+                metadata = backend.metadata("synthetic")
+                adapter = backend.adapter(metadata, False, {
+                    "timeout_seconds": 2, "max_output_tokens": 64, "max_output_bytes": 4096})
+                kwargs = {"input_payload": {"ok": True}, "output_schema": PROBE_SCHEMA,
+                          "prompt_version": "test", "system_prompt": "Synthetic verification"}
+                state["output_padding"] = 5000
+                with self.assertRaisesRegex(ProviderOutputInvalid, "task byte limit"):
+                    adapter.invoke(**kwargs)
+                state["inventory_padding"] = 1_000_001
+                with self.assertRaises(ProviderUnavailable):
+                    backend.metadata("synthetic")
+                self.assertEqual(state["chats"], 2, "Oversize metadata must fail before chat.")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_named_effort_is_discovered_revalidated_and_forwarded_without_trace_leak(self):
         entered, release = threading.Event(), threading.Event()
         chats = []

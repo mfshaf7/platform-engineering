@@ -37,8 +37,9 @@ class FakeResponse:
     def __exit__(self, *_args: object) -> None:
         return None
 
-    def read(self) -> bytes:
-        return json.dumps(self.payload).encode("utf-8")
+    def read(self, size: int = -1) -> bytes:
+        raw = json.dumps(self.payload).encode("utf-8")
+        return raw if size < 0 else raw[:size]
 
 
 def valid_opener(request, **_kwargs):

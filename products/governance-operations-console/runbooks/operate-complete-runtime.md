@@ -102,6 +102,11 @@ review. Public/internal proof does not qualify private client data or stage/prod
 `ACTION=status` requires a current authenticated model registry, not a previous
 completed model request. It reports API availability and verified registrations;
 actual invocation and selection receipts are the separate operating proof.
+Model verification bounds inventory/version metadata separately from model
+output. A larger installed inventory does not consume the small verification
+response budget; metadata still fails closed above the 1 MB catalogue bound.
+The exact accepted source must be reaccepted and commissioned after an adapter
+repair; do not replace the running module or edit a retained registration result.
 `rollback`/`cleanup` first stop renewal, disable both management bindings, revoke
 the account lease and remove its projections and added egress. Configuration,
 invocation history and the Vault account are retained. Reactivation reuses that

@@ -30,6 +30,13 @@ bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
 required.
 
+The decision retains the original reviewed candidate revision and exact tree.
+After strict source acceptance, runtime readback and the active marker bind the
+actual selected execution revision. A squash merge with the same accepted tree
+can therefore operate without a post-review source-pin edit. Changed or dirty
+source still fails acceptance; a later different provider revision cannot reuse
+the earlier validated active marker.
+
 ## Model management extension
 
 Epic 1313 extends this same composition. Candidate source is staged until the

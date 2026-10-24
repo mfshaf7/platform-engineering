@@ -534,6 +534,98 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())
 
+    def test_real_git_squash_acceptance_binds_runtime_without_rewriting_review_provenance(self) -> None:
+        policy = runtime.validate_policy()
+        contract_path = policy["repository_provisioning"]["identity"]["contract"]
+        contract_bytes = (runtime.REPO_ROOT / contract_path).read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            def git(repo, *args):
+                return runtime.subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                                               "-C", str(repo), *args], check=True,
+                                              capture_output=True, text=True).stdout.strip()
+            def commit(repo, message):
+                git(repo, "add", ".")
+                git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", message)
+                return git(repo, "rev-parse", "HEAD")
+            revisions = {}
+            for name in policy["security"]["required_reviewed_repos"]:
+                repo = workspace / name; repo.mkdir()
+                git(repo, "init", "-b", "main")
+                (repo / "README.md").write_text(name + "\n")
+                if name == "platform-engineering":
+                    target = repo / contract_path; target.parent.mkdir(parents=True)
+                    target.write_bytes(contract_bytes)
+                if name == "operator-orchestration-service":
+                    repository = policy["repository_provisioning"]
+                    target = repo / "contracts/repository-custody/manifest.json"; target.parent.mkdir(parents=True)
+                    target.write_text(json.dumps({
+                        "authority": {"uri": repository["policy_profile_ref"]["uri"],
+                                      "sha256": repository["policy_profile_ref"]["digest"].removeprefix("sha256:")},
+                        "runtime_activation": {"enabled": True, "active_capabilities": ["provision-new"],
+                                               "allowed_runtime_profile": "dev-integration",
+                                               "security_review": {"path": repository["security_review_ref"]}},
+                    }))
+                revisions[name] = commit(repo, "base " + name)
+                git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+            main = workspace / "platform-engineering"
+            git(main, "switch", "-c", "candidate")
+            (main / "accepted-control").write_text("reviewed content\n")
+            candidate = commit(main, "reviewed candidate")
+            git(main, "switch", "main")
+            git(main, "merge", "--squash", "candidate")
+            merged = commit(main, "actual squash merge")
+            git(main, "update-ref", "refs/remotes/origin/main", "HEAD")
+            tree = git(main, "rev-parse", "HEAD^{tree}")
+            self.assertNotEqual(candidate, merged)
+            self.assertEqual(tree, git(main, "rev-parse", candidate + "^{tree}"))
+            revisions["platform-engineering"] = candidate
+            security = policy["security"]
+            decision = {"schema_version": 1, "decision_id": "delivery-1313-ai-routing",
+                        "gate_id": security["gate_id"], "status": "accepted", "delivery_id": "delivery-1313",
+                        "work_item_ref": "openproject://work_packages/1319", "architecture": policy["delivery"]["architecture"],
+                        "review_ref": security["review_ref"], "reviewed_revisions": revisions,
+                        "reviewed_trees": {"platform-engineering": tree}}
+            authority = workspace / "security-architecture"; authority.mkdir()
+            git(authority, "init", "-b", "main")
+            review = "\n".join([policy["delivery"]["architecture"]["uri"], policy["delivery"]["architecture"]["digest"],
+                                *(name + "@" + revision for name, revision in revisions.items()), "platform-engineering-tree@" + tree])
+            evidence = {security["decision_ref"]: runtime.yaml.safe_dump(decision), security["review_ref"]: review,
+                        policy["repository_provisioning"]["security_review_ref"]:
+                            policy["repository_provisioning"]["security_gate_id"] + "\n- decision: `approved-with-findings`\n",
+                        policy["source_realization"]["security_review_ref"]: "existing source review\n"}
+            for name, content in evidence.items():
+                target = authority / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(content)
+            commit(authority, "accept exact candidate tree")
+            git(authority, "update-ref", "refs/remotes/origin/main", "HEAD")
+            with (patch.object(runtime, "WORKSPACE_ROOT", workspace), patch.object(runtime, "REPO_ROOT", main),
+                  patch.object(runtime, "REPO_PATH_OVERRIDES", {}), patch.object(runtime, "STATE_ROOT", workspace / "private-state")):
+                resolved, activation = runtime.resolve_security_decision(policy)
+                self.assertEqual(resolved["security"]["platform_revision"], merged)
+                self.assertEqual(resolved["security"]["reviewed_revisions"]["platform-engineering"], candidate)
+                self.assertEqual(resolved["security"]["platform_tree"], tree)
+                self.assertEqual(resolved["security"]["decision_digest"], runtime.provider.canonical_digest(decision))
+                self.assertIn(candidate, activation["architecture"]["security_review_revisions"])
+                catalog = runtime.provider.capability_catalog(resolved, merged, activated=True)
+                with patch.object(runtime, "credential", return_value="synthetic"), patch.object(runtime, "provider_catalog", return_value=catalog):
+                    self.assertEqual(runtime.require_current_provider(resolved), catalog)
+                (main / "unique-pending").write_text("preserve unreviewed work")
+                with self.assertRaisesRegex(runtime.RuntimeError, "must be clean"):
+                    runtime.resolve_security_decision(policy)
+                (main / "unique-pending").unlink()
+                (main / "accepted-control").write_text("changed after acceptance\n")
+                changed = commit(main, "unreviewed changed tree")
+                git(main, "update-ref", "refs/remotes/origin/main", "HEAD")
+                runtime.write_active_marker(resolved)
+                marker = json.loads((workspace / "private-state/active.json").read_text())
+                self.assertEqual((marker["platform_revision"], marker["platform_tree"]), (merged, tree))
+                changed_catalog = runtime.provider.capability_catalog(resolved, changed, activated=True)
+                with patch.object(runtime, "credential", return_value="synthetic"), patch.object(runtime, "provider_catalog", return_value=changed_catalog):
+                    with self.assertRaises(runtime.RuntimeError): runtime.require_current_provider(resolved)
+                with self.assertRaisesRegex(runtime.RuntimeError, "not the exact Security-reviewed source tree"):
+                    runtime.resolve_security_decision(policy)
+                self.assertEqual(runtime.yaml.safe_load((authority / security["decision_ref"]).read_text()), decision)
+
     def test_current_composed_boundary_requires_the_changed_context_producer(self) -> None:
         policy = runtime.validate_policy()
         self.assertIn("context-governance-gateway", policy["security"]["required_reviewed_repos"])

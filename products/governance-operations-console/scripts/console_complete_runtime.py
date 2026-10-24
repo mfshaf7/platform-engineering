@@ -442,7 +442,11 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
         "status": "accepted",
         "decision_uri": f"security-architecture://git/{acceptance_revision}/{security['decision_ref']}",
         "decision_digest": decision_digest,
-        "platform_revision": revisions["platform-engineering"],
+        # The reviewed candidate and a squash merge have distinct commit IDs.
+        # The strict clean-tree check above accepts their identical content;
+        # runtime readback must bind the actual selected execution revision.
+        # Original review provenance remains in reviewed_revisions unchanged.
+        "platform_revision": git_head("platform-engineering"),
         "platform_tree": trees["platform-engineering"],
         "reviewed_revisions": revisions,
         "security_revision": acceptance_revision,
@@ -1612,8 +1616,8 @@ def write_active_marker(policy: dict[str, Any]) -> None:
     marker = STATE_ROOT / "active.json"
     payload = {
         "schema_version": 1,
-        "platform_revision": provider.git_head(repo_path("platform-engineering")),
-        "platform_tree": provider.git_tree(repo_path("platform-engineering")),
+        "platform_revision": policy["security"]["platform_revision"],
+        "platform_tree": policy["security"]["platform_tree"],
         "security_decision_digest": policy["security"]["decision_digest"],
         "security_decision_uri": policy["security"]["decision_uri"],
         "activated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),

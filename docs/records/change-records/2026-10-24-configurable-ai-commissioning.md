@@ -37,6 +37,7 @@ security_evidence:
 
 - Immediate failure: Initial post-PR336 activation failed because the user-systemd operator could not access the root-only k3s containerd socket for image import.
 - Actual root cause: Commissioning assumed privileged local image-import access after proving only Docker construction and executable integrity. That host prerequisite was neither present nor part of the admitted operator path.
+- Subsequent live boundary: after the image correction actually deployed and Console registry returned HTTP200, provider validation compared the reviewed candidate SHA with its different squash-merge SHA despite an identical accepted tree. Resolve the runtime revision from the actual strictly accepted execution source; retain original candidate/tree provenance and bind the active marker to that validated snapshot. Real Git regression proof also denies dirty/changed source and a later unreviewed provider revision.
 - Why it escaped earlier controls: Source and synthetic composition checks covered the image, manifest and credentials independently; actual source-image proof did not exercise deployment by the normal unprivileged operator. The repair reuses Platform's existing CI publication and Kubernetes pull path.
 
 ## Source Changes

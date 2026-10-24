@@ -20,6 +20,8 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
+from contextlib import contextmanager
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 
@@ -29,7 +31,7 @@ from codex_adapter import CodexAdapter
 from gateway_app import GatewayRuntime, Handler
 from governed_ai_test_support import fixture_selections
 from model_configuration import ConfigurationError, InvocationJournal, ModelConfiguration, digest
-from model_management import ModelManagement, OllamaBackend, PROBE_SCHEMA
+from model_management import CodexBackend, ModelManagement, OllamaBackend, PROBE_SCHEMA
 from model_login import ModelLogin
 from provider_accounts import VaultCodexAccount
 from ollama_adapter import (ProviderCompletionUnknown, ProviderIntegrityError, ProviderOutputInvalid,
@@ -164,6 +166,40 @@ class TaskRoutingTests(unittest.TestCase):
         self.assertEqual(result["suggested_decision"], "proposed")
         self.assertIsNone(self.runtime.latest_audit_event()["latest"]["upstream_model_digest"])
 
+    def test_real_account_mutex_uses_explicit_fallback_and_preserves_original_result(self):
+        self.token.chmod(0o600)
+        retained = {"data": {"data": {"account": {
+            "auth_mode": "chatgpt", "tokens": {"access_token": "synthetic-only"},
+        }}, "metadata": {"version": 1}}}
+        account = VaultCodexAccount(address="http://127.0.0.1:8200", mount="secret",
+            path="synthetic/account", token_file=self.token,
+            runtime_root=self.root / "native-account",
+            opener=lambda *_args, **_kwargs: io.BytesIO(json.dumps(retained).encode()))
+        self.backends["cloud"] = CodexBackend(executable=self.root / "must-not-start",
+            executable_digest="0" * 64, account=account)
+        self.save(self.route("cloud", ["local"]))
+        # Exercise the actual account projection and flock, not an injected busy
+        # response. The second invocation has its own free journal identity.
+        with account.project():
+            status, original = self.runtime.invoke(self.request)
+            self.assertEqual(status, 200, original)
+            self.assertEqual([a["outcome"] for a in original["effective_selection"]["attempts"]],
+                             ["provider-busy", "suggestion-produced"])
+            self.assertEqual(len(self.backends["local"].calls), 1)
+            self.save(self.route("cloud"))
+            no_fallback = copy.deepcopy(self.request)
+            no_fallback["caller_identity"]["decision_or_correlation_id"] = "invocation:no-fallback"
+            status, denied = self.runtime.invoke(no_fallback)
+            self.assertEqual(status, 503, denied)
+            self.assertEqual(denied["reasons"], ["no-suitable-fallback"])
+            self.assertEqual([a["outcome"] for a in denied["effective_selection"]["attempts"]],
+                             ["provider-busy"])
+        # Releasing the account and changing settings cannot dispatch the old
+        # request again or replace its original frozen fallback result.
+        status, replay = self.runtime.invoke(self.request)
+        self.assertEqual((status, replay), (200, original))
+        self.assertEqual(len(self.backends["local"].calls), 1)
+
     def test_two_actual_profile_contracts_use_default_and_task_override(self):
         self.command("routing.save", {"default": self.route("cloud", effort="high"), "overrides": {
             "agent-console-assistant-v1/assistant_response": self.route("local", effort="low")}})
@@ -291,6 +327,31 @@ class TaskRoutingTests(unittest.TestCase):
 
 
 class CodexTransportTests(unittest.TestCase):
+    def test_account_entry_busy_mapping_never_catches_an_error_after_dispatch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for failure_phase in ("dispatch", "projection-exit"):
+                calls = []
+                @contextmanager
+                def projection():
+                    yield root, lambda _raw: None
+                    if failure_phase == "projection-exit":
+                        raise BlockingIOError("Synthetic account exit after dispatch")
+                class Adapter:
+                    def __init__(self, **_kwargs): pass
+                    def invoke(self, **_kwargs):
+                        calls.append("dispatched")
+                        if failure_phase == "dispatch":
+                            raise BlockingIOError("Synthetic failure after dispatch")
+                        return SimpleNamespace(output={"ok": True})
+                backend = CodexBackend(executable=root / "unused", executable_digest="0" * 64,
+                    account=SimpleNamespace(project=projection))
+                with self.subTest(failure_phase=failure_phase), patch("model_management.CodexAdapter", Adapter):
+                    with self.assertRaises(BlockingIOError):
+                        backend.adapter({"model": "synthetic"}, "high", {"timeout_seconds": 1}).invoke(
+                            input_payload={}, output_schema={}, prompt_version="synthetic", system_prompt="synthetic")
+                    self.assertEqual(calls, ["dispatched"])
+
     def test_post_completion_account_failure_cannot_be_classified_as_fallback_availability(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

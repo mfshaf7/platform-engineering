@@ -88,6 +88,14 @@ private ranges stay excluded from public egress. Existing DNS and declared
 Ollama access remain. OOS and the consumer probe retain gateway-only provider
 access. No direct external-provider route is granted to Console or consumers.
 
+The dedicated Codex account is serialized with native refresh and sign-in.
+If another request owns that account before a model turn is submitted, routing
+reports `provider-busy` and may use only the operator's explicit configured
+fallbacks. With no suitable fallback it fails closed. An error after dispatch,
+account persistence, or account cleanup cannot become this availability result
+or authorize another provider. Replaying the original invocation retains its
+original frozen result, including uncertainty, after the account becomes free.
+
 Platform creates a periodic Vault service token limited to read/create/update
 of `kv/data/components/governed-ai-gateway/dev-integration/codex-account`.
 Its intended token identity is persisted before issuance, so an interrupted

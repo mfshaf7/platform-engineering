@@ -96,6 +96,14 @@ profile's lifecycle state.
 
 ## Activation Gates
 
+Epic 1313 extends the existing complete-runtime commissioning path with a
+digest-pinned native executable/image, a separate OOS management credential,
+gateway-only scoped Vault account custody, bounded CPU/memory/storage and
+explicit provider egress. Runtime choices are admitted by that exact composed
+source review; source bindings retain their caller/data/task/output meaning.
+This source extension does not itself establish operating readiness. See the
+[commissioning procedure](../../../products/governance-operations-console/runbooks/operate-complete-runtime.md).
+
 The gateway runtime alone is not enough to call model use governed. Live
 activation still requires:
 

@@ -7,6 +7,11 @@ This directory stores short evidence records for production-impacting changes.
 These are not full incident diaries. They are structured completion records for
 governed fixes.
 
+The source-staged [configurable AI commissioning](2026-10-24-configurable-ai-commissioning.md)
+records Epic 1313's existing-composition extension. Its Review Packet and exact
+Security decision precede activation; the record does not invent deployment or
+provider readiness from source tests.
+
 Use a change record when a production issue required one or more of:
 
 - source fix

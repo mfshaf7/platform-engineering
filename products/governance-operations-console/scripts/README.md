@@ -1,5 +1,13 @@
 # Console Platform Integration Scripts
 
+`console_model_management.py` extends `console_complete_runtime.py` for the
+Epic 1313 model-management boundary: pinned native runtime construction,
+gateway-only account custody, bounded pod/network rendering, a distinct OOS
+management projection, existing-timer lease renewal and access removal.
+Normal use remains `make governance-console-complete-runtime`; the
+`build-image` action is source-review validation and never deploys a workload.
+The complete-runtime runbook owns the operator procedure.
+
 `console_session_projection.py` is the product-local operator command for the
 Console identity/session projection. It supports:
 

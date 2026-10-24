@@ -81,3 +81,10 @@ Security decision only into operator-private state and must reuse
 OOS-to-Platform credential to Console or browser code, trust a PID without its
 boot and start-time identity, or claim availability from a stale activation
 marker.
+
+The Epic 1313 model-management extension uses that same command and the exact
+composed AI Security decision. Keep the dedicated Codex account in its scoped
+Vault path, separate from the OOS management credential and interactive account.
+Source validation and image construction do not authorize deployment or prove
+provider entitlement. Follow the complete-runtime runbook for commissioning,
+lease maintenance, rollback and retained owner state.

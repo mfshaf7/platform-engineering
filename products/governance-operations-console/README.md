@@ -11,6 +11,13 @@ manifest. Platform maps one admitted local operator to reviewed roles and named
 authority, then publishes a private non-secret projection for the Console
 server. The browser must receive only that bounded projection.
 
+The source-staged Epic 1313 extension adds model registration and workflow
+routing to the same complete-runtime composition after exact Security
+acceptance. It supplies the fixed Codex binary/image, purpose-limited Vault
+account lease, a separate OOS management credential, network/resource bounds
+and rollback. Follow [Operate the complete Console runtime](runbooks/operate-complete-runtime.md).
+Source presence alone is not commissioning or model readiness.
+
 This is a real local session source within the single-operator
 `dev-integration` trust boundary. It is not federated identity, stage evidence,
 production authentication, or permission for the Console to mutate an owning

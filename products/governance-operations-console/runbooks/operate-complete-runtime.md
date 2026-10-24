@@ -14,21 +14,73 @@ processes never receive the Platform provider credential.
 ## Security gate
 
 Source validation is expected to report `security-pending` before work item
-`#1303` lands. Activation remains blocked in that state.
+`#1319` lands. Activation remains blocked in that state.
 
 Security owns these two files in `security-architecture`:
 
-- `docs/reviews/components/2026-10-15-governance-console-platform-operation.md`
-- `docs/reviews/components/2026-10-15-governance-console-platform-operation.yaml`
+- `docs/reviews/components/2026-10-24-configurable-ai-routing.md`
+- `docs/reviews/components/2026-10-24-configurable-ai-routing.yaml`
 
-The YAML decision must accept gate `gate:platform-operation-security`, work
-item `#1303`, the current Architecture Packet reference, the exact reviewed
+The YAML decision must accept gate `gate:ai-routing-composed-security`, work
+item `#1319`, the current Architecture Packet reference, the exact reviewed
 revisions for Console, OOS, Platform, Workspace Governance, WGCF, Prototype
 Studio and CGG, and the
 exact reviewed Platform tree. The Markdown review must contain those same
 bindings. Runtime reads the decision from current clean Security `origin/main`
 and materializes private policies; no post-review Platform source-pin edit is
 required.
+
+## Model management extension
+
+Epic 1313 extends this same composition. Candidate source is staged until the
+exact Security decision and commissioning; these instructions do not assert
+that a dedicated provider account is already signed in or any model is ready.
+The existing Platform-operation, repository, publication and source-acceptance
+boundaries remain part of the complete-source review.
+
+Use the existing `make governance-console-complete-runtime ACTION=activate`
+after acceptance and exact source landing. It builds and imports the fixed
+Codex 0.163.0 executable into the pinned Python base image, verifies its digest,
+and uses the existing gateway state volume. The gateway runs as UID 1000 with
+a read-only root, no service-account token or project mounts, a 1 GiB memory
+limit, one CPU and bounded temporary storage. Native provider processes and
+local model inference retain their existing single-slot limits. Management
+reads and readiness never infer or claim ongoing provider entitlement.
+
+Only the gateway gains public IPv4 TLS egress plus the exact Vault service;
+private ranges stay excluded from public egress. Existing DNS and declared
+Ollama access remain. OOS and the consumer probe retain gateway-only provider
+access. No direct external-provider route is granted to Console or consumers.
+
+Platform creates a periodic Vault service token limited to read/create/update
+of `kv/data/components/governed-ai-gateway/dev-integration/codex-account`.
+Its intended token identity is persisted before issuance, so an interrupted
+response reconciles that same identity. Only the gateway receives this token.
+The native account is created through Console sign-in; activation never imports
+the interactive CLI/Desktop account. The existing credential timer renews the
+account lease; unavailable renewal fails visibly and does not widen authority.
+
+A different management token is projected to OOS and the gateway. It authenticates
+the fixed OOS/operator pair and grants only the closed model-management API.
+Provider tokens never enter Console, OOS, source, receipts or process arguments.
+The OOS caller binding is exactly `governance-operations-console` to the admitted
+human operator. Its request journal reuses the existing private OOS state mount.
+
+After activation, open Console Model Operations, register an admitted backend,
+connect its dedicated account if needed, discover and verify a model, then
+review default/task routing, native effort and explicit fallback. The Console
+product's [operator procedure](https://github.com/mfshaf7/governance-operations-console/blob/main/docs/product/model-operations-live-integration.md)
+owns those controls. Permission/data/output changes still require purpose-profile
+review. Public/internal proof does not qualify private client data or stage/prod.
+
+`ACTION=status` requires a current authenticated model registry, not a previous
+completed model request. It reports API availability and verified registrations;
+actual invocation and selection receipts are the separate operating proof.
+`rollback`/`cleanup` first stop renewal, disable both management bindings, revoke
+the account lease and remove its projections and added egress. Configuration,
+invocation history and the Vault account are retained. Reactivation reuses that
+owner state. Source rollback restores the preceding reviewed composition; do not
+delete owner records to repair a runtime failure.
 
 After merge, persistent services use the workspace main checkout when its
 clean committed tree matches the reviewed worktree and `origin/main`. This
@@ -396,7 +448,7 @@ proves consumption; preservation does not promise indefinite availability.
 
 ## Failure interpretation
 
-- `Security decision ... unavailable`: `#1303` has not landed at the declared
+- `Security decision ... unavailable`: `#1319` has not landed at the declared
   path, or Security `main` is not current and clean.
 - `missing, stale, revoked, or outside scope`: the decision does not accept
   this exact gate, initiative, work item, or Architecture Packet.

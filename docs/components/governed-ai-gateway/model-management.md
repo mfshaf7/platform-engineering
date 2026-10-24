@@ -15,6 +15,14 @@ and rolling configuration back are owner configuration operations within those
 permissions. Expanding protocols, endpoints or task/data authority remains a
 reviewed policy change. Model output never grants source or mutation authority.
 
+The original profile bindings and their local-only source notes continue to
+describe the legacy source-selected route. Epic 1313 separately reviews the
+managed backend policy for the same existing caller/data/task/output scopes;
+that exact composed acceptance is required for any alternative provider or
+model. It does not activate the pending direct OpenAI API route or qualify
+private-client data. The commissioning source, account lease and rollback
+procedure extend [the complete Console runtime](../../../products/governance-operations-console/runbooks/operate-complete-runtime.md).
+
 `GOVERNED_AI_MODEL_MANAGEMENT_POLICY_PATH` selects the accepted non-secret owner
 policy. With no selected policy, legacy invocation behavior remains and the
 management routes report `model-management-not-commissioned`. Never select a

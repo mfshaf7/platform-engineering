@@ -39,9 +39,28 @@ The existing Platform-operation, repository, publication and source-acceptance
 boundaries remain part of the complete-source review.
 
 Use the existing `make governance-console-complete-runtime ACTION=activate`
-after acceptance and exact source landing. It builds and imports the fixed
-Codex 0.163.0 executable into the pinned Python base image, verifies its digest,
-and uses the existing gateway state volume. The gateway runs as UID 1000 with
+after acceptance and exact source landing. The existing GitHub Actions/GHCR
+publication pattern supplies the fixed Codex 0.163.0 executable in the pinned
+Python base. The `Build Governed AI Runtime` workflow runs only on main and
+publishes `ghcr.io/mfshaf7/governed-ai-runtime` with an input-derived tag.
+Activation pulls that artifact, checks its source/input labels, exact base
+layers and executable digest, and resolves the immutable registry digest before
+issuing new account credentials. Kubernetes pulls that digest through its normal
+node runtime. Activation never accesses the host containerd socket or needs
+sudo. Local `build-image` remains source proof and does not publish or deploy.
+
+The first GHCR package publication defaults to private. Its owner must make
+this public, credential-free runtime package readable before commissioning;
+verify anonymous access rather than importing an ambient registry credential.
+This package contains only the accepted public base and executable, never
+provider accounts or project files. A failed or unavailable publication blocks
+activation before new credential effects. After setup, image reuse and normal
+runtime restart require no administrator image import. The artifact identity
+depends on its binary and base inputs; unrelated Platform record changes do not
+create another image. Changed executable/base inputs still require source and
+Security review before commissioning.
+
+The existing gateway state volume is retained. The gateway runs as UID 1000 with
 a read-only root, no service-account token or project mounts, a 1 GiB memory
 limit, one CPU and bounded temporary storage. Native provider processes and
 local model inference retain their existing single-slot limits. Management

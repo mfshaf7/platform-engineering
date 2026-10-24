@@ -1,6 +1,7 @@
 """Platform model registration and configuration within fixed owner backends."""
 from __future__ import annotations
 
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -101,7 +102,14 @@ class CodexBackend:
         owner = self
         class ProjectedAdapter:
             def invoke(self, **kwargs):
-                with owner.account.project() as (home, persist):
+                with ExitStack() as projection:
+                    try:
+                        home, persist = projection.enter_context(owner.account.project())
+                    except BlockingIOError:
+                        # Only account admission precedes provider submission.
+                        # Do not catch dispatch, persistence or context-exit
+                        # failures here: those cannot permit another provider.
+                        raise ProviderBusy("The dedicated Codex account is in use before inference.") from None
                     adapter = CodexAdapter(executable=owner.executable, executable_digest=owner.executable_digest,
                                            home=home, model=model["model"], effort=effort,
                                            timeout_seconds=limits["timeout_seconds"], account_sink=persist,

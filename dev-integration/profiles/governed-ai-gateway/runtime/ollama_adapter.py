@@ -59,10 +59,14 @@ class ProviderOutputInvalid(OllamaAdapterError):
     code = "provider-output-invalid"
 
 
+class ProviderCompletionUnknown(OllamaAdapterError):
+    code = "provider-completion-unknown"
+
+
 @dataclass(frozen=True)
 class ProviderResult:
     output: dict[str, Any]
-    model_digest: str
+    model_digest: str | None
     runtime_version: str
     latency_ms: int
     usage: dict[str, int]
@@ -70,6 +74,7 @@ class ProviderResult:
 
 
 class OllamaAdapter:
+    _provider_slots = threading.BoundedSemaphore(1)
     def __init__(
         self,
         *,
@@ -83,6 +88,11 @@ class OllamaAdapter:
         max_output_tokens: int = 64,
         prompt_version: str = "intake-classifier-v1.0",
         opener: Callable[..., object] = urllib.request.urlopen,
+        conservative_completion: bool = False,
+        max_response_bytes: int | None = None,
+        reasoning_effort: str | bool | None = False,
+        shared_provider_limit: bool = False,
+        keep_alive: str | int = "5m",
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -93,6 +103,11 @@ class OllamaAdapter:
         self.max_output_tokens = max_output_tokens
         self.prompt_version = prompt_version
         self._opener = opener
+        self.conservative_completion = conservative_completion
+        self.max_response_bytes = max_response_bytes
+        self.reasoning_effort = reasoning_effort
+        self.shared_provider_limit = shared_provider_limit
+        self.keep_alive = keep_alive
         self._slots = threading.BoundedSemaphore(max_concurrency)
 
     def verify_binding(self) -> dict[str, str]:
@@ -124,6 +139,9 @@ class OllamaAdapter:
     ) -> ProviderResult:
         if not self._slots.acquire(blocking=False):
             raise ProviderBusy("provider concurrency limit reached")
+        if self.shared_provider_limit and not self._provider_slots.acquire(blocking=False):
+            self._slots.release()
+            raise ProviderBusy("local provider concurrency limit reached")
         try:
             started = time.monotonic()
             runtime_version = self._read_runtime_version()
@@ -133,7 +151,7 @@ class OllamaAdapter:
                 {
                     "model": self.model,
                     "stream": False,
-                    "think": False,
+                    "think": self.reasoning_effort,
                     "format": output_schema,
                     "messages": [
                         {"role": "system", "content": system_prompt},
@@ -148,10 +166,10 @@ class OllamaAdapter:
                         "num_ctx": 4096,
                         "num_predict": self.max_output_tokens,
                     },
-                    "keep_alive": "5m",
+                    "keep_alive": self.keep_alive,
                 },
             )
-            output = self._parse_output(response, output_schema)
+            output = self._parse_output(response, output_schema, allow_thinking=self.reasoning_effort is not False)
             return ProviderResult(
                 output=output,
                 model_digest=model_digest,
@@ -164,6 +182,8 @@ class OllamaAdapter:
                 prompt_version=prompt_version,
             )
         finally:
+            if self.shared_provider_limit:
+                self._provider_slots.release()
             self._slots.release()
 
     def _read_runtime_version(self) -> str:
@@ -209,14 +229,21 @@ class OllamaAdapter:
         for attempt in range(self.retry_count + 1):
             try:
                 with self._opener(request, timeout=self.timeout_seconds) as response:
-                    result = json.loads(response.read().decode("utf-8"))
+                    raw = response.read() if self.max_response_bytes is None else response.read(self.max_response_bytes + 1)
+                    if self.max_response_bytes is not None and len(raw) > self.max_response_bytes:
+                        raise ProviderOutputInvalid("provider output exceeds the task byte limit")
+                    result = json.loads(raw.decode("utf-8"))
                     if not isinstance(result, dict):
                         raise ProviderOutputInvalid("provider returned a non-object response")
                     return result
             except TimeoutError as exc:
+                if payload is not None and self.conservative_completion:
+                    raise ProviderCompletionUnknown("original provider completion is unknown") from exc
                 if attempt >= self.retry_count:
                     raise ProviderTimeout("provider request timed out") from exc
             except urllib.error.URLError as exc:
+                if payload is not None and self.conservative_completion:
+                    raise ProviderCompletionUnknown("original provider completion is unknown") from exc
                 if isinstance(exc.reason, TimeoutError):
                     if attempt >= self.retry_count:
                         raise ProviderTimeout("provider request timed out") from exc
@@ -227,11 +254,11 @@ class OllamaAdapter:
         raise ProviderUnavailable("provider request failed")
 
     @staticmethod
-    def _parse_output(response: dict, output_schema: dict) -> dict:
+    def _parse_output(response: dict, output_schema: dict, *, allow_thinking: bool = False) -> dict:
         message = response.get("message")
         if not isinstance(message, dict):
             raise ProviderOutputInvalid("provider response is missing message")
-        if message.get("thinking") or message.get("tool_calls"):
+        if (message.get("thinking") and not allow_thinking) or message.get("tool_calls"):
             raise ProviderOutputInvalid("thinking or tool output is not allowed")
         content = message.get("content")
         if not isinstance(content, str):

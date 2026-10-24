@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,10 @@ from typing import Any
 
 from gateway_policy import GatewayPolicy, InvocationDecision
 from ollama_adapter import OllamaAdapter, OllamaAdapterError, ProviderIntegrityError, SYSTEM_PROMPT
+from model_configuration import ConfigurationError, InvocationJournal
+from model_management import ModelManagement
+from task_routing import TaskRouting
+from urllib.parse import urlparse, parse_qs
 
 
 def utc_now() -> str:
@@ -37,6 +42,7 @@ class GatewayRuntime:
         compatibility_profile_id: str,
         provider_base_url: str | None = None,
         adapters: dict[str, Any] | None = None,
+        management: ModelManagement | None = None,
     ) -> None:
         self.selections = selections
         self.profiles = selections["profiles"]
@@ -44,6 +50,7 @@ class GatewayRuntime:
         self.audit_root = audit_root
         self.audit_ledger = audit_root / "audit-ledger.jsonl"
         self.compatibility_profile_id = compatibility_profile_id
+        self.management = management
         if compatibility_profile_id not in self.profiles:
             raise ValueError("compatibility profile is missing from selections")
         self.max_request_bytes = max(
@@ -51,6 +58,13 @@ class GatewayRuntime:
             for profile in self.profiles.values()
         )
         self.adapters = adapters or self._build_adapters(provider_base_url)
+        self.routing = TaskRouting(management.configuration, InvocationJournal(audit_root / "invocations"),
+                                   self._routed_adapter) if management else None
+
+    def _routed_adapter(self, model, effort, limits):
+        if model["backend_id"].startswith("source-binding:"):
+            return self.adapters[model["backend_id"].removeprefix("source-binding:")]
+        return self.management.adapter(model, effort, limits)
 
     @classmethod
     def from_environment(cls) -> "GatewayRuntime":
@@ -61,6 +75,7 @@ class GatewayRuntime:
             )
         )
         selections = json.loads(selections_path.read_text(encoding="utf-8"))
+        audit_root = Path(os.environ.get("GOVERNED_AI_AUDIT_ROOT", "/var/lib/governed-ai-gateway"))
         return cls(
             selections=selections,
             audit_root=Path(
@@ -72,6 +87,7 @@ class GatewayRuntime:
                 "GOVERNED_AI_COMPATIBILITY_PROFILE_ID", "intake-classifier-v1"
             ),
             provider_base_url=os.environ.get("GOVERNED_AI_OLLAMA_BASE_URL"),
+            management=ModelManagement.from_environment(selections, audit_root / "model-management"),
         )
 
     def _build_adapters(self, provider_base_url: str | None) -> dict[str, OllamaAdapter]:
@@ -87,9 +103,13 @@ class GatewayRuntime:
                 expected_digest=profile["model_digest"],
                 expected_runtime_version=profile["runtime_version"],
                 timeout_seconds=limits["timeout_seconds"],
-                retry_count=limits["retry_count"],
+                retry_count=0 if self.management else limits["retry_count"],
                 max_concurrency=limits["max_concurrency"],
                 max_output_tokens=limits["max_output_tokens"],
+                conservative_completion=bool(self.management),
+                max_response_bytes=65536 if self.management else None,
+                shared_provider_limit=bool(self.management),
+                keep_alive=0 if self.management else "5m",
             )
         return adapters
 
@@ -183,8 +203,21 @@ class GatewayRuntime:
             }
             for profile_id, profile in sorted(self.profiles.items())
         }
+        management_state = None
+        if self.management:
+            try:
+                snapshot = self.management.configuration.snapshot()
+                token_present = bool(Path(self.management.authority["token_file"]).read_text().strip())
+                management_state = {"ready": token_present, "configuration_revision": snapshot["revision"],
+                                    "provider_availability": "requires-explicit-verification-or-invocation"}
+            except (OSError, ConfigurationError, KeyError):
+                management_state = {"ready": False, "failure": "model-management-unavailable"}
         return {
-            "ready": bool(ready_profile_ids),
+            # The management API must stay reachable to repair selection or
+            # sign in when every selected provider is unavailable. This is API
+            # readiness, not a claim of provider entitlement or successful AI.
+            "ready": bool(ready_profile_ids) or bool(management_state and management_state["ready"]),
+            **({"model_management": management_state} if management_state is not None else {}),
             "ready_profile_ids": ready_profile_ids,
             "profile_id": compatibility["profile_id"],
             "profile_status": compatibility["profile_status"],
@@ -245,7 +278,7 @@ class GatewayRuntime:
             }
 
         adapter = self.adapters.get(profile["profile_id"])
-        if adapter is None:
+        if adapter is None and self.routing is None:
             event = self.append_audit(
                 {
                     **event_base,
@@ -264,6 +297,19 @@ class GatewayRuntime:
         system_prompt, provider_input, prompt_version = self._provider_request(
             decision
         )
+        if self.routing:
+            try:
+                return self.routing.invoke(
+                    request=request, profile=profile, task=task, provider_input=provider_input,
+                    system_prompt=system_prompt, prompt_version=prompt_version,
+                    complete=lambda result, selection, attempts, failure: self._routed_result(
+                        request, decision, event_base, correlation_id, result, selection, attempts, failure),
+                )
+            except ConfigurationError as error:
+                event = self.append_audit({**event_base, "outcome": error.code,
+                                           "provider_schema_valid": False, "provider_latency_ms": 0, "provider_usage": {}})
+                return 409, {"policy_decision": "deny", "reasons": [error.code],
+                             "audit_ref": f"local-ledger:{event['event_digest']}"}
         try:
             provider_result = adapter.invoke(
                 input_payload=provider_input,
@@ -331,6 +377,45 @@ class GatewayRuntime:
             "output": provider_result.output,
             "audit_ref": audit_ref,
         }
+
+    def _routed_result(self, request, decision, event_base, correlation_id, result, selection, attempts, failure):
+        event_base = dict(event_base)
+        if attempts:
+            selected = attempts[-1]
+            backend_id = selected["backend_id"]
+            event_base.update(upstream_provider=self.management.configuration.backends.get(backend_id, {}).get(
+                "provider", decision.profile["provider"]),
+                provider_route=decision.profile["provider_route"] if backend_id.startswith("source-binding:") else backend_id,
+                upstream_model=selected["model"])
+        event = self.append_audit({**event_base, "effective_selection": selection,
+                                   "outcome": failure or "suggestion-produced",
+                                   "provider_schema_valid": failure is None,
+                                   "provider_latency_ms": result.latency_ms if result else 0,
+                                   "provider_usage": result.usage if result else {},
+                                   "upstream_model_digest": result.model_digest if result else None,
+                                   "provider_runtime_version": result.runtime_version if result else None,
+                                   "prompt_version": result.prompt_version if result else None})
+        audit_ref = f"local-ledger:{event['event_digest']}"
+        if failure:
+            response = {"policy_decision": "deny", "reasons": [failure], "audit_ref": audit_ref}
+            if request.get("selection_evidence_version") == 1:
+                response["effective_selection"] = selection
+            return 503, response
+        profile, task = decision.profile, decision.task
+        response = {"profile_id": profile["profile_id"], "policy_status": profile["profile_status"],
+                    "policy_decision": "allow", "decision_id": correlation_id, "generated_at": event["event_time"],
+                    "caller_id": request["caller_identity"]["caller_id"], "invocation_path": profile["invocation_path"],
+                    "binding_selection_ref": profile["selection_ref"], "audit_ref": audit_ref}
+        if decision.compatibility_mode:
+            response.update(confidence=result.output["confidence"], suggested_decision=result.output["suggested_decision"])
+        else:
+            response.update(task={"kind": task["task_kind"], "contract_ref": task["contract_ref"], "version": task["contract_version"]},
+                            output=result.output)
+        # Existing consumers retain their original output wire. New consumers
+        # explicitly negotiate actual runtime selection evidence separately.
+        if request.get("selection_evidence_version") == 1:
+            response["effective_selection"] = selection
+        return 200, response
 
     def _event_base(
         self,
@@ -425,6 +510,9 @@ class Handler(BaseHTTPRequestHandler):
         return payload
 
     def do_GET(self) -> None:
+        if self.path.startswith("/v1/model-management/"):
+            self.management_request()
+            return
         if self.path == "/healthz":
             self.send_json(200, {"status": "ok", "component": "governed-ai-gateway"})
             return
@@ -441,6 +529,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(404, {"error": "not_found"})
 
     def do_POST(self) -> None:
+        if self.path.startswith("/v1/model-management/"):
+            self.management_request()
+            return
         if self.path != "/v1/governed-ai/invoke":
             self.send_json(404, {"error": "not_found"})
             return
@@ -451,6 +542,48 @@ class Handler(BaseHTTPRequestHandler):
             return
         status, payload = self.runtime.invoke(request)
         self.send_json(status, payload)
+
+    def management_request(self):
+        manager = self.runtime.management
+        if manager is None:
+            self.send_json(503, {"error": "model-management-not-commissioned"})
+            return
+        try:
+            authority = manager.authority
+            token = Path(authority["token_file"]).read_text().strip()
+            if not token or not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token) or \
+                    self.headers.get("X-Platform-Caller") != authority["caller_id"] or \
+                    self.headers.get("X-Platform-Operator") != authority["operator_id"]:
+                self.send_json(403, {"error": "model-management-forbidden"})
+                return
+            parsed = urlparse(self.path)
+            if self.command == "GET" and parsed.path == "/v1/model-management/backends" and not parsed.query:
+                self.send_json(200, manager.describe_backends())
+            elif self.command == "GET" and parsed.path == "/v1/model-management/configuration":
+                query = parse_qs(parsed.query)
+                if query and (set(query) != {"revision"} or len(query["revision"]) != 1 or not query["revision"][0].isdigit()):
+                    raise ConfigurationError("invalid-command", "Select one retained configuration revision.")
+                self.send_json(200, manager.configuration.snapshot(int(query["revision"][0]) if query else None))
+            elif self.command == "GET" and parsed.path == "/v1/model-management/catalogue":
+                query = parse_qs(parsed.query)
+                if set(query) not in ({"backend_id"}, {"backend_id", "model"}) or len(query["backend_id"]) != 1 or len(query.get("model", [None])) != 1:
+                    raise ConfigurationError("invalid-command", "Select exactly one admitted backend.")
+                self.send_json(200, manager.catalogue(query["backend_id"][0], query.get("model", [None])[0]))
+            elif self.command == "GET" and parsed.path == "/v1/model-management/account-login":
+                query = parse_qs(parsed.query)
+                if set(query) != {"command_id"} or len(query["command_id"]) != 1:
+                    raise ConfigurationError("invalid-command", "Read the original account login command.")
+                self.send_json(200, manager.logins.read(command_id=query["command_id"][0], actor=authority["operator_id"]))
+            elif self.command == "POST" and parsed.path == "/v1/model-management/commands":
+                self.send_json(200, manager.command(self.read_json(), actor=authority["operator_id"]))
+            else:
+                self.send_json(404, {"error": "not_found"})
+        except ConfigurationError as error:
+            self.send_json(409, {"error": error.code, "message": str(error)})
+        except OllamaAdapterError as error:
+            self.send_json(503, {"error": error.code})
+        except (OSError, ValueError, KeyError, TypeError):
+            self.send_json(503, {"error": "model-management-unavailable"})
 
 
 def main() -> None:

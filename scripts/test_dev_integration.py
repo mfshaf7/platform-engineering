@@ -1285,6 +1285,8 @@ def load_tests(loader, tests, pattern):
     # matching profile metadata alone cannot prove their behavior.
     import test_agent_source_intent
     tests.addTests(loader.loadTestsFromModule(test_agent_source_intent))
+    import test_ai_task_routing
+    tests.addTests(loader.loadTestsFromModule(test_ai_task_routing))
     return tests
 
 

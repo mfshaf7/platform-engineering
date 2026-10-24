@@ -38,11 +38,19 @@ provider is unavailable or its version/digest differs. No model inference or
 automatic profile update occurs during readiness; invocation repeats integrity
 validation immediately before inference.
 
-The active dev-integration binding is host Ollama `0.40.5` with
+The source-selected dev-integration binding is host Ollama `0.40.8` with
 `qwen3:8b` pinned by full digest. The adapter disables thinking, supplies no
 tools, enforces a strict classification schema, and bounds input size,
 concurrency, timeout, retry, context, and output tokens. The OpenAI binding is
 preserved as an inactive future route.
+
+The source foundation for operator configuration and native Codex/Ollama
+selection extends this same gateway under
+[ADR-030](../../decisions/adr/ADR-030-configurable-ai-task-routing.md).
+Its [management surface](model-management.md) separates reviewed profile
+permissions from revisioned defaults, task overrides and explicit fallbacks.
+That extension requires composed Security acceptance and owner commissioning;
+the legacy source binding below remains the path without a commissioned policy.
 
 One runtime instance resolves the complete reviewed profile registry for one
 environment. A request can select only an exact resolved profile and an allowed

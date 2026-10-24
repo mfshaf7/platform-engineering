@@ -294,6 +294,12 @@ render_gateway_app() {
     gateway_app.py \
     gateway_policy.py \
     ollama_adapter.py \
+    model_configuration.py \
+    task_routing.py \
+    codex_adapter.py \
+    provider_accounts.py \
+    model_login.py \
+    model_management.py \
     strict_output_schema.py; do
     cp "${RUNTIME_SOURCE_DIR}/${runtime_file}" "${RENDERED_DIR}/${runtime_file}"
   done
@@ -398,6 +404,18 @@ $(sed 's/^/    /' "${RENDERED_DIR}/gateway_policy.py")
 $(sed 's/^/    /' "${RENDERED_DIR}/ollama_adapter.py")
   strict_output_schema.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/strict_output_schema.py")
+  model_configuration.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/model_configuration.py")
+  task_routing.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/task_routing.py")
+  codex_adapter.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/codex_adapter.py")
+  provider_accounts.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/provider_accounts.py")
+  model_login.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/model_login.py")
+  model_management.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/model_management.py")
   model-profile-selections.json: |
 $(sed 's/^/    /' "${RENDERED_DIR}/model-profile-selections.json")
 ---

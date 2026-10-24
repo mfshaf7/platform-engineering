@@ -33,6 +33,8 @@ class GatewayPolicy:
 
     def evaluate(self, request: dict[str, Any]) -> InvocationDecision:
         reasons: list[str] = []
+        if "selection_evidence_version" in request and (type(request["selection_evidence_version"]) is not int or request["selection_evidence_version"] != 1):
+            reasons.append("selection-evidence-version-not-supported")
         profile_id = request.get("profile_id")
         profile = self.profiles.get(profile_id)
         if not isinstance(profile, dict):

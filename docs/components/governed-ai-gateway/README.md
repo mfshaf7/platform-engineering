@@ -22,6 +22,9 @@ The gateway is not:
 - [access.md](access.md)
 - [operations.md](operations.md)
 - [release-governance.md](release-governance.md)
+- [Model management and workflow configuration](model-management.md): source
+  foundation for revisioned selection and native Codex/Ollama adapters; composed
+  Security acceptance and owner commissioning remain required.
 
 ## Current Live Footprint
 
@@ -30,7 +33,7 @@ The gateway is not:
 - dev-integration namespace: `devint-governed-ai-gateway-<operator>`
 - Argo application: none
 - stage/prod deployment: none
-- active provider: host Ollama `0.40.5` with pinned `qwen3:8b` digest
+- source-selected local provider: host Ollama `0.40.8` with pinned `qwen3:8b` digest
 - provider credentials: none for the local route; future paid credentials remain gateway-custodied
 - audit ledger: local PVC-backed dev-integration ledger only
 - direct consumer provider egress: denied by the dev-integration network-policy
@@ -39,8 +42,8 @@ The gateway is not:
 The runtime proves a real bounded Ollama invocation, caller identity capture,
 model and runtime integrity, deterministic selected-binding evidence, strict
 provider output, audit emission, and gateway-only consumer egress in
-dev-integration. Console Work Design consumption remains separately gated by
-ART #996.
+dev-integration. The new Model Operations and revisioned routing extension
+remain separately gated by Epic 1313 review and commissioning.
 
 ## Selected Model Profiles
 
@@ -83,8 +86,10 @@ environment, verifies each matching access-plane route, and emits
 content-addressed non-secret selection references. Requests must name an exact
 profile, caller, task contract, contract version, and output schema. Intake
 retains its untyped default-task compatibility request; Work Design does not
-have a default task and fails closed when task identity is omitted. An invalid
-or inactive selected binding never falls back to another binding.
+have a default task and fails closed when task identity is omitted. Without a
+commissioned management policy, an invalid or inactive source-selected binding
+never falls back to another binding. The revisioned routing extension uses only
+operator-configured eligible fallbacks; it does not override profile denial.
 
 Model-profile lifecycle requests enter through the OOS-owned reviewed request
 workflow. Platform consumes only the exact approved, `implementing` projection

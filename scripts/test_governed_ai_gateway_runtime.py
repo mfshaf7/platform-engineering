@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_ROOT = REPO_ROOT / "dev-integration/profiles/governed-ai-gateway/runtime"
 sys.path.insert(0, str(RUNTIME_ROOT))
 
-from gateway_app import GatewayRuntime  # noqa: E402
+from gateway_app import GatewayRuntime, prepare_audit_ledger  # noqa: E402
 from model_profile_resolver import resolve_model_profile_registry  # noqa: E402
 from governed_ai_test_support import fixture_selections
 from ollama_adapter import ProviderResult, ProviderIntegrityError, ProviderUnavailable  # noqa: E402
@@ -62,6 +62,41 @@ class GatewayRuntimeTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory(prefix="governed-ai-runtime-")
         self.addCleanup(self.temp_dir.cleanup)
         self.audit_root = Path(self.temp_dir.name)
+
+    def test_startup_preserves_history_and_requires_private_append_storage(self):
+        history = b'{"historic":"one"}\n{"historic":"two"}\n'
+        ledger = self.audit_root / "audit-ledger.jsonl"
+        ledger.write_bytes(history)
+        ledger.chmod(0o644)
+        self.assertEqual(prepare_audit_ledger(self.audit_root).read_bytes(), history)
+        self.assertEqual(ledger.stat().st_mode & 0o777, 0o600)
+        adapter = FakeAdapter({"suggested_decision": "proposed", "confidence": "low"})
+        runtime = GatewayRuntime(selections=selections(), audit_root=self.audit_root,
+            compatibility_profile_id="intake-classifier-v1", adapters={"intake-classifier-v1": adapter})
+        self.assertTrue(runtime.audit_storage_ready())
+        runtime.append_audit({"synthetic_event": "append after startup"})
+        appended = ledger.read_bytes()
+        self.assertTrue(appended.startswith(history))
+        self.assertEqual(prepare_audit_ledger(self.audit_root).read_bytes(), appended)
+        ledger.unlink()
+        self.assertFalse(runtime.readiness()["ready"])
+        self.assertEqual(runtime.invoke({})[0], 503)
+        self.assertFalse(adapter.calls, "Missing audit storage must stop before provider dispatch.")
+        os.mkfifo(ledger)
+        self.assertFalse(runtime.audit_storage_ready(), "A FIFO must fail without waiting for a reader.")
+
+    def test_startup_denies_symlink_or_nonregular_audit_storage(self):
+        target = self.audit_root / "unrelated"
+        target.write_text("Must remain unchanged")
+        ledger = self.audit_root / "audit-ledger.jsonl"
+        ledger.symlink_to(target)
+        with self.assertRaises(OSError):
+            prepare_audit_ledger(self.audit_root)
+        self.assertEqual(target.read_text(), "Must remain unchanged")
+        ledger.unlink()
+        ledger.mkdir()
+        with self.assertRaises(OSError):
+            prepare_audit_ledger(self.audit_root)
 
     def test_rendered_gateway_admits_only_probe_and_composed_oos(self) -> None:
         state_root = self.audit_root / "profile-state"

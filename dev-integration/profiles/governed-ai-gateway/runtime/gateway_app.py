@@ -7,6 +7,9 @@ import hmac
 import json
 import os
 from pathlib import Path
+import shutil
+import stat
+import tempfile
 from typing import Any
 
 from gateway_policy import GatewayPolicy, InvocationDecision
@@ -33,6 +36,65 @@ def canonical_digest(payload: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def prepare_audit_ledger(root: Path) -> Path:
+    """Preserve a stopped legacy writer's ledger under the current nonroot owner.
+
+    The retained volume already permits directory writes. No root permission,
+    recursive ownership change, event rewriting or privilege escalation is used.
+    The managed deployment stops the preceding writer before this handoff.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    if not stat.S_ISDIR(root.lstat().st_mode):
+        raise OSError("The audit root must be a regular directory.")
+    ledger = root / "audit-ledger.jsonl"
+    try:
+        original = ledger.lstat()
+    except FileNotFoundError:
+        descriptor = os.open(ledger, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        os.close(descriptor)
+    else:
+        if not stat.S_ISREG(original.st_mode):
+            raise OSError("The retained audit ledger must be a regular file.")
+        if original.st_uid != os.geteuid():
+            temporary = None
+            try:
+                descriptor = os.open(ledger, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(descriptor, "rb") as source, tempfile.NamedTemporaryFile(
+                    dir=root, prefix=".audit-owner-", delete=False,
+                ) as target:
+                    temporary = Path(target.name)
+                    opened = os.fstat(source.fileno())
+                    if (opened.st_dev, opened.st_ino) != (original.st_dev, original.st_ino):
+                        raise OSError("The retained audit ledger changed before handoff.")
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
+                    target.flush()
+                    os.fsync(target.fileno())
+                current = ledger.lstat()
+                if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns) != (
+                    original.st_dev, original.st_ino, original.st_size, original.st_mtime_ns,
+                ):
+                    raise OSError("The retained audit ledger changed during handoff.")
+                os.replace(temporary, ledger)
+                temporary = None
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+    descriptor = os.open(ledger, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        current = os.fstat(descriptor)
+        if not stat.S_ISREG(current.st_mode) or current.st_uid != os.geteuid():
+            raise OSError("The audit ledger must belong to the serving owner.")
+        os.fchmod(descriptor, 0o600)
+    finally:
+        os.close(descriptor)
+    descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    return ledger
+
+
 class GatewayRuntime:
     def __init__(
         self,
@@ -48,7 +110,7 @@ class GatewayRuntime:
         self.profiles = selections["profiles"]
         self.policy = GatewayPolicy(selections)
         self.audit_root = audit_root
-        self.audit_ledger = audit_root / "audit-ledger.jsonl"
+        self.audit_ledger = prepare_audit_ledger(audit_root)
         self.compatibility_profile_id = compatibility_profile_id
         self.management = management
         if compatibility_profile_id not in self.profiles:
@@ -163,6 +225,7 @@ class GatewayRuntime:
 
     def readiness(self) -> dict[str, Any]:
         compatibility = self.profiles[self.compatibility_profile_id]
+        audit_ready = self.audit_storage_ready()
         # Eligibility is policy truth; readiness also observes actual provider
         # version and model digest. Share one bounded metadata probe across
         # identical bindings, without inference or an unbounded retry loop.
@@ -171,7 +234,9 @@ class GatewayRuntime:
         for profile_id, profile in self.profiles.items():
             adapter = self.adapters.get(profile_id)
             state = (False, "profile-ineligible")
-            if profile["activation_eligible"] is True:
+            if not audit_ready:
+                state = (False, "audit-storage-unavailable")
+            elif profile["activation_eligible"] is True:
                 key = (getattr(adapter, "base_url", profile["endpoint_origin"]),
                        profile["upstream_model"], profile["model_digest"], profile["runtime_version"])
                 if key not in bindings:
@@ -216,7 +281,8 @@ class GatewayRuntime:
             # The management API must stay reachable to repair selection or
             # sign in when every selected provider is unavailable. This is API
             # readiness, not a claim of provider entitlement or successful AI.
-            "ready": bool(ready_profile_ids) or bool(management_state and management_state["ready"]),
+            "ready": audit_ready and (bool(ready_profile_ids) or bool(management_state and management_state["ready"])),
+            "audit_storage_ready": audit_ready,
             **({"model_management": management_state} if management_state is not None else {}),
             "ready_profile_ids": ready_profile_ids,
             "profile_id": compatibility["profile_id"],
@@ -252,7 +318,20 @@ class GatewayRuntime:
             "token_value_projected": False,
         }
 
+    def audit_storage_ready(self) -> bool:
+        try:
+            descriptor = os.open(self.audit_ledger, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                metadata = os.fstat(descriptor)
+                return stat.S_ISREG(metadata.st_mode) and metadata.st_uid == os.geteuid() and stat.S_IMODE(metadata.st_mode) == 0o600
+            finally:
+                os.close(descriptor)
+        except OSError:
+            return False
+
     def invoke(self, request: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if not self.audit_storage_ready():
+            return 503, {"policy_decision": "deny", "reasons": ["audit-storage-unavailable"]}
         decision = self.policy.evaluate(request)
         profile = decision.profile
         task = decision.task

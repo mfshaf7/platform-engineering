@@ -253,8 +253,16 @@ class CodexAdapter:
                 raise ProviderOutputInvalid("The bounded Codex answer exceeds the task byte limit.")
             # Authentication refresh remains in Platform custody; a sink must
             # persist it to the dedicated Vault path using compare-and-swap.
-            if self.account_sink and protocol.account_path.is_file():
-                self.account_sink(protocol.account_path.read_bytes())
+            if self.account_sink:
+                try:
+                    if not protocol.account_path.is_file():
+                        raise ValueError("Native account projection is absent")
+                    self.account_sink(protocol.account_path.read_bytes())
+                except Exception:
+                    # The turn has already completed. A custody failure is not
+                    # pre-submission unavailability and must never cause a
+                    # second provider to run through the fallback path.
+                    raise ProviderIntegrityError("Completed Codex turn account custody could not be committed.") from None
             return ProviderResult(output=value, model_digest=None, runtime_version=model["runtime_version"],
                                   latency_ms=int((time.monotonic() - started) * 1000), usage={}, prompt_version=prompt_version)
         finally:

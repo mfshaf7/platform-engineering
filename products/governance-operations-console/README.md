@@ -137,3 +137,8 @@ The normal managed frontend uses a private exact-source standalone artifact;
 editing keeps hot reload in a separate source worktree. The [complete-runtime
 procedure](runbooks/operate-complete-runtime.md#everyday-frontend-development-and-memory)
 defines build custody, memory containment and operating proof.
+
+Restart recovery uses the same complete-runtime procedure and operator-login
+service. Startup waits boundedly for Docker/Kubernetes readiness; failed-start
+compensation preserves recovery registration, while intentional teardown still
+removes it. See the complete-runtime runbook for current-state and restart proof.

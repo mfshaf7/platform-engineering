@@ -566,6 +566,7 @@ def bounded_standalone_environment(
         )
     bounded.pop("DEVINT_COMPOSITION_ID", None)
     bounded.pop("DEVINT_COMPOSITION_ROOT_PROFILE_ID", None)
+    bounded.pop("DEVINT_COMPOSITION_ACTION", None)
     return bounded
 
 
@@ -828,6 +829,8 @@ def execute_composition(
         credential_values=credentials,
         operator=operator,
     )
+    for environment in environments.values():
+        environment["DEVINT_COMPOSITION_ACTION"] = action
     run_order = list(reversed(profile_order)) if action == "down" else profile_order
     completed: list[str] = []
     failures: list[str] = []

@@ -1235,7 +1235,15 @@ def main() -> int:
                 else:
                     auto_resume_projection = enable_auto_resume(auto_resume_spec)
             elif final_returncode == 0 and command_key in {"down", "reset"}:
-                auto_resume_projection = disable_auto_resume(auto_resume_spec)
+                if (command_key == "down"
+                    and os.environ.get("DEVINT_COMPOSITION_ID")
+                    and os.environ.get("DEVINT_COMPOSITION_ACTION") == "up"):
+                    # Compensation for a failed parent start must leave its
+                    # restart controller registered. An intentional shutdown
+                    # still disables recovery through the normal branch.
+                    auto_resume_projection = inspect_auto_resume(auto_resume_spec)
+                else:
+                    auto_resume_projection = disable_auto_resume(auto_resume_spec)
             else:
                 auto_resume_projection = inspect_auto_resume(auto_resume_spec)
         except AutoResumeError as exc:

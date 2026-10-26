@@ -33,6 +33,56 @@ class CompleteRuntimeTests(unittest.TestCase):
         environment = patch.dict(os.environ, {"DEVINT_OPERATOR": identity.removeprefix("operator:")})
         environment.start()
         self.addCleanup(environment.stop)
+        self.dependency_wait = runtime.wait_runtime_dependencies
+        readiness = patch.object(runtime, "wait_runtime_dependencies")
+        readiness.start()
+        self.addCleanup(readiness.stop)
+
+    def test_cold_dependencies_wait_until_both_real_prerequisites_are_ready(self):
+        def probe(command, **kwargs):
+            self.assertLessEqual(kwargs["timeout"], 5)
+            self.assertEqual(command[0], "/controlled/" + ("docker" if "info" in command else "k3s"))
+            if "info" in command:
+                return runtime.subprocess.CompletedProcess(command, next(docker_codes), "29.8.2", "")
+            return runtime.subprocess.CompletedProcess(command, 0, "ok", "")
+        docker_codes = iter([1, 0])
+        with (patch.object(runtime.shutil, "which", side_effect=lambda name, **kw: "/controlled/" + name),
+              patch.object(runtime.subprocess, "run", side_effect=probe) as commands,
+              patch.object(runtime.time, "sleep") as sleep):
+            self.dependency_wait(runtime.validate_policy())
+        self.assertEqual(commands.call_count, 4)
+        sleep.assert_called_once()
+
+    def test_dependency_failure_is_bounded_and_does_not_emit_raw_errors(self):
+        with (patch.object(runtime.shutil, "which", side_effect=lambda name, **kw: "/controlled/" + name),
+              patch.object(runtime.subprocess, "run", return_value=runtime.subprocess.CompletedProcess([], 1, "", "private diagnostic"))):
+            with self.assertRaisesRegex(runtime.RuntimeError, "prerequisites unavailable: Docker daemon, Kubernetes API"):
+                self.dependency_wait(runtime.validate_policy(), timeout_seconds=0)
+
+    def test_dependency_probe_handles_timeout_and_rejects_foreign_ready_body(self):
+        with (patch.object(runtime.shutil, "which", side_effect=lambda name, **kw: "/controlled/" + name),
+              patch.object(runtime.subprocess, "run", side_effect=[
+                  runtime.subprocess.TimeoutExpired("docker", 1),
+                  runtime.subprocess.CompletedProcess([], 0, "not-ready", "")])):
+            with self.assertRaisesRegex(runtime.RuntimeError, "Docker daemon, Kubernetes API"):
+                self.dependency_wait(runtime.validate_policy(), timeout_seconds=0)
+
+    def test_unready_boot_dependencies_fail_before_configuration_or_credentials(self):
+        policy = self.accepted_policy()
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
+            stack.enter_context(patch.object(runtime, "require_activation_allowed"))
+            stack.enter_context(patch.object(runtime, "require_provider_tools"))
+            stack.enter_context(patch.object(runtime, "wait_runtime_dependencies",
+                side_effect=runtime.RuntimeError("startup prerequisites unavailable")))
+            effects = [stack.enter_context(patch.object(runtime, name)) for name in
+                ("write_resolved_policies", "write_composition_supervisor", "refresh_record_authorities",
+                 "deliver_repository_provisioning_identity", "credential", "write_provider_unit", "run")]
+            image = stack.enter_context(patch.object(runtime.model_management, "prepare"))
+            with self.assertRaisesRegex(runtime.RuntimeError, "startup prerequisites unavailable"):
+                runtime.activate(policy)
+            for effect in [*effects, image]:
+                effect.assert_not_called()
 
     def test_model_management_status_uses_authenticated_console_read_and_no_previous_request(self):
         policy = runtime.validate_policy()

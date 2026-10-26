@@ -1824,12 +1824,15 @@ def activate(policy: dict[str, Any]) -> Path:
         operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
     require_publication_owner_bindings(policy)
     run(cross_domain_command("activate"))
+    # Confirm direct artifact/consumer readiness before enabling the provider.
+    # Its intentionally blocked capabilities cannot be their own repair gate.
+    artifact_recovery.confirmed(STATE_ROOT)
     write_active_marker(policy)
     refresh_stale_provider(policy)
     write_repository_refresh_units()
     result = status(policy, action="activate")
-    artifact_recovery.confirmed(STATE_ROOT)
-    receipt('artifact-recovery', policy, {'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})
+    receipt('artifact-recovery', policy, {**artifact_recovery.journal(STATE_ROOT),
+        'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})
     return result
 
 

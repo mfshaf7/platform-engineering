@@ -491,11 +491,13 @@ def operate(action, policy):
             write(incident, {**previous, 'phase': 'restored-awaiting-readiness'})
         elif action == 'confirm' and incident.exists():
             unhealthy = [p for p in pods if p['metadata']['namespace'] in policy['namespaces']
+                         and not p['metadata'].get('deletionTimestamp')
                          and p.get('status', {}).get('phase') not in ('Succeeded',)
                          and not any(c.get('type') == 'Ready' and c.get('status') == 'True' for c in p.get('status', {}).get('conditions', []))]
             if unhealthy:
                 raise IntegrityError('consumer readiness has not recovered; incident remains open')
-            write(incident, {'phase': 'closed', 'reference': reference})
+            write(incident, {**json.loads(incident.read_bytes()), 'phase': 'closed',
+                             'confirmed_monotonic': time.monotonic(), 'boot_id': report['boot_id']})
     if report['corrupt'] and action != 'repair':
         report['status'] = 'corrupt'
     write(STATE / 'last-result.json', report)

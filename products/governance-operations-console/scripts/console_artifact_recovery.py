@@ -289,7 +289,7 @@ def runtime_fault(run):
 
 def confirmed(root):
     value = helper('confirm')
-    save(root, {'state': 'healthy', 'checked_images': value['checked_images'], 'confirmed_at': time.time()})
+    save(root, {**journal(root), 'state': 'healthy', 'checked_images': value['checked_images'], 'confirmed_at': time.time()})
     return value
 
 

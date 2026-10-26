@@ -37,6 +37,8 @@ class CompleteRuntimeTests(unittest.TestCase):
         readiness = patch.object(runtime, "wait_runtime_dependencies")
         readiness.start()
         self.addCleanup(readiness.stop)
+        receipts = Path(self.enterContext(tempfile.TemporaryDirectory(prefix='console-runtime-unit-receipts-')))
+        self.enterContext(patch.object(runtime, 'RECEIPT_ROOT', receipts))
         for name, value in [('startup', {'checked_images': 1}), ('confirmed', {}), ('maintenance', False)]:
             boundary = patch.object(runtime.artifact_recovery, name, return_value=value)
             boundary.start(); self.addCleanup(boundary.stop)
@@ -190,6 +192,16 @@ class CompleteRuntimeTests(unittest.TestCase):
         policy = self.accepted_policy(); events = []
         ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "require_publication_owner_bindings", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
         with ExitStack() as stack:
+            root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='console-recovery-order-')))
+            policy['runtime_state_root'] = str(root)
+            stack.enter_context(patch.object(runtime, 'STATE_ROOT', root))
+            runtime.artifact_recovery.save(root, {'state': 'restored-awaiting-readiness'})
+            before = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
+            self.assertTrue(any(not item['available'] for item in before['subjects'][0]['capabilities']))
+            def confirmed(value):
+                runtime.artifact_recovery.save(value, {'state': 'healthy'})
+                events.append('artifact-consumers-ready')
+            stack.enter_context(patch.object(runtime.artifact_recovery, 'confirmed', side_effect=confirmed))
             for name in ignored: stack.enter_context(patch.object(runtime, name))
             stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
             stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
@@ -201,7 +213,9 @@ class CompleteRuntimeTests(unittest.TestCase):
             for name in ("write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"):
                 stack.enter_context(patch.object(runtime, name, side_effect=lambda *args, _name=name, **kwargs: events.append(_name)))
             runtime.activate(policy)
-        self.assertEqual(events, ["write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+            catalog = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
+            self.assertTrue(all(item['available'] for item in catalog['subjects'][0]['capabilities']))
+        self.assertEqual(events, ['artifact-consumers-ready', "write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
 
     def test_publication_projection_uses_the_existing_decision_and_reviewed_authority(self):
         policy = self.accepted_policy()

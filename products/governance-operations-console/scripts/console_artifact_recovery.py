@@ -49,10 +49,12 @@ def helper(action):
         value = json.loads(result.stdout)
     except (OSError, ValueError, subprocess.TimeoutExpired):
         raise RecoveryError('integrity helper unavailable; use the reviewed install-integrity procedure') from None
-    if result.returncode or value.get('status') == 'operator-required':
+    if result.returncode or value.get('status') not in {'healthy', 'corrupt'}:
         raise RecoveryError(value.get('reason', 'integrity check/repair failed'))
     if value.get('helper_sha256') != digest(SOURCE) or value.get('policy_sha256') != digest(POLICY):
         raise RecoveryError('installed integrity helper differs from accepted source; reinstall through the owner procedure')
+    if action in {'repair', 'confirm'} and value['status'] != 'healthy':
+        raise RecoveryError('replacement/readiness verification still detects corruption; incident remains open')
     return value
 
 

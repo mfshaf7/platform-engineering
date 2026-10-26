@@ -10,6 +10,13 @@ import console_artifact_recovery as recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_corrupt_or_unknown_helper_result_cannot_be_confirmed_healthy(self):
+        for state in ('corrupt', 'unexpected-state'):
+            value = {'status': state, 'helper_sha256': recovery.digest(recovery.SOURCE), 'policy_sha256': recovery.digest(recovery.POLICY)}
+            reply = subprocess.CompletedProcess([], 0, json.dumps(value))
+            with self.subTest(state=state), patch.object(recovery.subprocess, 'run', return_value=reply), self.assertRaises(recovery.RecoveryError):
+                recovery.helper('confirm')
+
     def test_root_invocation_matches_canonical_platform_host_not_an_assumed_distro(self):
         expected = recovery.yaml.safe_load((recovery.PRODUCT.parents[1] / 'ansible/group_vars/all/main.yml').read_text())['platform_windows_wsl_distro']
         self.assertEqual(recovery.root_command(['/usr/bin/id', '-u'])[1:3], ['-d', expected])

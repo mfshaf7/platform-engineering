@@ -31,6 +31,16 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_aliases_recreated_by_cri_pull_are_not_tagged_again_or_overwritten(self):
+        reference = 'repo@sha256:' + 'a'*64
+        rows = ('REF TYPE DIGEST\nrepo:tag type sha256:' + 'a'*64 + '\nsha256:config type sha256:' + 'a'*64 + '\n').encode()
+        with patch.object(integrity, 'command', return_value=rows) as command:
+            integrity.restore_aliases(reference, ['repo:tag', 'sha256:config'])
+            self.assertEqual(command.call_count, 1)
+        with patch.object(integrity, 'command', return_value=rows.replace(b'a'*64, b'b'*64)) as command, self.assertRaises(integrity.IntegrityError):
+            integrity.restore_aliases(reference, ['repo:tag'])
+        self.assertEqual(command.call_count, 1)
+
     def test_retained_job_without_a_pod_still_covers_its_cached_tool(self):
         reference = 'docker.io/minio/mc@sha256:' + 'a'*64
         policy = {'namespaces': ['devint-proof'], 'repositories': ['docker.io/minio/mc']}

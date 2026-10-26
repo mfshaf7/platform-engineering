@@ -409,6 +409,17 @@ def image_users(config, reference):
             or x.get('imageId') == config]
 
 
+def restore_aliases(reference, aliases):
+    rows = command(ctr('images', 'list')).decode().splitlines()[1:]
+    targets = {row.split()[0]: row.split()[2] for row in rows if len(row.split()) >= 3}
+    for alias in aliases:
+        if alias in targets:
+            if targets[alias] != reference.split('@')[1]:
+                raise IntegrityError('original image alias changed during repair')
+        else:
+            command(ctr('images', 'tag', reference, alias))
+
+
 def repair(reference, aliases, expected, incident, policy=None):
     if incident.exists() and json.loads(incident.read_bytes()).get('phase') != 'closed':
         raise IntegrityError('this artifact already consumed its repair attempt; operator required')
@@ -439,9 +450,7 @@ def repair(reference, aliases, expected, incident, policy=None):
     if result.returncode == 0:
         raise IntegrityError('unpacked snapshot retained by another user; operator required')
     command(['crictl', 'pull', reference], timeout=300)
-    for alias in aliases:
-        if alias != reference:
-            command(ctr('images', 'tag', reference, alias))
+    restore_aliases(reference, aliases)
     _, differences = compare(reference)
     if differences:
         raise IntegrityError('replacement failed trusted byte verification; operator required')
@@ -478,13 +487,7 @@ def operate(action, policy):
             # A crash after the replacement can resume from freshly proven
             # bytes without repeating image removal/pull. Restore only absent
             # original aliases; never replace another target.
-            rows = command(ctr('images', 'list')).decode().splitlines()[1:]
-            targets = {row.split()[0]: row.split()[2] for row in rows if len(row.split()) >= 3}
-            for alias in previous['aliases']:
-                if alias in targets and targets[alias] != reference.split('@')[1]:
-                    raise IntegrityError('original image alias changed during interrupted repair')
-                if alias not in targets:
-                    command(ctr('images', 'tag', reference, alias))
+            restore_aliases(reference, previous['aliases'])
             write(incident, {**previous, 'phase': 'restored-awaiting-readiness'})
         elif action == 'confirm' and incident.exists():
             unhealthy = [p for p in pods if p['metadata']['namespace'] in policy['namespaces']

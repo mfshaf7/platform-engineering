@@ -312,6 +312,56 @@ def compare(reference):
     return {**expected, 'mismatch_evidence': {key: {'expected': expected['entries'].get(key), 'observed': actual.get(key)} for key in differences[:10]}}, differences
 
 
+def normalized_image(value):
+    value = value.removeprefix('docker-pullable://')
+    if DIGEST.fullmatch(value):
+        return value
+    name, separator, digest = value.partition('@')
+    if '/' not in name:
+        name = 'docker.io/library/' + name
+    elif '.' not in name.split('/')[0] and name.split('/')[0] != 'localhost':
+        name = 'docker.io/' + name
+    if separator:
+        if not DIGEST.fullmatch(digest):
+            raise IntegrityError('invalid declared image digest')
+        name = name.rsplit(':', 1)[0] if ':' in name.rsplit('/', 1)[-1] else name
+        return name + '@' + digest
+    return name if ':' in name.rsplit('/', 1)[-1] else name + ':latest'
+
+
+def declared_references(policy, workloads, cached_images):
+    """Include retained Job/controller templates even after finished Pods retire."""
+    references = set()
+    for item in workloads:
+        if item['metadata']['namespace'] not in policy['namespaces']:
+            continue
+        owner = item.get('spec', {})
+        if item.get('kind') == 'CronJob':
+            owner = owner.get('jobTemplate', {}).get('spec', {})
+        template = owner.get('template', {}).get('spec', {})
+        for container in template.get('containers', []) + template.get('initContainers', []):
+            requested = normalized_image(container['image'])
+            repository = requested.split('@')[0]
+            repository = repository.rsplit(':', 1)[0] if ':' in repository.rsplit('/', 1)[-1] else repository
+            if not DIGEST.fullmatch(requested) and repository not in policy['repositories']:
+                continue  # no privileged repair admission for historical/unused foreign images
+            candidates = set()
+            for cached in cached_images:
+                aliases = {normalized_image(x) for x in cached.get('repoTags', []) + cached.get('repoDigests', [])}
+                if cached.get('id') != requested and requested not in aliases:
+                    continue
+                for reference in cached.get('repoDigests', []):
+                    reference = normalized_image(reference)
+                    if '@' in requested and reference != requested:
+                        continue
+                    if reference.split('@')[0] in policy['repositories'] and (DIGEST.fullmatch(requested) or reference.split('@')[0] == repository):
+                        candidates.add(reference)
+            if len(candidates) > 1:
+                raise IntegrityError('declared cached image identity is ambiguous')
+            references.update(candidates)
+    return references
+
+
 def admitted_inventory(policy):
     pods = native_json(['kubectl', 'get', 'pods', '-A', '-o', 'json'])['items']
     references = set()
@@ -323,6 +373,9 @@ def admitted_inventory(policy):
             if '@' not in reference or reference.split('@')[0] not in policy['repositories'] or not DIGEST.fullmatch(reference.split('@')[1]):
                 raise IntegrityError('managed image has no admitted immutable identity')
             references.add(reference)
+    workloads = native_json(['kubectl', 'get', 'deployments,statefulsets,daemonsets,jobs,cronjobs', '-A', '-o', 'json'])['items']
+    cached_images = native_json(['crictl', 'images', '-o', 'json'])['images']
+    references.update(declared_references(policy, workloads, cached_images))
     path = STATE / 'inventory.json'
     # Retain identities across a reboot/owner shutdown. Never substitute a tag.
     prior = json.loads(path.read_bytes()) if path.exists() else []

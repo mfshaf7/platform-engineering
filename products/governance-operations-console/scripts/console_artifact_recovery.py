@@ -126,7 +126,7 @@ def owner_guard(root, *, exclusive):
 def assert_idle(root, run):
     # The caller already holds the complete-runtime lifecycle lock. Respect
     # independent owner/provider work and Helm compensation before quiescence.
-    pending = json.loads(run(['helm', 'list', '-A', '--pending', '-o', 'json']).stdout)
+    pending = json.loads(run(['helm', '--kubeconfig', '/etc/rancher/k3s/k3s.yaml', 'list', '-A', '--pending', '-o', 'json']).stdout)
     if pending:
         raise RecoveryDeferred('owner Helm operation/rollback is still pending; repair deferred')
     for path in (root / 'provider/operations').glob('*.json'):
@@ -188,7 +188,9 @@ def _recover_images(root, run, report):
     if current['state'] == 'quiescing':
         # Safe idempotent continuation before the destructive-attempt boundary.
         controllers = current['controllers']
-    value = {'state': 'quiescing', 'controllers': controllers, 'corrupt': report['corrupt'], 'started_at': time.time()}
+    value = {'state': 'quiescing', 'controllers': controllers, 'corrupt': report['corrupt'],
+             'completed_pods': current.get('completed_pods', completed) if current['state'] == 'quiescing' else completed,
+             'started_at': time.time()}
     save(root, value)
     for item in controllers:
         observed = json.loads(run(['k3s', 'kubectl', '-n', item['namespace'], 'get', item['resource'], '-o', 'json']).stdout)

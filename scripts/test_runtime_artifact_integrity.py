@@ -31,6 +31,21 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_retained_job_without_a_pod_still_covers_its_cached_tool(self):
+        reference = 'docker.io/minio/mc@sha256:' + 'a'*64
+        policy = {'namespaces': ['devint-proof'], 'repositories': ['docker.io/minio/mc']}
+        job = {'kind': 'Job', 'metadata': {'namespace': 'devint-proof'},
+               'spec': {'template': {'spec': {'containers': [{'image': 'minio/mc:release'}]}}}}
+        cached = {'id': 'sha256:' + 'b'*64, 'repoTags': ['docker.io/minio/mc:release'], 'repoDigests': [reference]}
+        self.assertEqual(integrity.declared_references(policy, [job], [cached]), {reference})
+        self.assertEqual(integrity.declared_references(policy, [job], []), set())
+        cached['repoDigests'].append('docker.io/minio/mc@sha256:' + 'c'*64)
+        with self.assertRaises(integrity.IntegrityError): integrity.declared_references(policy, [job], [cached])
+        job['spec']['template']['spec']['containers'][0]['image'] = 'minio/mc:release@sha256:' + 'a'*64
+        self.assertEqual(integrity.declared_references(policy, [job], [cached]), {reference})
+        job['spec']['template']['spec']['containers'][0]['image'] = 'ghcr.io/unadmitted/dormant:old'
+        self.assertEqual(integrity.declared_references(policy, [job], [cached]), set())
+
     def test_read_only_view_is_removed_even_when_verification_fails(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(integrity, 'STATE', Path(directory)), patch.object(integrity, 'command') as command:
             with self.assertRaises(integrity.IntegrityError):

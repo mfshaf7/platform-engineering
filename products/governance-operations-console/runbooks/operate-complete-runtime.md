@@ -394,6 +394,51 @@ the same refresh path and checks
 the active timer and restored readiness. The owner recovery command remains
 `ACTION=restart`; routine renewal requires no Console operator or CLI action.
 
+## Everyday frontend, development and memory
+
+Normal activation builds the exact clean Security-selected Console revision
+in a private isolated source export, using locked dependencies and no live
+caller, session or provider configuration. The existing Console user service
+serves its standalone artifact. Every required static asset is copied; source,
+Node version and the complete code-file inventory are validated before start
+and in owner status. A changed, incomplete or foreign artifact fails closed.
+The served artifact remains separate from editable source and `.next` output.
+
+The build uses a4096MiB Node heap ceiling, one bounded build command at a time,
+and kills the compiler process group on failure or timeout. The normal frontend
+uses a2048MiB heap ceiling, systemd MemoryHigh3GiB, MemoryMax4GiB and at most1GiB
+swap. Three rapid failures stop automatic retries. These are containment limits,
+not an assertion of normal usage; commissioning records cold/warm peaks and
+verifies representative operations remain below them.
+
+For editing, use the normal reviewed source worktree and locked dependencies.
+Start `node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 4317`
+from that separate worktree. Keep its `.next` and dependencies separate from the
+always-on artifact. Ordinary hot reload remains available. A disconnected
+preview has no owner authority; authenticated integration still uses the
+existing exact composition and private configuration, never credentials copied
+into source or browser state. Publish a tested update through the existing
+source, Security and activation path. No rebuild occurs on every ordinary
+Console request.
+
+Retain the prior source and artifact for the existing accepted-source rollback
+and activation procedure. Runtime `ACTION=rollback` stops/revokes the frontend
+boundary while preserving backend records; it does not silently restore an old
+source decision. Restoring prior execution source follows the normal exact
+Security decision and activation path. Credential refresh does not build the
+frontend or replace its code. Restart reuses and verifies the selected artifact;
+failed preparation leaves the current frontend untouched. Inspect private
+`.building-*` logs after a failed build; preserve unexplained evidence and
+remove only proven disposable build exports after diagnosis. Do not disable
+source acceptance, type checks or functionality to meet a memory target.
+
+WSL available memory, cache/pressure and Windows vmmem working set are separate
+measurements. Cache reclamation eligibility and an appropriate VM ceiling must
+be verified at the host boundary; setting a flag that is already the default
+is not evidence of reclaimed host RAM. Required Console dependencies remain
+running. Host settings that require WSL restart are activated only after the
+existing restart-readiness checks and retained recovery state are ready.
+
 ## Commands
 
 Validate source without changing runtime:

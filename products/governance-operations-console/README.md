@@ -132,3 +132,8 @@ Publication owner bindings and projects their existing server-only metadata.
 Its status requires the actual Console Publication route to be live. Product
 publication remains an explicit Console/OOS action with native owner evidence;
 see [the complete-runtime procedure](runbooks/operate-complete-runtime.md#existing-product-publication-binding).
+
+The normal managed frontend uses a private exact-source standalone artifact;
+editing keeps hot reload in a separate source worktree. The [complete-runtime
+procedure](runbooks/operate-complete-runtime.md#everyday-frontend-development-and-memory)
+defines build custody, memory containment and operating proof.

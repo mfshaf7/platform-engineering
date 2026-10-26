@@ -107,3 +107,44 @@ Verify all of:
 The platform repo does not commit local secret-bearing files for the host stack.
 Those still need to be created inside the new distro before the stack is
 started.
+
+## Workstation memory budget and normal Console use
+
+Use the existing Windows-user `.wslconfig` to keep a measured VM ceiling and
+adequate swap. On the inspected48GiB workstation, the admitted stack plus one
+serialized Console build retained over10GiB available under the former24GiB
+default. A20GiB ceiling with6GiB swap leaves room for that measured workload
+while preserving Windows headroom. Re-measure before expanding workloads; this
+example is not a universal ceiling for every host or project.
+
+Preserve unrelated existing configuration. The memory entries are:
+
+```ini
+[wsl2]
+memory=20GB
+swap=6GB
+
+[experimental]
+autoMemoryReclaim=dropCache
+```
+
+The Console [complete-runtime procedure](../../products/governance-operations-console/runbooks/operate-complete-runtime.md#everyday-frontend-development-and-memory)
+serves a prebuilt artifact and isolates development/compiler output. Required
+backend services remain available. Use existing profile lifecycle controls only
+for workloads verified unnecessary; do not shut down required dependencies to
+make a memory graph look smaller.
+
+Microsoft's installedWSL3.0.3 [reclaim implementation](https://github.com/microsoft/WSL/blob/3.0.3/src/linux/init/util.cpp)
+requires a two-minute CPU window at or below0.5%. Reclaim is deferred while that
+condition is unmet. DropCache is already the documented default; an explicit
+entry records intended policy and is not proof of changed behavior. Compare
+Linux active memory, reclaimable cache/pressure and Windows working set
+separately. A single bounded diagnostic reclaim may test page-return behavior;
+periodic cache flushing or restart loops are not the normal operating strategy.
+
+Host configuration changes take effect only after the WSL VM restarts. Before
+requesting that restart, finish exact source/acceptance and cleanup, retain the
+current handoff and prove restart readiness. After restart, verify the actual
+guest ceiling/swap, managed Console artifact, credential timer, backend owner
+reads and Windows/Linux memory measurements. Keep the original configuration
+backup and prior accepted artifact for rollback.

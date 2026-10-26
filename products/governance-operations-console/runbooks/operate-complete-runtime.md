@@ -457,14 +457,24 @@ composition recovery registration. The controller finishes its failure/degraded
 record and the existing systemd retry policy applies: at most three starts in
 ten minutes, sixty seconds apart. An intentional `down`/`reset` still removes
 recovery registration. Repeated native crashes or permanently unavailable
-prerequisites remain failed; the service does not assert readiness or retry
-forever. Inspect the owner journal and the archived profile action result before
-another manual activation. Credential renewal can report a busy lifecycle while
+prerequisites remain failures, never readiness. The start limit applies per
+ten-minute window, not across the service lifetime; slow failures can continue
+retrying across windows. Inspect the owner journal and archived profile action
+result before another manual activation. Let an in-flight owner upgrade or
+rollback finish before stopping the controller to prevent another retry. Credential renewal can report a busy lifecycle while
 startup owns the lock and retries after that operation finishes.
 
 Use normal `ACTION=status` after startup. It must prove current source/artifact,
 consumed credentials and bindings, required owner projections and model registry;
 a running frontend or healthy homepage alone does not prove restored operation.
+Provider readiness must also match the exact accepted runtime version and
+model digest. An automatic Ollama update can leave an eligible profile with
+`provider-integrity-failed` even when the gateway is reachable. Compare bounded
+provider metadata with `security/governed-ai-model-profiles.yaml`, reconcile the
+existing binding through owner review and exact Security acceptance, then use
+normal activation. Do not infer file corruption from that refusal or relax the
+version/digest checks.
+
 Preserve original application data and history during restart rehearsal. Source
 and isolated fault-injection proof do not replace a real accepted-source startup
 witness or an actual PC reboot observation.

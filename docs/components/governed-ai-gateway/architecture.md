@@ -38,7 +38,7 @@ provider is unavailable or its version/digest differs. No model inference or
 automatic profile update occurs during readiness; invocation repeats integrity
 validation immediately before inference.
 
-The source-selected dev-integration binding is host Ollama `0.40.8` with
+The source-selected dev-integration binding is host Ollama `0.40.11` with
 `qwen3:8b` pinned by full digest. The adapter disables thinking, supplies no
 tools, enforces a strict classification schema, and bounds input size,
 concurrency, timeout, retry, context, and output tokens. The OpenAI binding is

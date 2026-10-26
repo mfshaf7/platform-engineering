@@ -33,7 +33,7 @@ The gateway is not:
 - dev-integration namespace: `devint-governed-ai-gateway-<operator>`
 - Argo application: none
 - stage/prod deployment: none
-- source-selected local provider: host Ollama `0.40.8` with pinned `qwen3:8b` digest
+- source-selected local provider: host Ollama `0.40.11` with pinned `qwen3:8b` digest
 - provider credentials: none for the local route; future paid credentials remain gateway-custodied
 - audit ledger: local PVC-backed dev-integration ledger only
 - direct consumer provider egress: denied by the dev-integration network-policy

@@ -273,9 +273,12 @@ replays its profile `up`; a composition-owned profile replays the complete
 composition `up` so its bindings are not discarded or rejected. The unit
 contains no credentials and allows volatile runtime directories and declared
 host services to be reconciled after a host or WSL restart even when required
-tools live outside systemd's default path. Failed recovery is capped at three
-attempts in ten minutes, with one minute between attempts, instead of retrying
-an impossible lifecycle command indefinitely.
+tools live outside systemd's default path. Recovery starts are rate-limited to three in ten minutes, with one minute
+between attempts. Hitting the rate limit leaves the service failed. This is
+not a total-attempt cap: slow failures can continue retrying across windows.
+Inspect persistent failures before another manual start. Let any in-flight
+owner upgrade or rollback finish before stopping the controller to prevent a
+subsequent retry.
 
 This is login-scoped recovery, not pre-login availability or a governed
 stage/production availability claim. A successful `down` or `reset` disables

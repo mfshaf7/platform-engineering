@@ -280,7 +280,7 @@ def mounted(reference):
         try:
             yield path
         finally:
-            command(ctr('images', 'unmount', str(path)))
+            command(ctr('images', 'unmount', '--rm', str(path)))
 
 
 def baseline(reference, *, fresh=False):

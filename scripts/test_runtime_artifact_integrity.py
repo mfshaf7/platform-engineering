@@ -31,6 +31,14 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_read_only_view_is_removed_even_when_verification_fails(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(integrity, 'STATE', Path(directory)), patch.object(integrity, 'command') as command:
+            with self.assertRaises(integrity.IntegrityError):
+                with integrity.mounted('repo@sha256:exact'):
+                    raise integrity.IntegrityError('synthetic verification failure')
+            self.assertIn('--rm', command.call_args.args[0])
+            self.assertEqual(command.call_args.args[0][3:5], ['images', 'unmount'])
+
     def test_stage_prod_unknown_registry_and_nonexplicit_scope_are_denied(self):
         policy = {'schema_version': 1, 'lane': 'dev-integration', 'automatic_repair': True,
                   'namespaces': ['devint-proof'], 'repositories': ['docker.io/library/postgres']}

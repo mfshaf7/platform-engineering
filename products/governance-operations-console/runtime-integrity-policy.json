@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "lane": "dev-integration",
+  "distribution": "Platform-Core",
+  "namespaces": [
+    "devint-accepted-idea-delivery-mfshaf7",
+    "devint-context-governance-gateway-mfshaf7",
+    "devint-governance-control-fabric-mfshaf7",
+    "devint-governed-ai-gateway-mfshaf7",
+    "devint-governed-ai-gateway-mfshaf7-consumer",
+    "devint-governed-ai-gateway-mfshaf7-provider-sentinel",
+    "devint-temporal-mfshaf7"
+  ],
+  "repositories": [
+    "docker.io/bitnamilegacy/memcached",
+    "docker.io/bitnamilegacy/postgresql",
+    "docker.io/library/node",
+    "docker.io/library/postgres",
+    "docker.io/library/python",
+    "docker.io/minio/mc",
+    "docker.io/minio/minio",
+    "docker.io/openproject/hocuspocus",
+    "docker.io/openproject/openproject",
+    "docker.io/temporalio/admin-tools",
+    "docker.io/temporalio/server",
+    "docker.io/temporalio/ui",
+    "ghcr.io/mfshaf7/governed-ai-runtime",
+    "ghcr.io/mfshaf7/operator-orchestration-service",
+    "ghcr.io/mfshaf7/workspace-governance-control-fabric"
+  ],
+  "automatic_repair": true,
+  "unmanaged_assets": "Host executables, mutable data, credentials and source work have no generic automatic restoration permission. Integrity/owner errors remain operator-required."
+}

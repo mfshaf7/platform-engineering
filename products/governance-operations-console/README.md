@@ -1,5 +1,10 @@
 # Governance Operations Console Platform Integration
 
+The existing complete-runtime lifecycle also owns bounded artifact integrity
+checks and recovery after exact Security acceptance. Follow the
+[primary integrity procedure](runbooks/operate-complete-runtime.md#automatic-artifact-integrity-and-recovery)
+for one-time helper installation, automatic operation, inspection and rollback.
+
 This directory defines how the Platform supplies display-safe operator
 identity, session truth, and admitted runtime observations to the Governance
 Operations Console server.

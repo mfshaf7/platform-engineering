@@ -1,5 +1,11 @@
 # Shared Platform Scripts
 
+`runtime_artifact_integrity.py` is the finite root-installed local image checker
+and exact-artifact cache refresher. Admission and consumer workflow are owned by
+the calling product lifecycle; this shared helper never accepts caller paths,
+shell commands or image references and never touches data volumes. See
+[ADR-031](../docs/decisions/adr/ADR-031-bounded-local-artifact-recovery.md).
+
 This directory is now reserved for shared platform scripts only.
 
 ## Shared Platform Scripts

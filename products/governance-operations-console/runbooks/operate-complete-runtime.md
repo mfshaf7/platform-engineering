@@ -1,5 +1,65 @@
 # Operate the complete Console runtime
 
+## Automatic artifact integrity and recovery
+
+This extension is staged until exact Security acceptance. After accepted source
+landing, commission its root-owned finite helper once, then activate normally:
+
+```bash
+make governance-console-complete-runtime ACTION=install-integrity
+make governance-console-complete-runtime ACTION=activate
+```
+
+Installation uses existing Windows/WSL administration; no containerd socket,
+credential, daemon or root arguments are exposed to Console/OOS/models. Admission
+is local namespace/repository scoped. Startup checks installed code/policy hashes
+against accepted source; updates require deliberate reviewed reinstallation.
+
+Startup checks unpacked image inventory/bytes against digest-verified OCI layers.
+Missing compressed layers may be fetched only from the exact public digest,
+without operator registry credentials or tag upgrades. Cached baselines avoid
+repeated decompression; mismatches regenerate independent verified baselines.
+
+The existing maintenance timer uses cheap pod/frontend failure signals. Healthy
+ticks do not scan images. For proven corruption, wait for owner work and pending
+Helm rollback, plan all shared users, preserve controller UIDs/replicas, pause
+affected managed consumers, refresh the identical cache and verify new bytes.
+Persistent volumes, databases, accounts, credentials and source work are not
+reset. Resume only through the retained supervisor; native normal readiness
+closes the incident. Unknown faults get one scan, not speculative restart loops.
+
+For corrupt frontend output, stop the managed frontend, quarantine derived cache,
+rebuild exact clean accepted source/toolchain without credentials and verify its
+native process/artifact. Failed/uncertain attempts latch across restart. Later
+new incidents can repair after successful confirmation; this is not a lifetime
+attempt cap.
+
+Inspect with:
+
+```bash
+make governance-console-complete-runtime ACTION=check-integrity
+make governance-console-complete-runtime ACTION=status
+journalctl --user -u governance-console-repository-credentials.service -n 30
+```
+
+Private complete-runtime `artifact-recovery.json` and `receipts/` retain phase,
+reason and evidence. Root state is
+`/var/lib/platform-engineering/runtime-integrity`. Existing Platform capability
+reasons expose recovery blocking. Integrity success alone does not prove owner
+data or readiness healthy.
+
+For a latched attempt, preserve journals and inspect exact bytes, root incident
+and consumer/owner state through the same administrator path. Do not delete
+journals or blindly replay uncertain effects. Unmanaged users, unsupported
+controllers, retained shared snapshots, unavailable upstream and failed verified
+replacement are operator-required. Host executables, mutable data and unique
+source have no generic automatic overwrite permission.
+
+Rollback uses reviewed admission with `automatic_repair` disabled and deliberate
+reinstallation, or restores prior accepted source/decision. Preserve data and
+evidence. This software cannot guarantee recovery from corrupted verifiers,
+mutable data or an unavailable host.
+
 This is the primary Platform operator surface for the complete local
 Governance Operations Console runtime. It composes the existing
 `refinement-catalog`; it does not create another runtime, workflow engine, or
@@ -53,8 +113,10 @@ publishes `ghcr.io/mfshaf7/governed-ai-runtime` with an input-derived tag.
 Activation pulls that artifact, checks its source/input labels, exact base
 layers and executable digest, and resolves the immutable registry digest before
 issuing new account credentials. Kubernetes pulls that digest through its normal
-node runtime. Activation never accesses the host containerd socket or needs
-sudo. Local `build-image` remains source proof and does not publish or deploy.
+node runtime. The model-management adapter never gives a product/container the
+host containerd socket. The separately admitted integrity helper above is the
+finite Platform-owned cache maintenance path. Local `build-image` remains source
+proof and does not publish or deploy.
 
 The first GHCR package publication defaults to private. Its owner must make
 this public, credential-free runtime package readable before commissioning;

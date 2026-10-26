@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agent_source_intent as source_credentials
 import console_record_authority as record_authority
+import console_artifact_recovery as artifact_recovery
 import prototype_closure_disposition as closure_disposition
 import prototype_closure_evidence as closure_evidence
 import prototype_closure_identity as closure_identity
@@ -155,15 +156,20 @@ def require_security_activation(policy: dict[str, Any], source_version: str) -> 
 def capability_catalog(policy: dict[str, Any], source_version: str, *, activated: bool) -> dict[str, Any]:
     provider = policy["platform_operation_provider"]
     capabilities = []
+    recovery_reason = artifact_recovery.blocked(Path(policy['runtime_state_root']))
     for action in sorted(ALLOWED_ACTIONS):
         source_action = action in source_credentials.ACTION_SET
         suffix = action.removeprefix("dev-integration.")
         available = activated or action in {"dev-integration.start", "dev-integration.status", "agent-source.revoke"}
+        reason = None if available else 'The complete Console runtime is not active.'
+        if recovery_reason and action not in {'dev-integration.status', 'dev-integration.access', 'agent-source.revoke'}:
+            available = False
+            reason = recovery_reason
         capabilities.append({
             "capability_id": action if source_action else f"dev-integration.{provider['profile_id']}.{suffix}",
             "action": action,
             "available": available,
-            "unavailable_reason": None if available else "The complete Console runtime is not active.",
+            "unavailable_reason": reason,
             "required_capability": f"platform.{action}" if source_action else f"platform.dev-integration.{suffix}",
             "approval_required": True,
             "destructive": action in {"dev-integration.stop", "agent-source.revoke"},
@@ -454,10 +460,29 @@ def reconcile_worker(record: dict[str, Any]) -> bool:
 
 
 def execute_worker(store: OperationStore, policy: dict[str, Any], command_id: str) -> int:
+    try:
+        with artifact_recovery.owner_guard(store.root.parent, exclusive=False):
+            return _execute_worker(store, policy, command_id)
+    except artifact_recovery.RecoveryDeferred as exc:
+        with store.lock(command_id):
+            record = store.read(command_id)
+            if record is not None and record['state'] == 'queued':
+                record.update(worker=None, cancel_available=False, retryable=True)
+                record['blocker'] = {'code': 'platform_artifact_recovery_busy', 'owner': 'platform-engineering',
+                                     'reason': str(exc), 'supported_dispositions': ['defer'], 'next_action': 'retry-same-operation'}
+                event(record, 'blocked', 'Platform deferred owner work while artifact recovery holds the lifecycle boundary.')
+                store.write(record)
+        return 1
+
+
+def _execute_worker(store: OperationStore, policy: dict[str, Any], command_id: str) -> int:
     with store.lock(command_id):
         record = store.read(command_id)
         if record is None or record["state"] != "queued":
             return 0
+        reason = artifact_recovery.blocked(Path(policy['runtime_state_root']))
+        if reason and record['command']['action'] not in {'dev-integration.status', 'dev-integration.access', 'agent-source.revoke'}:
+            raise artifact_recovery.RecoveryDeferred(reason)
         if record["command"]["action"] in source_credentials.ACTION_SET:
             try:
                 current_source = git_head()
@@ -590,6 +615,9 @@ class ProviderService:
                     raise ProviderError(409, "platform_provider_command_conflict", "Command identity is already bound to another intent.")
                 return 200, projection(current)
             record = new_record(command, self.source_version)
+            reason = artifact_recovery.blocked(Path(self.policy['runtime_state_root']))
+            if reason and command['action'] not in {'dev-integration.status', 'dev-integration.access', 'agent-source.revoke'}:
+                raise ProviderError(409, 'platform_artifact_recovery_required', reason)
             self.store.write(record)
             spawn_worker(self.store, record, self.policy_path)
             return 202, projection(record)

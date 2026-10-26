@@ -455,6 +455,8 @@ validate:
 	python3 products/governance-operations-console/scripts/test_console_runtime_observations.py
 	python3 products/governance-operations-console/scripts/test_console_cross_domain_activation.py
 	python3 products/governance-operations-console/scripts/test_console_frontend_artifact.py
+	python3 products/governance-operations-console/scripts/test_console_artifact_recovery.py
+	python3 scripts/test_runtime_artifact_integrity.py
 	python3 products/governance-operations-console/scripts/proposal_target_identity.py validate
 	python3 products/governance-operations-console/scripts/test_proposal_target_identity.py
 	python3 products/governance-operations-console/scripts/agent_console_platform.py validate

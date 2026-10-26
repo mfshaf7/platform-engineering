@@ -567,7 +567,8 @@ def write_units(policy: dict[str, Any], env_path: Path) -> None:
         raise ActivationError("validated runtime executable path is unavailable")
     revision = console_source_revision(policy)
     try:
-        artifact = frontend.prepare(repo_path(policy["console"]["repo"]), revision)
+        artifact = frontend.prepare(repo_path(policy["console"]["repo"]), revision,
+            stop_consumer=lambda: run(['systemctl', '--user', 'stop', unit_name('console')]))
     except frontend.FrontendArtifactError as exc:
         raise ActivationError(str(exc)) from None
     for role in ("oos", "wgcf"):
@@ -641,6 +642,7 @@ def frontend_runtime_status(policy: dict[str, Any]) -> dict[str, Any]:
         if (process_root.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19] != start_identity
                 or run(["systemctl", "--user", "show", unit_name("console"), "-p", "MainPID", "--value"]).stdout.strip() != str(pid)):
             raise ActivationError("Console frontend process changed during readback")
+        frontend.confirm_recovery(artifact)
         return {"mode": "standalone", "source_revision": revision,
                 "build_id": (artifact / ".next/BUILD_ID").read_text().strip(),
                 "verified_files": len(manifest["files"]), "memory_high_bytes": 3 * 1024**3,

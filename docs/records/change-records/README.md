@@ -2,6 +2,10 @@
 
 ## Purpose
 
+The [bounded artifact recovery extension](2026-10-27-bounded-artifact-recovery.md)
+records the existing local lifecycle's integrity/restoration boundary. Exact
+Security acceptance and native automatic proof remain required.
+
 This directory stores short evidence records for production-impacting changes.
 
 These are not full incident diaries. They are structured completion records for

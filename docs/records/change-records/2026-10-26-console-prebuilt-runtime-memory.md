@@ -49,6 +49,7 @@ security_evidence:
 
 ## Host Or Runtime Recovery
 
+- Execution correction: During this work, unignored local diagnostics were initially written under the live Platform primary. The existing source-clean gate correctly blocked automatic credential renewal. Evidence was preserved and moved to verified ignored Console custody, the empty old directory removed, and normal renewal restarted. Owner-local `.art/` ignore coverage prevents this capture-path regression; its separate learning signal is tracked in the same closeout Landing Unit. No diagnostic data was staged or published.
 - Required host/runtime action: Normal exact Security acceptance and complete-runtime activation; measured WSL budget/reclamation settings require explicit activated readback after any necessary WSL restart.
 - Why it was environment drift instead of source defect: Current launch behavior matches the older source; this is an approved runtime-mode extension, not accidental source corruption.
 - Recovery command or procedure: Existing complete-runtime operator surface. Preserve private environment, account custody, owner records and the prior artifact. Keep development output outside the served artifact.

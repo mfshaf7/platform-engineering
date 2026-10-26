@@ -4,6 +4,8 @@ This directory stores Architecture Decision Records for shared platform design.
 
 ## Current ADRs
 
+- [ADR-031-bounded-local-artifact-recovery.md](ADR-031-bounded-local-artifact-recovery.md)
+
 - [ADR-001-source-of-truth-boundaries.md](ADR-001-source-of-truth-boundaries.md)
 - [ADR-002-runtime-workspace-materialization.md](ADR-002-runtime-workspace-materialization.md)
 - [ADR-003-vault-transit-auto-unseal.md](ADR-003-vault-transit-auto-unseal.md)

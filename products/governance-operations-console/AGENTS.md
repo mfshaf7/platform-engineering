@@ -82,6 +82,13 @@ OOS-to-Platform credential to Console or browser code, trust a PID without its
 boot and start-time identity, or claim availability from a stale activation
 marker.
 
+Automatic artifact recovery extends that same accepted lifecycle. Its finite
+root helper/policy require deliberate reviewed installation; no model/browser
+may supply root paths, image references or shell commands. The complete-runtime
+runbook owns the procedure and failed-attempt disposition. Preserve mutable
+data and unique source, respect owner-operation locks, and never bypass a
+latched uncertain repair by deleting its journal.
+
 The Epic 1313 model-management extension uses that same command and the exact
 composed AI Security decision. Keep the dedicated Codex account in its scoped
 Vault path, separate from the OOS management credential and interactive account.

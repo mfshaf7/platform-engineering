@@ -1,5 +1,11 @@
 # Console Platform Integration Scripts
 
+`console_artifact_recovery.py` connects the finite shared image checker to the
+existing lifecycle, owner locks, maintenance timer and retained supervisor. The
+frontend helper also rebuilds proven corrupt derived output once per incident.
+Use the [primary integrity procedure](../runbooks/operate-complete-runtime.md#automatic-artifact-integrity-and-recovery);
+do not expose direct helper arguments or add a daemon.
+
 `console_model_management.py` extends `console_complete_runtime.py` for the
 Epic 1313 model-management boundary: pinned native runtime construction,
 gateway-only account custody, bounded pod/network rendering, a distinct OOS

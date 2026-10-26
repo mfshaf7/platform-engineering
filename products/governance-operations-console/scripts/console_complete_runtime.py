@@ -31,6 +31,7 @@ import console_workflow_credentials as workflow_credentials
 import console_record_authority as record_authority
 import console_session_projection as session_projection
 import console_model_management as model_management
+import console_artifact_recovery as artifact_recovery
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -733,6 +734,7 @@ def write_composition_supervisor(policy: dict[str, Any]) -> None:
         command.extend(["--repo-path", f"{name}={path}"])
     content = "[Service]\nWorkingDirectory=" + _systemd_path_value(repo_path("platform-engineering")) + "\nExecStart=\nExecStart="
     content += " ".join(_systemd_quote(value) for value in command) + "\n"
+    content += "RestartPreventExitStatus=78\n"
     target = directory / "console-runtime.conf"
     if target.is_symlink():
         raise RuntimeError("the composition supervisor drop-in is unsafe")
@@ -949,6 +951,17 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
     policy, activation = resolve_security_decision(policy)
     require_materialized_policy(policy, activation)
     require_activation_allowed(policy)
+    try:
+        recovery_requested = artifact_recovery.maintenance(STATE_ROOT, run, composition_supervisor_unit(policy),
+            revision=policy['security']['reviewed_revisions']['governance-operations-console'])
+    except artifact_recovery.RecoveryDeferred:
+        recovery_requested = False  # still renew credentials while owner work finishes
+    except artifact_recovery.RecoveryError as exc:
+        artifact_recovery.save(STATE_ROOT, {**artifact_recovery.journal(STATE_ROOT), 'state': 'operator-required', 'reason': str(exc)})
+        receipt('artifact-recovery', policy, {'state': 'operator-required', 'reason': str(exc), 'owner_data_preserved': True})
+        raise
+    if recovery_requested:
+        return receipt('artifact-recovery', policy, {'state': 'resume-requested', 'owner_data_preserved': True})
     if model_management.enabled(policy):
         model_management.renew_account_lease(state_root=STATE_ROOT, run=run)
     try:
@@ -1788,6 +1801,8 @@ def activate(policy: dict[str, Any]) -> Path:
     wait_runtime_dependencies(policy)
     write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
+    integrity = artifact_recovery.startup(STATE_ROOT, run,
+        revision=policy['security']['reviewed_revisions']['governance-operations-console'])
     model_management.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
         operator_id=policy["platform_operation_provider"]["operator_id"],
         gateway_namespace="devint-governed-ai-gateway-" + operator(), run=run, vault_token=vault_token)
@@ -1812,7 +1827,23 @@ def activate(policy: dict[str, Any]) -> Path:
     write_active_marker(policy)
     refresh_stale_provider(policy)
     write_repository_refresh_units()
-    return status(policy, action="activate")
+    result = status(policy, action="activate")
+    artifact_recovery.confirmed(STATE_ROOT)
+    receipt('artifact-recovery', policy, {'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})
+    return result
+
+
+def install_integrity(policy: dict[str, Any]) -> Path:
+    policy, _ = resolve_security_decision(policy)
+    require_activation_allowed(policy)
+    report = artifact_recovery.install(run)
+    return receipt('install-integrity', policy, report)
+
+
+def check_integrity(policy: dict[str, Any]) -> Path:
+    policy, _ = resolve_security_decision(policy)
+    require_activation_allowed(policy)
+    return receipt('check-integrity', policy, artifact_recovery.helper('check'))
 
 
 def require_model_management_runtime(policy: dict[str, Any]) -> dict[str, Any] | None:
@@ -2147,7 +2178,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials"),
+        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "install-integrity", "check-integrity"),
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
@@ -2168,6 +2199,8 @@ def main() -> int:
             "teardown": teardown,
             "verify-operating": verify_operating,
             "refresh-credentials": refresh_repository_credentials,
+            "install-integrity": install_integrity,
+            "check-integrity": check_integrity,
         }
         if args.action == "activate" and not inside_composition_supervisor(policy):
             # Delegate before taking the lifecycle lock. The independently
@@ -2190,6 +2223,12 @@ def main() -> int:
                 result = actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
+    except artifact_recovery.RecoveryDeferred as exc:
+        print(f"complete Console runtime {args.action} deferred: {exc}", file=sys.stderr)
+        return 75
+    except artifact_recovery.RecoveryError as exc:
+        print(f"complete Console runtime {args.action} requires operator inspection: {exc}", file=sys.stderr)
+        return 78  # retained supervisor must not repeat a latched artifact repair
     except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError, model_management.ModelCompositionError) as exc:
         print(f"complete Console runtime {args.action} failed: {exc}", file=sys.stderr)
         return 1

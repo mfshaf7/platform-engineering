@@ -125,15 +125,40 @@ def build_command(args: list[str], source: Path, env: dict[str, str], log) -> No
         raise FrontendArtifactError("Console standalone build failed or timed out; inspect its private build log")
 
 
-def prepare(source: Path, revision: str, root: Path = ARTIFACT_ROOT) -> Path:
+def prepare(source: Path, revision: str, root: Path = ARTIFACT_ROOT, *, stop_consumer=None) -> Path:
     _, npm, version = toolchain()
     if command(["git", "-C", str(source), "rev-parse", "HEAD"]) != revision or command(["git", "-C", str(source), "status", "--porcelain"]):
         raise FrontendArtifactError("Console build requires clean selected source")
     private_directory(root)
     target = artifact_path(revision, version, root)
+    if target.is_symlink() or (target.exists() and target.stat().st_uid != os.getuid()):
+        raise FrontendArtifactError('Console artifact has unsafe recovery custody')
+    incident = root / f'.recovery-{target.name}.json'
+    quarantine = root / f'.corrupt-{target.name}'
+    if incident.is_symlink() or quarantine.is_symlink():
+        raise FrontendArtifactError('Console recovery paths must not be symlinks')
     if target.exists():
-        validate_artifact(target, revision, version)
-        return target
+        try:
+            validate_artifact(target, revision, version)
+            return target
+        except FrontendArtifactError:
+            if incident.exists() and json.loads(incident.read_text()).get('phase') != 'closed':
+                raise FrontendArtifactError('Console artifact already consumed its repair attempt; inspect recovery evidence') from None
+            if stop_consumer is not None:
+                stop_consumer()
+            for cwd in Path('/proc').glob('[0-9]*/cwd'):
+                try:
+                    if cwd.resolve(strict=True).is_relative_to(target):
+                        raise FrontendArtifactError('Stop the managed Console before repairing its artifact')
+                except (FileNotFoundError, PermissionError, ProcessLookupError):
+                    continue
+            if quarantine.exists():
+                raise FrontendArtifactError('Earlier Console quarantine still requires owner disposition')
+            incident.write_text(json.dumps({'phase': 'attempted', 'source_revision': revision, 'node_version': version}) + '\n')
+            incident.chmod(0o600)
+            target.rename(quarantine)
+    elif incident.exists() and json.loads(incident.read_text()).get('phase') != 'closed':
+        raise FrontendArtifactError('Interrupted Console rebuild requires inspection; no automatic replay')
     # One build at a time; the complete-runtime owner already serializes activation.
     work = Path(tempfile.mkdtemp(prefix=".building-", dir=root))
     private_directory(work)
@@ -166,10 +191,27 @@ def prepare(source: Path, revision: str, root: Path = ARTIFACT_ROOT) -> Path:
     private_directory(release)
     validate_artifact(release, revision, version)
     release.rename(target)
+    if quarantine.exists():
+        incident.write_text(json.dumps({'phase': 'rebuilt-awaiting-readiness', 'source_revision': revision, 'node_version': version}) + '\n')
     shutil.copyfile(work / "build.log", root / f".build-{target.name}.log")
     (root / f".build-{target.name}.log").chmod(0o600)
     shutil.rmtree(work)
     return target
+
+
+def confirm_recovery(target: Path) -> None:
+    """Called only after native frontend process/source/byte checks passed."""
+    incident = target.parent / f'.recovery-{target.name}.json'
+    quarantine = target.parent / f'.corrupt-{target.name}'
+    if incident.is_symlink() or quarantine.is_symlink():
+        raise FrontendArtifactError('unsafe Console recovery custody')
+    if incident.exists():
+        value = json.loads(incident.read_text())
+        if value.get('phase') == 'rebuilt-awaiting-readiness':
+            if quarantine.exists():
+                shutil.rmtree(quarantine)  # only superseded derived output, never source/data
+            value['phase'] = 'closed'
+            incident.write_text(json.dumps(value) + '\n')
 
 
 def main() -> int:

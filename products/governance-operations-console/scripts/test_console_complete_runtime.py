@@ -37,6 +37,9 @@ class CompleteRuntimeTests(unittest.TestCase):
         readiness = patch.object(runtime, "wait_runtime_dependencies")
         readiness.start()
         self.addCleanup(readiness.stop)
+        for name, value in [('startup', {'checked_images': 1}), ('confirmed', {}), ('maintenance', False)]:
+            boundary = patch.object(runtime.artifact_recovery, name, return_value=value)
+            boundary.start(); self.addCleanup(boundary.stop)
 
     def test_cold_dependencies_wait_until_both_real_prerequisites_are_ready(self):
         def probe(command, **kwargs):

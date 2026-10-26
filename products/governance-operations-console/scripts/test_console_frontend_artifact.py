@@ -102,7 +102,15 @@ class FrontendArtifactTests(unittest.TestCase):
                 artifact = frontend.prepare(source, revision, root / "artifacts")
                 frontend.validate_artifact(artifact, revision, "v22.0.0")
                 self.assertEqual(frontend.prepare(source, revision, root / "artifacts"), artifact)
-            self.assertEqual(len(seen), 2)
+                data = bytearray((artifact / 'server.js').read_bytes()); data[0] ^= 1
+                (artifact / 'server.js').write_bytes(data)
+                self.assertEqual(frontend.prepare(source, revision, root / 'artifacts'), artifact)
+                self.assertEqual(len(seen), 4)
+                frontend.validate_artifact(artifact, revision, 'v22.0.0')
+                self.assertTrue(list((root / 'artifacts').glob('.corrupt-*')))
+                (artifact / 'server.js').write_text('repeat corruption before readiness')
+                with self.assertRaisesRegex(frontend.FrontendArtifactError, 'consumed'):
+                    frontend.prepare(source, revision, root / 'artifacts')
             self.assertEqual((source / ".next/served.txt").read_text(), "original runtime")
             self.assertEqual(git("status", "--porcelain"), "")
             self.assertFalse((artifact / ".git").exists())

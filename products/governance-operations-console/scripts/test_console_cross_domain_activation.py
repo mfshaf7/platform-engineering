@@ -174,6 +174,8 @@ class CrossDomainActivationTests(unittest.TestCase):
             with (
                 patch.object(activation, "UNIT_ROOT", units),
                 patch.object(activation, "repo_path", return_value=console),
+                patch.object(activation, "console_source_revision", return_value="a" * 40),
+                patch.object(activation.frontend, "prepare", return_value=root / "artifact"),
                 patch.object(activation, "run"),
                 patch.object(activation, "operator", return_value="operator"),
                 patch.object(
@@ -185,7 +187,11 @@ class CrossDomainActivationTests(unittest.TestCase):
                 activation.write_units(self.policy, env_file)
             console_unit = (units / activation.unit_name("console")).read_text(encoding="utf-8")
             self.assertIn(f"EnvironmentFile={env_file}", console_unit)
-            self.assertIn("ExecStart=/tools/npm run dev", console_unit)
+            self.assertIn(f"WorkingDirectory={root / 'artifact'}", console_unit)
+            self.assertIn(" serve --artifact ", console_unit)
+            self.assertNotIn("run dev", console_unit)
+            self.assertIn("MemoryHigh=3G\nMemoryMax=4G\nMemorySwapMax=1G", console_unit)
+            self.assertIn("StartLimitBurst=3", console_unit)
             # The Next development supervisor can exit successfully when its
             # server child ends. A commissioned long-running UI must restart
             # on that exit as well as on a nonzero exit.
@@ -758,6 +764,7 @@ class CrossDomainActivationTests(unittest.TestCase):
 
         with (
             patch.object(activation, "validate"),
+            patch.object(activation, "write_units", side_effect=lambda *_: events.append("artifact")),
             patch.object(activation, "kubectl"),
             patch.object(activation, "run"),
             patch.object(activation, "wait_for_activity", side_effect=ready),
@@ -767,7 +774,14 @@ class CrossDomainActivationTests(unittest.TestCase):
         ):
             activation.restart(self.catalog_policy)
 
-        self.assertEqual(events, ["ready", "catalog"])
+        self.assertEqual(events, ["artifact", "ready", "catalog"])
+
+    def test_failed_artifact_preparation_preserves_running_owner_services(self):
+        with patch.object(activation, "validate"), patch.object(activation, "write_units", side_effect=activation.ActivationError("changed artifact")), patch.object(activation, "run") as run, patch.object(activation, "kubectl") as kubectl:
+            with self.assertRaises(activation.ActivationError):
+                activation.restart(self.catalog_policy)
+            run.assert_not_called()
+            kubectl.assert_not_called()
 
     def test_commission_binds_child_receipts_and_restores_availability(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

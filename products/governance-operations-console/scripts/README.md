@@ -124,3 +124,12 @@ projects only their four server metadata fields through the normal private
 environment writer, and checks the real Console route mode. It does not enable
 an owner, mutate a publication or copy stale environment values. Recovery and
 rollback remain part of the same complete-runtime command.
+
+## Console frontend artifact
+
+`console_frontend_artifact.py` is the internal artifact helper used by the
+existing cross-domain and complete-runtime launchers. It exports only exact
+committed Console source, builds without live credentials in isolated private
+state, and verifies the standalone code/static inventory before serving.
+Use the [primary complete-runtime procedure](../runbooks/operate-complete-runtime.md#everyday-frontend-development-and-memory)
+for activation, source acceptance, memory budgets and separate hot-reload work.

@@ -16,7 +16,7 @@ routes, or operating readiness.
 
 - the approved source revisions in `cross-domain-activation-policy.yaml` are checked out cleanly
 - the `accepted-idea-delivery` and `governance-control-fabric` profiles are active from those revisions
-- the Console dependencies are installed
+- Node22/npm10 are available to prepare the exact Console standalone artifact
 - Security review exists at the pinned Security revision
 
 When launched by the complete-runtime coordinator, its generated authority
@@ -47,6 +47,11 @@ Validate without changing runtime state:
 ```bash
 make governance-console-cross-domain ACTION=validate
 ```
+
+The launcher prepares the clean selected Console source in a private isolated
+build export and serves its source-bound standalone artifact, with static assets
+and runtime memory containment. The full operating and development procedure is
+in [Operate the complete Console runtime](operate-complete-runtime.md#everyday-frontend-development-and-memory).
 
 ## Rehearsal
 

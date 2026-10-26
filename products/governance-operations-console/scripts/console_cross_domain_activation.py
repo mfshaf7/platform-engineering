@@ -22,6 +22,7 @@ from urllib.request import Request, urlopen
 
 import yaml
 import console_record_authority as record_authority
+import console_frontend_artifact as frontend
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -564,6 +565,11 @@ def write_units(policy: dict[str, Any], env_path: Path) -> None:
     npm_path = shutil.which("npm")
     if not k3s_path or not npm_path:
         raise ActivationError("validated runtime executable path is unavailable")
+    revision = console_source_revision(policy)
+    try:
+        artifact = frontend.prepare(repo_path(policy["console"]["repo"]), revision)
+    except frontend.FrontendArtifactError as exc:
+        raise ActivationError(str(exc)) from None
     for role in ("oos", "wgcf"):
         owner = policy["owners"][role]
         content = f"""[Unit]
@@ -579,17 +585,22 @@ RestartSec=2
 WantedBy=default.target
 """
         (UNIT_ROOT / unit_name(role)).write_text(content, encoding="utf-8")
-    console_root = repo_path(policy["console"]["repo"])
     console = f"""[Unit]
 Description=Governance Operations Console cross-domain dev-integration
 Wants={unit_name('oos')} {unit_name('wgcf')}
 After={unit_name('oos')} {unit_name('wgcf')}
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
-WorkingDirectory={console_root}
+WorkingDirectory={artifact}
 EnvironmentFile={env_path}
 Environment=PATH={Path(npm_path).parent}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart={npm_path} run dev
+ExecStart={sys.executable} {Path(frontend.__file__).resolve()} serve --artifact {artifact} --revision {revision} --port {policy['console']['port']}
+MemoryAccounting=true
+MemoryHigh=3G
+MemoryMax=4G
+MemorySwapMax=1G
 Restart=always
 RestartSec=2
 
@@ -598,6 +609,44 @@ WantedBy=default.target
 """
     (UNIT_ROOT / unit_name("console")).write_text(console, encoding="utf-8")
     run(["systemctl", "--user", "daemon-reload"])
+
+
+def frontend_runtime_status(policy: dict[str, Any]) -> dict[str, Any]:
+    """Prove actual served artifact and process, not just an active unit or Git checkout."""
+    try:
+        node, _, version = frontend.toolchain()
+        revision = console_source_revision(policy)
+        artifact = frontend.artifact_path(revision, version)
+        manifest = frontend.validate_artifact(artifact, revision, version)
+        output = run(["systemctl", "--user", "show", unit_name("console"),
+                      "-p", "MainPID", "-p", "WorkingDirectory", "-p", "MemoryHigh", "-p", "MemoryMax"]).stdout
+        properties = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
+        pid = int(properties.get("MainPID", "0"))
+        if (pid <= 0 or Path(properties.get("WorkingDirectory", "/")).resolve() != artifact.resolve()
+                or (Path("/proc") / str(pid) / "cwd").resolve() != artifact.resolve()
+                or properties.get("MemoryHigh") != str(3 * 1024**3)
+                or properties.get("MemoryMax") != str(4 * 1024**3)):
+            raise ActivationError("Console frontend process/artifact or memory budget is not current")
+        # Next changes process.title, overwriting /proc/cmdline. Use the
+        # actual executable/cwd and the exact environment supplied at exec.
+        process_root = Path("/proc") / str(pid)
+        start_identity = process_root.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+        environment = dict(item.split("=", 1) for item in process_root.joinpath("environ").read_bytes().decode().split("\0") if "=" in item)
+        if ((process_root / "exe").resolve() != Path(node).resolve()
+                or environment.get("NODE_ENV") != "production"
+                or environment.get("HOSTNAME") != "127.0.0.1"
+                or environment.get("PORT") != str(policy["console"]["port"])
+                or environment.get("NODE_OPTIONS") != "--max-old-space-size=2048"):
+            raise ActivationError("Console frontend is not serving the selected standalone artifact")
+        if (process_root.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19] != start_identity
+                or run(["systemctl", "--user", "show", unit_name("console"), "-p", "MainPID", "--value"]).stdout.strip() != str(pid)):
+            raise ActivationError("Console frontend process changed during readback")
+        return {"mode": "standalone", "source_revision": revision,
+                "build_id": (artifact / ".next/BUILD_ID").read_text().strip(),
+                "verified_files": len(manifest["files"]), "memory_high_bytes": 3 * 1024**3,
+                "memory_max_bytes": 4 * 1024**3}
+    except (frontend.FrontendArtifactError, OSError, ValueError) as exc:
+        raise ActivationError(f"Console frontend artifact readback failed: {exc}") from None
 
 
 def enable_units() -> None:
@@ -610,6 +659,7 @@ def enable_units() -> None:
 def active_runtime_boundary(policy: dict[str, Any], env_path: Path | None = None) -> dict[str, Any]:
     selected_env = env_path or (PRIVATE_ROOT / "console.env")
     return {
+        "frontend": frontend_runtime_status(policy),
         "console_private_environment_mode": (
             oct(selected_env.stat().st_mode & 0o777) if selected_env.is_file() else None
         ),
@@ -1059,6 +1109,9 @@ def status(policy: dict[str, Any]) -> Path:
 
 def restart(policy: dict[str, Any]) -> Path:
     validate(policy)
+    # Prepare/verify before touching running services. Normal restarts reuse
+    # exact standalone output and never compile inside the served directory.
+    write_units(policy, PRIVATE_ROOT / "console.env")
     if policy.get("catalog_proof") or policy.get("proposal_target_proof"):
         oos = policy["owners"]["oos"]
         oos_namespace = namespace(oos["namespace"])

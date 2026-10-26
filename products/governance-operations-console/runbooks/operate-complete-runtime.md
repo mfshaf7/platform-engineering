@@ -439,6 +439,36 @@ is not evidence of reclaimed host RAM. Required Console dependencies remain
 running. Host settings that require WSL restart are activated only after the
 existing restart-readiness checks and retained recovery state are ready.
 
+## PC and WSL restart recovery
+
+Recovery reuses the existing operator-login composition service. It is not a
+pre-login or hardware-fault availability guarantee. The Windows bootstrap must
+start the selected WSL distro, Docker Desktop must be running, and user-systemd
+must be available for the configured operator.
+
+Accepted activation waits up to120seconds for read-only Docker daemon and
+Kubernetes API readiness before creating credentials, pulling runtime artifacts
+or changing workloads. Each probe is bounded. Missing tools, unavailable
+Security/source acceptance and exhausted dependency readiness remain explicit
+failures; no identity or readiness bypass is introduced.
+
+When a profile fails during startup, compensating teardown preserves the
+composition recovery registration. The controller finishes its failure/degraded
+record and the existing systemd retry policy applies: at most three starts in
+ten minutes, sixty seconds apart. An intentional `down`/`reset` still removes
+recovery registration. Repeated native crashes or permanently unavailable
+prerequisites remain failed; the service does not assert readiness or retry
+forever. Inspect the owner journal and the archived profile action result before
+another manual activation. Credential renewal can report a busy lifecycle while
+startup owns the lock and retries after that operation finishes.
+
+Use normal `ACTION=status` after startup. It must prove current source/artifact,
+consumed credentials and bindings, required owner projections and model registry;
+a running frontend or healthy homepage alone does not prove restored operation.
+Preserve original application data and history during restart rehearsal. Source
+and isolated fault-injection proof do not replace a real accepted-source startup
+witness or an actual PC reboot observation.
+
 ## Commands
 
 Validate source without changing runtime:

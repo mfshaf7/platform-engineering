@@ -1215,6 +1215,44 @@ def require_provider_tools() -> None:
         raise RuntimeError("Platform provider required tools unavailable: " + ", ".join(missing))
 
 
+def wait_runtime_dependencies(policy: dict[str, Any], *, timeout_seconds: float = 120) -> None:
+    """Wait for cold-boot dependencies without creating credentials or workloads."""
+    path = provider_service_path()
+    probes = [("Kubernetes API", "k3s", ["kubectl", "get", "--raw=/readyz"], "ok")]
+    if model_management.enabled(policy):
+        probes.insert(0, ("Docker daemon", "docker", ["info", "--format", "{{.ServerVersion}}"], None))
+    commands = []
+    for label, name, args, expected in probes:
+        executable = shutil.which(name, path=path)
+        if not executable:
+            raise RuntimeError(f"Console startup prerequisite tool unavailable: {name}")
+        commands.append((label, [executable, *args], expected))
+    deadline = time.monotonic() + timeout_seconds
+    waiting_logged = False
+    while True:
+        unavailable = []
+        for label, command, expected in commands:
+            try:
+                result = subprocess.run(command, capture_output=True, text=True,
+                    check=False, timeout=max(0.1, min(5, deadline - time.monotonic())))
+                ready = result.returncode == 0 and bool(result.stdout.strip())
+                if expected is not None:
+                    ready = ready and result.stdout.strip() == expected
+            except (OSError, subprocess.TimeoutExpired):
+                ready = False
+            if not ready:
+                unavailable.append(label)
+        if not unavailable:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError("Console startup prerequisites unavailable: " + ", ".join(unavailable))
+        if not waiting_logged:
+            print("Console startup waiting for: " + ", ".join(unavailable), flush=True)
+            waiting_logged = True
+        time.sleep(min(2, remaining))
+
+
 def write_provider_unit(policy: dict[str, Any], gateway: str, secret: str) -> None:
     ensure_private(STATE_ROOT)
     ensure_private(PRIVATE_ROOT)
@@ -1747,6 +1785,7 @@ def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     require_activation_allowed(policy)
     require_provider_tools()
+    wait_runtime_dependencies(policy)
     write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
     model_management.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,

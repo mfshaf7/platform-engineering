@@ -224,6 +224,7 @@ class RuntimeCompositionTests(unittest.TestCase):
                 "CALLER_SECRET": "stale",
                 "DEVINT_COMPOSITION_ID": "stale",
                 "DEVINT_COMPOSITION_ROOT_PROFILE_ID": "root",
+                "DEVINT_COMPOSITION_ACTION": "up",
                 "UNRELATED": "preserved",
             },
         )
@@ -557,6 +558,7 @@ class RuntimeCompositionTests(unittest.TestCase):
         calls: list[tuple[str, str]] = []
 
         def dispatch(action: str, profile_id: str, _environment: dict) -> int:
+            self.assertEqual(_environment["DEVINT_COMPOSITION_ACTION"], action)
             calls.append((action, profile_id))
             return 0
 
@@ -593,6 +595,7 @@ class RuntimeCompositionTests(unittest.TestCase):
         calls: list[tuple[str, str]] = []
 
         def dispatch(action: str, profile_id: str, _environment: dict) -> int:
+            self.assertEqual(_environment["DEVINT_COMPOSITION_ACTION"], "up")
             calls.append((action, profile_id))
             return 1 if action == "up" and profile_id == "gateway" else 0
 

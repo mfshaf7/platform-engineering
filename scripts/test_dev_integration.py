@@ -955,7 +955,7 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 },
                 "source_repos": [{"repo": "owner-repo"}],
                 "stage_handoff": {"required_checks": []},
-                "commands": {"up": "up.sh"},
+                "commands": {"up": "up.sh", "down": "up.sh"},
             }
             profile_path.write_text(
                 yaml.safe_dump(profile, sort_keys=False),
@@ -1052,6 +1052,32 @@ class DevIntegrationRunnerTests(unittest.TestCase):
             )
             manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["auto_resume"], projection)
+
+            # A successful compensation is part of a failed parent start. It
+            # must not unregister the controller that is meant to retry it.
+            for parent_action, automatic, should_disable in (
+                ("up", "1", False), ("up", "0", False), ("down", "0", True),
+            ):
+                with (self.subTest(parent_action=parent_action, automatic=automatic),
+                    patch.dict(os.environ, {
+                        "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                        "DEVINT_COMPOSITION_ROOT_PROFILE_ID": "test-profile",
+                        "DEVINT_COMPOSITION_ACTION": parent_action,
+                        "DEVINT_AUTO_RESUME": automatic,
+                    }),
+                    patch.object(DEV_INTEGRATION, "resolve_profile", return_value=resolved),
+                    patch.object(DEV_INTEGRATION.sys, "argv", [
+                        "dev_integration.py", "down", "--profile", "test-profile",
+                        "--operator", "test-operator", "--workspace-root", str(workspace_root),
+                    ]),
+                    patch.object(DEV_INTEGRATION, "dispatch_command",
+                        side_effect=lambda _command, **kwargs: kwargs["publish_result"](0)),
+                    patch.object(DEV_INTEGRATION, "disable_auto_resume", return_value=projection) as disable,
+                    patch.object(DEV_INTEGRATION, "inspect_auto_resume", return_value=projection) as inspect,
+                ):
+                    self.assertEqual(DEV_INTEGRATION.main(), 0)
+                    self.assertEqual(disable.call_count, int(should_disable))
+                    self.assertEqual(inspect.call_count, int(not should_disable))
 
     def test_repo_override_owns_profile_loading_and_dispatch_path(self) -> None:
         with tempfile.TemporaryDirectory(prefix="devint-runner-override-") as temp_dir:

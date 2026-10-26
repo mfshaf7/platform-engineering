@@ -133,3 +133,8 @@ committed Console source, builds without live credentials in isolated private
 state, and verifies the standalone code/static inventory before serving.
 Use the [primary complete-runtime procedure](../runbooks/operate-complete-runtime.md#everyday-frontend-development-and-memory)
 for activation, source acceptance, memory budgets and separate hot-reload work.
+
+The complete-runtime startup preflight waits boundedly for Docker daemon and
+Kubernetes API readiness before effects. Failed composition-start compensation
+retains its existing systemd recovery registration; deliberate teardown still
+removes it. The complete-runtime runbook owns recovery and acceptance steps.

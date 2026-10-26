@@ -282,6 +282,11 @@ stage/production availability claim. A successful `down` or `reset` disables
 and removes the generated unit. Failed lifecycle actions do not change the
 existing recovery registration.
 
+A composition carries its owning action through child lifecycle calls. A `down`
+used to compensate for failed `up` keeps the existing recovery registration, so
+the controller can publish degraded state and retry. Explicit composition
+`down` and standalone `down`/`reset` still remove recovery registration.
+
 When a workspace-registered runtime composition is required, use the same
 shared lifecycle surface with `COMPOSITION` instead of `PROFILE`:
 

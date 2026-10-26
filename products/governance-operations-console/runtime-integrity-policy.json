@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "lane": "dev-integration",
-  "distribution": "Ubuntu",
+  "distribution": "Platform-Core",
   "namespaces": [
     "devint-accepted-idea-delivery-mfshaf7",
     "devint-context-governance-gateway-mfshaf7",

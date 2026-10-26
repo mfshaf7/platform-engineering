@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
+import yaml
 
 PRODUCT = Path(__file__).resolve().parents[1]
 SOURCE = PRODUCT.parents[1] / 'scripts/runtime_artifact_integrity.py'
@@ -31,8 +32,9 @@ def digest(path):
 
 def root_command(arguments):
     policy = json.loads(POLICY.read_text())
-    if policy['distribution'] != 'Ubuntu':
-        raise RecoveryError('unsupported integrity helper distribution')
+    host = yaml.safe_load((PRODUCT.parents[1] / 'ansible/group_vars/all/main.yml').read_text())
+    if not isinstance(policy.get('distribution'), str) or policy['distribution'] != host.get('platform_windows_wsl_distro'):
+        raise RecoveryError('integrity helper distribution differs from the admitted Platform host')
     return [WSL, '-d', policy['distribution'], '-u', 'root', '--', *arguments]
 
 

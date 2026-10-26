@@ -10,6 +10,14 @@ import console_artifact_recovery as recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_root_invocation_matches_canonical_platform_host_not_an_assumed_distro(self):
+        expected = recovery.yaml.safe_load((recovery.PRODUCT.parents[1] / 'ansible/group_vars/all/main.yml').read_text())['platform_windows_wsl_distro']
+        self.assertEqual(recovery.root_command(['/usr/bin/id', '-u'])[1:3], ['-d', expected])
+        with tempfile.TemporaryDirectory() as directory:
+            policy = Path(directory) / 'policy.json'; policy.write_text('{"distribution":"unadmitted-other-distro"}')
+            with patch.object(recovery, 'POLICY', policy), self.assertRaises(recovery.RecoveryError):
+                recovery.root_command(['/usr/bin/id', '-u'])
+
     def test_real_owner_lock_excludes_repair_and_new_workers(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

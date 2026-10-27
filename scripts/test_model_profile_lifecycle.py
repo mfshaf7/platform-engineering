@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -23,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 OOS_ROOT = Path(os.environ["OOS_REPO_ROOT"]) if os.environ.get("OOS_REPO_ROOT") else next(
     ancestor / "operator-orchestration-service"
     for ancestor in REPO_ROOT.parents
-    if (ancestor / "operator-orchestration-service").is_dir()
+    if (ancestor / "operator-orchestration-service" / ".git").exists()
 )
 PROFILE_ID = "delivery-refinement-advisor-v1"
 sys.path.insert(0, str(REPO_ROOT / "dev-integration/profiles/governed-ai-gateway/runtime"))
@@ -187,6 +188,15 @@ class ModelProfileLifecycleTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_current_registry_projects_before_any_lifecycle_transaction(self) -> None:
+        output = self.work / "first-use-registry.json"
+        projected = self.run_cli("project", "--output", str(output))
+        self.assertEqual(0, projected.returncode, projected.stderr)
+        value = json.loads(output.read_text())
+        self.assertEqual(self.base_version, value["source"]["source_version"])
+        self.assertTrue(value["profiles"])
+        self.assertEqual(lifecycle.digest_value(value, "digest"), value["digest"])
 
     def profile(self) -> dict:
         registry = yaml.safe_load(
@@ -564,6 +574,7 @@ class ModelProfileLifecycleTests(unittest.TestCase):
             ["git", "-C", str(self.root), "rev-parse", "HEAD"], text=True
         ).strip()
         output = self.work / "readback.json"
+        history_root = self.work / "request-history"
         readback = self.run_cli(
             "readback",
             "--receipt", str(receipt),
@@ -572,6 +583,7 @@ class ModelProfileLifecycleTests(unittest.TestCase):
             "--review-digest", "sha256:" + "7" * 64,
             "--recorded-at", "2026-10-09T00:03:00Z",
             "--output", str(output),
+            "--request-history-root", str(history_root),
         )
         self.assertEqual(0, readback.returncode, readback.stderr)
         value = json.loads(output.read_text(encoding="utf-8"))
@@ -579,6 +591,35 @@ class ModelProfileLifecycleTests(unittest.TestCase):
         self.assertEqual("applied", fulfillment["state"])
         self.assertEqual(head, fulfillment["source"]["result_version"])
         self.assertEqual(lifecycle.ACTOR_ID, fulfillment["actor_id"])
+        request_id = value["oos_fulfillment"]["request_id"]
+        history = history_root / (hashlib.sha256(request_id.encode()).hexdigest() + ".json")
+        original = history.read_bytes()
+        bundle = json.loads(original)
+        self.assertEqual(lifecycle.digest_value(bundle, "digest"), bundle["digest"])
+        self.assertEqual(value, bundle["merged_readback"])
+        self.assertEqual(0o700, history_root.stat().st_mode & 0o777)
+        self.assertEqual(0o600, history.stat().st_mode & 0o777)
+        receipt_value = json.loads(receipt.read_text())
+        self.assertEqual(history, lifecycle.publish_request_history(history_root, receipt_value, value))
+        self.assertEqual(original, history.read_bytes())
+        forged = copy.deepcopy(value)
+        forged["oos_fulfillment"]["request_id"] = "model-profile-request:another-request"
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.publish_request_history(history_root, receipt_value, forged)
+        # A later legitimate source revision cannot replace completed history.
+        registry_path = self.root / lifecycle.REGISTRY
+        registry = yaml.safe_load(registry_path.read_text())
+        registry["model_profiles"][PROFILE_ID]["purpose"] += " Later registry revision."
+        registry_path.write_text(yaml.safe_dump(registry, sort_keys=False))
+        subprocess.run(["git", "-C", str(self.root), "add", "security"], check=True)
+        subprocess.run(["git", "-C", str(self.root), "commit", "-qm", "later registry source"], check=True)
+        projected = self.run_cli("project", "--output", str(self.work / "current-registry.json"))
+        self.assertEqual(0, projected.returncode, projected.stderr)
+        self.assertEqual(original, history.read_bytes())
+        self.assertEqual(head, json.loads(original)["merged_readback"]["source_version"])
+        history.chmod(0o644)
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.publish_request_history(history_root, receipt_value, value)
 
     def test_operating_verifier_reads_live_oos_and_console_and_exact_cleanup(self) -> None:
         completed, receipt_path, rollback_path = self.apply()

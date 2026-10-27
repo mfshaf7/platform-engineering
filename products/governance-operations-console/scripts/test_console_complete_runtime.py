@@ -500,6 +500,9 @@ class CompleteRuntimeTests(unittest.TestCase):
         # These tests isolate the pre-existing complete-runtime controls. The
         # managed-provider extension has its own admitted composition tests.
         policy.pop("model_management")
+        policy.pop("purpose_profiles")  # Tested through its own composition boundary.
+        policy.pop("runtime_observations")  # Dedicated filesystem/timer composition witnesses.
+        policy.pop("durable_orchestration")  # Dedicated exact-bundle composition witnesses.
         revisions = {
             "context-governance-gateway": "3" * 40,
             "governance-operations-console": "a" * 40,
@@ -540,7 +543,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             runtime.require_activation_allowed(policy)
 
     def test_complete_runtime_commands_select_the_current_platform_checkout(self) -> None:
-        policy = runtime.validate_policy()
+        policy = self.accepted_policy()
         reviewed_checkout = Path("/tmp/reviewed-platform-worktree")
         with (
             patch.object(runtime, "REPO_ROOT", reviewed_checkout),
@@ -652,7 +655,9 @@ class CompleteRuntimeTests(unittest.TestCase):
                         "gate_id": security["gate_id"], "status": "accepted", "delivery_id": "delivery-1313",
                         "work_item_ref": "openproject://work_packages/1319", "architecture": policy["delivery"]["architecture"],
                         "review_ref": security["review_ref"], "reviewed_revisions": revisions,
-                        "reviewed_trees": {"platform-engineering": tree}}
+                        "reviewed_trees": {"platform-engineering": tree},
+                        "durable_orchestration": {"manifest_path": runtime.durable_composition.BUNDLE_SOURCE_ROOT + "/manifest.json",
+                                                  "manifest_digest": "sha256:" + "7" * 64}}
             authority = workspace / "security-architecture"; authority.mkdir()
             git(authority, "init", "-b", "main")
             review = "\n".join([policy["delivery"]["architecture"]["uri"], policy["delivery"]["architecture"]["digest"],
@@ -668,6 +673,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             with (patch.object(runtime, "WORKSPACE_ROOT", workspace), patch.object(runtime, "REPO_ROOT", main),
                   patch.object(runtime, "REPO_PATH_OVERRIDES", {}), patch.object(runtime, "STATE_ROOT", workspace / "private-state")):
                 resolved, activation = runtime.resolve_security_decision(policy)
+                self.assertEqual(resolved["durable_orchestration"]["activation_evidence"], decision["durable_orchestration"])
                 self.assertEqual(resolved["security"]["platform_revision"], merged)
                 self.assertEqual(resolved["security"]["reviewed_revisions"]["platform-engineering"], candidate)
                 self.assertEqual(resolved["security"]["platform_tree"], tree)
@@ -726,7 +732,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             ):
                 self.assertEqual(runtime.persistent_platform_source(), main)
                 self.assertEqual(
-                    runtime.composition_command(runtime.validate_policy(), "up")[1],
+                    runtime.composition_command(self.accepted_policy(), "up")[1],
                     str(main / "scripts/dev_integration.py"),
                 )
                 (candidate / "pending-change").write_text("unique work", encoding="utf-8")

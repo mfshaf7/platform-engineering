@@ -71,6 +71,102 @@ finite actions declared in `complete-runtime-policy.yaml` and performs effects
 through the existing `dev_integration.py` owner command. Console and browser
 processes never receive the Platform provider credential.
 
+## Console capability completion
+
+Epic1332 extends this same lifecycle; it does not create a second runtime or
+workflow engine. Its source design is reviewed under Security1342. Final1345
+must accept the exact validated Platform candidate tree and merged Console/OOS
+sources before Platform merge or commissioning. The three operating stories
+remain separate from source completion. Existing model selections, effort,
+account custody and six-purpose baseline are preserved.
+
+The final composed Security YAML also selects the existing OOS activation
+bundle with `durable_orchestration.manifest_path` and `manifest_digest`.
+The committed path is fixed at
+`docs/reviews/components/console-capabilities-1332/manifest.json`, with its ten
+existing `records/<gate>.json` siblings in the Security owner. Platform
+publishes those original bytes privately under the accepted-idea-delivery
+profile's existing `orchestration-activation` directory. OOS mounts that
+directory read-only at `/var/run/oos/orchestration-activation`; both roles
+revalidate the exact digest, records, target, lifetime and identity. Source
+presence, an active Temporal component or an environment switch supplies no
+activation authority. Missing admission denies startup before runtime changes.
+
+After the final decision lands, commission through the same commands:
+
+```bash
+make governance-console-complete-runtime ACTION=validate
+make governance-console-complete-runtime ACTION=install-integrity
+make governance-console-complete-runtime ACTION=activate
+make governance-console-complete-runtime ACTION=status
+```
+
+The integrity installation accepts only the reviewed policy/helper through the
+existing administrator path. The added WGCF worker repository stays within
+that finite policy. Do not advance primary execution checkouts away from their
+accepted source while waiting for paired acceptance. If staged source requires
+a temporary supported source binding, retain the accepted checkout for renewal
+until coordinated commissioning, then remove the override and prove normal
+refresh. Final Security must bind both its YAML and matching prose source list.
+
+Purpose requests and explicit operator review use Console **Model Operations**.
+The same authenticated bound human can submit and review a caller-owned request;
+the distinct Platform fulfiller receives no human operator binding. Current
+registry projection is available before any transaction. The existing trusted
+Gary source-authoring/review bridge implements approved source changes; it
+does not become browser or model authority. Its primary source procedure is
+[Model-profile lifecycle](../../../docs/components/governed-ai-gateway/operations.md#model-profile-lifecycle).
+When producing merged readback, add
+`--request-history-root "$HOME/.local/state/platform-engineering/governance-console-complete-runtime/private/model-profile-requests/request-history"`
+to publish the exact immutable history bundle. Send only that readback's
+`oos_fulfillment` through the existing admitted fulfiller. Publication alone
+does not complete the request: Console still requires canonical OOS applied
+fulfillment and matching receipts. Reuse the identical original readback on an
+uncertain acknowledgement; do not generate different historical timestamps.
+Publish the current registry after the actual reviewed change and after
+baseline restoration. Retain earlier request files; later source never replaces
+an earlier request's source evidence.
+
+Runtime observations use a separate
+`governance-console-observations.service` oneshot and
+`governance-console-observations.timer`. Collection has its own nonblocking lock,
+ten-second per-command timeout, eighty-second service bound and256MiB memory
+limit. The timer schedules collection thirty seconds after the prior collection
+finishes. Its files are private under `private/runtime-observations` in the
+same complete-runtime state root. Both runtime and Portfolio consumers are
+wired from this producer. There are still exactly six admitted component
+observations and the existing120-second validity window; other products remain
+explicitly unknown. A failed collection leaves previous bytes unchanged for
+honest expiry. Credential renewal never holds the observation lock or refreshes
+its timestamps. Inspect the timer and journal, repair the existing dependency,
+then let the next collection recover; do not extend TTL or synthesize health.
+
+Normal `ACTION=restart` preserves the original valid bundle, digest-derived
+queue, run IDs and history. The actual worker projections and current bundle
+must agree; a ready Deployment alone is insufficient. Run creation, reads,
+retry and cancellation use the existing Console/OOS workflow surface. Native
+operating1346 must prove original-run continuity through worker loss/restart.
+
+Intentional rollback, cleanup or teardown first retires an admitted generic
+generation. The adapter drains OOS API start ingress and its ordinary workflow
+poller, verifies their pods are gone, issues the existing fifteen-minute
+Platform retirement manifest, and runs the existing OOS `retire` command in a
+bounded owner job with only worker configuration and scoped retirement keys.
+OOS seals and reconciles the original registry; Platform verifies its signed
+receipt using the existing retirement verifier. Only then are execution grants
+withdrawn. Retained requests, receipts, queues, business history and WGCF data
+are preserved. A subsequent activation needs fresh accepted bundle authority;
+a retired digest cannot be reused.
+
+If interrupted, preserve the original job and
+`.dev-integration/accepted-idea-delivery/<operator>/orchestration-retirement/<digest>/`
+evidence. Retry the same lifecycle action while that authorization is current;
+it reconciles the same job and receipt. An expired authorization, failed job,
+incomplete key setup or invalid owner receipt requires reconciliation through
+the existing [Temporal generation-retirement procedure](../../../dev-integration/profiles/temporal/README.md#initial-proof).
+Do not delete uncertain state, invent a successful receipt or restart a sealed
+generation. Inability to prove retirement blocks rollback completion.
+
 ## Security gate
 
 Source validation is expected to report `security-pending` before work item

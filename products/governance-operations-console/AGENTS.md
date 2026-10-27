@@ -95,3 +95,10 @@ Vault path, separate from the OOS management credential and interactive account.
 Source validation and image construction do not authorize deployment or prove
 provider entitlement. Follow the complete-runtime runbook for commissioning,
 lease maintenance, rollback and retained owner state.
+
+The Epic 1332 extension uses that same procedure for Purpose request evidence,
+independent expiring health observations and the existing durable definition.
+Keep the distinct Platform fulfiller and OOS/WGCF worker roles. Ordinary restart
+retains its activation generation; suspension uses the existing fenced owner
+retirement before a replacement generation can be admitted. Final exact-source
+Security acceptance and native operating evidence remain separate requirements.

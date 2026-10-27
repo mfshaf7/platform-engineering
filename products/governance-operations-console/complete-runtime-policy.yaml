@@ -72,6 +72,12 @@ source_realization:
   enabled: true
   profile_id: source-realization-v1
   security_review_ref: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
+purpose_profiles:
+  enabled: true
+runtime_observations:
+  enabled: true
+durable_orchestration:
+  enabled: true
 model_management:
   enabled: true
   codex_version: 0.163.0

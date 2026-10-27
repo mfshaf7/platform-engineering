@@ -1,12 +1,15 @@
 # Temporal Dev-Integration Profile
 
-This is the build-admitted persistent local-k3s profile for the platform-owned
+This is the active persistent local-k3s profile for the platform-owned
 Temporal runtime behind `operator-orchestration-service` (OOS).
 
 The runtime source, artifact lock, identity and queue boundary, persistence
-shape, and operator commands are implemented. Build admission authorizes that
-source work only. The profile cannot launch a runtime until fresh Platform,
-Security, and workspace lifecycle gates make it `active`.
+shape, and operator commands are implemented. The current workspace profile
+registry admits this component as `active` in the `refinement-catalog`
+composition. Component admission does not admit every workflow definition:
+generic `validation-readiness-run` execution separately requires its exact
+OOS activation bundle and Security acceptance. The retired controlled-proof
+permit grants no authority to normal Console operation.
 
 ## Runtime Boundary
 
@@ -47,7 +50,7 @@ role state and role passwords.
 
 ## Current Operator Actions
 
-Build-admitted status and source validation are allowed:
+Status and source validation are available:
 
 ```bash
 make devint-status PROFILE=temporal
@@ -82,7 +85,7 @@ python3 dev-integration/profiles/temporal/scripts/controlled_proof.py --help
 make platform-drill ACTION=plan PROFILE=temporal-component-commissioning-proof
 ```
 
-Runtime actions remain denied:
+Runtime actions follow the active profile and composition ownership gates:
 
 ```bash
 make devint-up PROFILE=temporal
@@ -95,7 +98,7 @@ make devint-reset PROFILE=temporal CONFIRM=reset-temporal
 make devint-promote-check PROFILE=temporal
 ```
 
-Once separately activated:
+For the admitted runtime:
 
 - `devint-down` suspends deployments and PostgreSQL while preserving the PVC
 - `devint-backup` quiesces Temporal, writes a mode-0600 operator-local SQL

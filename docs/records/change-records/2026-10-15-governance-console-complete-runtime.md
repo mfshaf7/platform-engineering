@@ -8,6 +8,51 @@ security_evidence:
 
 # Governance Console Complete Runtime
 
+## October28 Console Capability Completion Source
+
+Accepted Epic1332 Platform stories1338,1340 and1344 share Landing Unit
+`delivery-1332-platform-composition` with decision
+`feature_single_landing_unit`. Console1337, Security1342 and OOS1343 source
+dependencies have landed. The bounded design review is
+[`2026-10-28-console-capabilities-source-design.md`](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-10-28-console-capabilities-source-design.md).
+Final Security1345 must review this exact validated unmerged Platform tree and
+merged consumers before Platform merge or runtime activation. This section
+records source implementation, not live capability acceptance.
+
+The existing lifecycle now publishes current registry state without a prior
+transaction and immutable hashed per-request history. The same bound human
+operator may submit and explicitly review; Platform fulfillment has a separate
+authenticated caller without an operator binding. Later registry changes and
+baseline restoration do not rewrite legitimately completed historical evidence.
+
+An independent bounded systemd oneshot/timer reuses the admitted six-component
+collector and existing120-second TTL. Both Console observation consumers receive
+private atomic files. Collection failure preserves old evidence for honest
+expiry; neither credential renewal nor long owner work holds its collection
+lock. Unobserved products retain their explicit unknown state.
+
+Durable composition publishes only the committed bundle selected by exact
+Security acceptance. The existing OOS role-aware validator checks both process
+identities, target, lifetime and ten authority records before the existing
+launcher can start a poller. WGCF retains its separate read-only activity
+identity and evidence persistence. Its worker repository is added to the same
+finite artifact-integrity policy; reinstall that reviewed policy before
+commissioning. Ordinary restart preserves original bytes and queue generation.
+Suspension drains ingress and ordinary workflow polling, invokes the existing
+fenced OOS retirement once, verifies the owner's signed original-generation
+receipt with the existing Platform verifier, then withdraws execution. Failed
+or uncertain retirement preserves its job/evidence and blocks completion.
+
+Local source proof covers real Git registry/history behavior, private custody,
+both worker roles, activation denials, original-generation preservation and
+observation publication/failure/expiry. Source validation and CI remain
+required at the committed head. Native stories1339,1341 and1346 separately
+prove actual request completion/baseline restoration, live expiry/recovery and
+original-run durable continuity. Restore previous accepted source and decision
+as one rollback unit; preserve canonical state, retired-generation evidence
+and model custody. A retired activation digest cannot be resumed as fresh
+authority. No stage/production approval or arbitrary execution is introduced.
+
 ## October23 Native Graduation Runtime Disposition
 
 Landing Unit Decision: feature_single_landing_unit, owner-repo maintenance

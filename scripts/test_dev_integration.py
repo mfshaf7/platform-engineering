@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class DevIntegrationRunnerTests(unittest.TestCase):
     def test_console_model_management_composition(self) -> None:
-        for script in ("test_console_model_management.py", "test_console_complete_runtime.py"):
+        for script in ("test_console_model_management.py", "test_console_complete_runtime.py", "test_console_cross_domain_activation.py"):
             result = subprocess.run([sys.executable, str(REPO_ROOT / "products/governance-operations-console/scripts" / script)],
                                     text=True, capture_output=True, check=False, timeout=120)
             self.assertEqual(0, result.returncode, msg=f"{script}: {result.stdout}\n{result.stderr}")

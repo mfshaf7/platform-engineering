@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -21,6 +22,7 @@ from console_profile_requests import private_directory, lifecycle
 
 BUNDLE_SOURCE_ROOT = "docs/reviews/components/console-capabilities-1332"
 MOUNT = "/var/run/oos/orchestration-activation/manifest.json"
+WORKER_IMAGE = re.compile(r"ghcr\.io/mfshaf7/workspace-governance-control-fabric-worker@sha256:[0-9a-f]{64}\Z")
 GATES = (
     "contract-valid", "implementation-reviewed", "deterministic-replay-tested",
     "activity-idempotency-tested", "failure-and-control-tested",
@@ -61,11 +63,13 @@ def digest(raw):
 def accepted_binding(policy):
     binding = policy.get("durable_orchestration", {}).get("activation_evidence")
     if (policy.get("security", {}).get("status") != "accepted" or not isinstance(binding, dict)
-            or set(binding) != {"manifest_path", "manifest_digest"}
+            or set(binding) != {"manifest_path", "manifest_digest", "wgcf_worker_image"}
             or binding["manifest_path"] != BUNDLE_SOURCE_ROOT + "/manifest.json"
             or not isinstance(binding["manifest_digest"], str)
             or len(binding["manifest_digest"]) != 71
-            or not binding["manifest_digest"].startswith("sha256:")):
+            or not binding["manifest_digest"].startswith("sha256:")
+            or not isinstance(binding["wgcf_worker_image"], str)
+            or not WORKER_IMAGE.fullmatch(binding["wgcf_worker_image"])):
         raise DurableCompositionError("Durable composition requires the exact accepted Security bundle binding.")
     return binding
 
@@ -86,6 +90,7 @@ def environment(policy, *, operator):
         "OOS_TEMPORAL_ADDRESS": address, "OOS_TEMPORAL_NAMESPACE": namespace,
         "DEVINT_WGCF_TEMPORAL_WORKER_ENABLED": "true",
         "DEVINT_WGCF_TEMPORAL_ACTIVITY_EXECUTION_AUTHORIZED": "true",
+        "DEVINT_WGCF_TEMPORAL_WORKER_IMAGE": binding["wgcf_worker_image"],
         "DEVINT_WGCF_TEMPORAL_ACTIVATION_REVIEW_REF": policy["security"]["decision_uri"],
         "DEVINT_WGCF_TEMPORAL_ADDRESS": address, "DEVINT_WGCF_TEMPORAL_NAMESPACE": namespace})
     return values
@@ -207,19 +212,29 @@ def status(policy, *, workspace_root, operator, oos_repo, run):
         value = json.loads(run(["k3s", "kubectl", "-n", namespace, "get", "deployment", deployment, "-o", "json"]).stdout)
         if value.get("spec", {}).get("replicas") != 1 or value.get("status", {}).get("readyReplicas") != 1:
             raise DurableCompositionError("An admitted durable worker is unavailable.")
+        if deployment == "workspace-governance-control-fabric-temporal-activity":
+            containers = value.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
+            if len(containers) != 1 or containers[0].get("image") != accepted_binding(policy)["wgcf_worker_image"]:
+                raise DurableCompositionError("The activity worker does not use the exact Security-reviewed image digest.")
     worker = json.loads(run(["k3s", "kubectl", "-n", f"devint-accepted-idea-delivery-{operator}", "exec",
         "deployment/operator-orchestration-service-worker", "-c", "orchestration-worker", "--",
         "node", "src/orchestration-worker.js", "status"]).stdout)
     activity = json.loads(run(["k3s", "kubectl", "-n", f"devint-governance-control-fabric-{operator}", "exec",
         "deployment/workspace-governance-control-fabric-temporal-activity", "-c", "temporal-activity-worker", "--",
         "wgcf-worker", "status", "--json"]).stdout)
+    source = run(["k3s", "kubectl", "-n", f"devint-governance-control-fabric-{operator}", "exec",
+        "deployment/workspace-governance-control-fabric-temporal-activity", "-c", "temporal-activity-worker", "--",
+        "cat", "/opt/wgcf/build/source-revision"]).stdout.strip()
     if (worker.get("run_allowed") is not True or worker.get("activation_evidence_digest") != accepted_binding(policy)["manifest_digest"]
             or activity.get("activation", {}).get("authorized") is not True
             or activity.get("temporal", {}).get("identity") != "wgcf-activity-worker"
-            or activity.get("temporal", {}).get("task_queue") != "wgcf.validation-readiness.v1"):
+            or activity.get("temporal", {}).get("task_queue") != "wgcf.validation-readiness.v1"
+            or source != policy["security"]["reviewed_revisions"]["workspace-governance-control-fabric"]):
         raise DurableCompositionError("Live durable worker identity or original activation evidence is invalid.")
     return {"enabled": True, "definition_id": "validation-readiness-run", "definition_version": 1,
             "activation_evidence_digest": accepted_binding(policy)["manifest_digest"],
+            "activity_worker_image": accepted_binding(policy)["wgcf_worker_image"],
+            "activity_worker_source_revision": source,
             "original_generation_preserved": True, "workflow_and_activity_workers_ready": True}
 
 

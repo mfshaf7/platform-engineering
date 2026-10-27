@@ -58,8 +58,10 @@ class DurableCompositionTests(unittest.TestCase):
                        cwd=self.security, check=True, capture_output=True)
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.security, text=True).strip()
         self.policy = {"durable_orchestration": {"enabled": True, "activation_evidence": {
-            "manifest_path": durable.BUNDLE_SOURCE_ROOT + "/manifest.json", "manifest_digest": durable.digest(raw)}},
+            "manifest_path": durable.BUNDLE_SOURCE_ROOT + "/manifest.json", "manifest_digest": durable.digest(raw),
+            "wgcf_worker_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker@sha256:" + "a" * 64}},
             "security": {"status": "accepted", "security_revision": revision,
+                         "reviewed_revisions": {"workspace-governance-control-fabric": "e" * 40},
                          "decision_uri": "synthetic-test://security/accepted"}}
 
     def owner_run(self, command, **kwargs):
@@ -107,6 +109,45 @@ class DurableCompositionTests(unittest.TestCase):
         self.assertFalse((self.root / ".dev-integration").exists())
         disabled = durable.environment({}, operator="mfshaf7")
         self.assertTrue(all(value == "false" for value in disabled.values()))
+
+    def test_tag_only_or_wrong_live_worker_image_cannot_satisfy_exact_worker_bytes(self):
+        binding = self.policy["durable_orchestration"]["activation_evidence"]
+        original = binding["wgcf_worker_image"]
+        binding["wgcf_worker_image"] = "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker:latest"
+        with self.assertRaises(durable.DurableCompositionError):
+            self.prepare()
+        self.assertEqual([], self.calls)
+        binding["wgcf_worker_image"] = original
+        self.prepare()
+        def wrong_image(command, **kwargs):
+            if command[:2] != ["k3s", "kubectl"]:
+                return self.owner_run(command, **kwargs)
+            return SimpleNamespace(stdout=json.dumps({"spec": {"replicas": 1, "template": {"spec": {
+                "containers": [{"image": "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker:latest"}]}}},
+                "status": {"readyReplicas": 1}}))
+        with self.assertRaisesRegex(durable.DurableCompositionError, "exact Security-reviewed image digest"):
+            durable.status(self.policy, workspace_root=self.root, operator="mfshaf7", oos_repo=self.oos, run=wrong_image)
+        def owner_status(source):
+            def status(command, **kwargs):
+                if command[:2] != ["k3s", "kubectl"]:
+                    return self.owner_run(command, **kwargs)
+                if "get" in command:
+                    value = {"spec": {"replicas": 1, "template": {"spec": {"containers": [{"image": original}]}}},
+                             "status": {"readyReplicas": 1}}
+                elif "node" in command:
+                    value = {"run_allowed": True, "activation_evidence_digest": binding["manifest_digest"]}
+                elif "wgcf-worker" in command:
+                    value = {"activation": {"authorized": True}, "temporal": {"identity": "wgcf-activity-worker",
+                             "task_queue": "wgcf.validation-readiness.v1"}}
+                else:
+                    return SimpleNamespace(stdout=source)
+                return SimpleNamespace(stdout=json.dumps(value))
+            return status
+        with self.assertRaisesRegex(durable.DurableCompositionError, "worker identity or original activation evidence"):
+            durable.status(self.policy, workspace_root=self.root, operator="mfshaf7", oos_repo=self.oos, run=owner_status("f" * 40))
+        result = durable.status(self.policy, workspace_root=self.root, operator="mfshaf7", oos_repo=self.oos, run=owner_status("e" * 40))
+        self.assertEqual(original, result["activity_worker_image"])
+        self.assertEqual("e" * 40, result["activity_worker_source_revision"])
 
     def test_native_validator_rejects_expiry_shared_identity_wrong_target_and_record_hash(self):
         original = json.loads(json.dumps(self.manifest))

@@ -657,7 +657,8 @@ class CompleteRuntimeTests(unittest.TestCase):
                         "review_ref": security["review_ref"], "reviewed_revisions": revisions,
                         "reviewed_trees": {"platform-engineering": tree},
                         "durable_orchestration": {"manifest_path": runtime.durable_composition.BUNDLE_SOURCE_ROOT + "/manifest.json",
-                                                  "manifest_digest": "sha256:" + "7" * 64}}
+                                                  "manifest_digest": "sha256:" + "7" * 64,
+                                                  "wgcf_worker_image": "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker@sha256:" + "8" * 64}}
             authority = workspace / "security-architecture"; authority.mkdir()
             git(authority, "init", "-b", "main")
             review = "\n".join([policy["delivery"]["architecture"]["uri"], policy["delivery"]["architecture"]["digest"],

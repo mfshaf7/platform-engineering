@@ -87,7 +87,7 @@ def bind_oos(policy, *, state_root, namespace, operator_id, run):
         allowed.append(FULFILLER)
     callers[FULFILLER] = token
     if token in [value for caller, value in callers.items() if caller != FULFILLER] or token == data.get("CALLER_AUTH_SHARED_SECRET"):
-        raise ProfileCompositionError("Model-profile callers must retain distinct credentials.")
+        raise ProfileCompositionError("The Platform fulfiller must have a distinct credential.")
     values = {"CALLER_ALLOWED_IDS": ",".join(allowed),
               "CALLER_AUTH_SECRETS_JSON": json.dumps(callers, separators=(",", ":"))}
     run(["k3s", "kubectl", "-n", namespace, "patch", "secret", "operator-orchestration-service-env",

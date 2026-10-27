@@ -82,6 +82,9 @@ account custody and six-purpose baseline are preserved.
 
 The final composed Security YAML also selects the existing OOS activation
 bundle with `durable_orchestration.manifest_path` and `manifest_digest`.
+Its `wgcf_worker_image` additionally binds the exact reviewed worker OCI digest;
+source tags alone are not accepted. Status checks the declared digest and
+the worker's baked source revision against the reviewed WGCF revision.
 The committed path is fixed at
 `docs/reviews/components/console-capabilities-1332/manifest.json`, with its ten
 existing `records/<gate>.json` siblings in the Security owner. Platform

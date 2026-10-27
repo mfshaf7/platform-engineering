@@ -19,6 +19,7 @@ import sys
 import tempfile
 
 from console_profile_requests import private_directory, lifecycle
+from dev_integration_compositions import _render_service_projection
 
 BUNDLE_SOURCE_ROOT = "docs/reviews/components/console-capabilities-1332"
 MOUNT = "/var/run/oos/orchestration-activation/manifest.json"
@@ -81,7 +82,8 @@ def environment(policy, *, operator):
     if not enabled(policy):
         return values
     binding = accepted_binding(policy)
-    address = f"temporal-frontend.devint-temporal-{operator}.svc:7233"
+    address = _render_service_projection({"service_name": "temporal-frontend", "service_port": 7233,
+        "address_format": "host-port"}, namespace=f"devint-temporal-{operator}")
     namespace = f"governance-{operator}"
     values.update({"OOS_ORCHESTRATION_RUNTIME_ENABLED": "true", "OOS_ORCHESTRATION_WORKER_ENABLED": "true",
         "OOS_ORCHESTRATION_EXECUTION_AUTHORIZED": "true",

@@ -9,6 +9,7 @@ import unittest
 from types import SimpleNamespace
 
 import console_durable_composition as durable
+from dev_integration_compositions import bounded_child_environment
 
 
 class DurableCompositionTests(unittest.TestCase):
@@ -46,7 +47,8 @@ class DurableCompositionTests(unittest.TestCase):
             "environment": "dev-integration", "profile_id": "temporal", "profile_lifecycle": "active",
             "issued_at": render(now - timedelta(minutes=5)), "expires_at": render(now + timedelta(hours=1)),
             "issued_by": "platform-engineering", "decision": "accepted", "decision_ref": "synthetic-test://decision/original",
-            "temporal_target": {"address": "temporal-frontend.devint-temporal-mfshaf7.svc:7233",
+            "temporal_target": {"address": durable._render_service_projection({"service_name": "temporal-frontend",
+                "service_port": 7233, "address_format": "host-port"}, namespace="devint-temporal-mfshaf7"),
                 "namespace": "governance-mfshaf7", "identities": {"api": "operator-orchestration-service-api",
                     "workflow_worker": "oos-workflow-worker"}}, "evidence": evidence}
         self.commit_bundle()
@@ -110,6 +112,24 @@ class DurableCompositionTests(unittest.TestCase):
         self.assertFalse((self.root / ".dev-integration").exists())
         disabled = durable.environment({}, operator="mfshaf7")
         self.assertTrue(all(value == "false" for value in disabled.values()))
+
+    def test_effective_composition_target_passes_the_actual_owner_validator(self):
+        self.prepare()
+        projection = {"environment_variable": "OOS_TEMPORAL_ADDRESS", "service_name": "temporal-frontend",
+                      "service_port": 7233, "address_format": "host-port"}
+        composition = {"dependencies": [{"consumer_profile_id": "accepted-idea-delivery", "provider_profile_id": "temporal",
+                        "endpoint_projections": [projection]}]}
+        address = durable._render_service_projection(projection, namespace="devint-temporal-mfshaf7")
+        def composed(command, **kwargs):
+            if command[0] != "env":
+                return self.owner_run(command, **kwargs)
+            node = command.index("node")
+            original = dict(value.split("=", 1) for value in command[1:node])
+            effective = bounded_child_environment(composition, base_environment=original,
+                profile_environment={"OOS_TEMPORAL_ADDRESS": address})
+            return self.owner_run(["env", *(f"{key}={value}" for key, value in effective.items()), *command[node:]], **kwargs)
+        durable.validate_owner_bundle(self.policy, durable.bundle_root(self.root, "mfshaf7"),
+            operator="mfshaf7", oos_repo=self.oos, run=composed)
 
     def test_tag_only_or_wrong_live_worker_image_cannot_satisfy_exact_worker_bytes(self):
         binding = self.policy["durable_orchestration"]["activation_evidence"]
@@ -235,7 +255,7 @@ class DurableCompositionTests(unittest.TestCase):
                 if len(attempts) > 1:
                     return SimpleNamespace(stdout="", returncode=0)  # Re-read the original completed job's file.
                 script = """import {pathToFileURL} from 'node:url';import {join} from 'node:path';import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';
-const [owner,activation,dir,activationDigest]=process.argv.slice(1);
+const [owner,activation,dir,activationDigest,address]=process.argv.slice(1);
 const c=await import(pathToFileURL(join(owner,'src/config.js')).href);
 const r=await import(pathToFileURL(join(owner,'src/orchestration/generation-retirement.js')).href);
 const s=await import(pathToFileURL(join(owner,'src/orchestration/generation-start-registry.js')).href);
@@ -244,7 +264,7 @@ const bytes=readFileSync(join(dir,'manifest.json'));const manifest=JSON.parse(by
 const hash=v=>'sha256:'+createHash('sha256').update(v).digest('hex');
 const config=c.loadConfig({OOS_ORCHESTRATION_ACTIVATION_EVIDENCE_PATH:join(activation,'manifest.json'),
  OOS_ORCHESTRATION_ACTIVATION_EVIDENCE_DIGEST:activationDigest,
- OOS_TEMPORAL_ADDRESS:'temporal-frontend.devint-temporal-mfshaf7.svc:7233',OOS_TEMPORAL_NAMESPACE:'governance-mfshaf7',
+ OOS_TEMPORAL_ADDRESS:address,OOS_TEMPORAL_NAMESPACE:'governance-mfshaf7',
  OOS_TEMPORAL_IDENTITY:'oos-workflow-worker',OOS_ORCHESTRATION_RETIREMENT_EVIDENCE_PATH:join(dir,'manifest.json'),
  OOS_ORCHESTRATION_RETIREMENT_EVIDENCE_DIGEST:hash(bytes),OOS_ORCHESTRATION_RETIREMENT_RECEIPT_KEY_ID:manifest.receipt_verification.key_id,
  OOS_ORCHESTRATION_RETIREMENT_RECEIPT_PRIVATE_KEY_PATH:join(dir,'receipt-private-key.pem'),
@@ -258,7 +278,7 @@ const receipt=r.createGenerationRetirementReceipt(config,retirement,{cancelSigna
  recordedAt:now,registryResult:registry,registryResultDigest:hash(JSON.stringify(registry)),retirementStartedAt:now,
  terminalProjectionCount:0,uncommittedRegistrationCount:0});console.log(JSON.stringify(receipt));"""
                 result = self.owner_run(["node", "--input-type=module", "--eval", script,
-                    str(self.oos), str(root), str(retirement), "sha256:" + generation])
+                    str(self.oos), str(root), str(retirement), "sha256:" + generation, self.manifest["temporal_target"]["address"]])
                 (retirement / "result/receipt.json").write_text(result.stdout)
                 if len(attempts) == 1:
                     raise RuntimeError("synthetic acknowledgement lost after owner result")

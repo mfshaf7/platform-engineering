@@ -1138,6 +1138,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             activation = root / "cross-domain-policy.yaml"
             activation.write_text("present\n", encoding="utf-8")
             with (
+                patch.object(runtime, "WORKSPACE_ROOT", root),
                 patch.object(runtime, "STATE_ROOT", root / "state"),
                 patch.object(runtime, "PRIVATE_ROOT", root / "state" / "private"),
                 patch.object(runtime, "RECEIPT_ROOT", root / "state" / "receipts"),
@@ -1160,6 +1161,7 @@ class CompleteRuntimeTests(unittest.TestCase):
                 return runtime.subprocess.CompletedProcess(args, 1 if failed else 0, stdout="", stderr="")
 
             with (
+                patch.object(runtime, "WORKSPACE_ROOT", root),
                 patch.object(runtime, "STATE_ROOT", root / "state"),
                 patch.object(runtime, "PRIVATE_ROOT", root / "state" / "private"),
                 patch.object(runtime, "RECEIPT_ROOT", root / "state" / "receipts"),

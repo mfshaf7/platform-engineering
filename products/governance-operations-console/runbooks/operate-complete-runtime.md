@@ -130,6 +130,14 @@ Publish the current registry after the actual reviewed change and after
 baseline restoration. Retain earlier request files; later source never replaces
 an earlier request's source evidence.
 
+The fulfiller binding ties the API process to the published caller Secret's
+resource version. Resuming base composition therefore reloads restored
+credentials even when their bytes match an earlier binding; repeating an
+unchanged binding keeps the consuming process. Stored Secret data alone is not
+proof of loaded authentication. If live status still reports incomplete
+bindings, use the existing normal restart and inspect its owner status; do not
+approve a request or relax caller checks to bypass that failure.
+
 Runtime observations use a separate
 `governance-console-observations.service` oneshot and
 `governance-console-observations.timer`. Collection has its own nonblocking lock,

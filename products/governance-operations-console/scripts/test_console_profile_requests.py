@@ -1,5 +1,6 @@
 """Filesystem composition witnesses, not live fulfillment or activation proof."""
 import base64
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -21,6 +22,13 @@ class ProfileRequestsCompositionTests(unittest.TestCase):
                      "CALLER_AUTH_SECRETS_JSON": json.dumps({profiles.CALLER: "synthetic-console-credential",
                                                             "existing-owner": "synthetic-other-credential"})}
         self.settings = {}
+        self.pod_settings = {}
+        self.pod_auth = copy.deepcopy(self.auth)
+        self.base_auth = copy.deepcopy(self.auth)
+        self.secret_version = 1
+        self.template_annotations = {}
+        self.template_signature = None
+        self.rollouts = 0
         self.registry = {"schema_version": 1, "artifact_type": "platform-model-profile-source-projection",
                          "owner_repo": "platform-engineering", "source": {"source_version": "a" * 40},
                          "profiles": [{"profile_id": "synthetic-reviewed-profile"}]}
@@ -33,22 +41,36 @@ class ProfileRequestsCompositionTests(unittest.TestCase):
             profiles.lifecycle.write_atomic(output, json.dumps(self.registry).encode())
         if "get" in command and "secret" in command:
             data = {key: base64.b64encode(value.encode()).decode() for key, value in self.auth.items()}
-            return SimpleNamespace(stdout=json.dumps({"data": data}), returncode=0)
+            return SimpleNamespace(stdout=json.dumps({"data": data,
+                "metadata": {"resourceVersion": str(self.secret_version)}}), returncode=0)
         if "get" in command and "deployment" in command:
             return SimpleNamespace(stdout='{"metadata":{"name":"operator-orchestration-service"}}', returncode=0)
         if "patch" in command:
             value = json.loads(kwargs["input_value"])
             if "secret" in command:
+                if any(self.auth.get(key) != item for key, item in value["stringData"].items()):
+                    self.secret_version += 1
                 self.auth.update(value["stringData"])
+                return SimpleNamespace(stdout=json.dumps({"metadata": {
+                    "resourceVersion": str(self.secret_version)}}), returncode=0)
             else:
+                self.template_annotations.update(value["spec"]["template"].get("metadata", {}).get("annotations", {}))
                 self.settings.update({entry["name"]: entry["value"]
                     for entry in value["spec"]["template"]["spec"]["containers"][0]["env"]})
+                signature = json.dumps({"annotations": self.template_annotations,
+                                        "settings": self.settings}, sort_keys=True)
+                if signature != self.template_signature:
+                    self.template_signature = signature
+                    self.pod_settings = copy.deepcopy(self.settings)
+                    self.pod_auth = copy.deepcopy(self.auth)
+                    self.rollouts += 1
         if "node" in command:
-            value = {"enabled": self.settings.get("OOS_MODEL_PROFILE_REQUEST_ENABLED") == "true",
-                     "bindings": json.loads(self.settings.get("OOS_MODEL_PROFILE_REQUEST_CALLER_OPERATOR_BINDINGS_JSON", "{}")),
-                     "fulfillers": self.settings.get("OOS_MODEL_PROFILE_FULFILLMENT_CALLER_IDS", "").split(","),
-                     "authenticated": profiles.FULFILLER in json.loads(self.auth["CALLER_AUTH_SECRETS_JSON"]),
-                     "state_root": self.settings.get("OOS_MODEL_PROFILE_REQUEST_STATE_ROOT")}
+            value = {"enabled": self.pod_settings.get("OOS_MODEL_PROFILE_REQUEST_ENABLED") == "true",
+                     "bindings": json.loads(self.pod_settings.get("OOS_MODEL_PROFILE_REQUEST_CALLER_OPERATOR_BINDINGS_JSON", "{}")),
+                     "fulfillers": self.pod_settings.get("OOS_MODEL_PROFILE_FULFILLMENT_CALLER_IDS", "").split(","),
+                     "authenticated": profiles.FULFILLER in self.pod_auth["CALLER_ALLOWED_IDS"].split(",") and
+                         profiles.FULFILLER in json.loads(self.pod_auth["CALLER_AUTH_SECRETS_JSON"]),
+                     "state_root": self.pod_settings.get("OOS_MODEL_PROFILE_REQUEST_STATE_ROOT")}
             return SimpleNamespace(stdout=json.dumps(value), returncode=0)
         return SimpleNamespace(stdout="{}", returncode=0)
 
@@ -104,6 +126,46 @@ class ProfileRequestsCompositionTests(unittest.TestCase):
         with self.assertRaises(profiles.ProfileCompositionError):
             self.bind()
         self.assertEqual([], self.calls)
+
+    def test_resumed_base_composition_reloads_the_restored_secret(self):
+        self.prepare()
+        self.bind()
+        first_template = self.template_signature
+        # A later base up replaces the shared Secret and starts a process from
+        # it, while kubectl apply retains the custom binding annotation/env.
+        self.auth = copy.deepcopy(self.base_auth)
+        self.secret_version += 1
+        self.pod_auth = copy.deepcopy(self.base_auth)
+        self.bind()
+        value = profiles.status(self.policy, state_root=self.root,
+            namespace="synthetic-namespace", operator_id="operator:synthetic", run=self.owner_run)
+        self.assertTrue(value["distinct_fulfiller_bound"])
+        self.assertNotEqual(first_template, self.template_signature)
+        self.assertEqual(2, self.rollouts)
+
+    def test_unchanged_binding_keeps_the_already_consuming_process(self):
+        self.prepare()
+        self.bind()
+        first_template = self.template_signature
+        self.bind()
+        self.assertEqual(first_template, self.template_signature)
+        self.assertEqual(1, self.rollouts)
+        value = profiles.status(self.policy, state_root=self.root,
+            namespace="synthetic-namespace", operator_id="operator:synthetic", run=self.owner_run)
+        self.assertTrue(value["distinct_fulfiller_bound"])
+
+    def test_unconfirmed_publication_cannot_attest_a_consumer_rollout(self):
+        self.prepare()
+        def unconfirmed_run(command, **kwargs):
+            result = self.owner_run(command, **kwargs)
+            if "patch" in command and "secret" in command:
+                return SimpleNamespace(stdout='{"metadata": {}}', returncode=0)
+            return result
+        with self.assertRaisesRegex(profiles.ProfileCompositionError, "credential version is unavailable"):
+            profiles.bind_oos(self.policy, state_root=self.root,
+                namespace="synthetic-namespace", operator_id="operator:synthetic", run=unconfirmed_run)
+        self.assertEqual(0, self.rollouts)
+        self.assertNotIn(profiles.FULFILLER, self.pod_auth["CALLER_ALLOWED_IDS"].split(","))
 
     def test_missing_authenticated_console_cannot_grant_fulfillment(self):
         self.prepare()

@@ -8,6 +8,36 @@ security_evidence:
 
 # Governance Console Complete Runtime
 
+## October28 Purpose Credential Consumption Recovery
+
+Owner maintenance `maintenance-purpose-profile-consumption` uses Landing Unit
+Decision `feature_single_landing_unit`. Epic1332 commissioning reached final
+status with the stored distinct-fulfiller credential present but absent from
+the API's loaded environment. A base composition reapply can retain the helper's
+custom pod annotation while replacing the shared caller Secret and starting a
+process from that base. Hashing equal desired credential bytes alone does not
+cause the subsequent binding to reload that process. Earlier unit simulation
+read mutable desired Secret data as if it were the consumed environment.
+
+The existing helper now binds its pod-template annotation to the actual
+published Secret resource version as well as desired settings. It refuses
+unconfirmed publication before attesting a rollout. Tests keep stored and
+consumed environments separate, reproduce retained-annotation recovery, preserve
+existing callers and prove an unchanged publication avoids an extra rollout.
+Two existing rollback fixtures also use their own temporary workspace, keeping
+the operator's commissioned generation outside mocked unit execution.
+The primary operating procedure retains normal owner restart and fail-closed
+status; no new caller, permission, identity, engine or ART item is introduced.
+
+The composed Security YAML and prose must accept this exact validated Platform
+candidate tree before coordinated commissioning. Primary execution stays at
+the previous accepted source until then. OOS, Console, CGG, WGCF, the committed
+durable activation bundle, worker digest and generation remain unchanged.
+Rollback pairs the prior helper with its prior composed acceptance and preserves
+request history and private credential custody. Source witnesses and the
+observed normal reload are not final three-capability operating acceptance;
+native request, health and durable-run proofs remain required after landing.
+
 ## October28 Console Capability Completion Source
 
 Accepted Epic1332 Platform stories1338,1340 and1344 share Landing Unit

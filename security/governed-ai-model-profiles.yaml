@@ -273,10 +273,11 @@ model_profiles:
       - CGG packet and redaction receipt references
       - operator-supplied Work Design prompt
       - OOS-owned versioned task instruction
+      - CGG-admitted local note, diagram, tree and draft-only response format
     runtime_limits:
       max_request_bytes: 300000
-      max_output_tokens: 2048
-      timeout_seconds: 60
+      max_output_tokens: 4096
+      timeout_seconds: 120
       retry_count: 1
       max_concurrency: 2
     task_contracts:
@@ -374,7 +375,7 @@ model_profiles:
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 2048
-      timeout_seconds: 60
+      timeout_seconds: 120
       retry_count: 1
       max_concurrency: 2
     task_contracts:
@@ -451,10 +452,11 @@ model_profiles:
       - operator-supplied Agent Console prompt
       - OOS-owned versioned Agent Console task instruction
       - OOS session, invocation, and agent instance bindings
+      - CGG-admitted selected local draft fields and draft-only response format
     runtime_limits:
       max_request_bytes: 300000
-      max_output_tokens: 2048
-      timeout_seconds: 60
+      max_output_tokens: 4096
+      timeout_seconds: 120
       retry_count: 1
       max_concurrency: 2
     task_contracts:

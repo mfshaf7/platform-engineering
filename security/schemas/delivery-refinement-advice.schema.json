@@ -19,7 +19,7 @@
     },
     "required_operator_action": {
       "type": "string",
-      "const": "review"
+      "enum": ["review", "none"]
     },
     "field_key": {
       "type": "string",

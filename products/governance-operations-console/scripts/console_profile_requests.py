@@ -90,13 +90,21 @@ def bind_oos(policy, *, state_root, namespace, operator_id, run):
         raise ProfileCompositionError("The Platform fulfiller must have a distinct credential.")
     values = {"CALLER_ALLOWED_IDS": ",".join(allowed),
               "CALLER_AUTH_SECRETS_JSON": json.dumps(callers, separators=(",", ":"))}
-    run(["k3s", "kubectl", "-n", namespace, "patch", "secret", "operator-orchestration-service-env",
-         "--type=merge", "--patch-file=/dev/stdin"], input_value=json.dumps({"stringData": values}))
+    published = json.loads(run(["k3s", "kubectl", "-n", namespace, "patch", "secret", "operator-orchestration-service-env",
+         "--type=merge", "--patch-file=/dev/stdin", "-o", "json"],
+         input_value=json.dumps({"stringData": values})).stdout)
+    secret_version = published.get("metadata", {}).get("resourceVersion")
+    if not isinstance(secret_version, str) or not secret_version:
+        raise ProfileCompositionError("The published model-profile credential version is unavailable.")
     settings = {"OOS_MODEL_PROFILE_REQUEST_ENABLED": "true",
                 "OOS_MODEL_PROFILE_REQUEST_STATE_ROOT": "/var/lib/oos/model-profile-requests",
                 "OOS_MODEL_PROFILE_REQUEST_CALLER_OPERATOR_BINDINGS_JSON": json.dumps({CALLER: operator_id}),
                 "OOS_MODEL_PROFILE_FULFILLMENT_CALLER_IDS": FULFILLER}
-    version = hashlib.sha256(json.dumps({**settings, **values}, sort_keys=True).encode()).hexdigest()
+    # Base composition can replace this shared Secret while retaining our pod
+    # annotation. Bind consumption to the actual publication, not only equal
+    # desired bytes, so a resumed process cannot keep its older environment.
+    version = hashlib.sha256(json.dumps({**settings, **values,
+        "secret_resource_version": secret_version}, sort_keys=True).encode()).hexdigest()
     patch = {"spec": {"template": {"metadata": {"annotations": {"workspace-governance/model-profile-bindings": version}},
              "spec": {"containers": [{"name": "operator-orchestration-service",
                        "env": [{"name": key, "value": value} for key, value in settings.items()]}]}}}}

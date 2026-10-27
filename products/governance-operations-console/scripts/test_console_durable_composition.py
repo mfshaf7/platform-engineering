@@ -20,6 +20,7 @@ class DurableCompositionTests(unittest.TestCase):
         self.security.mkdir()
         self.platform = Path(durable.__file__).resolve().parents[3]
         candidates = [ancestor / "operator-orchestration-service" for ancestor in self.platform.parents]
+        candidates.append(Path("/tmp/operator-orchestration-service"))  # Existing CI's locked owner checkout.
         self.oos = Path(os.environ["OOS_REPO_ROOT"]) if os.environ.get("OOS_REPO_ROOT") else next(
             path for path in candidates if (path / ".git").exists())
         self.calls = []

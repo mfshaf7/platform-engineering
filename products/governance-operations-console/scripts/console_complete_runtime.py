@@ -31,6 +31,9 @@ import console_workflow_credentials as workflow_credentials
 import console_record_authority as record_authority
 import console_session_projection as session_projection
 import console_model_management as model_management
+import console_profile_requests as profile_requests
+import console_observation_refresh as observation_refresh
+import console_durable_composition as durable_composition
 import console_artifact_recovery as artifact_recovery
 
 
@@ -181,6 +184,12 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     if policy.get("source_realization") != {"enabled": True, "profile_id": "source-realization-v1",
         "security_review_ref": "docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md"}:
         raise RuntimeError("complete runtime source realization boundary is invalid")
+    if policy.get("purpose_profiles") != {"enabled": True}:
+        raise RuntimeError("complete runtime Purpose-profile boundary is invalid")
+    if policy.get("runtime_observations") != {"enabled": True}:
+        raise RuntimeError("complete runtime observation boundary is invalid")
+    if policy.get("durable_orchestration") != {"enabled": True}:
+        raise RuntimeError("complete runtime durable composition boundary is invalid")
     delivery = policy.get("delivery", {})
     architecture = delivery.get("architecture", {})
     if delivery.get("delivery_id") != "delivery-1313" or delivery.get("work_item_ref") != "openproject://work_packages/1320":
@@ -339,6 +348,8 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
         "work_item_ref", "architecture", "review_ref", "reviewed_revisions",
         "reviewed_trees",
     }
+    if durable_composition.enabled(policy):
+        required_fields.add("durable_orchestration")
     if not isinstance(decision, dict) or set(decision) != required_fields:
         raise RuntimeError("the composed-runtime Security decision contract is invalid")
     if (
@@ -452,6 +463,9 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
         "reviewed_revisions": revisions,
         "security_revision": acceptance_revision,
     })
+    if durable_composition.enabled(policy):
+        resolved["durable_orchestration"]["activation_evidence"] = decision["durable_orchestration"]
+        durable_composition.accepted_binding(resolved)
     activation = resolved_activation_policy(resolved)
     return resolved, activation
 
@@ -530,6 +544,8 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
             "record_authority_freshness_required": True,
         },
         "console_publication": publication_console_binding(policy),
+        "model_profile_requests": profile_requests.activation_environment(STATE_ROOT) if profile_requests.enabled(policy) else None,
+        "runtime_observations": observation_refresh.activation_environment(STATE_ROOT) if observation_refresh.enabled(policy) else None,
         "receipts": {"directory": "governance-console-complete-runtime/receipts", "maximum_age_seconds": 120},
     }
 
@@ -676,6 +692,9 @@ def composition_command(policy: dict[str, Any], action: str) -> list[str]:
     ]
     for name, path in sorted(selected_repo_paths().items()):
         command.extend(["--repo-path", f"{name}={path}"])
+    if action == "up" and durable_composition.enabled(policy):
+        command = ["env", *(f"{key}={value}" for key, value in
+            durable_composition.environment(policy, operator=operator()).items()), *command]
     return command
 
 
@@ -1806,6 +1825,10 @@ def activate(policy: dict[str, Any]) -> Path:
     model_management.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
         operator_id=policy["platform_operation_provider"]["operator_id"],
         gateway_namespace="devint-governed-ai-gateway-" + operator(), run=run, vault_token=vault_token)
+    profile_requests.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT, run=run)
+    durable_composition.prepare(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
+        security_repo=repo_path("security-architecture"), platform_repo=repo_path("platform-engineering"),
+        oos_repo=repo_path("operator-orchestration-service"), run=run)
     refresh_record_authorities(policy)
     run(composition_command(policy, "up"))
     # Full composition startup may take longer than the data freshness window.
@@ -1822,7 +1845,12 @@ def activate(policy: dict[str, Any]) -> Path:
     model_management.bind_oos(policy, state_root=STATE_ROOT,
         namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()),
         operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
+    profile_requests.bind_oos(policy, state_root=STATE_ROOT,
+        namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()),
+        operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
     require_publication_owner_bindings(policy)
+    if observation_refresh.enabled(policy):
+        observation_refresh.refresh(STATE_ROOT, operator=operator())
     run(cross_domain_command("activate"))
     # Confirm direct artifact/consumer readiness before enabling the provider.
     # Its intentionally blocked capabilities cannot be their own repair gate.
@@ -1830,6 +1858,9 @@ def activate(policy: dict[str, Any]) -> Path:
     write_active_marker(policy)
     refresh_stale_provider(policy)
     write_repository_refresh_units()
+    if observation_refresh.enabled(policy):
+        observation_refresh.install(repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
+            unit_root=UNIT_ROOT, run=run)
     result = status(policy, action="activate")
     receipt('artifact-recovery', policy, {**artifact_recovery.journal(STATE_ROOT),
         'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})
@@ -1890,6 +1921,12 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     operator_bindings = require_console_operator_bindings(policy)
     publication = {**require_publication_owner_bindings(policy), **require_console_publication_mode(policy)}
     model_runtime = require_model_management_runtime(policy)
+    profile_runtime = profile_requests.status(policy, state_root=STATE_ROOT,
+        namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()),
+        operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
+    observations = observation_refresh.status(STATE_ROOT, run=run) if observation_refresh.enabled(policy) else None
+    durable = durable_composition.status(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
+        oos_repo=repo_path("operator-orchestration-service"), run=run)
     return receipt(action, policy, {
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
@@ -1907,6 +1944,9 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "operator_bindings": operator_bindings,
         "product_publication": publication,
         "model_management": model_runtime,
+        "purpose_profiles": profile_runtime,
+        "runtime_observations": observations,
+        "durable_orchestration": durable,
     })
 
 
@@ -1914,6 +1954,9 @@ def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    durable_composition.prepare(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
+        security_repo=repo_path("security-architecture"), platform_repo=repo_path("platform-engineering"),
+        oos_repo=repo_path("operator-orchestration-service"), run=run)
     refresh_record_authorities(policy)
     delivered = deliver_repository_provisioning_identity(policy)
     workflow_credential_manager(policy).renew(extra_annotations={
@@ -1930,9 +1973,14 @@ def restart(policy: dict[str, Any]) -> Path:
         f"deployment/{policy['runtime']['oos_deployment']}", "--timeout=300s",
     ])
     apply_record_authority_binding(policy)
+    if observation_refresh.enabled(policy):
+        observation_refresh.refresh(STATE_ROOT, operator=operator())
     run(cross_domain_command("restart"))
     write_active_marker(policy)
     write_repository_refresh_units()
+    if observation_refresh.enabled(policy):
+        observation_refresh.install(repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
+            unit_root=UNIT_ROOT, run=run)
     return status(policy, action="restart")
 
 
@@ -1999,10 +2047,21 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
 def rollback(policy: dict[str, Any], *, cleanup: bool = False) -> Path:
     failures: list[str] = []
     # Stop renewal before revocation so a concurrent timer cannot restore it.
-    for unit in (REPOSITORY_REFRESH_TIMER, REPOSITORY_REFRESH_SERVICE):
+    for unit in (REPOSITORY_REFRESH_TIMER, REPOSITORY_REFRESH_SERVICE,
+                 observation_refresh.TIMER, observation_refresh.SERVICE):
         if (UNIT_ROOT / unit).is_file():
             if run(["systemctl", "--user", "disable", "--now", unit], check=False).returncode:
                 failures.append("repository-credential-renewal-disable")
+    try:
+        durable_composition.suspend(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
+            platform_repo=repo_path("platform-engineering"), run=run)
+    except (OSError, ValueError, RuntimeError):
+        failures.append("durable-original-generation-retirement")
+    try:
+        profile_requests.disable(policy,
+            namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()), run=run)
+    except (OSError, RuntimeError, profile_requests.ProfileCompositionError):
+        failures.append("model-profile-request-authority-removal")
     try:
         model_management.disable(policy, state_root=STATE_ROOT,
             namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()), run=run)
@@ -2176,12 +2235,24 @@ def verify_operating(policy: dict[str, Any]) -> Path:
         })
 
 
+def refresh_observations(policy: dict[str, Any]) -> Path:
+    policy, activation = resolve_security_decision(policy)
+    require_materialized_policy(policy, activation)
+    require_activation_allowed(policy)
+    if not observation_refresh.enabled(policy) or not (STATE_ROOT / "active.json").is_file():
+        raise RuntimeError("Runtime observation refresh requires the accepted active composition.")
+    # The collector owns its own nonblocking lock. Credential renewal and
+    # long-running owner workflows never delay the 120-second observations.
+    observation_refresh.refresh(STATE_ROOT, operator=operator())
+    return observation_refresh.paths(STATE_ROOT)[1]
+
+
 def main() -> int:
     global REPO_PATH_OVERRIDES
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "install-integrity", "check-integrity"),
+        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "refresh-observations", "install-integrity", "check-integrity"),
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
@@ -2202,6 +2273,7 @@ def main() -> int:
             "teardown": teardown,
             "verify-operating": verify_operating,
             "refresh-credentials": refresh_repository_credentials,
+            "refresh-observations": refresh_observations,
             "install-integrity": install_integrity,
             "check-integrity": check_integrity,
         }
@@ -2217,7 +2289,7 @@ def main() -> int:
             write_composition_supervisor(resolved)
             run(["systemctl", "--user", "restart", composition_supervisor_unit(resolved)])
             result = status(policy, action="activate")
-        elif args.action in {"status", "verify-operating"}:
+        elif args.action in {"status", "verify-operating", "refresh-observations"}:
             result = actions[args.action](policy)
         else:
             if args.action == "activate":
@@ -2232,7 +2304,7 @@ def main() -> int:
     except artifact_recovery.RecoveryError as exc:
         print(f"complete Console runtime {args.action} requires operator inspection: {exc}", file=sys.stderr)
         return 78  # retained supervisor must not repeat a latched artifact repair
-    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError, model_management.ModelCompositionError) as exc:
+    except (RuntimeError, provider.ProviderError, workflow_credentials.CredentialError, workflow_credentials.IdentityError, record_authority.RecordAuthorityError, model_management.ModelCompositionError, profile_requests.ProfileCompositionError, observation_refresh.observations.ObservationError, durable_composition.DurableCompositionError) as exc:
         print(f"complete Console runtime {args.action} failed: {exc}", file=sys.stderr)
         return 1
 

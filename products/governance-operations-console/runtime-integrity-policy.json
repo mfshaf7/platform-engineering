@@ -26,7 +26,8 @@
     "docker.io/temporalio/ui",
     "ghcr.io/mfshaf7/governed-ai-runtime",
     "ghcr.io/mfshaf7/operator-orchestration-service",
-    "ghcr.io/mfshaf7/workspace-governance-control-fabric"
+    "ghcr.io/mfshaf7/workspace-governance-control-fabric",
+    "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker"
   ],
   "automatic_repair": true,
   "unmanaged_assets": "Host executables, mutable data, credentials and source work have no generic automatic restoration permission. Integrity/owner errors remain operator-required."

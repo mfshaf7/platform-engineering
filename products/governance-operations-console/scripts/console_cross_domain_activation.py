@@ -551,6 +551,25 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
             "GOVERNANCE_CONSOLE_PROTOTYPE_PREVIEW_RECORD_AUTHORITY_FRESHNESS_REQUIRED=true",
         ])
     values.extend(publication_values)
+    observation_values = policy.get("runtime_observations")
+    if observation_values is not None:
+        expected = {"GOVERNANCE_CONSOLE_RUNTIME_OBSERVATION_PATH",
+                    "GOVERNANCE_CONSOLE_PRODUCT_HEALTH_PROJECTION_PATH",
+                    "GOVERNANCE_CONSOLE_PRODUCT_HEALTH_RECEIPT_PATH"}
+        if (not isinstance(observation_values, dict) or set(observation_values) != expected or
+                any(not isinstance(value, str) or not Path(value).is_absolute() or "\n" in value
+                    for value in observation_values.values())):
+            raise ActivationError("Runtime observations require exact private owner paths.")
+        values.extend(f"{key}={value}" for key, value in observation_values.items())
+    profile_values = policy.get("model_profile_requests")
+    if profile_values is not None:
+        expected = {"GOVERNANCE_CONSOLE_MODEL_PROFILE_SOURCE_PROJECTION_PATH",
+                    "GOVERNANCE_CONSOLE_MODEL_PROFILE_REQUEST_HISTORY_ROOT"}
+        if (not isinstance(profile_values, dict) or set(profile_values) != expected or
+                any(not isinstance(value, str) or not Path(value).is_absolute() or "\n" in value
+                    for value in profile_values.values())):
+            raise ActivationError("Model-profile evidence requires exact private owner paths.")
+        values.extend(f"{key}={value}" for key, value in profile_values.items())
     path.write_text(
         "\n".join(values) + "\n",
         encoding="utf-8",

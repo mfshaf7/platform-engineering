@@ -42,6 +42,13 @@ keeping lifecycle, publication, issue, and health axes independent. Security
 
 ## Ownership
 
+The source-staged Epic 1332 extension composes the existing Purpose request
+lifecycle and private request-specific history, independently refreshed
+120-second observations, and the existing `validation-readiness-run` workflow
+with its read-only WGCF activity. The [complete-runtime procedure](runbooks/operate-complete-runtime.md#console-capability-completion)
+owns exact acceptance, commissioning, restart and fenced suspension. Source
+tests do not establish native operating acceptance.
+
 - Platform issues and revokes the projection.
 - Platform collects and expires the runtime observation projection.
 - Console source consumes it and fails closed.

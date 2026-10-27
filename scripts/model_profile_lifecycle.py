@@ -450,6 +450,42 @@ def artifact_ref(path: Path, digest: str) -> dict[str, str]:
     return {"uri": path.resolve().as_uri(), "digest": digest}
 
 
+def publish_request_history(root: Path, receipt: dict[str, Any], readback: dict[str, Any]) -> Path:
+    """Publish immutable request evidence independently of today's registry."""
+    if not root.is_absolute():
+        raise LifecycleError("request history requires an absolute private directory")
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    info = root.lstat()
+    if root.is_symlink() or not root.is_dir() or info.st_uid != os.geteuid() or info.st_mode & 0o777 != 0o700:
+        raise LifecycleError("request history must be an operator-owned mode0700 directory")
+    request_id = receipt["request_id"]
+    if readback["oos_fulfillment"]["request_id"] != request_id:
+        raise LifecycleError("request history readback belongs to another request")
+    bundle = {"schema_version": 1, "artifact_type": "platform-model-profile-request-evidence",
+              "request_id": request_id, "lifecycle_receipt": receipt, "merged_readback": readback}
+    bundle["digest"] = digest_value(bundle)
+    content = (json.dumps(bundle, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode()
+    if len(content) > 512 * 1024:
+        raise LifecycleError("request history exceeds the admitted consumer artifact budget")
+    target = root / (hashlib.sha256(request_id.encode()).hexdigest() + ".json")
+    # Link a fully written private file into place atomically, without replacing
+    # an earlier request's evidence. Concurrent exact retries are harmless.
+    with tempfile.NamedTemporaryFile(dir=root, delete=False) as handle:
+        temporary = Path(handle.name)
+        handle.write(content)
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            if target.lstat().st_size > 512 * 1024 or load_private_json(target, label="request history") != bundle:
+                raise LifecycleError("request history already contains different immutable evidence") from None
+    finally:
+        temporary.unlink(missing_ok=True)
+    return target
+
+
 def command_apply(args: argparse.Namespace) -> int:
     repo_root = args.repo_root.resolve()
     schemas = load_oos_schemas(repo_root, args.oos_repo_root.resolve())
@@ -810,6 +846,8 @@ def command_readback(args: argparse.Namespace) -> int:
     result["digest"] = digest_value(result)
     validate_oos_projection_contract("fulfillment.schema.json", fulfillment, args, repo_root)
     write_atomic(args.output, json.dumps(result, sort_keys=True, indent=2).encode() + b"\n")
+    if args.request_history_root:
+        publish_request_history(args.request_history_root, receipt, result)
     print(json.dumps(result, sort_keys=True))
     return 0
 
@@ -913,7 +951,7 @@ def parser() -> argparse.ArgumentParser:
         (
             ancestor / "operator-orchestration-service"
             for ancestor in ROOT.parents
-            if (ancestor / "operator-orchestration-service").is_dir()
+            if (ancestor / "operator-orchestration-service" / ".git").exists()
         ),
         ROOT.parent / "operator-orchestration-service",
     )
@@ -950,6 +988,8 @@ def parser() -> argparse.ArgumentParser:
     readback.add_argument("--review-digest", required=True)
     readback.add_argument("--recorded-at", required=True)
     readback.add_argument("--output", type=Path, required=True)
+    readback.add_argument("--request-history-root", type=Path,
+                         help="publish immutable request-bound receipt/readback evidence into an operator-private directory")
     readback.set_defaults(handler=command_readback)
     restore = commands.add_parser("restore")
     restore.add_argument("--receipt", type=Path, required=True)

@@ -133,6 +133,18 @@ rollback remain part of the same complete-runtime command.
 
 ## Console frontend artifact
 
+`console_profile_requests.py`, `console_observation_refresh.py` and
+`console_durable_composition.py` are internal adapters of complete-runtime
+operation. They publish the current registry independently of any request,
+bind the existing distinct fulfiller, schedule the admitted observation
+collector independently of credential renewal, and compose the existing
+OOS/WGCF workers from the exact committed Security-selected bundle. The
+collector retains its own nonblocking lock and bounded service. The durable
+adapter delegates validation and generation retirement to their existing
+owners; it never creates another definition or approval mechanism. Use the
+[same primary procedure](../runbooks/operate-complete-runtime.md#console-capability-completion)
+for operating and recovery steps.
+
 `console_frontend_artifact.py` is the internal artifact helper used by the
 existing cross-domain and complete-runtime launchers. It exports only exact
 committed Console source, builds without live credentials in isolated private

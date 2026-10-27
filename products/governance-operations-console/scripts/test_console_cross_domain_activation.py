@@ -9,6 +9,9 @@ import unittest
 from unittest.mock import patch
 import console_complete_runtime as complete_runtime
 from console_record_authority import git
+from test_console_profile_requests import ProfileRequestsCompositionTests
+from test_console_observation_refresh import ObservationRefreshTests
+from test_console_durable_composition import DurableCompositionTests
 
 
 SCRIPT = Path(__file__).with_name("console_cross_domain_activation.py")

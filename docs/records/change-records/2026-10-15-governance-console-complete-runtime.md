@@ -36,7 +36,8 @@ Security acceptance. The existing OOS role-aware validator checks both process
 identities, target, lifetime and ten authority records before the existing
 launcher can start a poller. WGCF retains its separate read-only activity
 identity and evidence persistence. Its worker repository is added to the same
-finite artifact-integrity policy; reinstall that reviewed policy before
+finite artifact-integrity policy, with its exact OCI digest selected by Security
+and its baked source revision checked at runtime; reinstall that reviewed policy before
 commissioning. Ordinary restart preserves original bytes and queue generation.
 Suspension drains ingress and ordinary workflow polling, invokes the existing
 fenced OOS retirement once, verifies the owner's signed original-generation

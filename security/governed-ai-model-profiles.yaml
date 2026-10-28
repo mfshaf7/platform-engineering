@@ -15,23 +15,24 @@ model_profiles:
     bindings:
       local-ollama-qwen3-8b:
         status: active
-        environments: [dev-integration]
+        environments:
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-10-18"
+          selected_at: '2026-10-18'
           selected_by: operator:workspace-owner
           basis: reuse-existing-local-binding-for-composed-security-gated-prototype-purpose
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
-      - operator-orchestration-service/prototype-source-authoring
+    - operator-orchestration-service/prototype-source-authoring
     allowed_data_scope:
-      - CGG receipt-bound selected Prototype app and design context only
-      - exact real Prototype session, source commit, objective and context digest bindings
-      - OOS-owned bounded task instruction; no raw context or repository credentials
+    - CGG receipt-bound selected Prototype app and design context only
+    - exact real Prototype session, source commit, objective and context digest bindings
+    - OOS-owned bounded task instruction; no raw context or repository credentials
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 4096
@@ -43,7 +44,7 @@ model_profiles:
       allowed:
         prototype_source_authoring:
           contract_ref: oos.prototype.source-authoring.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
@@ -53,9 +54,20 @@ model_profiles:
             repo: platform-engineering
             path: security/schemas/source-realization-change-set.schema.json
           input_contract:
-            allowed_fields: [task_instruction, model_safe_packet, source_binding]
-            required_fields: [task_instruction, model_safe_packet, source_binding]
-            model_safe_packet_required_fields: [content, packet_ref, redaction_receipt_ref, projection_receipt_ref, artifact_digest]
+            allowed_fields:
+            - task_instruction
+            - model_safe_packet
+            - source_binding
+            required_fields:
+            - task_instruction
+            - model_safe_packet
+            - source_binding
+            model_safe_packet_required_fields:
+            - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - artifact_digest
     provider_output_schema_ref:
       repo: platform-engineering
       path: security/schemas/source-realization-change-set.schema.json
@@ -67,17 +79,14 @@ model_profiles:
     security_review_ref:
       repo: security-architecture
       path: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
-    notes: >-
-      Proposed deployment configuration using the existing model, route, bounded
-      change-set wire and native lifecycle controls. The cited baseline is an
-      architectural anchor, not acceptance of this new Prototype purpose.
-      Active here is reviewed desired source configuration, not a live grant.
-      Fresh exact composed Security acceptance and explicit gateway commissioning
-      are required before use; keep the running gateway unchanged until then.
-      OOS independently binds the real canonical
-      Prototype, app/design paths, source base and exact human-accepted draft;
-      no fabricated Delivery identity, owner controls, tools, provider secret,
-      publication, merge or runtime activation authority enters the model.
+    notes: Proposed deployment configuration using the existing model, route, bounded change-set wire
+      and native lifecycle controls. The cited baseline is an architectural anchor, not acceptance of
+      this new Prototype purpose. Active here is reviewed desired source configuration, not a live grant.
+      Fresh exact composed Security acceptance and explicit gateway commissioning are required before
+      use; keep the running gateway unchanged until then. OOS independently binds the real canonical Prototype,
+      app/design paths, source base and exact human-accepted draft; no fabricated Delivery identity, owner
+      controls, tools, provider secret, publication, merge or runtime activation authority enters the
+      model.
   source-realization-v1:
     status: active
     purpose: bounded-source-realization
@@ -88,23 +97,23 @@ model_profiles:
       local-ollama-qwen3-8b:
         status: active
         environments:
-          - dev-integration
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-10-16"
+          selected_at: '2026-10-16'
           selected_by: operator:workspace-owner
           basis: existing-local-binding-for-reviewed-bounded-source-realization
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
-      - operator-orchestration-service/source-realization
+    - operator-orchestration-service/source-realization
     allowed_data_scope:
-      - CGG receipt-bound model-safe work-session objective and repository context
-      - exact source session, commit, objective digest and context digest bindings
-      - OOS-owned bounded task instruction
+    - CGG receipt-bound model-safe work-session objective and repository context
+    - exact source session, commit, objective digest and context digest bindings
+    - OOS-owned bounded task instruction
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 4096
@@ -116,7 +125,7 @@ model_profiles:
       allowed:
         source_realization:
           contract_ref: oos.delivery-art.source-realization.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
@@ -127,19 +136,19 @@ model_profiles:
             path: security/schemas/source-realization-change-set.schema.json
           input_contract:
             allowed_fields:
-              - task_instruction
-              - model_safe_packet
-              - source_binding
+            - task_instruction
+            - model_safe_packet
+            - source_binding
             required_fields:
-              - task_instruction
-              - model_safe_packet
-              - source_binding
+            - task_instruction
+            - model_safe_packet
+            - source_binding
             model_safe_packet_required_fields:
-              - content
-              - packet_ref
-              - redaction_receipt_ref
-              - projection_receipt_ref
-              - artifact_digest
+            - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - artifact_digest
     provider_output_schema_ref:
       repo: platform-engineering
       path: security/schemas/source-realization-change-set.schema.json
@@ -151,14 +160,11 @@ model_profiles:
     security_review_ref:
       repo: security-architecture
       path: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
-    notes: >-
-      Uses the existing admitted local model only. The provider schema is the
-      gateway's bounded structural subset; OOS independently enforces its full
-      path, action/content, identity, source, digest and change-set constraints.
-      Source application additionally requires explicit exact-digest acceptance
-      and the existing Agent Gary executor. Runtime commissioning remains gated
-      by the exact complete-composition Security decision. No tools, direct
-      provider access, automatic merge, paid provider or new model are admitted.
+    notes: Uses the existing admitted local model only. The provider schema is the gateway's bounded structural
+      subset; OOS independently enforces its full path, action/content, identity, source, digest and change-set
+      constraints. Source application additionally requires explicit exact-digest acceptance and the existing
+      Agent Gary executor. Runtime commissioning remains gated by the exact complete-composition Security
+      decision. No tools, direct provider access, automatic merge, paid provider or new model are admitted.
   intake-classifier-v1:
     status: active
     purpose: workspace-intake-assist
@@ -169,39 +175,39 @@ model_profiles:
       local-ollama-qwen3-8b:
         status: active
         environments:
-          - dev-integration
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-08-20"
+          selected_at: '2026-08-20'
           selected_by: operator:workspace-owner
           basis: stable-low-latency-local-classification
           documentation_ref: https://ollama.com/library/qwen3:8b
       openai-terra:
         status: selected-not-active
         environments:
-          - dev-integration
-          - stage
-          - prod
+        - dev-integration
+        - stage
+        - prod
         provider: openai
         provider_route: openai-responses-api
         upstream_model: gpt-5.6-terra
         selection:
-          selected_at: "2026-08-20"
+          selected_at: '2026-08-20'
           selected_by: operator:workspace-owner
           basis: future-paid-provider-route
           documentation_ref: https://developers.openai.com/api/docs/models/gpt-5.6-terra
     allowed_callers:
-      - workspace-governance/intake-assist
+    - workspace-governance/intake-assist
     allowed_data_scope:
-      - repo metadata
-      - top-level manifests
-      - README excerpts
-      - AGENTS excerpts
-      - operator-supplied intake notes
+    - repo metadata
+    - top-level manifests
+    - README excerpts
+    - AGENTS excerpts
+    - operator-supplied intake notes
     runtime_limits:
       max_request_bytes: 16384
       max_output_tokens: 64
@@ -213,7 +219,7 @@ model_profiles:
       allowed:
         intake_classification:
           contract_ref: platform.governed-ai.intake-classification.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: workspace-governance
             path: contracts/governed-intake-assist.yaml
@@ -225,10 +231,10 @@ model_profiles:
             path: security/schemas/intake-classification-result.schema.json
           input_contract:
             allowed_fields:
-              - operator_supplied_intake_notes
-              - model_safe_packet
+            - operator_supplied_intake_notes
+            - model_safe_packet
             required_fields:
-              - operator_supplied_intake_notes
+            - operator_supplied_intake_notes
     provider_output_schema_ref:
       repo: platform-engineering
       path: security/schemas/intake-classification-result.schema.json
@@ -241,10 +247,11 @@ model_profiles:
       repo: security-architecture
       path: docs/reviews/platform/2026-08-20-intake-classifier-v1-local-ollama-binding.md
     future_paid_activation_ref: openproject://work_packages/864
-    notes: >
-      The logical profile is provider-neutral. Dev-integration selects the
-      reviewed local Ollama binding. The paid OpenAI route remains recorded but
-      inactive until its independent activation work is complete.
+    notes: 'The logical profile is provider-neutral. Dev-integration selects the reviewed local Ollama
+      binding. The paid OpenAI route remains recorded but inactive until its independent activation work
+      is complete.
+
+      '
   delivery-work-design-advisor-v1:
     status: active
     purpose: delivery-work-design-assist
@@ -255,25 +262,25 @@ model_profiles:
       local-ollama-qwen3-8b:
         status: active
         environments:
-          - dev-integration
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-08-25"
+          selected_at: '2026-08-25'
           selected_by: operator:workspace-owner
           basis: reviewed-local-work-design-devint-activation
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
-      - operator-orchestration-service/work-design-assist
+    - operator-orchestration-service/work-design-assist
     allowed_data_scope:
-      - CGG receipt-bound model-safe Work Design content
-      - CGG packet and redaction receipt references
-      - operator-supplied Work Design prompt
-      - OOS-owned versioned task instruction
-      - CGG-admitted local note, diagram, tree and draft-only response format
+    - CGG receipt-bound model-safe Work Design content
+    - CGG packet and redaction receipt references
+    - operator-supplied Work Design prompt
+    - OOS-owned versioned task instruction
+    - CGG-admitted local note, diagram, tree and draft-only response format
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 4096
@@ -284,7 +291,7 @@ model_profiles:
       allowed:
         context_advice:
           contract_ref: oos.delivery-work-design.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/work-design/manifest.json
@@ -295,21 +302,21 @@ model_profiles:
             path: security/schemas/delivery-work-design-advice.schema.json
           input_contract:
             allowed_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             required_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             model_safe_packet_required_fields:
-              - packet_ref
-              - redaction_receipt_ref
-              - projection_receipt_ref
-              - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - content
         tree_advice:
           contract_ref: oos.delivery-work-design.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/work-design/manifest.json
@@ -320,29 +327,29 @@ model_profiles:
             path: security/schemas/delivery-work-design-advice.schema.json
           input_contract:
             allowed_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             required_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             model_safe_packet_required_fields:
-              - packet_ref
-              - redaction_receipt_ref
-              - projection_receipt_ref
-              - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - content
     human_approval_required: true
     direct_provider_access_allowed: false
     security_review_ref:
       repo: security-architecture
       path: docs/reviews/components/2026-08-25-governed-work-design-ai-activation-boundary.md
     activation_review_ref: openproject://work_packages/994
-    notes: >
-      The Work Design profile and local Ollama binding are active only in
-      dev-integration under the Security decision in #994 and Platform
-      activation in #995. Console integration remains independently gated by
-      #996. Paid-provider, stage, and prod activation remain prohibited.
+    notes: 'The Work Design profile and local Ollama binding are active only in dev-integration under
+      the Security decision in #994 and Platform activation in #995. Console integration remains independently
+      gated by #996. Paid-provider, stage, and prod activation remain prohibited.
+
+      '
   delivery-refinement-advisor-v1:
     status: active
     purpose: delivery-refinement-assist
@@ -353,25 +360,25 @@ model_profiles:
       local-ollama-qwen3-8b:
         status: active
         environments:
-          - dev-integration
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-08-26"
+          selected_at: '2026-08-26'
           selected_by: operator:workspace-owner
           basis: contract-compatible-refinement-devint-candidate
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
-      - operator-orchestration-service/refinement-assist
+    - operator-orchestration-service/refinement-assist
     allowed_data_scope:
-      - CGG receipt-bound model-safe Refinement content
-      - CGG packet, redaction receipt, and projection receipt references
-      - operator-supplied Refinement prompt
-      - OOS-owned versioned Refinement task instruction
-      - selected Delivery field and build-tree node identifiers
+    - CGG receipt-bound model-safe Refinement content
+    - CGG packet, redaction receipt, and projection receipt references
+    - operator-supplied Refinement prompt
+    - OOS-owned versioned Refinement task instruction
+    - selected Delivery field and build-tree node identifiers
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 2048
@@ -383,7 +390,7 @@ model_profiles:
       allowed:
         metadata_advice:
           contract_ref: oos.delivery-refinement.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/refinement/manifest.json
@@ -394,18 +401,18 @@ model_profiles:
             path: security/schemas/delivery-refinement-advice.schema.json
           input_contract:
             allowed_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             required_fields:
-              - task_instruction
-              - operator_prompt
-              - model_safe_packet
+            - task_instruction
+            - operator_prompt
+            - model_safe_packet
             model_safe_packet_required_fields:
-              - packet_ref
-              - redaction_receipt_ref
-              - projection_receipt_ref
-              - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - content
     provider_output_schema_ref:
       repo: platform-engineering
       path: security/schemas/delivery-refinement-advice.schema.json
@@ -418,11 +425,11 @@ model_profiles:
       repo: security-architecture
       path: docs/reviews/components/2026-08-26-refinement-catalog-dev-integration-boundary.md
     activation_review_ref: openproject://work_packages/1012
-    notes: >
-      The Refinement profile and local Ollama binding are active only in local
-      dev-integration under Security review #1012 and Platform activation
-      #1013. Console integration remains independently gated by #1014.
-      Paid-provider, stage, and prod activation remain prohibited.
+    notes: 'The Refinement profile and local Ollama binding are active only in local dev-integration under
+      Security review #1012 and Platform activation #1013. Console integration remains independently gated
+      by #1014. Paid-provider, stage, and prod activation remain prohibited.
+
+      '
   agent-console-assistant-v1:
     status: active
     purpose: agent-console-assist
@@ -433,26 +440,26 @@ model_profiles:
       local-ollama-qwen3-8b:
         status: active
         environments:
-          - dev-integration
+        - dev-integration
         provider: ollama
         provider_route: ollama-local-host
         upstream_model: qwen3:8b
         model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
         runtime_version: 0.40.11
         selection:
-          selected_at: "2026-10-09"
+          selected_at: '2026-10-09'
           selected_by: operator:workspace-owner
           basis: bounded-agent-console-devint-candidate
           documentation_ref: https://ollama.com/library/qwen3:8b
     allowed_callers:
-      - operator-orchestration-service/agent-console
+    - operator-orchestration-service/agent-console
     allowed_data_scope:
-      - CGG receipt-bound model-safe Agent Console content
-      - CGG packet, redaction receipt, projection receipt, and artifact digest references
-      - operator-supplied Agent Console prompt
-      - OOS-owned versioned Agent Console task instruction
-      - OOS session, invocation, and agent instance bindings
-      - CGG-admitted selected local draft fields and draft-only response format
+    - CGG receipt-bound model-safe Agent Console content
+    - CGG packet, redaction receipt, projection receipt, and artifact digest references
+    - operator-supplied Agent Console prompt
+    - OOS-owned versioned Agent Console task instruction
+    - OOS session, invocation, and agent instance bindings
+    - CGG-admitted selected local draft fields and draft-only response format
     runtime_limits:
       max_request_bytes: 300000
       max_output_tokens: 4096
@@ -464,7 +471,7 @@ model_profiles:
       allowed:
         assistant_response:
           contract_ref: oos.agent-console.interaction.v1
-          contract_version: "1.0"
+          contract_version: '1.0'
           contract_source_ref:
             repo: operator-orchestration-service
             path: contracts/agent-console/manifest.json
@@ -475,23 +482,23 @@ model_profiles:
             path: security/schemas/agent-console-response.schema.json
           input_contract:
             allowed_fields:
-              - task_instruction
-              - operator_prompt
-              - interaction_mode
-              - model_safe_packet
-              - session_binding
+            - task_instruction
+            - operator_prompt
+            - interaction_mode
+            - model_safe_packet
+            - session_binding
             required_fields:
-              - task_instruction
-              - operator_prompt
-              - interaction_mode
-              - model_safe_packet
-              - session_binding
+            - task_instruction
+            - operator_prompt
+            - interaction_mode
+            - model_safe_packet
+            - session_binding
             model_safe_packet_required_fields:
-              - packet_ref
-              - redaction_receipt_ref
-              - projection_receipt_ref
-              - artifact_digest
-              - content
+            - packet_ref
+            - redaction_receipt_ref
+            - projection_receipt_ref
+            - artifact_digest
+            - content
     provider_output_schema_ref:
       repo: platform-engineering
       path: security/schemas/agent-console-response.schema.json
@@ -504,9 +511,95 @@ model_profiles:
       repo: security-architecture
       path: docs/reviews/platform/2026-04-29-bounded-governed-ai-runtime-assist-activation.md
     activation_review_ref: openproject://work_packages/1248
-    notes: >
-      The bounded Agent Console model profile is available only through the
-      governed AI gateway in local dev-integration. The OOS and CGG runtime
-      hooks remain default-off, and gate:agent-console-operating-acceptance at
-      #1248 blocks composed operating-ready proof. Paid-provider, stage, prod,
-      and direct consumer-to-provider activation remain prohibited.
+    notes: 'The bounded Agent Console model profile is available only through the governed AI gateway
+      in local dev-integration. The OOS and CGG runtime hooks remain default-off, and gate:agent-console-operating-acceptance
+      at #1248 blocks composed operating-ready proof. Paid-provider, stage, prod, and direct consumer-to-provider
+      activation remain prohibited.
+
+      '
+  console-purpose-qualification-1339-v1:
+    status: suspended
+    purpose: workspace-intake-assist
+    invocation_path: governed-ai-gateway
+    selected_binding_by_environment:
+      dev-integration: local-ollama-qwen3-8b
+    bindings:
+      local-ollama-qwen3-8b:
+        status: selected-not-active
+        environments:
+        - dev-integration
+        provider: ollama
+        provider_route: ollama-local-host
+        upstream_model: qwen3:8b
+        model_digest: 500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41
+        runtime_version: 0.40.11
+        selection:
+          selected_at: '2026-08-20'
+          selected_by: operator:workspace-owner
+          basis: stable-low-latency-local-classification
+          documentation_ref: https://ollama.com/library/qwen3:8b
+      openai-terra:
+        status: selected-not-active
+        environments:
+        - dev-integration
+        - stage
+        - prod
+        provider: openai
+        provider_route: openai-responses-api
+        upstream_model: gpt-5.6-terra
+        selection:
+          selected_at: '2026-08-20'
+          selected_by: operator:workspace-owner
+          basis: future-paid-provider-route
+          documentation_ref: https://developers.openai.com/api/docs/models/gpt-5.6-terra
+    allowed_callers:
+    - workspace-governance/intake-assist-qualification-1339
+    allowed_data_scope:
+    - repo metadata
+    - top-level manifests
+    - README excerpts
+    - AGENTS excerpts
+    - operator-supplied intake notes
+    runtime_limits:
+      max_request_bytes: 16384
+      max_output_tokens: 64
+      timeout_seconds: 30
+      retry_count: 1
+      max_concurrency: 2
+    task_contracts:
+      default_task_kind: intake_classification
+      allowed:
+        intake_classification:
+          contract_ref: platform.governed-ai.intake-classification.v1
+          contract_version: '1.0'
+          contract_source_ref:
+            repo: workspace-governance
+            path: contracts/governed-intake-assist.yaml
+          instruction_owner_repo: platform-engineering
+          instruction_source: gateway-profile
+          prompt_version: intake-classifier-v1.0
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/intake-classification-result.schema.json
+          input_contract:
+            allowed_fields:
+            - operator_supplied_intake_notes
+            - model_safe_packet
+            required_fields:
+            - operator_supplied_intake_notes
+    provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/intake-classification-result.schema.json
+    accepted_record_schema_ref:
+      repo: workspace-governance
+      path: contracts/schemas/intake-ai-suggestion.schema.json
+    human_approval_required: true
+    direct_provider_access_allowed: false
+    security_review_ref:
+      repo: security-architecture
+      path: docs/reviews/platform/2026-08-20-intake-classifier-v1-local-ollama-binding.md
+    future_paid_activation_ref: openproject://work_packages/864
+    notes: Epic1332 native Purpose lifecycle qualification. Suspended source only; no invocation or runtime
+      activation. Restore exact baseline after reviewed source readback and preserve original request
+      history. Corrected qualification uses an independently registered inactive logical caller; no credential,
+      active consumer or inference grant is created.

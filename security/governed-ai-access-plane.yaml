@@ -4,10 +4,10 @@ access_plane:
   status: active
   owner_repo: platform-engineering
   security_owner: security-architecture
-  purpose: >
-    Provide the shared governed invocation boundary for central governance
-    consumers. Consumers call this boundary instead of carrying provider
-    credentials or direct provider clients.
+  purpose: 'Provide the shared governed invocation boundary for central governance consumers. Consumers
+    call this boundary instead of carrying provider credentials or direct provider clients.
+
+    '
   profile_registry_ref:
     repo: platform-engineering
     path: security/governed-ai-model-profiles.yaml
@@ -15,108 +15,123 @@ access_plane:
     repo: platform-engineering
     path: security/governed-ai-runtime-assist-contract.yaml
   allowed_profiles:
-    - prototype-source-authoring-v1
-    - intake-classifier-v1
-    - delivery-work-design-advisor-v1
-    - delivery-refinement-advisor-v1
-    - agent-console-assistant-v1
-    - source-realization-v1
+  - agent-console-assistant-v1
+  - console-purpose-qualification-1339-v1
+  - delivery-refinement-advisor-v1
+  - delivery-work-design-advisor-v1
+  - intake-classifier-v1
+  - prototype-source-authoring-v1
+  - source-realization-v1
   provider_routes:
-    - route_id: ollama-local-host
-      provider: ollama
-      api_family: ollama-chat
-      endpoint_origin: http://host.docker.internal:11434
-      endpoint_path: /api/chat
-      status: active
-      credential_required: false
-      allowed_profiles:
-        - prototype-source-authoring-v1
-        - intake-classifier-v1
-        - delivery-work-design-advisor-v1
-        - delivery-refinement-advisor-v1
-        - agent-console-assistant-v1
-        - source-realization-v1
-      allowed_models:
-        - qwen3:8b
-    - route_id: openai-responses-api
-      provider: openai
-      api_family: responses
-      endpoint_origin: https://api.openai.com
-      endpoint_path: /v1/responses
-      status: selected-not-active
-      credential_required: true
-      allowed_profiles:
-        - intake-classifier-v1
-      allowed_models:
-        - gpt-5.6-terra
+  - route_id: ollama-local-host
+    provider: ollama
+    api_family: ollama-chat
+    endpoint_origin: http://host.docker.internal:11434
+    endpoint_path: /api/chat
+    status: active
+    credential_required: false
+    allowed_profiles:
+    - agent-console-assistant-v1
+    - console-purpose-qualification-1339-v1
+    - delivery-refinement-advisor-v1
+    - delivery-work-design-advisor-v1
+    - intake-classifier-v1
+    - prototype-source-authoring-v1
+    - source-realization-v1
+    allowed_models:
+    - qwen3:8b
+  - route_id: openai-responses-api
+    provider: openai
+    api_family: responses
+    endpoint_origin: https://api.openai.com
+    endpoint_path: /v1/responses
+    status: selected-not-active
+    credential_required: true
+    allowed_profiles:
+    - console-purpose-qualification-1339-v1
+    - intake-classifier-v1
+    allowed_models:
+    - gpt-5.6-terra
   allowed_callers:
-    - caller_id: operator-orchestration-service/prototype-source-authoring
-      purpose: bounded-prototype-source-authoring
-      required_profile: prototype-source-authoring-v1
-      required_provider_output_schema_ref:
-        repo: platform-engineering
-        path: security/schemas/source-realization-change-set.schema.json
-      accepted_record_schema_ref:
-        repo: operator-orchestration-service
-        path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
-      allowed_task_kinds: [prototype_source_authoring]
-    - caller_id: operator-orchestration-service/source-realization
-      purpose: bounded-source-realization
-      required_profile: source-realization-v1
-      required_provider_output_schema_ref:
-        repo: platform-engineering
-        path: security/schemas/source-realization-change-set.schema.json
-      accepted_record_schema_ref:
-        repo: operator-orchestration-service
-        path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
-      allowed_task_kinds:
-        - source_realization
-    - caller_id: workspace-governance/intake-assist
-      purpose: workspace-intake-assist
-      required_profile: intake-classifier-v1
-      required_provider_output_schema_ref:
-        repo: platform-engineering
-        path: security/schemas/intake-classification-result.schema.json
-      accepted_record_schema_ref:
-        repo: workspace-governance
-        path: contracts/schemas/intake-ai-suggestion.schema.json
-      allowed_task_kinds:
-        - intake_classification
-    - caller_id: operator-orchestration-service/work-design-assist
-      purpose: delivery-work-design-assist
-      required_profile: delivery-work-design-advisor-v1
-      allowed_task_kinds:
-        - context_advice
-        - tree_advice
-    - caller_id: operator-orchestration-service/refinement-assist
-      purpose: delivery-refinement-assist
-      required_profile: delivery-refinement-advisor-v1
-      required_provider_output_schema_ref:
-        repo: platform-engineering
-        path: security/schemas/delivery-refinement-advice.schema.json
-      accepted_record_schema_ref:
-        repo: operator-orchestration-service
-        path: contracts/refinement/assist-result.schema.json
-      allowed_task_kinds:
-        - metadata_advice
-    - caller_id: operator-orchestration-service/agent-console
-      purpose: agent-console-assist
-      required_profile: agent-console-assistant-v1
-      required_provider_output_schema_ref:
-        repo: platform-engineering
-        path: security/schemas/agent-console-response.schema.json
-      accepted_record_schema_ref:
-        repo: operator-orchestration-service
-        path: contracts/agent-console/model-response.schema.json
-      allowed_task_kinds:
-        - assistant_response
+  - caller_id: operator-orchestration-service/agent-console
+    purpose: agent-console-assist
+    required_profile: agent-console-assistant-v1
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/agent-console-response.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/agent-console/model-response.schema.json
+    allowed_task_kinds:
+    - assistant_response
+  - caller_id: operator-orchestration-service/prototype-source-authoring
+    purpose: bounded-prototype-source-authoring
+    required_profile: prototype-source-authoring-v1
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/source-realization-change-set.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+    allowed_task_kinds:
+    - prototype_source_authoring
+  - caller_id: operator-orchestration-service/refinement-assist
+    purpose: delivery-refinement-assist
+    required_profile: delivery-refinement-advisor-v1
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/delivery-refinement-advice.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/refinement/assist-result.schema.json
+    allowed_task_kinds:
+    - metadata_advice
+  - caller_id: operator-orchestration-service/source-realization
+    purpose: bounded-source-realization
+    required_profile: source-realization-v1
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/source-realization-change-set.schema.json
+    accepted_record_schema_ref:
+      repo: operator-orchestration-service
+      path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
+    allowed_task_kinds:
+    - source_realization
+  - caller_id: operator-orchestration-service/work-design-assist
+    purpose: delivery-work-design-assist
+    required_profile: delivery-work-design-advisor-v1
+    allowed_task_kinds:
+    - context_advice
+    - tree_advice
+  - caller_id: workspace-governance/intake-assist
+    purpose: workspace-intake-assist
+    required_profile: intake-classifier-v1
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/intake-classification-result.schema.json
+    accepted_record_schema_ref:
+      repo: workspace-governance
+      path: contracts/schemas/intake-ai-suggestion.schema.json
+    allowed_task_kinds:
+    - intake_classification
+  - caller_id: workspace-governance/intake-assist
+    purpose: workspace-intake-assist
+    required_profile: console-purpose-qualification-1339-v1
+    allowed_task_kinds:
+    - intake_classification
+    required_provider_output_schema_ref:
+      repo: platform-engineering
+      path: security/schemas/intake-classification-result.schema.json
+    accepted_record_schema_ref:
+      repo: workspace-governance
+      path: contracts/schemas/intake-ai-suggestion.schema.json
   caller_identity:
     required_fields:
-      - caller_id
-      - caller_repo
-      - caller_workflow
-      - decision_or_correlation_id
-      - requested_profile_id
+    - caller_id
+    - caller_repo
+    - caller_workflow
+    - decision_or_correlation_id
+    - requested_profile_id
     propagation_boundary: access-plane-request
     operator_identity_required_when_human_approval_required: true
   provider_credential_custody:
@@ -124,13 +139,13 @@ access_plane:
     allowed_secret_store: vault
     consumer_provider_credentials_allowed: false
     provider_secret_projection_allowed_only_to:
-      - governed-ai-gateway runtime namespace
-      - devint-governed-ai-gateway profile namespace
+    - governed-ai-gateway runtime namespace
+    - devint-governed-ai-gateway profile namespace
     provider_secret_refs:
-      - provider: openai
-        route_id: openai-responses-api
-        vault_path: components/governed-ai-gateway/shared/provider
-        property: apiToken
+    - provider: openai
+      route_id: openai-responses-api
+      vault_path: components/governed-ai-gateway/shared/provider
+      property: apiToken
     devint_secret_ref:
       namespace_pattern: devint-governed-ai-gateway-<operator>
       secret_name: governed-ai-gateway-provider
@@ -144,30 +159,30 @@ access_plane:
       pvc: governed-ai-gateway-audit
       path: /var/lib/governed-ai-gateway/audit-ledger.jsonl
     required_fields:
-      - event_time
-      - correlation_id
-      - caller_identity
-      - operator_identity
-      - approved_profile_id
-      - invocation_path
-      - upstream_provider
-      - provider_route
-      - upstream_model
-      - upstream_model_digest
-      - provider_runtime_version
-      - prompt_version
-      - task_kind
-      - task_contract_ref
-      - task_contract_version
-      - provider_schema_valid
-      - provider_latency_ms
-      - provider_usage
-      - purpose
-      - output_schema_ref
-      - policy_decision
-      - outcome
-      - operator_acceptance_state
-      - override_reason
+    - event_time
+    - correlation_id
+    - caller_identity
+    - operator_identity
+    - approved_profile_id
+    - invocation_path
+    - upstream_provider
+    - provider_route
+    - upstream_model
+    - upstream_model_digest
+    - provider_runtime_version
+    - prompt_version
+    - task_kind
+    - task_contract_ref
+    - task_contract_version
+    - provider_schema_valid
+    - provider_latency_ms
+    - provider_usage
+    - purpose
+    - output_schema_ref
+    - policy_decision
+    - outcome
+    - operator_acceptance_state
+    - override_reason
   admission_policy:
     default_decision: deny
     require_active_profile: true
@@ -211,16 +226,21 @@ access_plane:
         environment: dev-integration
         binding: local-ollama-qwen3-8b
         reason: source-admitted-agent-console-profile-operating-gated-by-1248
+      console-purpose-qualification-1339-v1:
+        activation_allowed: false
+        environment: dev-integration
+        binding: local-ollama-qwen3-8b
+        reason: lifecycle-suspended:platform-model-profile-decision:native1339-source-create
     compatibility_projection:
       consumer: workspace-governance/intake-assist
     profile_activation_allowed: true
     active_profile: intake-classifier-v1
     active_environment: dev-integration
     active_binding: local-ollama-qwen3-8b
-    reason: >
-      The reviewed local Ollama binding is active for platform-owned
-      dev-integration proof. Workspace consumer use remains separately gated
-      until its dependent activation work completes. These flat fields are the
-      compatibility projection for intake-classifier-v1; profile_activations is
-      the canonical per-profile lifecycle map. The Work Design profile is
-      independently active in dev-integration; the OpenAI route is not active.
+    reason: 'The reviewed local Ollama binding is active for platform-owned dev-integration proof. Workspace
+      consumer use remains separately gated until its dependent activation work completes. These flat
+      fields are the compatibility projection for intake-classifier-v1; profile_activations is the canonical
+      per-profile lifecycle map. The Work Design profile is independently active in dev-integration; the
+      OpenAI route is not active.
+
+      '

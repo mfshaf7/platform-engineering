@@ -10,3 +10,8 @@ operator lifecycle decisions. Actual source is separately checked by the native
 profile validator and generic rendered-registry conformance. The lifecycle
 matrix uses the real mutator, validator, resolver, launcher and policy in a
 disposable copy, including retirement and all-inactive launch refusal.
+
+Synthetic model-management composition cases use the same disposable fixture
+root while retaining the actual runtime policy and image contract. An extra
+suspended profile still fails the runtime management boundary review check;
+source-only lifecycle qualification does not grant it account task permissions.

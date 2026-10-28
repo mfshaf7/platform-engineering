@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -18,6 +19,8 @@ SPEC = importlib.util.spec_from_file_location("console_model_management", Path(_
 module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "scripts"))
+from governed_ai_test_support import prepare_contracts
 
 
 def policy():
@@ -38,9 +41,16 @@ def manifest():
 
 
 class ModelCompositionTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="synthetic-model-management-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        prepare_contracts(self.root)
+        (self.root / "products").symlink_to(ROOT / "products", target_is_directory=True)
+
     def overlay(self):
         return {"image": module.IMAGE_REPOSITORY + "@sha256:" + "a" * 64,
-                "owner_policy": module.owner_policy(ROOT, "operator:synthetic"), "memory_limit": "1Gi", "cpu_limit": "1"}
+                "owner_policy": module.owner_policy(self.root, "operator:synthetic"), "memory_limit": "1Gi", "cpu_limit": "1"}
 
     def test_unreviewed_executable_image_and_resource_change_are_rejected(self):
         for field, value in [("codex_sha256", "0" * 64), ("base_image", "unreviewed:latest"), ("memory_limit", "8Gi"), ("enabled", False)]:
@@ -48,14 +58,23 @@ class ModelCompositionTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(module.ModelCompositionError):
                 module.validate(selected)
 
-    def test_exact_current_six_profile_task_permissions_are_retained(self):
-        value = module.owner_policy(ROOT, "operator:synthetic")
-        actual = yaml.safe_load((ROOT / "security/governed-ai-model-profiles.yaml").read_text())["model_profiles"]
+    def test_reviewed_fixture_task_permissions_are_retained(self):
+        value = module.owner_policy(self.root, "operator:synthetic")
+        actual = yaml.safe_load((self.root / "security/governed-ai-model-profiles.yaml").read_text())["model_profiles"]
         expected = sorted(name + "/" + task for name, definition in actual.items() for task in definition["task_contracts"]["allowed"])
         self.assertEqual(set(actual), module.TASK_PROFILES)
         for backend in value["backends"].values(): self.assertEqual(backend["allowed_tasks"], expected)
         self.assertEqual(value["backends"]["managed-codex"]["vault"]["path"], module.ACCOUNT_PATH)
         self.assertNotIn("OPENAI_API_KEY", json.dumps(value))
+
+    def test_extra_suspended_profile_still_requires_runtime_boundary_review(self):
+        path = self.root / "security/governed-ai-model-profiles.yaml"
+        document = yaml.safe_load(path.read_text())
+        document["model_profiles"]["synthetic-suspended-qualification"] = {
+            "status": "suspended", "task_contracts": {"allowed": {"synthetic_task": {}}}}
+        path.write_text(yaml.safe_dump(document))
+        with self.assertRaisesRegex(module.ModelCompositionError, "changed profile/data boundary"):
+            module.owner_policy(self.root, "operator:synthetic")
 
     def test_rendered_pod_has_bounded_private_execution_without_project_or_service_account_mounts(self):
         docs = list(yaml.safe_load_all(module.patch_manifest(manifest(), self.overlay())))
@@ -91,7 +110,7 @@ class ModelCompositionTests(unittest.TestCase):
             selected["security"].update(status=state, gate_id=gate)
             effects = []
             with tempfile.TemporaryDirectory() as directory, self.assertRaises(module.ModelCompositionError):
-                module.prepare(selected, repo_root=ROOT, state_root=Path(directory), operator_id="operator:synthetic", gateway_namespace="synthetic", run=lambda *a, **k: effects.append((a, k)), vault_token=lambda: "synthetic-root")
+                module.prepare(selected, repo_root=self.root, state_root=Path(directory), operator_id="operator:synthetic", gateway_namespace="synthetic", run=lambda *a, **k: effects.append((a, k)), vault_token=lambda: "synthetic-root")
             self.assertEqual(effects, [])
 
     def test_real_preparation_shape_limits_vault_authority_and_keeps_tokens_out_of_arguments(self):
@@ -105,7 +124,7 @@ class ModelCompositionTests(unittest.TestCase):
             return SimpleNamespace(returncode=0, stdout="")
         with tempfile.TemporaryDirectory() as directory, patch.object(module, "build_image", return_value="synthetic:image"), patch.dict(os.environ, {}):
             root = Path(directory)
-            module.prepare(selected, repo_root=ROOT, state_root=root, operator_id="operator:synthetic", gateway_namespace="synthetic", run=execute, vault_token=lambda: "synthetic-root")
+            module.prepare(selected, repo_root=self.root, state_root=root, operator_id="operator:synthetic", gateway_namespace="synthetic", run=execute, vault_token=lambda: "synthetic-root")
             self.assertEqual((root / "private/model-management/vault-token").stat().st_mode & 0o777, 0o600)
             self.assertTrue(Path(os.environ["DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY"]).is_file())
         arguments = json.dumps([command for command, _ in calls])
@@ -165,7 +184,7 @@ class ModelCompositionTests(unittest.TestCase):
                 return SimpleNamespace(returncode=0, stdout=json.dumps({"auth": {"client_token": token, "renewable": True, "policies": ["default", module.VAULT_POLICY]}}))
             return SimpleNamespace(returncode=1 if "renew" in command else 0, stdout="")
         with tempfile.TemporaryDirectory() as directory, patch.object(module, "build_image", return_value="synthetic:image"), patch.dict(os.environ, {}):
-            args = dict(repo_root=ROOT, state_root=Path(directory), operator_id="operator:synthetic", gateway_namespace="synthetic", run=execute, vault_token=lambda: "synthetic-root")
+            args = dict(repo_root=self.root, state_root=Path(directory), operator_id="operator:synthetic", gateway_namespace="synthetic", run=execute, vault_token=lambda: "synthetic-root")
             with self.assertRaisesRegex(module.ModelCompositionError, "acknowledgement loss"):
                 module.prepare(selected, **args)
             retained = (Path(directory) / "private/model-management/vault-token").read_text()
@@ -225,7 +244,7 @@ class ModelCompositionTests(unittest.TestCase):
             raise module.ModelCompositionError("Published runtime is unavailable")
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(module.ModelCompositionError, "Published runtime is unavailable"):
-                module.prepare(selected, repo_root=ROOT, state_root=Path(directory), operator_id="operator:synthetic",
+                module.prepare(selected, repo_root=self.root, state_root=Path(directory), operator_id="operator:synthetic",
                                gateway_namespace="synthetic", run=execute,
                                vault_token=lambda: self.fail("An unavailable image must not request an administrator token"))
             self.assertFalse((Path(directory) / "private/model-management").exists())

@@ -154,3 +154,8 @@ Restart recovery uses the same complete-runtime procedure and operator-login
 service. Startup waits boundedly for Docker/Kubernetes readiness; failed-start
 compensation preserves recovery registration, while intentional teardown still
 removes it. See the complete-runtime runbook for current-state and restart proof.
+
+The complete-runtime procedure separates core readiness from configured AI
+availability. Provider metadata checks run only after core startup and appear in
+existing Model Operations; provider loss or drift does not restart the Console.
+See [the operating procedure](runbooks/operate-complete-runtime.md#core-startup-and-configured-ai-providers).

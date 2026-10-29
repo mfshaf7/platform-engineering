@@ -86,6 +86,7 @@ class ModelCompositionTests(unittest.TestCase):
         self.assertTrue(main["securityContext"]["readOnlyRootFilesystem"])
         self.assertFalse(main["securityContext"]["allowPrivilegeEscalation"])
         self.assertEqual(main["imagePullPolicy"], "IfNotPresent")
+        self.assertEqual(main["readinessProbe"]["httpGet"]["path"], "/healthz")
         self.assertEqual(spec["initContainers"][0]["image"], main["image"])
         self.assertEqual(spec["initContainers"][0]["imagePullPolicy"], "IfNotPresent")
         self.assertFalse(any("hostPath" in item for item in spec["volumes"]))

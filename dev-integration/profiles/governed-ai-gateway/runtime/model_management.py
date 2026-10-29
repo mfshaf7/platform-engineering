@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
+from datetime import datetime, timezone, timedelta
 import json
 import os
 from pathlib import Path
@@ -40,7 +41,10 @@ class OllamaBackend:
 
     def discover(self):
         version, tags = self._read("/api/version"), self._read("/api/tags")
-        if not isinstance(version.get("version"), str) or not isinstance(tags.get("models"), list):
+        if (not isinstance(version.get("version"), str) or not 0 < len(version["version"]) <= 2048
+                or not isinstance(tags.get("models"), list) or len(tags["models"]) > 256
+                or any(not isinstance(item, dict) or not all(isinstance(item.get(key), str) and 0 < len(item[key]) <= 200
+                    for key in ("name", "digest")) for item in tags["models"])):
             raise ProviderIntegrityError("The local provider metadata is invalid.")
         return [{"model": model["name"], "supported_efforts": None,
                  "model_digest": model["digest"], "runtime_version": version["version"]}
@@ -53,7 +57,7 @@ class OllamaBackend:
         shown = self._read("/api/show", {"model": name})
         thinking = shown.get("thinking")
         values = thinking.get("values") if isinstance(thinking, dict) else [None]
-        if not isinstance(values, list) or not values or any(type(x) not in {str, bool} and x is not None for x in values):
+        if not isinstance(values, list) or not 0 < len(values) <= 32 or any(type(x) not in {str, bool} and x is not None or isinstance(x, str) and len(x) > 200 for x in values):
             raise ProviderIntegrityError("The model's native thinking metadata is invalid.")
         return {**model, "supported_efforts": values}
 
@@ -169,9 +173,86 @@ class ModelManagement:
                 models = [item for item in models if item["model"] == model]
         return {"backend_id": backend_id, "models": models}
 
+    def refresh_health(self, *, now=None):
+        """Metadata only, after core startup. Never registers, infers or reroutes."""
+        now = now or datetime.now(timezone.utc)
+        snapshot = self.configuration.snapshot()
+        config = snapshot["configuration"]
+        result = {"configuration_revision": snapshot["revision"], "configuration_digest": snapshot["digest"],
+                  "checked_at": now.isoformat(), "expires_at": (now + timedelta(seconds=120)).isoformat(),
+                  "backends": [], "models": []}
+        deadline = time.monotonic() + 20
+        # One owner process, one bounded collector; UI reads never probe providers.
+        with locked(self.configuration.root / "health.lock", blocking=False):
+            for key in sorted(config["backends"])[:32]:
+                backend = self.backends.get(key)
+                state, code = "unknown", "connection-not-probed"
+                advertised = None
+                try:
+                    if time.monotonic() >= deadline:
+                        code = "check-budget-exhausted"
+                    elif isinstance(backend, OllamaBackend):
+                        advertised = {item["model"]: item for item in backend.discover()}
+                        state, code = "available", "metadata-available"
+                    elif isinstance(backend, CodexBackend):
+                        # No app-server or inference from a timer. Stored account
+                        # presence cannot prove remote entitlement or connectivity.
+                        with backend.account.project(allow_missing=True) as (home, _):
+                            if not (home / "auth.json").is_file():
+                                state, code = "unavailable", "account-sign-in-required"
+                            else:
+                                code = "account-present-connection-unprobed"
+                except ProviderIntegrityError:
+                    state, code = "verification-needed", "provider-metadata-invalid"
+                except ProviderUnavailable:
+                    state, code = "unavailable", "provider-unavailable"
+                except (BlockingIOError, ProviderBusy):
+                    state, code = "unknown", "provider-busy"
+                except (KeyError, TypeError, ValueError, OSError):
+                    state, code = "unknown", "provider-metadata-invalid"
+                result["backends"].append({"backend_id": key, "state": state, "code": code})
+                for model_id, model in sorted(config["models"].items()):
+                    if model["backend_id"] != key or len(result["models"]) >= 256:
+                        continue
+                    item = {"model_id": model_id, "state": state, "code": code,
+                            "observed_runtime_version": None, "observed_model_digest": None}
+                    if advertised is not None:
+                        observed = advertised.get(model["model"])
+                        if observed is None:
+                            item.update(state="unavailable", code="model-not-advertised")
+                        elif time.monotonic() >= deadline:
+                            item.update(state="unknown", code="check-budget-exhausted")
+                        else:
+                            try:
+                                observed = backend.metadata(model["model"])
+                                item.update(observed_runtime_version=observed["runtime_version"], observed_model_digest=observed["model_digest"])
+                                changed = any(observed[field] != model[field] for field in ("model_digest", "runtime_version", "supported_efforts"))
+                                item.update(state="verification-needed" if changed else "available",
+                                            code="registration-changed" if changed else "metadata-matched")
+                            except (ConfigurationError, OllamaAdapterError, OSError, ValueError, KeyError, TypeError):
+                                item.update(state="unknown", code="provider-metadata-invalid")
+                    result["models"].append(item)
+            atomic_json(self.configuration.root / "health.json", result)
+        return result
+
+    def health(self, snapshot):
+        try:
+            path = self.configuration.root / "health.json"
+            if path.is_symlink() or path.stat().st_size > 1_048_576:
+                return None
+            value = json.loads(path.read_text())
+            now = datetime.now(timezone.utc)
+            if (value["configuration_revision"] != snapshot["revision"] or value["configuration_digest"] != snapshot["digest"]
+                    or not datetime.fromisoformat(value["checked_at"]) <= now < datetime.fromisoformat(value["expires_at"])):
+                return None
+            return value
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
     def describe_backends(self):
-        registered = self.configuration.snapshot()["configuration"]["backends"]
-        return {"tasks": sorted(self.configuration.tasks), "backends": [
+        snapshot = self.configuration.snapshot()
+        registered = snapshot["configuration"]["backends"]
+        return {"health": self.health(snapshot), "tasks": sorted(self.configuration.tasks), "backends": [
             {"backend_id": key, "provider": value.get("provider"), "allowed_tasks": value["allowed_tasks"],
              "registered": key in registered, "account_login_supported": isinstance(self.backends.get(key), CodexBackend),
              "availability": "not-probed"}

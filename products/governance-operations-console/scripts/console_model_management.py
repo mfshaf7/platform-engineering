@@ -244,6 +244,7 @@ def patch_manifest(manifest, overlay):
     container.update(image=overlay["image"], imagePullPolicy="IfNotPresent", resources={"requests": {"cpu": "100m", "memory": "128Mi"},
         "limits": {"cpu": overlay["cpu_limit"], "memory": overlay["memory_limit"], "ephemeral-storage": "1Gi"}},
         securityContext={"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True, "capabilities": {"drop": ["ALL"]}})
+    container.setdefault("readinessProbe", {"httpGet": {"port": 8080}})["httpGet"]["path"] = "/healthz"
     container["env"].append({"name": "GOVERNED_AI_MODEL_MANAGEMENT_POLICY_PATH", "value": "/app/model-management-policy.json"})
     # Reuse the renderer's actual resolved host route, rather than assuming
     # host.docker.internal resolves inside every pod.
@@ -290,6 +291,29 @@ def bind_oos(policy, *, state_root, namespace, operator_id, run):
         "volumes": [{"name": "model-management-caller", "secret": {"secretName": OOS_SECRET, "defaultMode": 0o444}}]}}}}
     run(["k3s", "kubectl", "-n", namespace, "patch", "deployment", "operator-orchestration-service", "--type=strategic", "--patch-file=/dev/stdin"], input_value=json.dumps(patch))
     run(["k3s", "kubectl", "-n", namespace, "rollout", "status", "deployment/operator-orchestration-service", "--timeout=180s"])
+
+
+def refresh_health(*, operator_id, gateway_namespace, run):
+    """Only the post-core observation path invokes this finite owner request."""
+    script = """import json,urllib.request
+from pathlib import Path
+policy=json.loads(Path('/app/model-management-policy.json').read_text())
+request=urllib.request.Request('http://127.0.0.1:8080/v1/model-management/health',data=b'{}',headers={
+ 'Content-Type':'application/json','Authorization':'Bearer '+Path(policy['token_file']).read_text().strip(),
+ 'X-Platform-Caller':policy['caller_id'],'X-Platform-Operator':policy['operator_id']})
+with urllib.request.urlopen(request,timeout=40) as response:
+ value=json.loads(response.read(1048577))
+ print(json.dumps({'checked_at':value['checked_at'],'configuration_revision':value['configuration_revision']}))
+"""
+    try:
+        result = run(["k3s", "kubectl", "-n", gateway_namespace, "exec", "deployment/governed-ai-gateway", "--",
+                      "python", "-c", script], check=False)
+        if result.returncode:
+            return {"state": "unknown", "code": "provider-observation-unavailable"}
+        value = owner_json(result.stdout)
+        return {"state": "checked", **value}
+    except (OSError, ValueError, ModelCompositionError):
+        return {"state": "unknown", "code": "provider-observation-unavailable"}
 
 
 def renew_account_lease(*, state_root, run):

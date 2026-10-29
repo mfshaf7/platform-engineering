@@ -60,6 +60,50 @@ class Backend:
 
 
 class TaskRoutingTests(unittest.TestCase):
+    def test_post_start_health_detects_drift_without_inference_or_configuration_mutation(self):
+        class Local(OllamaBackend):
+            calls = []
+            def discover(inner):
+                return [{"model": "local", "supported_efforts": ["low", "high"], "runtime_version": "changed-v2", "model_digest": None}]
+            def metadata(inner, name): return inner.discover()[0]
+            def adapter(inner, *args): raise AssertionError("health must not infer")
+        self.manager.backends["local"] = Local("http://unused.invalid")
+        before = self.configuration.snapshot()
+        result = self.manager.refresh_health()
+        local = next(row for row in result["models"] if row["model_id"] == self.ids["local"])
+        self.assertEqual(local["state"], "verification-needed")
+        self.assertEqual(local["observed_runtime_version"], "changed-v2")
+        self.assertEqual(self.configuration.snapshot(), before)
+        self.assertEqual(self.manager.describe_backends()["health"], result)
+        self.assertTrue(all(not backend.calls for backend in self.backends.values()))
+        self.command("routing.save", {"default": {"primary": {"model_id": self.ids["cloud"], "effort": "high"}, "fallbacks": [], "on_exhausted": "fail-closed"}, "overrides": {}})
+        self.assertIsNone(self.manager.describe_backends()["health"])
+
+    def test_provider_loss_is_health_evidence_not_a_management_failure(self):
+        class Offline(OllamaBackend):
+            calls = []
+            def discover(inner): raise ProviderUnavailable("private error text")
+        self.manager.backends["local"] = Offline("http://unused.invalid")
+        result = self.manager.refresh_health()
+        self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "local")["state"], "unavailable")
+        self.assertNotIn("private error", json.dumps(result))
+        self.assertEqual(self.manager.describe_backends()["health"], result)
+        self.assertTrue(all(not backend.calls for backend in self.backends.values()))
+
+    def test_automatic_account_check_does_not_launch_codex_or_claim_entitlement(self):
+        @contextmanager
+        def projected(**kwargs):
+            self.assertTrue(kwargs["allow_missing"])
+            yield self.root, lambda raw: self.fail("routine check must not persist credentials")
+        account = SimpleNamespace(project=projected)
+        self.manager.backends["cloud"] = CodexBackend(executable=Path("/never-execute"), executable_digest="0"*64, account=account)
+        with patch("model_management.CodexProtocol", side_effect=AssertionError("routine check launched Codex")):
+            result = self.manager.refresh_health()
+            self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "cloud")["code"], "account-sign-in-required")
+            (self.root / "auth.json").write_text("synthetic presence")
+            result = self.manager.refresh_health()
+            self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "cloud")["code"], "account-present-connection-unprobed")
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -186,7 +230,7 @@ class TaskRoutingTests(unittest.TestCase):
             self.assertEqual([a["outcome"] for a in original["effective_selection"]["attempts"]],
                              ["provider-busy", "suggestion-produced"])
             self.assertEqual(len(self.backends["local"].calls), 1)
-            self.save(self.route("cloud"))
+            self.save({"primary": {"model_id": self.ids["cloud"], "effort": "high"}, "fallbacks": [], "on_exhausted": "fail-closed"})
             no_fallback = copy.deepcopy(self.request)
             no_fallback["caller_identity"]["decision_or_correlation_id"] = "invocation:no-fallback"
             status, denied = self.runtime.invoke(no_fallback)

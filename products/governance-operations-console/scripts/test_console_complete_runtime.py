@@ -27,6 +27,42 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_provider_checks_require_same_boot_successful_core_signal(self):
+        policy = self.accepted_policy()
+        policy["model_management"] = {"enabled": True}
+        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "STATE_ROOT", Path(directory)), patch.object(runtime.model_management, "refresh_health") as probe:
+            self.assertIsNone(runtime.refresh_provider_health(policy)); probe.assert_not_called()
+            marker = {"boot_id": "previous-boot", "security_decision_digest": policy["security"]["decision_digest"]}
+            (Path(directory) / "core-online.json").write_text(json.dumps(marker))
+            self.assertIsNone(runtime.refresh_provider_health(policy)); probe.assert_not_called()
+            marker["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+            (Path(directory) / "core-online.json").write_text(json.dumps(marker))
+            runtime.refresh_provider_health(policy); probe.assert_called_once()
+
+    def test_core_status_does_not_require_unused_legacy_provider(self):
+        policy = self.accepted_policy()
+        policy["model_management"] = {"enabled": True}
+        with tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
+            stack.enter_context(patch.object(runtime, "STATE_ROOT", Path(directory)))
+            stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
+            for name in ["require_materialized_policy", "require_activation_allowed"]:
+                stack.enter_context(patch.object(runtime, name))
+            stack.enter_context(patch.object(runtime, "run", return_value=SimpleNamespace(returncode=0)))
+            stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
+            stack.enter_context(patch.object(runtime, "cross_domain_command", return_value=[]))
+            stack.enter_context(patch.object(runtime, "repo_path", side_effect=lambda name: Path("/synthetic") / name))
+            stack.enter_context(patch.object(runtime, "require_current_provider", return_value={"catalog_id": "synthetic", "source_version": "synthetic", "subjects": []}))
+            stack.enter_context(patch.object(runtime, "console_operations", return_value={"mode": "live", "status": "ready"}))
+            for name in ["repository_provisioning_status", "record_binding_status", "require_console_primary_records", "require_console_operator_bindings", "require_publication_owner_bindings", "require_console_publication_mode", "require_model_management_runtime"]:
+                stack.enter_context(patch.object(runtime, name, return_value={}))
+            stack.enter_context(patch.object(runtime, "workflow_credential_manager", return_value=SimpleNamespace(status=lambda: {})))
+            for owner in [runtime.profile_requests, runtime.observation_refresh, runtime.durable_composition]:
+                stack.enter_context(patch.object(owner, "status", return_value={}))
+            legacy = stack.enter_context(patch.object(runtime, "require_source_realization_profile", side_effect=RuntimeError("unused provider offline")))
+            result = runtime.status(policy)
+            self.assertTrue(json.loads(result.read_text())["proof"]["core_online"])
+            legacy.assert_not_called()
+
     def test_composition_output_survives_controller_termination(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

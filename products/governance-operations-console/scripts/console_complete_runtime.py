@@ -1713,6 +1713,7 @@ def write_active_marker(policy: dict[str, Any]) -> None:
 
 def remove_active_marker() -> None:
     (STATE_ROOT / "active.json").unlink(missing_ok=True)
+    (STATE_ROOT / "core-online.json").unlink(missing_ok=True)
 
 
 def receipt(action: str, policy: dict[str, Any], proof: dict[str, Any]) -> Path:
@@ -1831,6 +1832,7 @@ def reusable_operating_receipt(policy: dict[str, Any]) -> Path | None:
 def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     require_activation_allowed(policy)
+    (STATE_ROOT / "core-online.json").unlink(missing_ok=True)
     require_provider_tools()
     wait_runtime_dependencies(policy)
     write_resolved_policies(policy, activation)
@@ -1884,6 +1886,7 @@ def activate(policy: dict[str, Any]) -> Path:
             unit_root=UNIT_ROOT, run=run)
     print("Console startup: verifying complete runtime readiness", flush=True)
     result = status(policy, action="activate")
+    print("Console core online; configured provider checks follow on the observation timer", flush=True)
     receipt('artifact-recovery', policy, {**artifact_recovery.journal(STATE_ROOT),
         'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})
     return result
@@ -1938,7 +1941,10 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     repository = repository_provisioning_status(policy)
     workflows = workflow_credential_manager(policy).status()
     records = record_binding_status(policy)
-    realization = require_source_realization_profile(policy)
+    # Purpose/permission and exact model binding remain invocation gates.
+    # An unused legacy provider cannot gate the core management plane.
+    realization = ({"readiness": "checked-at-invocation", "health_surface": "model-operations"}
+                   if model_management.enabled(policy) else require_source_realization_profile(policy))
     primary_records = require_console_primary_records(policy)
     operator_bindings = require_console_operator_bindings(policy)
     publication = {**require_publication_owner_bindings(policy), **require_console_publication_mode(policy)}
@@ -1949,7 +1955,9 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     observations = observation_refresh.status(STATE_ROOT, run=run) if observation_refresh.enabled(policy) else None
     durable = durable_composition.status(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
         oos_repo=repo_path("operator-orchestration-service"), run=run)
-    return receipt(action, policy, {
+    result = receipt(action, policy, {
+        "core_online": True,
+        "ai_availability": "reported-separately-in-model-operations",
         "composition": policy["platform_operation_provider"]["composition_id"],
         "composition_current": True,
         "console_mode": console["mode"],
@@ -1970,12 +1978,19 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
         "runtime_observations": observations,
         "durable_orchestration": durable,
     })
+    # This signal is written only after all core checks and the durable receipt.
+    # Retained activation markers alone are not evidence for post-start probes.
+    marker = {"boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+              "security_decision_digest": policy["security"]["decision_digest"], "core_receipt": str(result)}
+    observation_refresh.observations.write_private_json(STATE_ROOT / "core-online.json", marker)
+    return result
 
 
 def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
     require_activation_allowed(policy)
+    (STATE_ROOT / "core-online.json").unlink(missing_ok=True)
     durable_composition.prepare(policy, workspace_root=WORKSPACE_ROOT, operator=operator(),
         security_repo=repo_path("security-architecture"), platform_repo=repo_path("platform-engineering"),
         oos_repo=repo_path("operator-orchestration-service"), run=run)
@@ -2257,6 +2272,20 @@ def verify_operating(policy: dict[str, Any]) -> Path:
         })
 
 
+def refresh_provider_health(policy: dict[str, Any]) -> dict[str, Any] | None:
+    if not model_management.enabled(policy):
+        return None
+    try:
+        value = json.loads((STATE_ROOT / "core-online.json").read_text())
+        if (value["boot_id"] != Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+                or value["security_decision_digest"] != policy["security"]["decision_digest"]):
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return model_management.refresh_health(operator_id=policy["platform_operation_provider"]["operator_id"],
+        gateway_namespace="devint-governed-ai-gateway-" + operator(), run=run)
+
+
 def refresh_observations(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     require_materialized_policy(policy, activation)
@@ -2266,6 +2295,7 @@ def refresh_observations(policy: dict[str, Any]) -> Path:
     # The collector owns its own nonblocking lock. Credential renewal and
     # long-running owner workflows never delay the 120-second observations.
     observation_refresh.refresh(STATE_ROOT, operator=operator())
+    refresh_provider_health(policy)
     return observation_refresh.paths(STATE_ROOT)[1]
 
 

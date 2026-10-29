@@ -792,3 +792,25 @@ proves consumption; preservation does not promise indefinite availability.
 Private state and receipts live below
 `~/.local/state/platform-engineering/governance-console-complete-runtime/`.
 Do not paste its private files into chat, ART, logs, or source control.
+
+## Core startup and configured AI providers
+
+Core readiness covers owned services, accepted artifacts, policy, identity,
+storage and management APIs. It does not require installed Ollama models,
+a connected hosted account or any available model. The managed gateway uses its
+existing `/healthz` probe; `/readyz` remains separate capability evidence.
+
+After all core checks and their receipt succeed, a same-boot, exact-decision
+signal enables provider metadata checks on the existing observation timer.
+The initial startup collection does not probe providers. A provider failure
+cannot fail core startup, restart the composition or change routing. Model
+Operations shows the resulting expiring observations; absent/invalid evidence
+is unknown. Check selected primary and fallback registrations there.
+
+A changed local runtime/digest/native effort requires explicit **Verify & update
+registration**. This uses the existing verified model registration and retains
+stable route references; it is not automatic trust of new provider bytes.
+Dedicated-account presence is reported as connection unprobed. Routine checks do
+not launch Codex or infer; explicit verification or a real invocation supplies
+its own evidence. Provider software/credentials remain operator choices, while
+shipped adapters, authorization and executable integrity stay Platform controls.

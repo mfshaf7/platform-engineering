@@ -638,6 +638,10 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urlparse(self.path)
             if self.command == "GET" and parsed.path == "/v1/model-management/backends" and not parsed.query:
                 self.send_json(200, manager.describe_backends())
+            elif self.command == "POST" and parsed.path == "/v1/model-management/health" and not parsed.query:
+                if self.read_json() != {}:
+                    raise ConfigurationError("invalid-command", "Provider observation refresh accepts no destinations or commands.")
+                self.send_json(200, manager.refresh_health())
             elif self.command == "GET" and parsed.path == "/v1/model-management/configuration":
                 query = parse_qs(parsed.query)
                 if query and (set(query) != {"revision"} or len(query["revision"]) != 1 or not query["revision"][0].isdigit()):
@@ -661,7 +665,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(409, {"error": error.code, "message": str(error)})
         except OllamaAdapterError as error:
             self.send_json(503, {"error": error.code})
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, BlockingIOError):
             self.send_json(503, {"error": "model-management-unavailable"})
 
 

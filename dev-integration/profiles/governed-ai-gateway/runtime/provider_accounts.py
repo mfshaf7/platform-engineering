@@ -9,7 +9,7 @@ import tempfile
 import urllib.error
 import urllib.request
 
-from model_configuration import locked
+from model_configuration import digest, locked
 from ollama_adapter import ProviderIntegrityError, ProviderUnavailable
 
 
@@ -91,6 +91,13 @@ class VaultCodexAccount:
                     if login_command_id is not None:
                         data["login_command_id"] = login_command_id
                     self._request({"options": {"cas": version}, "data": data})
+                # Stable across token refresh, different after another native
+                # login. Kept on the custody callback, never in projected HOME
+                # or browser-facing metadata.
+                persist.account_binding = digest({
+                    "login": retained["data"]["data"].get("login_command_id") if retained else None,
+                    "account": account.get("tokens", {}).get("account_id") or digest(account),
+                }) if account else None
                 yield home, persist
 
     def completed_login(self, command_id):

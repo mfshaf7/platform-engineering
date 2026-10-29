@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import copy
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -122,7 +123,7 @@ class ModelConfiguration:
             return copy.deepcopy(prior)
 
     def command(self, command: dict[str, Any], *, actor: str,
-                verified_model: dict[str, Any] | None = None) -> dict[str, Any]:
+                verified_model: dict[str, Any] | None = None, account_binding=None) -> dict[str, Any]:
         closed(command, {"command_id", "expected_revision", "action", "input"}, "configuration command")
         if not isinstance(actor, str) or not actor or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,199}", str(command["command_id"])):
             raise ConfigurationError("invalid-command", "Command and actor identity are required.")
@@ -189,8 +190,52 @@ class ModelConfiguration:
             state["configuration"], state["revision"] = config, revision
             state["history"][str(revision)] = copy.deepcopy(config)
             state["commands"][command["command_id"]] = receipt
+            if action == "model.register":
+                self._outcome(state, model_id, verified_model, "verification", "suggestion-produced",
+                              receipt["receipt_digest"], account_binding)
             atomic_json(self.path, state)
             return copy.deepcopy(receipt)
+
+    def _outcome(self, state, model_id, model, kind, code, reference, account_binding):
+        binding = digest({"model": model, "policy": self.backends.get(model["backend_id"]), "account": account_binding})
+        now = datetime.now(timezone.utc).isoformat()
+        outcomes = state.setdefault("provider_outcomes", {})
+        previous = outcomes.get(model_id, {})
+        success = previous.get("last_success") if previous.get("binding") == binding else None
+        if code == "suggestion-produced":
+            success = {"kind": kind, "at": now, "reference": reference}
+        outcomes[model_id] = {"binding": binding, "at": now, "code": code, "last_success": success}
+        # Removed registrations do not accumulate observation state.
+        state["provider_outcomes"] = {key: value for key, value in outcomes.items() if key in state["configuration"]["models"]}
+
+    def record_outcome(self, model, code, reference, account_binding=None):
+        model_id = digest({"backend_id": model["backend_id"], "model": model["model"]})
+        with locked(self.root / "configuration.lock"):
+            state = self._read()
+            # A concurrent registration edit must not inherit an old request.
+            if state["configuration"]["models"].get(model_id) != model:
+                return
+            self._outcome(state, model_id, model, "request", code, reference, account_binding)
+            atomic_json(self.path, state)
+            (self.root / "health.json").unlink(missing_ok=True)
+
+    def cache_health(self, value, outcomes):
+        with locked(self.root / "configuration.lock"):
+            state = self._read()
+            if (state["revision"] != value["configuration_revision"] or digest(state["configuration"]) != value["configuration_digest"]
+                    or state.get("provider_outcomes", {}) != outcomes):
+                return False
+            atomic_json(self.root / "health.json", value)
+            return True
+
+    def outcomes(self):
+        with locked(self.root / "configuration.lock"):
+            return copy.deepcopy(self._read().get("provider_outcomes", {}))
+
+    def outcome(self, model_id, model, account_binding=None, *, outcomes=None):
+        value = (self.outcomes() if outcomes is None else outcomes).get(model_id)
+        binding = digest({"model": model, "policy": self.backends.get(model["backend_id"]), "account": account_binding})
+        return value if value and value.get("binding") == binding else None
 
     def validate(self, config: dict[str, Any]) -> None:
         closed(config, {"backends", "models", "default", "overrides"}, "configuration")

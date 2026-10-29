@@ -71,6 +71,8 @@ class ProviderResult:
     latency_ms: int
     usage: dict[str, int]
     prompt_version: str
+    # Internal custody binding, never part of the gateway response.
+    account_binding: str | None = None
 
 
 class OllamaAdapter:

@@ -114,6 +114,9 @@ class CompleteRuntimeTests(unittest.TestCase):
         self.addCleanup(readiness.stop)
         receipts = Path(self.enterContext(tempfile.TemporaryDirectory(prefix='console-runtime-unit-receipts-')))
         self.enterContext(patch.object(runtime, 'RECEIPT_ROOT', receipts))
+        # Even precondition-failure tests invalidate a core signal. Keep those
+        # effects inside the unit sandbox, never the operator's live state.
+        self.enterContext(patch.object(runtime, 'STATE_ROOT', receipts / 'state'))
         for name, value in [('startup', {'checked_images': 1}), ('confirmed', {}), ('maintenance', False)]:
             boundary = patch.object(runtime.artifact_recovery, name, return_value=value)
             boundary.start(); self.addCleanup(boundary.stop)

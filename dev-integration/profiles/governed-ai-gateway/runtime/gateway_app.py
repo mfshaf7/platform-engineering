@@ -121,7 +121,7 @@ class GatewayRuntime:
         )
         self.adapters = adapters or self._build_adapters(provider_base_url)
         self.routing = TaskRouting(management.configuration, InvocationJournal(audit_root / "invocations"),
-                                   self._routed_adapter) if management else None
+                                   self._routed_adapter, management.configuration.record_outcome) if management else None
 
     def _routed_adapter(self, model, effort, limits):
         if model["backend_id"].startswith("source-binding:"):

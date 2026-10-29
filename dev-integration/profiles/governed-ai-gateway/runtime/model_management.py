@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
+from dataclasses import replace
 from datetime import datetime, timezone, timedelta
 import json
 import os
@@ -83,6 +84,29 @@ class CodexBackend:
     def __init__(self, *, executable: Path, executable_digest: str, account):
         self.executable, self.executable_digest, self.account = executable, executable_digest, account
 
+    def check_connection(self):
+        if not CodexAdapter._slots.acquire(blocking=False):
+            raise ProviderBusy("The dedicated Codex process slot is busy.")
+        try:
+            with self.account.project(allow_missing=True) as (home, persist):
+                binding = getattr(persist, "account_binding", None)
+                if not (home / "auth.json").is_file():
+                    return None, binding
+                protocol = CodexProtocol(executable=self.executable, executable_digest=self.executable_digest,
+                                         home=home, timeout_seconds=10)
+                try:
+                    deadline = time.monotonic() + 10
+                    protocol.initialize(deadline)
+                    protocol.connection(deadline)
+                    models = protocol.models(deadline)
+                    if protocol.account_path.is_file():
+                        persist(protocol.account_path.read_bytes())
+                    return models, binding
+                finally:
+                    protocol.close()
+        finally:
+            CodexAdapter._slots.release()
+
     def discover(self):
         if not CodexAdapter._slots.acquire(blocking=False):
             raise ProviderBusy("The dedicated Codex process slot is busy.")
@@ -118,7 +142,11 @@ class CodexBackend:
                                            home=home, model=model["model"], effort=effort,
                                            timeout_seconds=limits["timeout_seconds"], account_sink=persist,
                                            max_output_bytes=limits.get("max_output_bytes", 65536))
-                    return adapter.invoke(**kwargs)
+                    try:
+                        return replace(adapter.invoke(**kwargs), account_binding=getattr(persist, "account_binding", None))
+                    except OllamaAdapterError as error:
+                        error.account_binding = getattr(persist, "account_binding", None)
+                        raise
         return ProjectedAdapter()
 
 
@@ -174,10 +202,14 @@ class ModelManagement:
         return {"backend_id": backend_id, "models": models}
 
     def refresh_health(self, *, now=None):
-        """Metadata only, after core startup. Never registers, infers or reroutes."""
+        """Native metadata/account reads after core startup; never inference."""
         now = now or datetime.now(timezone.utc)
         snapshot = self.configuration.snapshot()
         config = snapshot["configuration"]
+        outcomes = self.configuration.outcomes()
+        previous = self.health(snapshot)
+        if previous and 0 <= (now - datetime.fromisoformat(previous["checked_at"])).total_seconds() < 60:
+            return previous
         result = {"configuration_revision": snapshot["revision"], "configuration_digest": snapshot["digest"],
                   "checked_at": now.isoformat(), "expires_at": (now + timedelta(seconds=120)).isoformat(),
                   "backends": [], "models": []}
@@ -188,6 +220,7 @@ class ModelManagement:
                 backend = self.backends.get(key)
                 state, code = "unknown", "connection-not-probed"
                 advertised = None
+                account_binding = None
                 try:
                     if time.monotonic() >= deadline:
                         code = "check-budget-exhausted"
@@ -195,13 +228,12 @@ class ModelManagement:
                         advertised = {item["model"]: item for item in backend.discover()}
                         state, code = "available", "metadata-available"
                     elif isinstance(backend, CodexBackend):
-                        # No app-server or inference from a timer. Stored account
-                        # presence cannot prove remote entitlement or connectivity.
-                        with backend.account.project(allow_missing=True) as (home, _):
-                            if not (home / "auth.json").is_file():
-                                state, code = "unavailable", "account-sign-in-required"
-                            else:
-                                code = "account-present-connection-unprobed"
+                        models, account_binding = backend.check_connection()
+                        if models is None:
+                            state, code = "unavailable", "account-sign-in-required"
+                        else:
+                            advertised = {item["model"]: item for item in models}
+                            state, code = "available", "connection-verified"
                 except ProviderIntegrityError:
                     state, code = "verification-needed", "provider-metadata-invalid"
                 except ProviderUnavailable:
@@ -215,7 +247,7 @@ class ModelManagement:
                     if model["backend_id"] != key or len(result["models"]) >= 256:
                         continue
                     item = {"model_id": model_id, "state": state, "code": code,
-                            "observed_runtime_version": None, "observed_model_digest": None}
+                            "observed_runtime_version": None, "observed_model_digest": None, "last_success": None}
                     if advertised is not None:
                         observed = advertised.get(model["model"])
                         if observed is None:
@@ -224,15 +256,31 @@ class ModelManagement:
                             item.update(state="unknown", code="check-budget-exhausted")
                         else:
                             try:
-                                observed = backend.metadata(model["model"])
+                                if isinstance(backend, OllamaBackend):
+                                    observed = backend.metadata(model["model"])
                                 item.update(observed_runtime_version=observed["runtime_version"], observed_model_digest=observed["model_digest"])
                                 changed = any(observed[field] != model[field] for field in ("model_digest", "runtime_version", "supported_efforts"))
                                 item.update(state="verification-needed" if changed else "available",
                                             code="registration-changed" if changed else "metadata-matched")
                             except (ConfigurationError, OllamaAdapterError, OSError, ValueError, KeyError, TypeError):
                                 item.update(state="unknown", code="provider-metadata-invalid")
+                    outcome = self.configuration.outcome(model_id, model, account_binding, outcomes=outcomes)
+                    if outcome:
+                        success = outcome.get("last_success")
+                        if success and datetime.fromisoformat(success["at"]) <= now:
+                            item["last_success"] = success
+                        # Native metadata never clears a newer failed turn.
+                        if item["state"] == "available" and outcome["code"] != "suggestion-produced":
+                            item.update(state="verification-needed", code="last-request-failed")
+                    if isinstance(backend, CodexBackend) and item["state"] == "available":
+                        success = item["last_success"]
+                        recent = success and 0 <= (now - datetime.fromisoformat(success["at"])).total_seconds() <= 900
+                        item.update(state="available" if recent else "verification-needed",
+                                    code="recent-model-success" if recent else "model-verification-required")
                     result["models"].append(item)
-            atomic_json(self.configuration.root / "health.json", result)
+            # A turn finishing during this collector must not be overwritten
+            # by an earlier success/failure observation from the same revision.
+            self.configuration.cache_health(result, outcomes)
         return result
 
     def health(self, snapshot):
@@ -331,21 +379,28 @@ class ModelManagement:
                     raise ConfigurationError("revision-conflict", "Refresh configuration before model verification.")
                 if backend_id not in snapshot["configuration"]["backends"]:
                     raise ConfigurationError("backend-not-registered", "Register the admitted backend first.")
-                metadata = next(iter(self.catalogue(backend_id, name)["models"]), None)
-                if metadata is None:
-                    raise ConfigurationError("model-not-advertised", "The backend does not advertise this model.")
-                backend = self.backends[backend_id]
-                result = backend.adapter(metadata, metadata["supported_efforts"][0], {
-                    "timeout_seconds": 60, "max_output_tokens": 64, "max_output_bytes": 4096,
-                }).invoke(input_payload={"ok": True}, output_schema=PROBE_SCHEMA,
-                          prompt_version="model-registration-probe-v1",
-                          system_prompt='Return the JSON object {"ok":true}. Use no tools.')
-                if result.output != {"ok": True}:
-                    raise ProviderIntegrityError("The advertised model did not complete its bounded verification.")
-                verified = {**metadata, "backend_id": backend_id, "verification_ref": digest({
-                    "command_id": command["command_id"], "model": metadata, "result": result.output,
-                    "latency_ms": result.latency_ms, "prompt_version": result.prompt_version})}
-            return self.configuration.command(command, actor=actor, verified_model=verified)
+                existing = snapshot["configuration"]["models"].get(digest({"backend_id": backend_id, "model": name}))
+                try:
+                    metadata = next(iter(self.catalogue(backend_id, name)["models"]), None)
+                    if metadata is None:
+                        raise ConfigurationError("model-not-advertised", "The backend does not advertise this model.")
+                    backend = self.backends[backend_id]
+                    result = backend.adapter(metadata, metadata["supported_efforts"][0], {
+                        "timeout_seconds": 60, "max_output_tokens": 64, "max_output_bytes": 4096,
+                    }).invoke(input_payload={"ok": True}, output_schema=PROBE_SCHEMA,
+                              prompt_version="model-registration-probe-v1",
+                              system_prompt='Return the JSON object {"ok":true}. Use no tools.')
+                    if result.output != {"ok": True}:
+                        raise ProviderIntegrityError("The advertised model did not complete its bounded verification.")
+                    verified = {**metadata, "backend_id": backend_id, "verification_ref": digest({
+                        "command_id": command["command_id"], "model": metadata, "result": result.output,
+                        "latency_ms": result.latency_ms, "prompt_version": result.prompt_version})}
+                except (ConfigurationError, OllamaAdapterError) as error:
+                    if existing:
+                        self.configuration.record_outcome(existing, error.code, digest(command), getattr(error, "account_binding", None))
+                    raise
+            return self.configuration.command(command, actor=actor, verified_model=verified,
+                                              account_binding=getattr(result, "account_binding", None) if verified else None)
 
     def adapter(self, model, effort, limits):
         backend_id = model["backend_id"]

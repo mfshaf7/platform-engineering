@@ -12,9 +12,10 @@ from strict_output_schema import OutputSchemaError, validate_output
 
 class TaskRouting:
     def __init__(self, configuration: ModelConfiguration, journal: InvocationJournal,
-                 adapter_factory: Callable):
+                 adapter_factory: Callable, observe: Callable | None = None):
         self.configuration, self.journal = configuration, journal
         self.adapter_factory = adapter_factory
+        self.observe = observe
 
     def invoke(self, *, request: dict[str, Any], profile: dict[str, Any], task: dict[str, Any],
                provider_input: dict[str, Any], system_prompt: str, prompt_version: str,
@@ -54,11 +55,13 @@ class TaskRouting:
                 attempt = {"backend_id": model["backend_id"], "model": model["model"],
                            "effort": candidate["effort"], "outcome": "pending"}
                 attempts.append(attempt)
+                account_binding = None
                 try:
                     adapter = self.adapter_factory(model, candidate["effort"], profile["runtime_limits"])
                     result = adapter.invoke(input_payload=provider_input,
                                             output_schema=task["provider_output_schema_document"],
                                             system_prompt=system_prompt, prompt_version=prompt_version)
+                    account_binding = getattr(result, "account_binding", None)
                     # Every backend, including injected/native extensions, must
                     # pass the same canonical schema before output is returned.
                     validate_output(result.output, task["provider_output_schema_document"])
@@ -69,16 +72,29 @@ class TaskRouting:
                     # These errors must mean the backend did not submit a turn.
                     # Adapters must distinguish transport loss after submission.
                     attempt["outcome"] = error.code
+                    account_binding = getattr(error, "account_binding", None)
                     failure = "no-suitable-fallback"
-                except (ProviderCompletionUnknown, ProviderTimeout):
+                except (ProviderCompletionUnknown, ProviderTimeout) as error:
+                    account_binding = getattr(error, "account_binding", None)
                     attempt["outcome"] = failure = "provider-completion-unknown"
                     break
-                except (OutputSchemaError, ProviderOutputInvalid):
+                except (OutputSchemaError, ProviderOutputInvalid) as error:
+                    account_binding = getattr(error, "account_binding", account_binding)
                     attempt["outcome"] = failure = "provider-output-invalid"
                     break
                 except OllamaAdapterError as error:
+                    account_binding = getattr(error, "account_binding", None)
                     attempt["outcome"] = failure = error.code
                     break
+                finally:
+                    if self.observe and not model["backend_id"].startswith("source-binding:"):
+                        try:
+                            self.observe(model, attempt["outcome"], "ai-routing-selection:" + digest({
+                                "selection": selection, "identity": identity})[7:], account_binding)
+                        except (OSError, ValueError):
+                            # Observation persistence cannot dispatch another
+                            # provider or change a completed result.
+                            pass
             evidence = {"revision": selection["revision"], "configuration_digest": selection["configuration_digest"],
                         "task": task_id, "attempts": attempts,
                         "selection_ref": "ai-routing-selection:" + digest({

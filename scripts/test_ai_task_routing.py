@@ -187,6 +187,30 @@ class TaskRoutingTests(unittest.TestCase):
         self.assertEqual(outcome["code"], "provider-unavailable")
         self.assertEqual(outcome["last_success"]["kind"], "verification")
 
+    def test_pre_submission_busy_preserves_original_model_success(self):
+        self.save(self.route("cloud"))
+        model = self.configuration.snapshot()["configuration"]["models"][self.ids["cloud"]]
+        original = self.configuration.outcome(self.ids["cloud"], model)
+        self.backends["cloud"].failure = ProviderBusy
+        self.assertEqual(self.runtime.invoke(self.request)[0], 503)
+        self.assertEqual(self.configuration.outcome(self.ids["cloud"], model), original)
+
+    def test_connection_outage_retains_bound_success_without_showing_available(self):
+        model_id = self.ids["cloud"]
+        model = self.configuration.snapshot()["configuration"]["models"][model_id]
+        self.configuration.record_outcome(model, "suggestion-produced", "ai-routing-selection:" + "a" * 64, "account-one")
+        class Offline(CodexBackend):
+            def check_connection(inner):
+                error = ProviderUnavailable("private transport details")
+                error.account_binding = "account-one"
+                raise error
+        self.manager.backends["cloud"] = Offline(executable=Path("/unused"), executable_digest="0"*64, account=None)
+        result = self.manager.refresh_health()
+        observed = next(row for row in result["models"] if row["model_id"] == model_id)
+        self.assertEqual(observed["state"], "unavailable")
+        self.assertEqual(observed["last_success"]["kind"], "request")
+        self.assertNotIn("private transport", json.dumps(result))
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

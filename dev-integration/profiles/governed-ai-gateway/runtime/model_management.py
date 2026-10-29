@@ -102,6 +102,9 @@ class CodexBackend:
                     if protocol.account_path.is_file():
                         persist(protocol.account_path.read_bytes())
                     return models, binding
+                except OllamaAdapterError as error:
+                    error.account_binding = binding
+                    raise
                 finally:
                     protocol.close()
         finally:
@@ -234,11 +237,14 @@ class ModelManagement:
                         else:
                             advertised = {item["model"]: item for item in models}
                             state, code = "available", "connection-verified"
-                except ProviderIntegrityError:
+                except ProviderIntegrityError as error:
+                    account_binding = getattr(error, "account_binding", None)
                     state, code = "verification-needed", "provider-metadata-invalid"
-                except ProviderUnavailable:
+                except ProviderUnavailable as error:
+                    account_binding = getattr(error, "account_binding", None)
                     state, code = "unavailable", "provider-unavailable"
-                except (BlockingIOError, ProviderBusy):
+                except (BlockingIOError, ProviderBusy) as error:
+                    account_binding = getattr(error, "account_binding", None)
                     state, code = "unknown", "provider-busy"
                 except (KeyError, TypeError, ValueError, OSError):
                     state, code = "unknown", "provider-metadata-invalid"

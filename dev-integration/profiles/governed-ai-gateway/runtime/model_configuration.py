@@ -209,6 +209,9 @@ class ModelConfiguration:
         state["provider_outcomes"] = {key: value for key, value in outcomes.items() if key in state["configuration"]["models"]}
 
     def record_outcome(self, model, code, reference, account_binding=None):
+        # Capacity admission rejected the call before a provider attempt.
+        if code == "provider-busy":
+            return
         model_id = digest({"backend_id": model["backend_id"], "model": model["model"]})
         with locked(self.root / "configuration.lock"):
             state = self._read()

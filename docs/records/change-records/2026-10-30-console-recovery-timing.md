@@ -1,7 +1,8 @@
 ---
 security_evidence:
-  review_areas: [runtime, delivery]
+  review_areas: [runtime, delivery, ai]
   reviewed_artifacts:
+    - security/governed-ai-model-profiles.yaml
     - products/governance-operations-console/scripts/console_complete_runtime.py
     - products/governance-operations-console/scripts/test_console_complete_runtime.py
   findings: []
@@ -79,3 +80,23 @@ package cache is disposable data, never a substitute source or a ready marker.
 Retain private native evidence, revoke exact maintenance credentials and retire
 branches/worktrees after operating proof. No further capability or new work item
 is proposed by this repair.
+
+## Observed provider reconciliation after native startup
+
+The first accepted repaired startup passed dependency preparation and served the
+new Console artifact, then failed final source-realization readiness. A bounded
+metadata read from the actual gateway observed Ollama0.40.13, while all six local
+bindings still selected0.40.11. The qwen3:8b model digest remains
+`500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41`.
+The timing of the host update is unverified; source corruption is not asserted.
+
+Reconcile those six existing runtime pins only. Preserve the model, digest,
+callers, limits, environments, exact version/digest checks and approved purposes.
+The existing metadata readiness probe now reports its bounded failure code to
+Platform instead of terminating inside kubectl and losing the reason. Python
+continues to reject every non-ready or malformed response. A regression verifies
+integrity denial remains denied and arbitrary diagnostic content is suppressed.
+No new model mechanism or readiness exception is introduced. This follow-on
+Landing Unit is maintenance-ollama-runtime-platform-20261030; it retains the same
+owner review, deployment and rollback boundary and requires updated exact Security
+source/tree acceptance before the existing activation command.

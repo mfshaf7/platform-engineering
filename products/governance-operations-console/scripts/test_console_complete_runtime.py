@@ -27,6 +27,17 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_source_profile_integrity_denial_remains_denied_with_actionable_reason(self):
+        with patch.object(runtime, "run", return_value=runtime.subprocess.CompletedProcess(
+                [], 0, json.dumps({"failure": "provider-integrity-failed"}), "")):
+            with self.assertRaisesRegex(runtime.RuntimeError, "provider-integrity-failed; compare the runtime version and model digest"):
+                runtime.require_source_realization_profile(runtime.validate_policy())
+        with patch.object(runtime, "run", return_value=runtime.subprocess.CompletedProcess(
+                [], 0, json.dumps({"failure": "untrusted diagnostic with private content"}), "")):
+            with self.assertRaisesRegex(runtime.RuntimeError, "invalid-readiness-response") as error:
+                runtime.require_source_realization_profile(runtime.validate_policy())
+            self.assertNotIn("private content", str(error.exception))
+
     def test_composition_output_survives_controller_termination(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

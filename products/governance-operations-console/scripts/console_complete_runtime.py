@@ -1185,12 +1185,19 @@ def require_source_realization_profile(policy: dict[str, Any]) -> dict[str, Any]
     script = """const url=new URL('/readyz',process.env.GOVERNED_AI_GATEWAY_BASE_URL);
 const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
 const body=await response.json();const p=body.profiles?.['source-realization-v1'];
-if(!response.ok||p?.status!=='active'||p.activation_allowed!==true||p.activation_eligible!==true||p.ready!==true||JSON.stringify(p.task_kinds)!==JSON.stringify(['source_realization']))process.exit(1);
-console.log(JSON.stringify({profile_id:'source-realization-v1',status:p.status,ready:p.ready,task_kinds:p.task_kinds}));"""
+if(!response.ok||p?.status!=='active'||p.activation_allowed!==true||p.activation_eligible!==true||p.ready!==true||JSON.stringify(p.task_kinds)!==JSON.stringify(['source_realization'])) {
+  console.log(JSON.stringify({failure:p?.failure??'profile-not-ready'}));
+} else {
+  console.log(JSON.stringify({profile_id:'source-realization-v1',status:p.status,ready:p.ready,task_kinds:p.task_kinds}));
+}"""
     value = json.loads(run(["k3s", "kubectl", "-n", namespace(policy), "exec",
         f"deployment/{policy['runtime']['oos_deployment']}", "--", "node", "--input-type=module", "-e", script]).stdout)
     if value != {"profile_id": "source-realization-v1", "status": "active", "ready": True, "task_kinds": ["source_realization"]}:
-        raise RuntimeError("the actual governed source realization profile is unavailable")
+        failure = value.get("failure") if isinstance(value, dict) else None
+        if not isinstance(failure, str) or not re.fullmatch(r"[a-z][a-z0-9-]{0,79}", failure):
+            failure = "invalid-readiness-response"
+        detail = "; compare the runtime version and model digest with the approved binding" if failure == "provider-integrity-failed" else ""
+        raise RuntimeError(f"the actual governed source realization profile is unavailable: {failure}{detail}")
     return value
 
 

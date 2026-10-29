@@ -7,6 +7,7 @@ entitlement or commissioned Console operation.
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timezone, timedelta
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -74,9 +75,19 @@ class TaskRoutingTests(unittest.TestCase):
         self.assertEqual(local["state"], "verification-needed")
         self.assertEqual(local["observed_runtime_version"], "changed-v2")
         self.assertEqual(self.configuration.snapshot(), before)
+
         self.assertEqual(self.manager.describe_backends()["health"], result)
         self.assertTrue(all(not backend.calls for backend in self.backends.values()))
         self.command("routing.save", {"default": {"primary": {"model_id": self.ids["cloud"], "effort": "high"}, "fallbacks": [], "on_exhausted": "fail-closed"}, "overrides": {}})
+        self.assertIsNone(self.manager.describe_backends()["health"])
+
+    def test_new_outcome_invalidates_cache_and_rejects_an_in_progress_old_collector(self):
+        result = self.manager.refresh_health()
+        retained = self.configuration.outcomes()
+        model = self.configuration.snapshot()["configuration"]["models"][self.ids["cloud"]]
+        self.configuration.record_outcome(model, "provider-completion-unknown", "ai-routing-selection:" + "a" * 64)
+        self.assertIsNone(self.manager.describe_backends()["health"])
+        self.assertFalse(self.configuration.cache_health(result, retained))
         self.assertIsNone(self.manager.describe_backends()["health"])
 
     def test_provider_loss_is_health_evidence_not_a_management_failure(self):
@@ -90,19 +101,115 @@ class TaskRoutingTests(unittest.TestCase):
         self.assertEqual(self.manager.describe_backends()["health"], result)
         self.assertTrue(all(not backend.calls for backend in self.backends.values()))
 
-    def test_automatic_account_check_does_not_launch_codex_or_claim_entitlement(self):
+    def test_post_start_native_connection_is_not_model_entitlement_and_never_infers(self):
         @contextmanager
         def projected(**kwargs):
             self.assertTrue(kwargs["allow_missing"])
             yield self.root, lambda raw: self.fail("routine check must not persist credentials")
         account = SimpleNamespace(project=projected)
         self.manager.backends["cloud"] = CodexBackend(executable=Path("/never-execute"), executable_digest="0"*64, account=account)
-        with patch("model_management.CodexProtocol", side_effect=AssertionError("routine check launched Codex")):
+        class Protocol:
+            account_path = self.root / "no-native-refresh"
+            def __init__(inner, **kwargs): pass
+            def initialize(inner, deadline): pass
+            def connection(inner, deadline): pass
+            def models(inner, deadline):
+                return [{"model": "cloud", "supported_efforts": ["low", "high"],
+                         "model_digest": None, "runtime_version": "sandbox-v1"}]
+            def close(inner): pass
+            def turn(inner, **kwargs): self.fail("health must not infer")
+        with patch("model_management.CodexProtocol", Protocol):
             result = self.manager.refresh_health()
             self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "cloud")["code"], "account-sign-in-required")
             (self.root / "auth.json").write_text("synthetic presence")
+            (self.configuration.root / "health.json").unlink()
             result = self.manager.refresh_health()
-            self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "cloud")["code"], "account-present-connection-unprobed")
+            self.assertEqual(next(row for row in result["backends"] if row["backend_id"] == "cloud")["code"], "connection-verified")
+            # Existing timestamped registration is evidence, not the catalogue.
+            model = next(row for row in result["models"] if row["model_id"] == self.ids["cloud"])
+            self.assertEqual(model["code"], "recent-model-success")
+            self.assertEqual(model["last_success"]["kind"], "verification")
+            later = self.manager.refresh_health(now=datetime.now(timezone.utc) + timedelta(minutes=16))
+            stale = next(row for row in later["models"] if row["model_id"] == self.ids["cloud"])
+            self.assertEqual(stale["code"], "model-verification-required")
+            self.assertIsNotNone(stale["last_success"])
+            (self.configuration.root / "health.json").unlink()
+            registered = self.configuration.snapshot()["configuration"]["models"][self.ids["cloud"]]
+            self.configuration.record_outcome(registered, "provider-completion-unknown", "ai-routing-selection:" + "a" * 64)
+            failed = self.manager.refresh_health()
+            failed = next(row for row in failed["models"] if row["model_id"] == self.ids["cloud"])
+            self.assertEqual(failed["code"], "last-request-failed")
+            self.assertIsNotNone(failed["last_success"])
+            state = json.loads(self.configuration.path.read_text())
+            state.pop("provider_outcomes")
+            self.configuration.path.write_text(json.dumps(state))
+            (self.configuration.root / "health.json").unlink()
+            result = self.manager.refresh_health()
+            model = next(row for row in result["models"] if row["model_id"] == self.ids["cloud"])
+            self.assertEqual(model["code"], "model-verification-required")
+            self.assertIsNone(model["last_success"])
+
+    def test_outcome_binding_freshness_and_failure_precedence_preserve_configuration(self):
+        model_id = self.ids["cloud"]
+        model = self.configuration.snapshot()["configuration"]["models"][model_id]
+        before = self.configuration.snapshot()
+        reference = "ai-routing-selection:" + "a" * 64
+        self.configuration.record_outcome(model, "suggestion-produced", reference, "account-one")
+        outcome = self.configuration.outcome(model_id, model, "account-one")
+        self.assertEqual(outcome["last_success"]["reference"], reference)
+        self.assertIsNone(self.configuration.outcome(model_id, model, "account-two"))
+        self.configuration.record_outcome(model, "provider-completion-unknown", reference, "account-one")
+        outcome = self.configuration.outcome(model_id, model, "account-one")
+        self.assertEqual(outcome["code"], "provider-completion-unknown")
+        self.assertEqual(outcome["last_success"]["reference"], reference)
+        changed = {**model, "runtime_version": "changed"}
+        self.assertIsNone(self.configuration.outcome(model_id, changed, "account-one"))
+        self.assertEqual(self.configuration.snapshot(), before)
+
+    def test_request_success_is_captured_once_from_actual_dispatch_not_replay(self):
+        self.save(self.route("cloud"))
+        request = self.request
+        self.runtime.invoke(request)
+        model = self.configuration.snapshot()["configuration"]["models"][self.ids["cloud"]]
+        first = self.configuration.outcome(self.ids["cloud"], model)
+        self.assertEqual(first["last_success"]["kind"], "request")
+        self.runtime.invoke(request)
+        self.assertEqual(self.configuration.outcome(self.ids["cloud"], model), first)
+
+    def test_failed_verification_retains_registration_but_supersedes_old_success(self):
+        before = self.configuration.snapshot()
+        model = before["configuration"]["models"][self.ids["cloud"]]
+        self.backends["cloud"].failure = ProviderUnavailable
+        with self.assertRaises(ProviderUnavailable):
+            self.command("model.register", {"backend_id": "cloud", "model": "cloud"})
+        self.assertEqual(self.configuration.snapshot(), before)
+        outcome = self.configuration.outcome(self.ids["cloud"], model)
+        self.assertEqual(outcome["code"], "provider-unavailable")
+        self.assertEqual(outcome["last_success"]["kind"], "verification")
+
+    def test_pre_submission_busy_preserves_original_model_success(self):
+        self.save(self.route("cloud"))
+        model = self.configuration.snapshot()["configuration"]["models"][self.ids["cloud"]]
+        original = self.configuration.outcome(self.ids["cloud"], model)
+        self.backends["cloud"].failure = ProviderBusy
+        self.assertEqual(self.runtime.invoke(self.request)[0], 503)
+        self.assertEqual(self.configuration.outcome(self.ids["cloud"], model), original)
+
+    def test_connection_outage_retains_bound_success_without_showing_available(self):
+        model_id = self.ids["cloud"]
+        model = self.configuration.snapshot()["configuration"]["models"][model_id]
+        self.configuration.record_outcome(model, "suggestion-produced", "ai-routing-selection:" + "a" * 64, "account-one")
+        class Offline(CodexBackend):
+            def check_connection(inner):
+                error = ProviderUnavailable("private transport details")
+                error.account_binding = "account-one"
+                raise error
+        self.manager.backends["cloud"] = Offline(executable=Path("/unused"), executable_digest="0"*64, account=None)
+        result = self.manager.refresh_health()
+        observed = next(row for row in result["models"] if row["model_id"] == model_id)
+        self.assertEqual(observed["state"], "unavailable")
+        self.assertEqual(observed["last_success"]["kind"], "request")
+        self.assertNotIn("private transport", json.dumps(result))
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -387,7 +494,7 @@ class CodexTransportTests(unittest.TestCase):
                         calls.append("dispatched")
                         if failure_phase == "dispatch":
                             raise BlockingIOError("Synthetic failure after dispatch")
-                        return SimpleNamespace(output={"ok": True})
+                        return ProviderResult({"ok": True}, None, "sandbox-v1", 1, {}, "test")
                 backend = CodexBackend(executable=root / "unused", executable_digest="0" * 64,
                     account=SimpleNamespace(project=projection))
                 with self.subTest(failure_phase=failure_phase), patch("model_management.CodexAdapter", Adapter):

@@ -153,6 +153,20 @@ class CodexProtocol:
                 return models
         raise ProviderIntegrityError("Codex catalogue exceeded the bounded page limit.")
 
+    def connection(self, deadline: float):
+        # Fresh app-server, authenticated native remote read. A catalogue or
+        # account/read alone may be local; neither proves remote access.
+        result = self.request("account/rateLimits/read", {}, deadline)
+        if not isinstance(result, dict) or not isinstance(result.get("rateLimits"), dict):
+            raise ProviderIntegrityError("Codex returned invalid connection metadata.")
+        for name in ("primary", "secondary"):
+            window = result["rateLimits"].get(name)
+            if window is not None:
+                if not isinstance(window, dict) or type(window.get("usedPercent")) not in (int, float) or not 0 <= window["usedPercent"] <= 100:
+                    raise ProviderIntegrityError("Codex returned invalid connection metadata.")
+                if window["usedPercent"] >= 100:
+                    raise ProviderBusy("The authenticated provider reports exhausted capacity.")
+
     def turn(self, *, model: str, effort: str, system_prompt: str,
              input_payload: dict[str, Any], output_schema: dict[str, Any], deadline: float):
         thread = self.request("thread/start", {

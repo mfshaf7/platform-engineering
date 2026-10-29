@@ -6,6 +6,8 @@ import base64
 import io
 import json
 import os
+import signal
+import time
 from pathlib import Path
 import tempfile
 from datetime import timedelta
@@ -25,6 +27,43 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_composition_output_survives_controller_termination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            child = root / "dev_integration.py"
+            child.write_text("import time\nprint('worker preparation still running', flush=True)\ntime.sleep(30)\n")
+            driver = (
+                "import sys; from pathlib import Path; "
+                "sys.path.insert(0, str(Path(sys.argv[1]).parent)); "
+                "import console_complete_runtime as r; "
+                "r.PRIVATE_ROOT=Path(sys.argv[2]); "
+                "r.run([sys.executable,sys.argv[3],'up','--composition','test'])"
+            )
+            process = runtime.subprocess.Popen(
+                [runtime.sys.executable, "-c", driver, str(SCRIPT), str(root / "private"), str(child)],
+                stdout=runtime.subprocess.PIPE, stderr=runtime.subprocess.PIPE,
+                start_new_session=True,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                logs = []
+                while time.monotonic() < deadline:
+                    logs = list((root / "private/startup-logs").glob("composition-*.log"))
+                    if logs and "worker preparation still running" in logs[0].read_text():
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(logs, "startup output must exist before the controller exits")
+                self.assertIn("worker preparation still running", logs[0].read_text())
+                self.assertEqual(logs[0].stat().st_mode & 0o777, 0o600)
+                os.killpg(process.pid, signal.SIGTERM)
+                process.communicate(timeout=5)
+                self.assertNotEqual(process.returncode, 0)
+                self.assertIn("worker preparation still running", logs[0].read_text())
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.communicate(timeout=5)
+
     def setUp(self):
         # The evidence executor intentionally removes ambient USER/DEVINT
         # identity. Unit tests bind their fixture principal explicitly instead
@@ -462,6 +501,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             self.assertIn("refinement-catalog", unit.read_text())
             self.assertIn("ExecStart=\nExecStart=", dropin.read_text())
             self.assertIn("console_complete_runtime.py", dropin.read_text())
+            self.assertIn("TimeoutStartSec=45min", dropin.read_text())
             self.assertIn('"activate"', dropin.read_text())
             self.assertEqual(len(list(units.glob("*.service"))), 1)
 

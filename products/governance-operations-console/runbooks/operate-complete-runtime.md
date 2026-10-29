@@ -633,6 +633,27 @@ result before another manual activation. Let an in-flight owner upgrade or
 rollback finish before stopping the controller to prevent another retry. Credential renewal can report a busy lifecycle while
 startup owns the lock and retries after that operation finishes.
 
+The complete-runtime drop-in has a finite45-minute startup budget instead of
+inheriting the generic single-profile15-minute budget. Complete startup includes
+the integrity helper (independently bounded at600seconds), sequential participant
+startup, scoped identities and consumed bindings, the accepted frontend artifact,
+final readback and failure compensation. Component deadlines still fail early;
+this outer budget is not a promise that unavailable dependencies or hardware
+faults can recover. The worker's cold package preparation is separately bounded
+and its rollout allows ten minutes. Shared verified package downloads reduce
+repeated preparation without trusting cached executable trees.
+
+The owner journal records fixed startup phases without command arguments or
+binding values. The composition's live combined output is retained as mode0600
+`composition-*.log` under the operator-private complete-runtime
+`private/startup-logs/` directory. The journal identifies that private file before
+launch; inspect it locally after an interrupted attempt. Do not paste raw output
+into chat, source, ART or browser responses. Token/Vault calls outside composition
+startup keep their existing in-memory capture; this is not general credential
+logging. Interrupted output is diagnostic evidence, never readiness or a result
+receipt. Preserve it while troubleshooting; normal status remains the acceptance
+check after startup finishes.
+
 Use normal `ACTION=status` after startup. It must prove current source/artifact,
 consumed credentials and bindings, required owner projections and model registry;
 a running frontend or healthy homepage alone does not prove restored operation.

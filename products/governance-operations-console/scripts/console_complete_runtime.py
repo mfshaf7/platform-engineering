@@ -78,13 +78,25 @@ class RuntimeError(RuntimeError):
 
 
 def run(args: list[str], *, check: bool = True, input_value: str | None = None) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        input=input_value,
-        text=True,
-        capture_output=True,
-        check=False,
+    # A complete composition includes compensation. Preserve its live output if
+    # the parent is killed; never log argv (which may carry private bindings).
+    composition_start = "--composition" in args and "up" in args and any(
+        Path(arg).name == "dev_integration.py" for arg in args
     )
+    if composition_start:
+        logs = PRIVATE_ROOT / "startup-logs"
+        ensure_private(logs)
+        with tempfile.NamedTemporaryFile(mode="w+", prefix="composition-", suffix=".log",
+                dir=logs, delete=False) as stream:
+            print(f"Console startup: composition output retained in {stream.name}", flush=True)
+            result = subprocess.run(args, input=input_value, text=True,
+                stdout=stream, stderr=subprocess.STDOUT, check=False)
+            stream.seek(0)
+            result.stdout, result.stderr = stream.read(), ""
+    else:
+        result = subprocess.run(
+            args, input=input_value, text=True, capture_output=True, check=False,
+        )
     if check and result.returncode:
         detail = (result.stderr or result.stdout or "command failed").strip().splitlines()[-1]
         raise RuntimeError(f"{Path(args[0]).name} failed: {detail}")
@@ -753,7 +765,10 @@ def write_composition_supervisor(policy: dict[str, Any]) -> None:
         command.extend(["--repo-path", f"{name}={path}"])
     content = "[Service]\nWorkingDirectory=" + _systemd_path_value(repo_path("platform-engineering")) + "\nExecStart=\nExecStart="
     content += " ".join(_systemd_quote(value) for value in command) + "\n"
-    content += "RestartPreventExitStatus=78\n"
+    # This unit now runs the complete lifecycle, not just one profile. Allow
+    # cold integrity checks, sequential participants, credentials, frontend and
+    # compensation. Participant failure deadlines still stop failed steps early.
+    content += "TimeoutStartSec=45min\nRestartPreventExitStatus=78\n"
     target = directory / "console-runtime.conf"
     if target.is_symlink():
         raise RuntimeError("the composition supervisor drop-in is unsafe")
@@ -1820,8 +1835,10 @@ def activate(policy: dict[str, Any]) -> Path:
     wait_runtime_dependencies(policy)
     write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
+    print("Console startup: checking runtime artifact integrity", flush=True)
     integrity = artifact_recovery.startup(STATE_ROOT, run,
         revision=policy['security']['reviewed_revisions']['governance-operations-console'])
+    print("Console startup: preparing model and workflow runtime", flush=True)
     model_management.prepare(policy, repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
         operator_id=policy["platform_operation_provider"]["operator_id"],
         gateway_namespace="devint-governed-ai-gateway-" + operator(), run=run, vault_token=vault_token)
@@ -1830,9 +1847,11 @@ def activate(policy: dict[str, Any]) -> Path:
         security_repo=repo_path("security-architecture"), platform_repo=repo_path("platform-engineering"),
         oos_repo=repo_path("operator-orchestration-service"), run=run)
     refresh_record_authorities(policy)
+    print("Console startup: starting composition participants", flush=True)
     run(composition_command(policy, "up"))
     # Full composition startup may take longer than the data freshness window.
     refresh_record_authorities(policy)
+    print("Console startup: renewing scoped identities", flush=True)
     delivered = deliver_repository_provisioning_identity(policy)
     workflow_credential_manager(policy).renew(extra_annotations={
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
@@ -1840,6 +1859,7 @@ def activate(policy: dict[str, Any]) -> Path:
     secret = credential()
     gateway = cni_gateway()
     write_provider_unit(policy, gateway, secret)
+    print("Console startup: checking consumed owner bindings", flush=True)
     apply_kubernetes_binding(policy, gateway, secret)
     apply_record_authority_binding(policy)
     model_management.bind_oos(policy, state_root=STATE_ROOT,
@@ -1851,6 +1871,7 @@ def activate(policy: dict[str, Any]) -> Path:
     require_publication_owner_bindings(policy)
     if observation_refresh.enabled(policy):
         observation_refresh.refresh(STATE_ROOT, operator=operator())
+    print("Console startup: preparing and starting accepted frontend", flush=True)
     run(cross_domain_command("activate"))
     # Confirm direct artifact/consumer readiness before enabling the provider.
     # Its intentionally blocked capabilities cannot be their own repair gate.
@@ -1861,6 +1882,7 @@ def activate(policy: dict[str, Any]) -> Path:
     if observation_refresh.enabled(policy):
         observation_refresh.install(repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
             unit_root=UNIT_ROOT, run=run)
+    print("Console startup: verifying complete runtime readiness", flush=True)
     result = status(policy, action="activate")
     receipt('artifact-recovery', policy, {**artifact_recovery.journal(STATE_ROOT),
         'state': 'healthy', 'checked_images': integrity['checked_images'], 'owner_data_preserved': True})

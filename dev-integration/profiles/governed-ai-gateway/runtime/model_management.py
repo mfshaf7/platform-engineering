@@ -474,8 +474,29 @@ class ModelManagement:
                     if existing:
                         self.configuration.record_outcome(existing, error.code, digest(command), getattr(error, "account_binding", None))
                     raise
-            return self.configuration.command(command, actor=actor, verified_model=verified,
-                                              account_binding=getattr(result, "account_binding", None) if verified else None)
+            with ExitStack() as admission:
+                # These two actions can introduce backend references. Reuse
+                # retirement's per-connection lock through the atomic write,
+                # then re-read admission inside it. No network probe is held
+                # under this lock; other configuration writes already conflict
+                # with removal's configuration revision or model references.
+                ids = []
+                if self.connections and command["action"] == "backend.register":
+                    closed(command["input"], {"backend_id"}, "backend registration")
+                    ids = [command["input"]["backend_id"]]
+                elif self.connections and command["action"] == "routing.rollback":
+                    closed(command["input"], {"revision"}, "configuration restoration")
+                    ids = list(self.configuration.snapshot(command["input"]["revision"])["configuration"]["backends"])
+                ids = sorted({key for key in ids if isinstance(key, str) and key.startswith("api-")})
+                try:
+                    for key in ids:
+                        admission.enter_context(self.connections.lock_connection(key))
+                except BlockingIOError:
+                    raise ProviderBusy("This connection is changing before settings admission; retry after its owner operation finishes.") from None
+                if ids:
+                    self.sync_connections()
+                return self.configuration.command(command, actor=actor, verified_model=verified,
+                    account_binding=getattr(result, "account_binding", None) if verified else None)
 
     def adapter(self, model, effort, limits):
         self.sync_connections()

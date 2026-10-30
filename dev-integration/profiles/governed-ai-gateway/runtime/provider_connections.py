@@ -123,6 +123,11 @@ class ProviderConnections:
         with locked(self.lock, blocking=False):
             return self._public(self._read())
 
+    def lock_connection(self, connection_id):
+        if not isinstance(connection_id, str) or not re.fullmatch(r"api-[a-f0-9]{32}", connection_id):
+            raise ConfigurationError("invalid-connection", "Select an existing API connection.")
+        return locked(self.root / (digest(connection_id)[7:] + ".connection.lock"), blocking=False)
+
     def policies(self):
         return {x["connection_id"]: {"provider": x["provider"], "endpoint_origin": PRESETS[x["provider"]]["origin"],
                 "allowed_tasks": self.allowed_tasks} for x in self.snapshot()["connections"]}
@@ -167,7 +172,7 @@ class ProviderConnections:
     def command(self, command, *, actor):
         with ExitStack() as locks:
             if isinstance(command, dict) and isinstance(command.get("input"), dict) and command["input"].get("connection_id"):
-                locks.enter_context(locked(self.root / (digest(command["input"]["connection_id"])[7:] + ".connection.lock"), blocking=False))
+                locks.enter_context(self.lock_connection(command["input"]["connection_id"]))
             locks.enter_context(locked(self.lock, blocking=False))
             state = self._read()
             operation = self._admit(state, command, actor)
@@ -237,7 +242,7 @@ class ProviderConnections:
         # The admitted durable command deliberately excludes the raw key.
         command = {"command_id": command_id, "expected_revision": expected_revision,
                    "action": "connection.credentials", "input": {"connection_id": connection_id}}
-        with locked(self.root / (digest(connection_id)[7:] + ".connection.lock"), blocking=False), locked(self.lock, blocking=False):
+        with self.lock_connection(connection_id), locked(self.lock, blocking=False):
             state = self._read()
             operation = self._admit(state, command, actor)
             item = self._connection(state, connection_id)
@@ -291,7 +296,7 @@ class ProviderConnections:
     @contextmanager
     def credential(self, connection_id):
         # Serialize rotation/disconnect against the exact short-lived key use.
-        with locked(self.root / (digest(connection_id)[7:] + ".connection.lock"), blocking=False):
+        with self.lock_connection(connection_id):
             with locked(self.lock, blocking=False):
                 item = copy.deepcopy(self._connection(self._read(), connection_id))
             if item["state"] != "active" or item["pending_operation"] is not None or not item["credential_generation"]:

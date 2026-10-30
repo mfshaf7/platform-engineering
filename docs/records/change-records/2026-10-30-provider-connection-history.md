@@ -3,6 +3,8 @@ security_evidence:
   review_areas: [runtime, delivery, ai]
   reviewed_artifacts:
     - dev-integration/profiles/governed-ai-gateway/runtime/model_configuration.py
+    - dev-integration/profiles/governed-ai-gateway/runtime/model_management.py
+    - dev-integration/profiles/governed-ai-gateway/runtime/provider_connections.py
     - scripts/test_api_provider_connections.py
   findings: []
   risks: []
@@ -17,6 +19,13 @@ Bounded corrective source maintenance discovered during Epic1363 integration.
 Landing Unit Decision: child_isolated_landing_unit,
 maintenance-provider-connection-history-1363. No new ART child or mechanism.
 The isolated merged-source reproduction changed only temporary test state.
+
+Supplemental Landing Unit: child_isolated_landing_unit,
+maintenance-provider-admission-1363. A controlled concurrent reproduction against
+the first merged guard showed a registration paused before its write could
+finish while removal fenced custody. This supplement reuses the existing
+connection lock to cover that write interval; it introduces no additional lock
+subsystem, API or ART child.
 
 ## Classification
 
@@ -38,6 +47,10 @@ connection and no selected route could therefore restore its metadata. Credentia
 and invocation admission stayed fenced, but the current Console registry contract
 would reject the orphan reference. The candidate was not activated.
 
+Current-policy validation alone did not serialize admission with retirement:
+an already admitted registration could write after removal's initial snapshot
+but before the final policy refresh. The same orphan reference could result.
+
 ## Source Changes
 
 Validate every proposed backend reference against current owner admission before
@@ -45,6 +58,13 @@ the atomic configuration write. Reject an inadmissible restoration with the
 current configuration, revision, history and credentials untouched. Preserve the
 original historical snapshot. The regression test exercises create/register,
 connection removal and attempted restoration through the real owner objects.
+
+Registration and restoration now hold the referenced existing connection locks
+through the atomic write, re-reading current admission inside them. These
+metadata writes contain no network probe. Retirement rejects a busy lock before
+its effect and can be explicitly retried against current state. Controlled
+threaded tests prove both registration/removal and restoration/removal ordering,
+then verify retry removes the backend and connection without orphan references.
 
 ## Artifact And Deployment Evidence
 

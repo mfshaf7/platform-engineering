@@ -176,6 +176,53 @@ class ConnectionTests(unittest.TestCase):
         self.assertIn(connection_id, self.configuration.snapshot(1)["configuration"]["backends"])
         self.assertEqual(self.connections.snapshot()["connections"], [])
 
+    def test_registration_and_restoration_serialize_with_connection_retirement(self):
+        for action in ("backend.register", "routing.rollback"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                config = ModelConfiguration(root, tasks={"test/task"}, backends={})
+                connections = ProviderConnections(root, vault=Vault(), configuration=config, allowed_tasks={"test/task"})
+                actor = "operator:test"
+                connection_id = connections.command({"command_id": "create", "expected_revision": 0,
+                    "action": "connection.create", "input": {"provider": "deepseek-api", "name": "Concurrent test"}}, actor=actor)["connection_id"]
+                manager = ModelManagement(configuration=config, backends={}, connections=connections)
+                if action == "routing.rollback":
+                    config.command({"command_id": "original", "expected_revision": 0,
+                        "action": "backend.register", "input": {"backend_id": connection_id}}, actor=actor)
+                    config.command({"command_id": "unregister", "expected_revision": 1,
+                        "action": "backend.remove", "input": {"backend_id": connection_id}}, actor=actor)
+                ready, release = threading.Event(), threading.Event()
+                original, failures = config.command, []
+                def delayed(command, **kwargs):
+                    if command["action"] == action:
+                        ready.set()
+                        if not release.wait(5):
+                            raise AssertionError("Concurrent admission did not resume")
+                    return original(command, **kwargs)
+                config.command = delayed
+                def admit():
+                    try:
+                        manager.command({"command_id": "admit", "expected_revision": config.snapshot()["revision"],
+                            "action": action, "input": {"backend_id": connection_id} if action == "backend.register" else {"revision": 1}}, actor=actor)
+                    except Exception as error:
+                        failures.append(error)
+                thread = threading.Thread(target=admit)
+                thread.start()
+                try:
+                    self.assertTrue(ready.wait(5))
+                    with self.assertRaises(BlockingIOError):
+                        manager.connection_command({"command_id": "remove", "expected_revision": 1,
+                            "action": "connection.remove", "input": {"connection_id": connection_id}}, actor=actor)
+                finally:
+                    release.set(); thread.join(5)
+                self.assertFalse(thread.is_alive()); self.assertEqual(failures, [])
+                self.assertIn(connection_id, config.snapshot()["configuration"]["backends"])
+                manager.connection_command({"command_id": "remove", "expected_revision": 1,
+                    "action": "connection.remove", "input": {"connection_id": connection_id}}, actor=actor)
+                self.assertEqual(config.snapshot()["configuration"]["backends"], {})
+                self.assertEqual(manager.backends, {})
+                self.assertEqual(connections.snapshot()["connections"], [])
+
     def test_native_vault_versions_cas_and_private_token_projection(self):
         token = self.root / "vault-token"; token.write_text("controlled-vault-token"); token.chmod(0o600)
         calls = []

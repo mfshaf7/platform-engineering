@@ -326,6 +326,11 @@ Restoration also validates every saved backend against current owner admission,
 even when the saved settings contain no selected route. A revision referencing
 a removed connection is rejected without changing current settings. Its original
 historical snapshot remains readable; no metadata or history is silently pruned.
+Backend registration and restoration also reuse the retirement lock for every
+API connection they reference and re-read current admission inside it. A racing
+retirement or registration is reported busy before its effect; explicit retry
+then uses current owner state. This prevents an in-flight registration from
+recreating a reference while its connection is being retired.
 
 `ACTION=status` requires a current authenticated model registry, not a previous
 completed model request. It reports API availability and verified registrations;

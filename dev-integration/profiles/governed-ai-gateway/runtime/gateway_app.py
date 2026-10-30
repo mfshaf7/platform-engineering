@@ -14,7 +14,7 @@ from typing import Any
 
 from gateway_policy import GatewayPolicy, InvocationDecision
 from ollama_adapter import OllamaAdapter, OllamaAdapterError, ProviderIntegrityError, SYSTEM_PROMPT
-from model_configuration import ConfigurationError, InvocationJournal
+from model_configuration import ConfigurationError, InvocationJournal, closed
 from model_management import ModelManagement
 from task_routing import TaskRouting
 from urllib.parse import urlparse, parse_qs
@@ -659,12 +659,35 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, manager.logins.read(command_id=query["command_id"][0], actor=authority["operator_id"]))
             elif self.command == "POST" and parsed.path == "/v1/model-management/commands":
                 self.send_json(200, manager.command(self.read_json(), actor=authority["operator_id"]))
+            elif parsed.path == "/v1/model-management/connections" and not parsed.query and self.command == "GET":
+                if manager.connections is None:
+                    raise ConfigurationError("connections-not-commissioned", "API connections are not commissioned.")
+                self.send_json(200, manager.connections.snapshot())
+            elif parsed.path == "/v1/model-management/connection-commands" and not parsed.query and self.command == "POST":
+                self.send_json(200, manager.connection_command(self.read_json(), actor=authority["operator_id"]))
+            elif parsed.path == "/v1/model-management/connection-credentials" and not parsed.query and self.command == "POST":
+                if manager.connections is None:
+                    raise ConfigurationError("connections-not-commissioned", "API connections are not commissioned.")
+                payload = self.read_json()
+                closed(payload, {"command_id", "expected_revision", "connection_id", "api_key"}, "credential ingress")
+                self.send_json(200, manager.connections.credentials(**payload, actor=authority["operator_id"]))
+            elif parsed.path == "/v1/model-management/connection-operation" and self.command == "GET":
+                query = parse_qs(parsed.query)
+                if manager.connections is None or set(query) != {"command_id"} or len(query["command_id"]) != 1:
+                    raise ConfigurationError("invalid-command", "Read one original connection operation.")
+                self.send_json(200, manager.connections.operation(query["command_id"][0], actor=authority["operator_id"]))
+            elif parsed.path == "/v1/model-management/connection-reconcile" and not parsed.query and self.command == "POST":
+                payload = self.read_json()
+                closed(payload, {"command_id"}, "connection reconciliation")
+                if manager.connections is None:
+                    raise ConfigurationError("connections-not-commissioned", "API connections are not commissioned.")
+                self.send_json(200, manager.connections.operation(payload["command_id"], actor=authority["operator_id"], reconcile=True))
             else:
                 self.send_json(404, {"error": "not_found"})
         except ConfigurationError as error:
             self.send_json(409, {"error": error.code, "message": str(error)})
         except OllamaAdapterError as error:
-            self.send_json(503, {"error": error.code})
+            self.send_json(503, {"error": error.code, **({"message": error.operator_message} if hasattr(error, "operator_message") else {})})
         except (OSError, ValueError, KeyError, TypeError, BlockingIOError):
             self.send_json(503, {"error": "model-management-unavailable"})
 

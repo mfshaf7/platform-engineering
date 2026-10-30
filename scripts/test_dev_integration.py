@@ -530,12 +530,23 @@ class DevIntegrationRunnerTests(unittest.TestCase):
                 "gateway_policy.py",
                 "ollama_adapter.py",
                 "strict_output_schema.py",
+                "api_provider_adapter.py",
+                "provider_connections.py",
             ):
                 compile(
                     gateway_config["data"][runtime_file],
                     f"rendered-{runtime_file}",
                     "exec",
                 )
+            # Prove the shipped ConfigMap can import without the source tree.
+            # Syntax-only checks miss an adapter omitted from composition.
+            with tempfile.TemporaryDirectory() as isolated_directory:
+                isolated = Path(isolated_directory)
+                for name, content in gateway_config["data"].items():
+                    if name.endswith(".py"):
+                        (isolated / name).write_text(content)
+                subprocess.run([sys.executable, "-I", "-c",
+                    "import sys; sys.path.insert(0, sys.argv[1]); import gateway_app", str(isolated)], check=True)
             selections = json.loads(
                 gateway_config["data"]["model-profile-selections.json"]
             )
@@ -1319,6 +1330,8 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromModule(test_agent_source_intent))
     import test_ai_task_routing
     tests.addTests(loader.loadTestsFromModule(test_ai_task_routing))
+    import test_api_provider_connections
+    tests.addTests(loader.loadTestsFromModule(test_api_provider_connections))
     return tests
 
 

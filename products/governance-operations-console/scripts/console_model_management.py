@@ -15,6 +15,7 @@ import tempfile
 import yaml
 
 ACCOUNT_PATH = "components/governed-ai-gateway/dev-integration/codex-account"
+API_CREDENTIAL_PREFIX = "components/governed-ai-gateway/dev-integration/api-connections"
 VAULT_POLICY = "governed-ai-codex-account"
 GATEWAY_SECRET = "governed-ai-model-management"
 OOS_SECRET = "governed-ai-model-management-caller"
@@ -161,6 +162,9 @@ def owner_policy(repo_root, operator_id):
                 "vault": {"address": "http://vault.vault.svc.cluster.local:8200", "mount": "kv", "path": ACCOUNT_PATH,
                           "token_file": "/run/model-management/vault-token"}, "allowed_tasks": tasks},
         },
+        "api_connections": {"providers": ["claude-api", "deepseek-api", "glm-api"], "allowed_tasks": tasks,
+            "vault": {"address": "http://vault.vault.svc.cluster.local:8200", "mount": "kv", "prefix": API_CREDENTIAL_PREFIX,
+                      "token_file": "/run/model-management/vault-token"}},
     }
     return value
 
@@ -205,11 +209,14 @@ def prepare(policy, *, repo_root, state_root, operator_id, gateway_namespace, ru
         return run(["k3s", "kubectl", "-n", "vault", "exec", "-i", "vault-0", "--", "sh", "-c", script, "model-vault", *command],
                    input_value=token + "\n" + (payload or ""), check=check)
     renewed = None
+    # Reconcile the reviewed narrow policy even when the existing token renews.
+    # No list/delete/undelete capability or unrelated secret prefix is granted.
+    rule = ('path "kv/data/' + ACCOUNT_PATH + '" { capabilities = ["create", "read", "update"] }\n'
+            + 'path "kv/data/' + API_CREDENTIAL_PREFIX + '/api-*" { capabilities = ["create", "read", "update"] }\n')
+    vault(["policy", "write", VAULT_POLICY, "-"], vault_token(), rule)
     if existed:
         renewed = vault(["token", "renew", "-format=json"], account_token.read_text().strip(), check=False)
     if renewed is None or renewed.returncode:
-        rule = 'path "kv/data/' + ACCOUNT_PATH + '" { capabilities = ["create", "read", "update"] }\n'
-        vault(["policy", "write", VAULT_POLICY, "-"], vault_token(), rule)
         issued = owner_json(vault(["write", "-format=json", "auth/token/create", "policies=" + VAULT_POLICY,
                                   "period=24h", "renewable=true", "no_parent=true", "id=-"],
                                  vault_token(), account_token.read_text().strip()).stdout)

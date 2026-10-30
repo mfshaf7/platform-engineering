@@ -266,7 +266,9 @@ or authorize another provider. Replaying the original invocation retains its
 original frozen result, including uncertainty, after the account becomes free.
 
 Platform creates a periodic Vault service token limited to read/create/update
-of `kv/data/components/governed-ai-gateway/dev-integration/codex-account`.
+of `kv/data/components/governed-ai-gateway/dev-integration/codex-account` and
+the fixed `kv/data/components/governed-ai-gateway/dev-integration/api-connections/api-*`
+prefix. There is no list, delete, undelete or unrelated-secret permission.
 Its intended token identity is persisted before issuance, so an interrupted
 response reconciles that same identity. Only the gateway receives this token.
 The native account is created through Console sign-in; activation never imports
@@ -275,7 +277,10 @@ account lease; unavailable renewal fails visibly and does not widen authority.
 
 A different management token is projected to OOS and the gateway. It authenticates
 the fixed OOS/operator pair and grants only the closed model-management API.
-Provider tokens never enter Console, OOS, source, receipts or process arguments.
+Provider tokens are never retained in Console, OOS, source, receipts or process arguments.
+For explicitly entered API keys, Console and OOS provide only transient protected
+ingress to gateway/Vault; no key is retained in their storage, command journals,
+advisor context or receipts. Existing Codex account custody remains separate.
 The OOS caller binding is exactly `governance-operations-console` to the admitted
 human operator. Its request journal reuses the existing private OOS state mount.
 
@@ -285,6 +290,37 @@ review default/task routing, native effort and explicit fallback. The Console
 product's [operator procedure](https://github.com/mfshaf7/governance-operations-console/blob/main/docs/product/model-operations-live-integration.md)
 owns those controls. Permission/data/output changes still require purpose-profile
 review. Public/internal proof does not qualify private client data or stage/prod.
+
+Epic1363 extends this same owner with named **Experimental** Claude API, DeepSeek
+API and GLM/Z.AI **Standard API** connections. The label means real-account
+qualification is pending and remains after a successful individual model probe.
+It is independent of connection health. Fixed HTTPS presets select the native
+protocol; callers cannot supply another endpoint. GLM model entry is manual
+because this preset has no admitted catalogue API. Unknown native controls use
+the explicit provider default. Cloud runtime version/model digest remain unknown
+when the provider does not supply them. This does not invent a model inventory.
+
+Adding a connection and storing a key do not prove authentication or model access.
+Explicit Verify may consume up to4096 output tokens and60 seconds. Automatic
+health performs no API inference; only recent generation-bound successful
+verification/requests count as model proof. All seven existing task contracts
+retain their original strict final-output validation. Claude's supported native
+grammar omits unsupported length constraints, while the full canonical schema
+remains in the prompt and is enforced locally. Reasoning content and tool calls
+are never projected as task output. Unknown submission outcomes stop routing;
+they cannot cause automatic retry or fallback.
+
+Credential replacement invalidates previous model verification. A pending write
+is reconciled by its original operation identity against Vault; no second key
+write is performed by reconciliation. Explicit Disconnect revokes/fences a key,
+including an uncertain earlier write. Reconnect requires fresh credentials.
+Before Remove, reassign every route and remove its model registrations. Removal
+fences custody and retires the connection identity; routing-history rollback
+cannot restore a revoked key or rebind that identity. State and safe receipts
+survive restart on the existing owner volume. API connection source may land
+before commissioning, but activation still requires the exact composed Security
+acceptance and complete-runtime procedure above. Controlled conformance tests
+are not proof of any provider account's entitlement or live API reliability.
 
 `ACTION=status` requires a current authenticated model registry, not a previous
 completed model request. It reports API availability and verified registrations;

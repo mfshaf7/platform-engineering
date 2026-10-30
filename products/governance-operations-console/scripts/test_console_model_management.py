@@ -66,6 +66,9 @@ class ModelCompositionTests(unittest.TestCase):
         for backend in value["backends"].values(): self.assertEqual(backend["allowed_tasks"], expected)
         self.assertEqual(value["backends"]["managed-codex"]["vault"]["path"], module.ACCOUNT_PATH)
         self.assertNotIn("OPENAI_API_KEY", json.dumps(value))
+        self.assertEqual(value["api_connections"]["allowed_tasks"], expected)
+        self.assertEqual(value["api_connections"]["providers"], ["claude-api", "deepseek-api", "glm-api"])
+        self.assertEqual(value["api_connections"]["vault"]["prefix"], module.API_CREDENTIAL_PREFIX)
 
     def test_extra_suspended_profile_still_requires_runtime_boundary_review(self):
         path = self.root / "security/governed-ai-model-profiles.yaml"
@@ -133,6 +136,24 @@ class ModelCompositionTests(unittest.TestCase):
         rule = next(kwargs["input_value"] for command, kwargs in calls if "policy" in command)
         self.assertIn('path "kv/data/' + module.ACCOUNT_PATH + '"', rule)
         self.assertNotIn('"list"', rule); self.assertNotIn('path "*"', rule)
+        self.assertIn('path "kv/data/' + module.API_CREDENTIAL_PREFIX + '/api-*"', rule)
+        self.assertNotIn('"delete"', rule); self.assertNotIn('"sudo"', rule)
+
+    def test_reviewed_policy_extension_is_reconciled_for_existing_renewable_token(self):
+        selected = policy(); selected["security"]["status"] = "accepted"
+        calls = []
+        def execute(command, **kwargs):
+            calls.append((command, kwargs))
+            if "renew" in command:
+                return SimpleNamespace(returncode=0, stdout=json.dumps({"auth": {"policies": ["default", module.VAULT_POLICY], "renewable": True}}))
+            return SimpleNamespace(returncode=0, stdout="")
+        with tempfile.TemporaryDirectory() as directory, patch.object(module, "build_image", return_value="synthetic:image"), patch.dict(os.environ, {}):
+            root = Path(directory)
+            module.private_write(root / "private/model-management/vault-token", "controlled-existing-scoped-token")
+            module.prepare(selected, repo_root=self.root, state_root=root, operator_id="operator:synthetic", gateway_namespace="synthetic", run=execute, vault_token=lambda: "controlled-admin")
+        self.assertTrue(any("policy" in command for command, _ in calls))
+        self.assertFalse(any("auth/token/create" in command for command, _ in calls))
+        self.assertNotIn("controlled-admin", json.dumps([command for command, _ in calls]))
 
     def test_oos_receives_only_separate_management_credential_and_exact_operator_binding(self):
         calls = []

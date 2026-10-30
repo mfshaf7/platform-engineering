@@ -160,6 +160,22 @@ class ConnectionTests(unittest.TestCase):
             with self.assertRaises(BlockingIOError):
                 self.command("connection.disconnect", {"connection_id": connection_id})
 
+    def test_saved_settings_cannot_restore_a_removed_connection_reference(self):
+        connection_id = self.create()
+        manager = ModelManagement(configuration=self.configuration, backends={}, connections=self.connections)
+        self.configuration.command({"command_id": "history:register", "expected_revision": 0,
+            "action": "backend.register", "input": {"backend_id": connection_id}}, actor=self.actor)
+        manager.connection_command({"command_id": "history:remove", "expected_revision": 1,
+            "action": "connection.remove", "input": {"connection_id": connection_id}}, actor=self.actor)
+        before = self.configuration.snapshot()
+        with self.assertRaises(ConfigurationError) as failure:
+            self.configuration.command({"command_id": "history:restore", "expected_revision": before["revision"],
+                "action": "routing.rollback", "input": {"revision": 1}}, actor=self.actor)
+        self.assertEqual(failure.exception.code, "backend-not-admitted")
+        self.assertEqual(self.configuration.snapshot(), before)
+        self.assertIn(connection_id, self.configuration.snapshot(1)["configuration"]["backends"])
+        self.assertEqual(self.connections.snapshot()["connections"], [])
+
     def test_native_vault_versions_cas_and_private_token_projection(self):
         token = self.root / "vault-token"; token.write_text("controlled-vault-token"); token.chmod(0o600)
         calls = []

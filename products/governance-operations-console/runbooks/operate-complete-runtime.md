@@ -322,6 +322,11 @@ before commissioning, but activation still requires the exact composed Security
 acceptance and complete-runtime procedure above. Controlled conformance tests
 are not proof of any provider account's entitlement or live API reliability.
 
+Restoration also validates every saved backend against current owner admission,
+even when the saved settings contain no selected route. A revision referencing
+a removed connection is rejected without changing current settings. Its original
+historical snapshot remains readable; no metadata or history is silently pruned.
+
 `ACTION=status` requires a current authenticated model registry, not a previous
 completed model request. It reports API availability and verified registrations;
 actual invocation and selection receipts are the separate operating proof.

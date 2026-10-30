@@ -48,6 +48,7 @@ shared_paths:
       - test_governed_ai_gateway_policy.py
       - test_governed_ai_gateway_runtime.py
       - test_ai_task_routing.py
+      - test_api_provider_connections.py
       - test_governed_ai_ollama_adapter.py
       - migrate_k8s_secret_to_vault.py
       - validate_ai_model_profiles.py

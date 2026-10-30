@@ -14,6 +14,10 @@ Normal use remains `make governance-console-complete-runtime`; the
 `build-image` action is source-review validation and never deploys a workload.
 The complete-runtime runbook owns the operator procedure.
 
+The same adapter composes Epic1363's Experimental API presets and narrow API
+credential prefix. It reconciles the reviewed Vault policy on token renewal,
+preserves Codex custody and introduces no additional provider installation.
+
 `console_session_projection.py` is the product-local operator command for the
 Console identity/session projection. It supports:
 

@@ -23,6 +23,11 @@ account lease, a separate OOS management credential, network/resource bounds
 and rollback. Follow [Operate the complete Console runtime](runbooks/operate-complete-runtime.md).
 Source presence alone is not commissioning or model readiness.
 
+The Epic1363 extension adds named Experimental Claude, DeepSeek and GLM/Z.AI
+Standard API connections through that same owner. Protected transient key ingress
+uses a separate scoped Vault prefix. Real-account qualification remains pending;
+registration, current health and maturity are distinct evidence.
+
 This is a real local session source within the single-operator
 `dev-integration` trust boundary. It is not federated identity, stage evidence,
 production authentication, or permission for the Console to mutate an owning

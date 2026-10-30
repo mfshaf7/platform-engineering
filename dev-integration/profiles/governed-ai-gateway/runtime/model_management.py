@@ -17,6 +17,8 @@ from model_configuration import ConfigurationError, ModelConfiguration, atomic_j
 from ollama_adapter import OllamaAdapter, OllamaAdapterError, ProviderBusy, ProviderIntegrityError, ProviderUnavailable
 from provider_accounts import VaultCodexAccount
 from model_login import ModelLogin
+from api_provider_adapter import ApiBackend, PRESETS
+from provider_connections import ProviderConnections, VaultApiCredentials
 
 
 PROBE_SCHEMA = {"type": "object", "properties": {"ok": {"type": "boolean", "const": True}},
@@ -154,10 +156,37 @@ class CodexBackend:
 
 
 class ModelManagement:
-    def __init__(self, *, configuration: ModelConfiguration, backends: dict[str, Any], authority=None):
+    def __init__(self, *, configuration: ModelConfiguration, backends: dict[str, Any], authority=None, connections=None):
         self.configuration, self.backends = configuration, backends
         self.authority = authority or {}
         self.logins = ModelLogin(configuration.root / "logins", backends)
+        self.connections = connections
+        self._fixed_backends = dict(backends)
+        self._fixed_policies = dict(configuration.backends)
+        self.sync_connections()
+
+    def sync_connections(self):
+        if self.connections is None:
+            return
+        try:
+            policies = self.connections.policies()
+        except BlockingIOError:
+            raise ProviderBusy("Provider connections are changing; refresh shortly.") from None
+        for key in set(self.backends) - set(self._fixed_backends) - set(policies):
+            del self.backends[key]
+        for key, policy in policies.items():
+            if key not in self.backends:
+                self.backends[key] = ApiBackend(policy["provider"], lambda key=key: self.connections.credential(key),
+                    verification_current=lambda model, binding, key=key: self.configuration.outcome(
+                        digest({"backend_id": key, "model": model["model"]}), model, binding) is not None)
+        self.configuration.backends = {**self._fixed_policies, **policies}
+
+    def connection_command(self, command, *, actor):
+        if self.connections is None:
+            raise ConfigurationError("connections-not-commissioned", "API connections are not commissioned in this installation.")
+        result = self.connections.command(command, actor=actor)
+        self.sync_connections()
+        return result
 
     @classmethod
     def from_environment(cls, selections, root: Path):
@@ -165,7 +194,8 @@ class ModelManagement:
         if not path:
             return None
         policy = json.loads(Path(path).read_text())
-        closed(policy, {"schema_version", "caller_id", "operator_id", "token_file", "backends"}, "owner management policy")
+        closed(policy, {"schema_version", "caller_id", "operator_id", "token_file", "backends"} |
+               ({"api_connections"} if "api_connections" in policy else set()), "owner management policy")
         if policy["schema_version"] != 1 or not all(isinstance(policy[k], str) and policy[k] for k in ("caller_id", "operator_id", "token_file")):
             raise ConfigurationError("invalid-policy", "Owner identity and authentication policy are required.")
         tasks = {profile_id + "/" + kind for profile_id, profile in selections["profiles"].items()
@@ -188,10 +218,22 @@ class ModelManagement:
             else:
                 raise ConfigurationError("backend-not-admitted", "This runtime does not implement the requested provider protocol.")
         configuration = ModelConfiguration(root, tasks=tasks, backends=policy["backends"])
+        connections = None
+        if "api_connections" in policy:
+            admitted = policy["api_connections"]
+            closed(admitted, {"providers", "vault", "allowed_tasks"}, "API connection policy")
+            if admitted["providers"] != list(PRESETS) or not isinstance(admitted["allowed_tasks"], list) or set(admitted["allowed_tasks"]) - tasks:
+                raise ConfigurationError("invalid-policy", "API presets and task permissions require the reviewed owner policy.")
+            vault = admitted["vault"]
+            closed(vault, {"address", "mount", "prefix", "token_file"}, "API credential custody")
+            credentials = VaultApiCredentials(**vault)
+            connections = ProviderConnections(root, vault=credentials, configuration=configuration, allowed_tasks=admitted["allowed_tasks"])
         return cls(configuration=configuration, backends=backends,
+                   connections=connections,
                    authority={key: policy[key] for key in ("caller_id", "operator_id", "token_file")})
 
     def catalogue(self, backend_id: str, model=None):
+        self.sync_connections()
         if backend_id not in self.configuration.backends or backend_id not in self.backends:
             raise ConfigurationError("backend-not-admitted", "Backend is not part of the accepted owner configuration.")
         # Catalogue availability is distinct from registration or verification.
@@ -207,6 +249,8 @@ class ModelManagement:
     def refresh_health(self, *, now=None):
         """Native metadata/account reads after core startup; never inference."""
         now = now or datetime.now(timezone.utc)
+        self.sync_connections()
+        connections = {x["connection_id"]: x for x in self.connections.snapshot()["connections"]} if self.connections else {}
         snapshot = self.configuration.snapshot()
         config = snapshot["configuration"]
         outcomes = self.configuration.outcomes()
@@ -216,6 +260,8 @@ class ModelManagement:
         result = {"configuration_revision": snapshot["revision"], "configuration_digest": snapshot["digest"],
                   "checked_at": now.isoformat(), "expires_at": (now + timedelta(seconds=120)).isoformat(),
                   "backends": [], "models": []}
+        if self.connections:
+            result["_connections_digest"] = digest(connections)
         deadline = time.monotonic() + 20
         # One owner process, one bounded collector; UI reads never probe providers.
         with locked(self.configuration.root / "health.lock", blocking=False):
@@ -237,6 +283,15 @@ class ModelManagement:
                         else:
                             advertised = {item["model"]: item for item in models}
                             state, code = "available", "connection-verified"
+                    elif isinstance(backend, ApiBackend):
+                        connection = connections[key]
+                        account_binding = connection["credential_generation"]
+                        if connection["state"] != "active":
+                            state, code = "unavailable", "connection-disconnected"
+                        elif connection["pending_operation"]:
+                            state, code = "verification-needed", "credential-reconcile-required"
+                        elif not account_binding:
+                            state, code = "unavailable", "api-key-required"
                 except ProviderIntegrityError as error:
                     account_binding = getattr(error, "account_binding", None)
                     state, code = "verification-needed", "provider-metadata-invalid"
@@ -283,11 +338,17 @@ class ModelManagement:
                         recent = success and 0 <= (now - datetime.fromisoformat(success["at"])).total_seconds() <= 900
                         item.update(state="available" if recent else "verification-needed",
                                     code="recent-model-success" if recent else "model-verification-required")
+                    if isinstance(backend, ApiBackend) and state == "unknown":
+                        success = item["last_success"]
+                        recent = success and 0 <= (now - datetime.fromisoformat(success["at"])).total_seconds() <= 900
+                        okay = recent and outcome and outcome["code"] == "suggestion-produced"
+                        item.update(state="available" if okay else "verification-needed",
+                                    code="recent-model-success" if okay else "model-verification-required")
                     result["models"].append(item)
             # A turn finishing during this collector must not be overwritten
             # by an earlier success/failure observation from the same revision.
             self.configuration.cache_health(result, outcomes)
-        return result
+        return {key: value for key, value in result.items() if not key.startswith("_")}
 
     def health(self, snapshot):
         try:
@@ -295,6 +356,9 @@ class ModelManagement:
             if path.is_symlink() or path.stat().st_size > 1_048_576:
                 return None
             value = json.loads(path.read_text())
+            if self.connections and value.pop("_connections_digest", None) != digest({
+                    x["connection_id"]: x for x in self.connections.snapshot()["connections"]}):
+                return None
             now = datetime.now(timezone.utc)
             if (value["configuration_revision"] != snapshot["revision"] or value["configuration_digest"] != snapshot["digest"]
                     or not datetime.fromisoformat(value["checked_at"]) <= now < datetime.fromisoformat(value["expires_at"])):
@@ -304,15 +368,19 @@ class ModelManagement:
             return None
 
     def describe_backends(self):
+        self.sync_connections()
         snapshot = self.configuration.snapshot()
         registered = snapshot["configuration"]["backends"]
         return {"health": self.health(snapshot), "tasks": sorted(self.configuration.tasks), "backends": [
             {"backend_id": key, "provider": value.get("provider"), "allowed_tasks": value["allowed_tasks"],
              "registered": key in registered, "account_login_supported": isinstance(self.backends.get(key), CodexBackend),
-             "availability": "not-probed"}
+             "availability": "not-probed", **({"experimental": True, "qualification": "real-account-verification-pending",
+                "catalogue_supported": value["provider"] != "glm-api", "verification_max_tokens": 4096}
+                if value.get("provider") in PRESETS else {})}
             for key, value in sorted(self.configuration.backends.items())]}
 
     def command(self, command: dict[str, Any], *, actor: str):
+        self.sync_connections()
         closed(command, {"command_id", "expected_revision", "action", "input"}, "management command")
         if not isinstance(command["command_id"], str) or not command["command_id"] or len(command["command_id"]) > 200:
             raise ConfigurationError("invalid-command", "A stable bounded command identity is required.")
@@ -392,7 +460,8 @@ class ModelManagement:
                         raise ConfigurationError("model-not-advertised", "The backend does not advertise this model.")
                     backend = self.backends[backend_id]
                     result = backend.adapter(metadata, metadata["supported_efforts"][0], {
-                        "timeout_seconds": 60, "max_output_tokens": 64, "max_output_bytes": 4096,
+                        "timeout_seconds": 60, "max_output_tokens": 4096 if isinstance(backend, ApiBackend) else 64,
+                        "max_output_bytes": 65536 if isinstance(backend, ApiBackend) else 4096, "verification": True,
                     }).invoke(input_payload={"ok": True}, output_schema=PROBE_SCHEMA,
                               prompt_version="model-registration-probe-v1",
                               system_prompt='Return the JSON object {"ok":true}. Use no tools.')
@@ -409,6 +478,7 @@ class ModelManagement:
                                               account_binding=getattr(result, "account_binding", None) if verified else None)
 
     def adapter(self, model, effort, limits):
+        self.sync_connections()
         backend_id = model["backend_id"]
         if backend_id not in self.configuration.backends or backend_id not in self.backends:
             raise ProviderIntegrityError("The selected backend is no longer admitted.")

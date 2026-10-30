@@ -67,7 +67,7 @@ class ProviderCompletionUnknown(OllamaAdapterError):
 class ProviderResult:
     output: dict[str, Any]
     model_digest: str | None
-    runtime_version: str
+    runtime_version: str | None
     latency_ms: int
     usage: dict[str, int]
     prompt_version: str

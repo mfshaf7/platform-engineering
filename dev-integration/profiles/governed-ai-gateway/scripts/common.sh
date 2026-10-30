@@ -300,6 +300,8 @@ render_gateway_app() {
     provider_accounts.py \
     model_login.py \
     model_management.py \
+    api_provider_adapter.py \
+    provider_connections.py \
     strict_output_schema.py; do
     cp "${RUNTIME_SOURCE_DIR}/${runtime_file}" "${RENDERED_DIR}/${runtime_file}"
   done
@@ -416,6 +418,10 @@ $(sed 's/^/    /' "${RENDERED_DIR}/provider_accounts.py")
 $(sed 's/^/    /' "${RENDERED_DIR}/model_login.py")
   model_management.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/model_management.py")
+  api_provider_adapter.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/api_provider_adapter.py")
+  provider_connections.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/provider_connections.py")
   model-profile-selections.json: |
 $(sed 's/^/    /' "${RENDERED_DIR}/model-profile-selections.json")
 ---

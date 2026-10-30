@@ -96,6 +96,11 @@ Source validation and image construction do not authorize deployment or prove
 provider entitlement. Follow the complete-runtime runbook for commissioning,
 lease maintenance, rollback and retained owner state.
 
+Epic1363 extends that same owner with named Experimental native API connections.
+Keep keys on the separate protected transient ingress to scoped Vault custody;
+never pass them through generic command journals. Real-account qualification is
+pending and independent of health. The same runbook owns recovery and activation.
+
 The Epic 1332 extension uses that same procedure for Purpose request evidence,
 independent expiring health observations and the existing durable definition.
 Keep the distinct Platform fulfiller and OOS/WGCF worker roles. Ordinary restart

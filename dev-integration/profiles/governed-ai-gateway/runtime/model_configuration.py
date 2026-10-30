@@ -253,6 +253,10 @@ class ModelConfiguration:
                 raise ConfigurationError("invalid-registration", "Model registration does not bind its actual backend and model.")
             if not isinstance(model["model"], str) or not model["model"] or len(model["model"]) > 200:
                 raise ConfigurationError("invalid-registration", "Model identity is invalid.")
+            if model["runtime_version"] is not None and (not isinstance(model["runtime_version"], str) or not 0 < len(model["runtime_version"]) <= 2048):
+                raise ConfigurationError("invalid-registration", "Runtime version must be observed metadata or explicitly unknown.")
+            if model["model_digest"] is not None and (not isinstance(model["model_digest"], str) or not 0 < len(model["model_digest"]) <= 200):
+                raise ConfigurationError("invalid-registration", "Model digest must be observed metadata or explicitly unknown.")
             efforts = model["supported_efforts"]
             if not isinstance(efforts, list) or not efforts or any(x is not None and type(x) not in {str, bool} for x in efforts) or len(set(efforts)) != len(efforts):
                 raise ConfigurationError("invalid-registration", "Supported effort catalogue is invalid.")

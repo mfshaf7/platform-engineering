@@ -245,6 +245,8 @@ class ModelConfiguration:
         if not all(isinstance(config[key], dict) for key in ("backends", "models", "overrides")):
             raise ConfigurationError("invalid-configuration", "Registration and override maps are required.")
         for key, backend in config["backends"].items():
+            if key not in self.backends:
+                raise ConfigurationError("backend-not-admitted", "These settings reference a connection no longer admitted. Choose a current configuration instead.")
             if backend != {"backend_id": key}:
                 raise ConfigurationError("invalid-registration", "Backend records cannot change owner-selected connection or permission fields.")
         for model_id, model in config["models"].items():

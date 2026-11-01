@@ -267,33 +267,64 @@ class CompleteRuntimeTests(unittest.TestCase):
             commands.assert_called_once_with(["systemctl", "--user", "restart", runtime.UNIT_NAME])
 
     def test_activation_refreshes_after_current_marker_and_before_success_status(self):
-        policy = self.accepted_policy(); events = []
-        ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "require_publication_owner_bindings", "write_composition_supervisor", "refresh_record_authorities", "run", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
-        with ExitStack() as stack:
-            root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='console-recovery-order-')))
-            policy['runtime_state_root'] = str(root)
-            stack.enter_context(patch.object(runtime, 'STATE_ROOT', root))
-            runtime.artifact_recovery.save(root, {'state': 'restored-awaiting-readiness'})
-            before = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
-            self.assertTrue(any(not item['available'] for item in before['subjects'][0]['capabilities']))
-            def confirmed(value):
-                runtime.artifact_recovery.save(value, {'state': 'healthy'})
-                events.append('artifact-consumers-ready')
-            stack.enter_context(patch.object(runtime.artifact_recovery, 'confirmed', side_effect=confirmed))
-            for name in ignored: stack.enter_context(patch.object(runtime, name))
-            stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
-            stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
-            stack.enter_context(patch.object(runtime, "cross_domain_command", return_value=[]))
-            stack.enter_context(patch.object(runtime, "deliver_repository_provisioning_identity", return_value={"token_expires_at": "synthetic-expiry"}))
-            stack.enter_context(patch.object(runtime, "workflow_credential_manager"))
-            stack.enter_context(patch.object(runtime, "credential", return_value="synthetic-secret"))
-            stack.enter_context(patch.object(runtime, "cni_gateway", return_value="127.0.0.1"))
-            for name in ("write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"):
-                stack.enter_context(patch.object(runtime, name, side_effect=lambda *args, _name=name, **kwargs: events.append(_name)))
-            runtime.activate(policy)
-            catalog = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
-            self.assertTrue(all(item['available'] for item in catalog['subjects'][0]['capabilities']))
-        self.assertEqual(events, ['artifact-consumers-ready', "write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+        for frontend_seconds, finishing_seconds, source_available in ((0, 0, True), (360, 0, True), (0, 360, True), (360, 360, True), (360, 360, False)):
+            with self.subTest(frontend_seconds=frontend_seconds, finishing_seconds=finishing_seconds, source_available=source_available), ExitStack() as stack:
+                policy = self.accepted_policy(); events = []
+                clock = {"now": 0, "valid_until": 300}
+                ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "require_publication_owner_bindings", "write_composition_supervisor", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
+                root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='console-recovery-order-')))
+                policy['runtime_state_root'] = str(root)
+                stack.enter_context(patch.object(runtime, 'STATE_ROOT', root))
+                runtime.artifact_recovery.save(root, {'state': 'restored-awaiting-readiness'})
+                before = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
+                self.assertTrue(any(not item['available'] for item in before['subjects'][0]['capabilities']))
+                def confirmed(value):
+                    runtime.artifact_recovery.save(value, {'state': 'healthy'})
+                    events.append('artifact-consumers-ready')
+                def run(command, **kwargs):
+                    if command == ['frontend-activate']:
+                        clock['now'] += frontend_seconds
+                        events.append('frontend-ready')
+                    return SimpleNamespace(returncode=0)
+                def refresh_sources(value):
+                    if clock['now'] >= 360 and not source_available:
+                        raise runtime.record_authority.RecordAuthorityError('provider unavailable')
+                    clock['valid_until'] = clock['now'] + 300
+                def status(value, **kwargs):
+                    if clock['now'] >= clock['valid_until']:
+                        raise runtime.record_authority.RecordAuthorityError('source expired during frontend preparation')
+                    events.append('status')
+                    (root / 'core-online.json').write_text('{}')
+                def finish(*args, _name, **kwargs):
+                    events.append(_name)
+                    if _name == 'write_repository_refresh_units':
+                        clock['now'] += finishing_seconds
+                stack.enter_context(patch.object(runtime.artifact_recovery, 'confirmed', side_effect=confirmed))
+                for name in ignored: stack.enter_context(patch.object(runtime, name))
+                stack.enter_context(patch.object(runtime, 'run', side_effect=run))
+                stack.enter_context(patch.object(runtime, 'refresh_record_authorities', side_effect=refresh_sources))
+                check_status = stack.enter_context(patch.object(runtime, 'status', side_effect=status))
+                stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
+                stack.enter_context(patch.object(runtime, "repo_path", return_value=runtime.REPO_ROOT))
+                stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
+                stack.enter_context(patch.object(runtime, "cross_domain_command", return_value=['frontend-activate']))
+                stack.enter_context(patch.object(runtime, "deliver_repository_provisioning_identity", return_value={"token_expires_at": "synthetic-expiry"}))
+                stack.enter_context(patch.object(runtime, "workflow_credential_manager"))
+                stack.enter_context(patch.object(runtime, "credential", return_value="synthetic-secret"))
+                stack.enter_context(patch.object(runtime, "cni_gateway", return_value="127.0.0.1"))
+                for name in ("write_active_marker", "refresh_stale_provider", "write_repository_refresh_units"):
+                    stack.enter_context(patch.object(runtime, name, side_effect=lambda *args, _name=name, **kwargs: finish(*args, _name=_name, **kwargs)))
+                if source_available:
+                    runtime.activate(policy)
+                    catalog = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
+                    self.assertTrue(all(item['available'] for item in catalog['subjects'][0]['capabilities']))
+                    self.assertEqual(events, ['frontend-ready', 'artifact-consumers-ready', "write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+                    self.assertTrue((root / 'core-online.json').is_file())
+                else:
+                    with self.assertRaisesRegex(runtime.record_authority.RecordAuthorityError, 'provider unavailable'):
+                        runtime.activate(policy)
+                    check_status.assert_not_called()
+                    self.assertFalse((root / 'core-online.json').exists())
 
     def test_publication_projection_uses_the_existing_decision_and_reviewed_authority(self):
         policy = self.accepted_policy()

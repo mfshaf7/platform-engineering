@@ -1885,6 +1885,9 @@ def activate(policy: dict[str, Any]) -> Path:
         observation_refresh.install(repo_root=repo_path("platform-engineering"), state_root=STATE_ROOT,
             unit_root=UNIT_ROOT, run=run)
     print("Console startup: verifying complete runtime readiness", flush=True)
+    # Frontend preparation, artifact confirmation and provider reconciliation
+    # can outlast record freshness. Re-observe owners before the final read.
+    refresh_record_authorities(policy)
     result = status(policy, action="activate")
     print("Console core online; configured provider checks follow on the observation timer", flush=True)
     receipt('artifact-recovery', policy, {**artifact_recovery.journal(STATE_ROOT),

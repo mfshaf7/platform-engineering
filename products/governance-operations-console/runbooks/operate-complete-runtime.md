@@ -647,6 +647,12 @@ failed preparation leaves the current frontend untouched. Inspect private
 remove only proven disposable build exports after diagnosis. Do not disable
 source acceptance, type checks or functionality to meet a memory target.
 
+Before final readiness, activation re-observes the existing canonical record
+owners after frontend preparation, artifact confirmation and provider setup.
+Those steps can exceed the five-minute source freshness window on a cold or
+slow start. The normal writer must establish fresh authority; a failed refresh
+withholds successful startup. Expiry and source validation are not relaxed.
+
 WSL available memory, cache/pressure and Windows vmmem working set are separate
 measurements. Cache reclamation eligibility and an appropriate VM ceiling must
 be verified at the host boundary; setting a flag that is already the default

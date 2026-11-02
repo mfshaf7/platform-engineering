@@ -24,10 +24,10 @@ This project is intended to hold:
 - triaged proposals
 - parked or deferred architecture items
 - accepted proposals that have not yet been promoted into Git-owned artifacts
-- current `dev-integration` profile requests while OpenProject remains the
-  active request surface adapter
 
 It should not be used for:
+
+- routine `dev-integration` profile requests (use the native Dev Integration workflow)
 
 - source change records
 - execution tracking for consumed delivery work
@@ -151,37 +151,20 @@ Allowed existing production-plane history:
 
 Smoke, demo, and rehearsal-only data are not acceptable seed sets.
 
-## Dev-Integration Profile Requests
+## Historical Dev-Integration Profile Request References
 
 The `dev-integration` profile admission model is owned generically in
 `workspace-governance`.
 
-While OpenProject is the current request surface adapter, a new profile request
-may be recorded in `Workspace Proposals` before the profile becomes
-`active`.
+New routine profile requests use **Console → Dev Integration → Request Profile**
+and OOS-owned durable request records. They do not create a Proposal or require
+Proposal disposition. See the [profile operator procedure](../../docs/runbooks/dev-integration-profiles.md#3-request-a-new-profile-when-none-fits).
 
-Recommended minimum mapping for that request:
-
-- type:
-  - `Component Proposal` when the profile is clearly owned by one component repo
-  - otherwise the proposal type that best fits the real owner shape
-- status:
-  - `captured` or `triaged` while the profile is still `proposed`
-- description:
-  - purpose
-  - participating repos
-  - expected runtime dependencies
-  - whether identity, secrets, runtime privilege, or AI review is involved
-- custom fields:
-  - `Suspected Owner`
-  - `Affected Scope`
-  - `Trust Boundary Areas`
-  - `Promotion Target`
-
-The generic workspace contract should then store only:
-
-- `request_record.system`
-- `request_record.ref`
+Older admitted profiles may retain `request_record.system: openproject` and their
+original work-package reference. Those links are historical provenance, not an
+instruction to route new requests here. Recording, admission, implementation and
+runtime activation remain separate outcomes. Business or architecture proposals
+continue to use this backlog on their own merits.
 
 That keeps the admission model portable if the request surface changes later.
 

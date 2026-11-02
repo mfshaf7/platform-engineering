@@ -866,3 +866,128 @@ Dedicated-account presence is reported as connection unprobed. Routine checks do
 not launch Codex or infer; explicit verification or a real invocation supplies
 its own evidence. Provider software/credentials remain operator choices, while
 shipped adapters, authorization and executable integrity stay Platform controls.
+
+### Staged Governed Releases readback
+
+The pending Console maintenance extension uses the existing authenticated Platform
+provider for `GET /v1/console-operations/governed-products`, brokered by OOS's
+separate default-off `OOS_GOVERNED_PRODUCTS_ENABLED` boundary. It reads committed
+Workspace Governance product metadata and fixed owner-defined release records.
+Only validated committed regular files are read; callers cannot choose host paths.
+List reads do not probe runtimes or execute scripts.
+
+The Console retains the existing register and Dashboard. Products without a
+release rail remain inspectable. Source, observation time and individual record
+timestamps stay distinct. Protected workflow buttons navigate to the existing
+GitHub workflow; they do not submit commands or issue Console release receipts.
+Navigation alone changes no stage/prod state. The optional native connection below
+extends the existing operation provider; it remains disabled until commissioned.
+
+Commission only after exact-source composed review covers the Console, OOS and
+Platform changes, including bounded product pages, stale/unavailable owner reads,
+caller denial and absence of runtime side effects. Retain existing approvals in
+the protected owner workflow. Keep canonical operations/requests during rollback.
+See the [OOS operator procedure](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/governed-release-readback.md)
+for readback, history continuation and explicit execution limits.
+
+### Optional native governed-release connection
+
+This is a post-setup connection, not an installation or core-startup dependency.
+Reuse the current Console → OOS → Platform operation journal/provider and the
+three existing protected OpenClaw workflows. Do not install a new executor,
+reuse Gary or another workflow App, import personal credentials, approve an
+environment automatically, merge a PR automatically, or run local prod scripts.
+
+The default source policy permits this optional adapter but supplies no native
+activation grant or credential. Its dedicated definition is `security/governed-release-identity.yaml`:
+selected `mfshaf7/platform-engineering` repository id1195328534, dedicated
+`mfshaf7-governed-releases` App owned by account id244414185, Metadata/Contents/
+Pull requests read and Actions write only, no subscriptions or administration.
+Existing protected `stage` and `prod` environment approval rules stay in force.
+The workflow's existing token creates its source PR; the dispatch token cannot.
+
+After source review/landing, qualify the exact Console/OOS/Platform/Security
+composition with the existing complete-runtime procedure. The fresh composed
+Security decision must cover native release authority. Its native review
+front matter must name `status: accepted`, the same `gate_id`, exact
+`reviewed_revisions` and `reviewed_platform_tree`. The existing resolver derives
+`security_accepted` and the decision digest into its existing private provider
+policy; never hand-pin that digest into tracked source or invent an alternate
+activation policy. Missing/pending native acceptance leaves core activation
+independent and native actions unavailable. The source delta
+review is [here](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-11-02-console-native-governed-release.md).
+
+Validate the definition without connecting to GitHub:
+
+```bash
+make governance-console-release-identity ACTION=validate
+```
+
+Create/install the dedicated App with that exact scope and store only its private
+key at Vault `kv/components/governance-operations-console/governed-release-dispatch`,
+property `privateKey`. Account consent is a browser action. Do not store keys in
+source, browser data, OOS, receipts or command output. Use the existing Platform
+Vault endpoint/session. Commission explicitly against the existing materialized provider policy:
+
+```bash
+make governance-console-release-identity ACTION=commission \
+  ARGS="--policy <existing-materialized-provider-policy> --app-id <dedicated-id> --installation-id <selected-installation-id>"
+make governance-console-release-identity ACTION=status \
+  ARGS="--policy <existing-materialized-provider-policy>"
+```
+
+Commissioning proves the App, account, installation, exact permissions, selected
+repository numeric identity, token scope and expiry. Its private atomic600 bundle
+lives under the fixed Platform runtime root. Existing credential maintenance
+renews it; shared lease/exclusive rotation prevents using a token during its
+replacement. Rotation retires the old token before issuing a new one. A provider
+or Vault outage withholds native submission and does not block core startup.
+
+Commissioned Console actions use the [OOS procedure](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/governed-release-readback.md#submit-an-owner-release-request).
+Retain real dispatch/run/approval/source-review/merge/readback evidence during
+controlled qualification. Isolated GitHub fixtures qualify source behavior only;
+they do not prove real App installation or stage/prod operating acceptance.
+
+For rollback, revoke the exact current token (the missing lease prevents renewal)
+and withdraw native acceptance in the owning Security review when appropriate, and keep existing canonical commands, owner records and
+receipts. Revocation failure retains custody for a retry; do not claim revocation
+from a failed provider response. A disabled connection does not erase pending
+source branches or approve/cancel outstanding GitHub work.
+
+```bash
+make governance-console-release-identity ACTION=revoke \
+  ARGS="--policy <existing-materialized-provider-policy>"
+```
+
+Original dispatch uncertainty is read-only recovery: do not delete its write-ahead
+marker, repeat a native run, create a replacement command, or infer completion
+from a workflow conclusion. Human review and source merge remain required. A
+verified desired-state receipt does not establish observed resource health/UAT.
+
+## Owner release records after a merge
+
+Native source admission distinguishes the accepted running code from current
+GitHub owner records. Only the fixed OpenClaw release, verification, lifecycle and
+associated desired-state YAML paths declared in `console_release_source.py` may
+differ. All other Git leaves must match the accepted Platform source; main must
+retain its ancestry, and each read blob must match the verified complete tree.
+No local checkout is advanced and no fetched code runs in the provider.
+
+After a normal record-only merge, refresh products and review another action at
+the new owner-data revision. No code repin or CLI repair is required. Current
+owner main, accepted local snapshot and retained remote snapshot are distinct.
+Only current owner main can admit a new native command. A failed connection keeps
+a labelled derived snapshot readable; it grants no authority. Original operations
+retain their independent exact-read/receipt recovery.
+
+One private snapshot is persisted atomically with an integrity digest. In-memory
+head proofs/document caches are bounded to four revisions; unchanged blobs are
+reused by immutable identity. The complete Git-tree proof is bounded by the
+existing provider's2MB response limit and20,000 entries, with a short refresh
+budget. Slow/incomplete reads withhold new actions and can continue warming on
+the next refresh. This is a bounded adapter, not unlimited indexed storage.
+
+The workflow-created source PR may show GitHub's **Approve workflows to run**
+banner. The human reviewer starts those checks and waits for required results
+before merge. The native adapter does not add an approval bypass or substitute
+workflow success for source review. See [GitHub's workflow-trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).

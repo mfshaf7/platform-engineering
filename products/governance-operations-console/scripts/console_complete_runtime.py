@@ -455,13 +455,24 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
     if provider.canonical_digest(expected_binding) != repository["credential_binding_ref"]["digest"]:
         raise RuntimeError("the repository provisioning credential binding is stale")
     decision_digest = provider.canonical_digest(decision)
+    import console_release_identity
+    native_review_ref=policy.get("governed_release",{}).get("security_review_ref")
+    native_review=""
+    if native_review_ref == "docs/reviews/components/2026-11-02-console-native-governed-release.md":
+        try:
+            native_review=_git_file(security_repo,security_revision,native_review_ref)
+        except RuntimeError:
+            pass  # Optional native authority is withheld; core remains independent.
+    native_selection=console_release_identity.resolve_selection(policy,decision,native_review)
     # The current authoritative content has already passed every gate above.
     # An unrelated owner-record index update must not invalidate that decision.
     acceptance_revision = security_acceptance_anchor(security_repo, security_revision, [
         security["decision_ref"], security["review_ref"], repository["security_review_ref"],
         policy["source_realization"]["security_review_ref"],
+        *([native_review_ref] if native_selection["security_accepted"] else []),
     ])
     resolved = json.loads(json.dumps(policy))
+    resolved["governed_release"] = native_selection
     resolved["security"].update({
         "status": "accepted",
         "decision_uri": f"security-architecture://git/{acceptance_revision}/{security['decision_ref']}",
@@ -1036,9 +1047,17 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
     })
     repository_provisioning_status(policy)
+    # Optional release access renews through the existing timer. Its outage
+    # withholds release actions without preventing core/provider maintenance.
+    import console_release_identity
+    try:
+        releases = console_release_identity.maintain(policy)
+    except (console_release_identity.IdentityError, OSError, ValueError, KeyError):
+        releases = {"state": "unavailable"}
     result = receipt("refresh-credentials", policy, {
         "refreshed": refreshed, "credential_current": True, "workflow_credentials": workflows,
         "record_authority": records,
+        "governed_release": releases,
     })
     if record_failure:
         raise RuntimeError("canonical record refresh failed; owner writes are withheld; credentials remain maintained")

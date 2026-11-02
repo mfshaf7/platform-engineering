@@ -26,6 +26,9 @@ import yaml
 # Reuse the shared Platform issuer, not a Console-owned credential subsystem.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import console_dev_integration_profiles as dev_integration_profiles
+import console_governed_products as governed_products
+import console_release_dispatch as release_dispatch
 import agent_source_intent as source_credentials
 import console_record_authority as record_authority
 import console_artifact_recovery as artifact_recovery
@@ -339,6 +342,8 @@ def operation_id(command_id: str) -> str:
 
 
 def event(record: dict[str, Any], state: str, summary: str) -> None:
+    if record.get("release") and record["events"] and record["events"][-1]["state"] == state and record["events"][-1]["summary"] == summary:
+        return  # Polling the same owner phase must not grow the event journal.
     sequence = len(record["events"]) + 1
     record["events"].append({
         "event_id": f"event:{record['command']['command_id']}:{sequence}",
@@ -354,6 +359,7 @@ def event(record: dict[str, Any], state: str, summary: str) -> None:
 def projection(record: dict[str, Any]) -> dict[str, Any]:
     command = record["command"]
     return {
+        **({"release_workflow": release_dispatch.public_evidence(record)} if record.get("release") else {}),
         "schema_version": 1,
         "operation_id": record["operation_id"],
         "command_id": command["command_id"],
@@ -570,6 +576,7 @@ def _execute_worker(store: OperationStore, policy: dict[str, Any], command_id: s
 
 def terminal_receipt(record: dict[str, Any], outcome: str, effect: str) -> dict[str, Any]:
     return {
+        **({"release_workflow": release_dispatch.public_evidence(record)} if record.get("release") else {}),
         "receipt_ref": f"platform-receipt://operations/{record['operation_id']}/attempt/{record['attempt']}",
         "outcome": outcome,
         "recorded_at": now(),
@@ -584,11 +591,41 @@ class ProviderService:
         self.policy_path = policy_path
         self.store = store
         self.source_version = source_version
+        self.release_dispatcher = release_dispatch.ReleaseDispatcher(policy, store)
         require_security_activation(policy, source_version)
 
     def catalog(self) -> dict[str, Any]:
         active = activation_is_current(self.policy, self.source_version)
-        return capability_catalog(self.policy, self.source_version, activated=active)
+        catalog = capability_catalog(self.policy, self.source_version, activated=active)
+        view = self.release_dispatcher.source_view()
+        subjects = release_dispatch.catalog_subjects(self.policy, reader=view.reader)
+        reason = artifact_recovery.blocked(Path(self.policy["runtime_state_root"]))
+        if not active or reason or view.posture != "owner-main":
+            for subject in subjects:
+                for capability in subject["capabilities"]:
+                    capability.update(available=False, unavailable_reason=reason or view.reason or "The reviewed Console runtime is not active.")
+        catalog["subjects"].extend(subjects)
+        return catalog
+
+    def products(self, query: dict[str, str]) -> dict[str, Any]:
+        try:
+            view = self.release_dispatcher.source_view()
+            result = governed_products.read_products(self.policy, query=query, reader=view.reader, observed=view.observed)
+            result.update(source_posture=view.posture, source_notice=view.reason)
+            if view.posture != "owner-main":
+                for product in result["products"]:
+                    for workflow in product["workflows"]:
+                        if workflow.get("native"):
+                            workflow["native"].update(available=False, unavailable_reason=view.reason)
+            return result
+        except dev_integration_profiles.ProfileReadError:
+            raise ProviderError(409, "platform_product_read_unavailable", "Committed product records are unavailable or changed; refresh owner source.") from None
+
+    def profiles(self, query: dict[str, str]) -> dict[str, Any]:
+        try:
+            return dev_integration_profiles.read_profiles(self.policy, query=query)
+        except dev_integration_profiles.ProfileReadError as exc:
+            raise ProviderError(409, "platform_profile_read_unavailable", str(exc)) from None
 
     def closure_disposition(self, body: Any) -> dict[str, Any]:
         if not activation_is_current(self.policy, self.source_version):
@@ -607,6 +644,9 @@ class ProviderService:
                 "Exact current graduation and managed runtime absence are not proven.") from None
 
     def submit(self, body: Any) -> tuple[int, dict[str, Any]]:
+        raw = body.get("command") if isinstance(body, dict) else None
+        if isinstance(raw, dict) and raw.get("action") in {spec["action"] for spec in release_dispatch.SPECS.values()}:
+            return self.submit_release(raw)
         command = validate_command(body.get("command") if isinstance(body, dict) else None, self.policy, self.source_version)
         with self.store.lock(command["command_id"]):
             current = self.store.read(command["command_id"])
@@ -622,12 +662,80 @@ class ProviderService:
             spawn_worker(self.store, record, self.policy_path)
             return 202, projection(record)
 
+    def submit_release(self, command: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        try:
+            release_dispatch.validate_original(command, self.policy)
+        except release_dispatch.ReleaseError as exc:
+            raise ProviderError(exc.status, exc.code, str(exc)) from None
+        with self.store.lock(command["command_id"]):
+            current = self.store.read(command["command_id"])
+            if current is not None:
+                if current["command_digest"] != canonical_digest(command):
+                    raise ProviderError(409, "platform_provider_command_conflict", "Command identity is already bound to another intent.")
+                # Replay is original-record recovery, independent of today's catalog.
+                return 200, projection(current)
+            try:
+                if not activation_is_current(self.policy, self.source_version) or artifact_recovery.blocked(Path(self.policy["runtime_state_root"])):
+                    raise release_dispatch.ReleaseError(409, "release_runtime_unavailable", "The reviewed Console runtime must be active before requesting a release.")
+                prepared = self.release_dispatcher.prepare(command)
+            except (release_dispatch.ReleaseError, dev_integration_profiles.ProfileReadError) as exc:
+                status = exc.status if isinstance(exc, release_dispatch.ReleaseError) else 409
+                code = exc.code if isinstance(exc, release_dispatch.ReleaseError) else "release_source_unavailable"
+                if status not in {400, 403, 409}:
+                    raise ProviderError(status, code, str(exc)) from None
+                # A valid original intent rejected before dispatch still gets a
+                # durable no-effect receipt. OOS recovery must not get a 404 and
+                # leave that accepted original permanently indeterminate.
+                record = new_record(command, command["subject"]["expected_source_version"])
+                record.update(release=release_dispatch.rejected(command), cancel_available=False,
+                    failure={"code":code,"owner":"platform-engineering","detail":str(exc)})
+                record["receipt"] = terminal_receipt(record, "failed", "none")
+                event(record,"failed","The owner rejected the original intent before dispatch; no release effect was performed.")
+                self.store.write(record)
+                return 202, projection(record)
+            record = new_record(command, command["subject"]["expected_source_version"])
+            record.update(release=prepared, cancel_available=False)
+            self.store.write(record)
+            self.reconcile_release(record)
+            return 202, projection(record)
+
+    def reconcile_release(self, record: dict[str, Any]) -> None:
+        if record["state"] in TERMINAL_STATES:
+            return
+        try:
+            if record["release"]["phase"] == "prepared":
+                if not activation_is_current(self.policy, self.source_version):
+                    raise release_dispatch.ReleaseError(503, "release_runtime_unavailable", "Restore the reviewed Console runtime to continue the original prepared request.")
+                self.release_dispatcher.dispatch(record, event, terminal_receipt)
+            else:
+                self.release_dispatcher.reconcile(record, event, terminal_receipt)
+        except (release_dispatch.ReleaseError, release_dispatch.IdentityError, OSError, ValueError, KeyError) as exc:
+            if isinstance(exc, release_dispatch.ReleaseError) and exc.status in {400, 403, 409} and record["release"]["phase"] == "prepared":
+                record.update(retryable=False, cancel_available=False, blocker=None,
+                    failure={"code": exc.code, "owner": "platform-engineering", "detail": str(exc)})
+                record["release"]["phase"] = "failed"
+                record["receipt"] = terminal_receipt(record, "failed", "none")
+                event(record, "failed", "The owner rejected the prepared request before any dispatch; refresh and review the current source.")
+                self.store.write(record)
+                return
+            # Never discard the write-ahead marker or turn an unknown outcome into
+            # an invitation to redispatch. The exact GET remains recoverable.
+            record.update(retryable=False, cancel_available=False, blocker={
+                "code": "release-owner-readback-required", "owner": "platform-engineering",
+                "reason": "Original release progress is unavailable. Inspect its owner workflow and refresh this original request; do not submit a replacement.",
+                "supported_dispositions": ["remove", "defer"], "next_action": "reconcile-original-release",
+            })
+            event(record, "blocked", "Original owner release readback is unavailable; the retained request will not be duplicated.")
+            self.store.write(record)
+
     def read(self, command_id: str) -> dict[str, Any]:
         with self.store.lock(command_id):
             record = self.store.read(command_id)
             if record is None:
                 raise ProviderError(404, "platform_provider_operation_not_found", "Platform operation was not found.")
-            if reconcile_worker(record):
+            if record.get("release"):
+                self.reconcile_release(record)
+            elif reconcile_worker(record):
                 self.store.write(record)
             return projection(record)
 
@@ -659,6 +767,16 @@ class ProviderService:
         with self.store.lock(command_id):
             record = self.store.read(command_id)
             assert record is not None
+            if record.get("release"):
+                if control["action"] != "cancel":
+                    raise ProviderError(409, "release_retry_forbidden", "Refresh the original release; automatic redispatch is unavailable.")
+                try:
+                    self.release_dispatcher.cancel(record, control, event, terminal_receipt)
+                except release_dispatch.ReleaseError as exc:
+                    raise ProviderError(exc.status, exc.code, str(exc)) from None
+                except (release_dispatch.IdentityError, OSError, ValueError):
+                    self.reconcile_release(record)
+                return projection(record)
             if reconcile_worker(record):
                 self.store.write(record)
             controls = record.setdefault("controls", {})
@@ -775,6 +893,20 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                 path = urlparse(self.path).path
                 if self.command == "GET" and path == "/v1/console-operations/catalog":
                     self.respond(200, service.catalog())
+                    return
+                if self.command == "GET" and path == "/v1/console-operations/dev-integration/profiles":
+                    from urllib.parse import parse_qs
+                    query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    if any(len(values) != 1 for values in query.values()):
+                        raise ProviderError(400, "platform_profile_query_invalid", "Profile filters must be singular.")
+                    self.respond(200, service.profiles({key: values[0] for key, values in query.items()}))
+                    return
+                if self.command == "GET" and path == "/v1/console-operations/governed-products":
+                    from urllib.parse import parse_qs
+                    query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                    if any(len(values) != 1 for values in query.values()):
+                        raise ProviderError(400, "platform_product_query_invalid", "Product filters must be singular.")
+                    self.respond(200, service.products({key: values[0] for key, values in query.items()}))
                     return
                 prefix = "/v1/console-operations/by-command/"
                 if self.command == "GET" and path.startswith(prefix):

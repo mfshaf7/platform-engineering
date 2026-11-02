@@ -241,6 +241,11 @@ governance-console-complete-runtime:
 	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rollback, cleanup, teardown, or verify-operating"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_complete_runtime.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
+.PHONY: governance-console-release-identity
+governance-console-release-identity:
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, status, commission, refresh, or revoke"; exit 1; }
+	python3 products/governance-operations-console/scripts/console_release_identity.py $(ACTION) --policy products/governance-operations-console/complete-runtime-policy.yaml $(if $(ARGS),$(ARGS),)
+
 .PHONY: devint-status
 devint-status:
 	@test -n "$(PROFILE)$(COMPOSITION)" || { echo "PROFILE or COMPOSITION is required"; exit 1; }
@@ -464,6 +469,11 @@ validate:
 	python3 products/governance-operations-console/scripts/test_product_publication_platform.py
 	python3 products/governance-operations-console/scripts/console_complete_runtime.py validate
 	python3 products/governance-operations-console/scripts/test_platform_operation_provider.py
+	python3 products/governance-operations-console/scripts/test_console_dev_integration_profiles.py
+	python3 products/governance-operations-console/scripts/test_console_governed_products.py
+	python3 products/governance-operations-console/scripts/console_release_identity.py validate --policy products/governance-operations-console/complete-runtime-policy.yaml
+	python3 products/governance-operations-console/scripts/test_console_release_dispatch.py
+	python3 products/governance-operations-console/scripts/test_console_release_source.py
 	python3 products/governance-operations-console/scripts/test_prototype_closure_disposition.py
 	python3 products/governance-operations-console/scripts/test_console_complete_runtime.py
 	python3 products/governance-operations-console/scripts/test_console_record_authority.py

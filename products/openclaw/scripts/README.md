@@ -150,3 +150,9 @@ For OpenClaw, `traffic-stopped` is a deployment-level quiet state:
 - `openclaw-gateway-app.yaml` is removed from the prod root
 - `platform-secrets-app.yaml` and `platform-version-app.yaml` remain
 - no Telegram-specific runtime gate is required in the channel repo
+
+The existing protected release workflows also accept optional native Console
+requests through the dedicated Platform dispatch identity. The native guard
+binds original App/source/inputs; human environment approval and source PR merge
+remain required. The operator procedure is
+[release governance](../runbooks/release-governance.md#native-console-entry).

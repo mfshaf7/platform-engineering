@@ -116,3 +116,22 @@ sufficient proof by themselves.
 For OpenClaw, governed readiness means the exact candidate, verification
 evidence, stage readiness decision, prod lifecycle state, and prod verification
 record all remain attributable and current.
+
+## Native Console entry
+
+The Console's optional native adapter submits the same three protected workflows
+for stage verification/readiness, production promotion and production lifecycle.
+It does not run a second release engine or bypass environment approval/source
+review. Actual verification results are operator inputs for the exact candidate;
+requesting readiness does not execute those checks. After workflow preparation,
+review its original PR and merge through the existing human review path. The
+Console recognizes source completion only from merge/readback; observed health
+and post-promotion smoke/UAT still require their own evidence.
+
+If dispatch acknowledgement is lost, inspect/refresh the original Console
+operation. Never automatically redispatch/rerun a native intent. A failed workflow
+may still have a retained source branch. Cancellation is not rollback. Manual
+workflow dispatch retains its normal controls when native fields are empty.
+
+Commissioning/status/renewal/revocation belong to the
+[Console Platform procedure](../../governance-operations-console/runbooks/operate-complete-runtime.md#optional-native-governed-release-connection).

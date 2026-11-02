@@ -160,3 +160,9 @@ The complete-runtime startup preflight waits boundedly for Docker daemon and
 Kubernetes API readiness before effects. Failed composition-start compensation
 retains its existing systemd recovery registration; deliberate teardown still
 removes it. The complete-runtime runbook owns recovery and acceptance steps.
+
+Native governed-release submission reuses the existing Platform operation provider
+and protected OpenClaw workflows. Its separate optional identity is default-off;
+follow the [complete-runtime procedure](../runbooks/operate-complete-runtime.md#optional-native-governed-release-connection)
+for commissioning, status, renewal and revocation. Do not use Gary or ambient human
+credentials for runtime dispatch. Source validation is not live acceptance.

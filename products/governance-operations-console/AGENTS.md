@@ -107,3 +107,9 @@ Keep the distinct Platform fulfiller and OOS/WGCF worker roles. Ordinary restart
 retains its activation generation; suspension uses the existing fenced owner
 retirement before a replacement generation can be admitted. Final exact-source
 Security acceptance and native operating evidence remain separate requirements.
+
+Native governed-release submission reuses the existing Platform operation provider
+and protected OpenClaw workflows. Its separate optional identity is default-off;
+follow the [complete-runtime procedure](runbooks/operate-complete-runtime.md#optional-native-governed-release-connection)
+for commissioning, status, renewal and revocation. Do not use Gary or ambient human
+credentials for runtime dispatch. Source validation is not live acceptance.

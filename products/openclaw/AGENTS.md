@@ -168,3 +168,9 @@ they plausibly regress the governed OpenClaw release path:
   instead rely on ad hoc repo edits
 - docs or contracts that describe OpenClaw rollout evidence as complete when
   the actual rehearsal, approval, or verification artifact is still missing
+
+The existing protected release workflows also accept optional native Console
+requests through the dedicated Platform dispatch identity. The native guard
+binds original App/source/inputs; human environment approval and source PR merge
+remain required. The operator procedure is
+[release governance](runbooks/release-governance.md#native-console-entry).

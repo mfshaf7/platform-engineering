@@ -164,3 +164,9 @@ The complete-runtime procedure separates core readiness from configured AI
 availability. Provider metadata checks run only after core startup and appear in
 existing Model Operations; provider loss or drift does not restart the Console.
 See [the operating procedure](runbooks/operate-complete-runtime.md#core-startup-and-configured-ai-providers).
+
+Native governed-release submission reuses the existing Platform operation provider
+and protected OpenClaw workflows. Its separate optional identity is default-off;
+follow the [complete-runtime procedure](runbooks/operate-complete-runtime.md#optional-native-governed-release-connection)
+for commissioning, status, renewal and revocation. Do not use Gary or ambient human
+credentials for runtime dispatch. Source validation is not live acceptance.

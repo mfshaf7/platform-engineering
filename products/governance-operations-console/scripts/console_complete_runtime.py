@@ -1117,6 +1117,7 @@ def apply_record_authority_binding(policy: dict[str, Any], *, enabled: bool = Tr
     for ns, deployment, container, mounts, environment in [
         (namespace(policy), policy["runtime"]["oos_deployment"], policy["runtime"]["oos_deployment"], oos_mounts,
          {"OOS_RECORD_AUTHORITY_FRESHNESS_REQUIRED": flag, "OOS_SOURCE_REALIZATION_ENABLED": flag,
+          "OOS_DEV_INTEGRATION_PROFILES_ENABLED": flag, "OOS_GOVERNED_PRODUCTS_ENABLED": flag,
           "OOS_SOURCE_REALIZATION_PROFILE_ID": policy["source_realization"]["profile_id"]}),
         (wgcf["namespace_pattern"].replace("{operator}", operator()), wgcf["deployment"], "api",
          {"workspace-governance-source": (governance, "/sources/workspace-governance"),
@@ -1169,6 +1170,10 @@ def record_binding_status(policy: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError("canonical record or realization runtime guard is not active")
         expected = {"workspace-governance-source": ("workspace-governance", "/sources/workspace-governance")}
         if realization:
+            if any(environment.get(name) != "true" for name in (
+                "OOS_DEV_INTEGRATION_PROFILES_ENABLED", "OOS_GOVERNED_PRODUCTS_ENABLED",
+            )):
+                raise RuntimeError("Console profile or product integration is not active")
             expected.update({f"{family}-authority": ("workspace-prototype-studio", f"/var/lib/oos/{family}/authority")
                 for family in ("proposal-target-application", "prototype-landing", "prototype-maturity", "prototype-closure")})
             if environment.get("OOS_SOURCE_REALIZATION_PROFILE_ID") != "source-realization-v1":
@@ -2049,6 +2054,8 @@ def remove_kubernetes_binding(policy: dict[str, Any]) -> list[str]:
     names = [
         "OOS_PLATFORM_OPERATION_CALLER_OPERATOR_BINDINGS_JSON",
         "OOS_PLATFORM_OPERATION_ENABLED",
+        "OOS_DEV_INTEGRATION_PROFILES_ENABLED",
+        "OOS_GOVERNED_PRODUCTS_ENABLED",
         "OOS_PLATFORM_OPERATION_PROVIDER_ALLOW_HTTP",
         "OOS_PLATFORM_OPERATION_PROVIDER_BASE_URL",
         "OOS_PLATFORM_OPERATION_PROVIDER_CALLER_ID",

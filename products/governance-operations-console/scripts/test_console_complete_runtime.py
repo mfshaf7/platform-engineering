@@ -1098,6 +1098,9 @@ class CompleteRuntimeTests(unittest.TestCase):
         deployments = self.record_deployments(policy)
         self.assertEqual(len(deployments), 2)
         original = deployments[f"deployment/{policy['runtime']['oos_deployment']}"]
+        environment = {item["name"]: item["value"] for item in original["spec"]["template"]["spec"]["containers"][0]["env"]}
+        for name in ("OOS_DEV_INTEGRATION_PROFILES_ENABLED", "OOS_GOVERNED_PRODUCTS_ENABLED"):
+            self.assertEqual(environment[name], "true")
         self.assertEqual(len(original["spec"]["template"]["spec"]["containers"][0]["volumeMounts"]), 5)
         wgcf = deployments["deployment/workspace-governance-control-fabric-api"]["spec"]["template"]["spec"]
         source_mount = next(item for item in wgcf["containers"][0]["volumeMounts"] if item["name"] == runtime.INTAKE_OWNER_SOURCE_VOLUME)
@@ -1110,7 +1113,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             patch.object(runtime, "record_authority_status", return_value={"status": "current"}),
         ):
             self.assertEqual(runtime.record_binding_status(policy), {"status": "current"})
-        for failure in ("missing", "wrong-owner", "writable", "wrong-path", "subpath", "sidecar-only", "guard-off", "wrong-profile", "old-generation", "not-updated", "not-available", "owner-parent-missing", "owner-parent-writable", "owner-parent-wrong-path"):
+        for failure in ("missing", "wrong-owner", "writable", "wrong-path", "subpath", "sidecar-only", "guard-off", "wrong-profile", "profiles-off", "products-off", "old-generation", "not-updated", "not-available", "owner-parent-missing", "owner-parent-writable", "owner-parent-wrong-path"):
             with self.subTest(failure=failure):
                 values = json.loads(json.dumps(deployments))
                 deployment = values[f"deployment/{policy['runtime']['oos_deployment']}"]
@@ -1131,6 +1134,9 @@ class CompleteRuntimeTests(unittest.TestCase):
                 elif failure in ("guard-off", "wrong-profile"):
                     key = "OOS_RECORD_AUTHORITY_FRESHNESS_REQUIRED" if failure == "guard-off" else "OOS_SOURCE_REALIZATION_PROFILE_ID"
                     next(item for item in container["env"] if item["name"] == key)["value"] = "wrong"
+                elif failure in ("profiles-off", "products-off"):
+                    key = "OOS_DEV_INTEGRATION_PROFILES_ENABLED" if failure == "profiles-off" else "OOS_GOVERNED_PRODUCTS_ENABLED"
+                    next(item for item in container["env"] if item["name"] == key)["value"] = "false"
                 elif failure == "old-generation":
                     deployment["status"]["observedGeneration"] = 3
                 elif failure == "not-updated":
@@ -1166,7 +1172,7 @@ class CompleteRuntimeTests(unittest.TestCase):
                     continue
                 self.assertIn(volume["hostPath"]["path"], [str(runtime.repo_path(owner)) for owner in runtime.record_authority.OWNERS])
             for item in pod["containers"][0]["env"]:
-                if item["name"].endswith("REQUIRED") or item["name"] == "OOS_SOURCE_REALIZATION_ENABLED":
+                if item["name"].endswith("REQUIRED") or item["name"] in {"OOS_SOURCE_REALIZATION_ENABLED", "OOS_DEV_INTEGRATION_PROFILES_ENABLED", "OOS_GOVERNED_PRODUCTS_ENABLED"}:
                     self.assertEqual(item["value"], "false")
             self.assertTrue(all(item.get("readOnly") is True or item == {"name": runtime.INTAKE_OWNER_SOURCE_VOLUME, "mountPath": "/sources", "$patch": "delete"} for item in pod["containers"][0]["volumeMounts"]))
         with patch.object(runtime, "run", return_value=runtime.subprocess.CompletedProcess([], 1, "", "")) as commands:
@@ -1214,6 +1220,8 @@ class CompleteRuntimeTests(unittest.TestCase):
             runtime.remove_kubernetes_binding(policy)
         flattened = " ".join(" ".join(call) for call in calls)
         self.assertIn("OOS_PLATFORM_OPERATION_ENABLED-", flattened)
+        self.assertIn("OOS_DEV_INTEGRATION_PROFILES_ENABLED-", flattened)
+        self.assertIn("OOS_GOVERNED_PRODUCTS_ENABLED-", flattened)
         self.assertIn(runtime.SECRET_NAME, flattened)
         self.assertNotIn("WGCF_REPOSITORY_READINESS_CALLER_SECRET-", flattened)
         patch_call = next(call for call in calls if "patch" in call)

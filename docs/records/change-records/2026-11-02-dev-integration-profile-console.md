@@ -156,3 +156,15 @@ current by refreshing the UI. Readiness-input failure does not remove an otherwi
 valid runtime capability. The source tests and authenticated isolated browser path
 now prove two consecutive merged operations with different owner-data revisions
 and the same accepted runtime-code revision. No live release is dispatched.
+
+## Live publication binding correction
+
+The source review and first managed activation completed, but native Console
+readback returned `dev_integration_not_configured`: the two intentionally default-off
+OOS integration flags were absent from the managed binding. The core readiness
+check did not cover them. Bind the profile/product flags with the existing
+canonical-record flags on both activation and restart, verify consumed state, and
+disable/remove them through existing rollback. No new service, command family,
+identity or App commissioning is introduced. Existing lifecycle regressions cover
+both disabled flags and rollback; live read-only profile/product proof remains
+required after the corrected source is accepted and restarted.

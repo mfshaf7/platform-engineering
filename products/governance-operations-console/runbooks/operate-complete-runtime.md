@@ -867,14 +867,21 @@ not launch Codex or infer; explicit verification or a real invocation supplies
 its own evidence. Provider software/credentials remain operator choices, while
 shipped adapters, authorization and executable integrity stay Platform controls.
 
-### Staged Governed Releases readback
+### Profile and Governed Releases readback
 
-The pending Console maintenance extension uses the existing authenticated Platform
+The Console maintenance extension uses the existing authenticated Platform
 provider for `GET /v1/console-operations/governed-products`, brokered by OOS's
 separate default-off `OOS_GOVERNED_PRODUCTS_ENABLED` boundary. It reads committed
 Workspace Governance product metadata and fixed owner-defined release records.
 Only validated committed regular files are read; callers cannot choose host paths.
 List reads do not probe runtimes or execute scripts.
+
+After exact composed acceptance, normal `activate` and `restart` bind
+`OOS_DEV_INTEGRATION_PROFILES_ENABLED` and `OOS_GOVERNED_PRODUCTS_ENABLED` through
+the existing canonical-record binding. Readiness verifies both consumed flags;
+rollback disables and removes them. Profile request recording uses the existing
+operator binding and private operation state. These flags do not commission the
+separate native release App or permit protected owner-workflow dispatch.
 
 The Console retains the existing register and Dashboard. Products without a
 release rail remain inspectable. Source, observation time and individual record

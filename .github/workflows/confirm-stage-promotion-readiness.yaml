@@ -1,5 +1,7 @@
 name: Confirm Stage Promotion Readiness
 
+run-name: ${{ inputs.console_request_id && format('Console release {0}', inputs.console_request_id) || format('Manual release {0}', github.run_id) }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -19,6 +21,16 @@ on:
         required: false
         type: string
         default: ""
+      console_request_id:
+        description: "Native Console request identity; leave empty for manual dispatch"
+        required: false
+        type: string
+        default: ""
+      console_intent:
+        description: "Native reviewed Console intent; leave empty for manual dispatch"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -32,11 +44,20 @@ jobs:
   confirm:
     environment: stage
     runs-on: ubuntu-latest
+    env:
+      CONSOLE_REQUEST_ID: ${{ inputs.console_request_id }}
+      CONSOLE_INTENT: ${{ inputs.console_intent }}
+      RELEASE_ACCOUNTABLE_OPERATOR: ${{ github.actor }}
+      RELEASE_VERIFICATION_EVIDENCE_REF: ${{ inputs.verification_evidence_ref }}
+      RELEASE_VERIFICATION_RESULTS: ${{ inputs.verification_results }}
+      RELEASE_VERIFICATION_NOTE: ${{ inputs.verification_note }}
+      RELEASE_APPROVAL_NOTE: ${{ inputs.approval_note }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -45,6 +66,9 @@ jobs:
 
       - name: Install tool dependencies
         run: python -m pip install pyyaml
+
+      - name: Verify native request and reviewed source
+        run: python products/openclaw/scripts/console_release_workflow.py guard readiness
 
       - name: Validate stage environment contract
         run: python products/openclaw/scripts/gateway_release.py validate stage
@@ -56,13 +80,13 @@ jobs:
       - name: Record structured stage verification
         run: |
           python products/openclaw/scripts/gateway_release.py verification record \
-            --verified-by "${{ github.actor }}" \
-            --evidence-ref "${{ inputs.verification_evidence_ref }}" \
-            --note "${{ inputs.verification_note }}" \
-            --check-results "${{ inputs.verification_results }}"
+            --verified-by "$RELEASE_ACCOUNTABLE_OPERATOR" \
+            --evidence-ref "$RELEASE_VERIFICATION_EVIDENCE_REF" \
+            --note "$RELEASE_VERIFICATION_NOTE" \
+            --check-results "$RELEASE_VERIFICATION_RESULTS"
 
       - name: Approve stage promotion readiness
-        run: python products/openclaw/scripts/gateway_release.py readiness approve --approved-by "${{ github.actor }}" --note "${{ inputs.approval_note }}"
+        run: python products/openclaw/scripts/gateway_release.py readiness approve --approved-by "$RELEASE_ACCOUNTABLE_OPERATOR" --note "$RELEASE_APPROVAL_NOTE"
 
       - name: Capture readiness status
         id: readiness
@@ -96,26 +120,14 @@ jobs:
           git checkout -b "$READINESS_BRANCH"
           git add environments/stage/verification.yaml environments/stage/promotion-readiness.yaml
           git commit -m "Record stage verification and approve candidate for prod promotion"
-          git push --force-with-lease origin "$READINESS_BRANCH"
+          git push origin "$READINESS_BRANCH"
           echo "readiness_branch=$READINESS_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Publish readiness summary
-        run: |
-          {
-            echo "## Stage Promotion Readiness"
-            echo
-            echo '- Stage lifecycle: `${{ steps.stage_status.outputs.value }}`'
-            echo '- Readiness: `${{ steps.readiness.outputs.status_line }}`'
-            echo '- Verification evidence: `${{ inputs.verification_evidence_ref }}`'
-            echo '- Verification results: `${{ inputs.verification_results }}`'
-            echo '- Verification note: `${{ inputs.verification_note }}`'
-            echo '- Approval note: `${{ inputs.approval_note }}`'
-            if [ "${{ steps.diff.outputs.changed }}" = "true" ]; then
-              echo '- Readiness branch: `${{ steps.readiness_branch.outputs.readiness_branch }}`'
-              echo '- Compare URL: `https://github.com/${{ github.repository }}/compare/main...${{ steps.readiness_branch.outputs.readiness_branch }}?expand=1`'
-              echo
-              echo 'Merge this branch only after stage testing is complete. Prod promotion is blocked until this approval is on main.'
-            else
-              echo '- No git changes were required because the current stage candidate was already approved.'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open original source review for native request
+        if: steps.readiness_branch.outcome == 'success' && inputs.console_request_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python products/openclaw/scripts/console_release_workflow.py publish readiness
+
+      - name: Publish owner workflow summary
+        run: python products/openclaw/scripts/console_release_workflow.py summary readiness

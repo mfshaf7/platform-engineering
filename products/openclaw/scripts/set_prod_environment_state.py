@@ -73,7 +73,7 @@ def main() -> int:
         raise SystemExit("--changed-by is required for prod lifecycle changes")
     if not args.reason.strip():
         raise SystemExit("--reason is required for prod lifecycle changes")
-    if prod_state_requires_incident_ref(args.state) and not args.incident_ref.strip():
+    if (prod_state_requires_incident_ref(args.state) or current.get("state") == "quarantined" and args.state == "live") and not args.incident_ref.strip():
         raise SystemExit(f"--incident-ref is required when prod lifecycle state is {args.state!r}")
 
     note = args.note.strip()

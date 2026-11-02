@@ -24,12 +24,16 @@ flowchart LR
     Promote[Promote-check and reviewed source change]
     Stage[Governed stage rehearsal]
     Prod[Governed prod]
-    Proposals[Workspace Proposals]
+    ProfileRequest[Console: Dev Integration Request Profile]
+    Requests[OOS durable profile request]
+    Admission[Owner, Platform and applicable Security review]
     ART[Workspace Delivery ART]
 
     Request --> Active
-    Active -->|no| Proposals
-    Proposals --> Active
+    Active -->|no| ProfileRequest
+    ProfileRequest --> Requests
+    Requests --> Admission
+    Admission -->|implemented and admitted active| Active
     Active -->|yes| DevInt
     DevInt --> Promote
     Promote --> ART
@@ -45,8 +49,9 @@ Read this as lane separation, not one blended environment:
   - `integration-devint` for workflow or API integration rehearsal
   - `governed-devint` for admitted governed component or workflow proof before
     stage handoff
-- `Workspace Proposals` and `Workspace Delivery ART` remain the work-state
-  systems of record while the local lane is active.
+- Profile requests remain in Dev Integration and its OOS-owned request record.
+  Workspace Proposals and Workspace Delivery ART retain business and delivery
+  work-state ownership; routine profile requests do not enter their lifecycles.
 - `stage` is the first governed runtime rehearsal after reviewed source
   changes exist.
 - `prod` comes only after the normal governed path, not from direct
@@ -513,25 +518,20 @@ Access note for persistent OpenProject lanes:
 
 If no suitable `active` profile exists, request a new one.
 
-The request/admission contract is generic, but the current human request
-surface adapter is OpenProject.
+Use **Console → Dev Integration → Request Profile**. The existing Intent,
+Runtime Contract and Review steps collect the request. OOS records it durably
+and returns its original identity and recording receipt. Submission, request
+status and recovery stay in Dev Integration; no Proposal or ART item is created.
 
-Current request surface:
+This is the selected source contract. The backend integration remains staged
+until exact-source Security review and Platform commissioning pass. An
+unavailable Console action is not permission to submit a substitute Proposal.
+Contract presence alone is not live availability.
 
-- project: `Workspace Proposals`
-- identifier: `workspace-proposals`
-- access path:
-  [../../products/openproject/runbooks/access-openproject.md](../../products/openproject/runbooks/access-openproject.md)
-- canonical backlog contract:
-  [../../products/openproject/idea-backlog-contract.md](../../products/openproject/idea-backlog-contract.md)
-
-Recommended request record shape in the current adapter:
-
-- type:
-  - `Component Proposal` when one component repo clearly owns the profile
-  - otherwise the proposal type that best matches the owner shape
-- status:
-  - `captured` or `triaged` while the profile is still `proposed`
+The workflow owner is `operator-orchestration-service`. Profile admission stays
+with Workspace Governance; runtime execution stays with Platform and the profile
+owner. The request's recording receipt proves only durable recording. Follow the
+original request after an interrupted response; do not create a replacement.
 
 Required request content:
 
@@ -546,9 +546,8 @@ Required request content:
 - expected canonical backend writes, if any
 - requested runtime platform, such as `local-k3s`
 - whether identity, secrets, runtime privilege, or AI review is involved
-- requested by
-- request record system
-- request record ref
+- requested by (derived from the verified operator)
+- request record system and ref (returned by the owner, not manually entered)
 
 Additional required request content for `persistent` profiles:
 
@@ -568,10 +567,14 @@ Supporting template:
 
 - [workspace-governance/templates/dev-integration-request/README.md](https://github.com/mfshaf7/workspace-governance/blob/main/templates/dev-integration-request/README.md)
 
-When the current adapter is OpenProject, record:
+For new requests, the later profile admission record retains:
 
-- `request_record.system: openproject`
-- `request_record.ref: openproject://work_packages/<id>`
+- `request_record.system: oos`
+- `request_record.ref: oos://dev-integration/requests/<request_id>`
+
+Existing profiles may retain their original OpenProject or document request
+references as historical provenance. Do not rewrite those records or create a
+new Proposal to operate an existing profile.
 
 ## 4. How A Requested Profile Becomes Launchable
 

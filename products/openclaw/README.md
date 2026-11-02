@@ -100,3 +100,9 @@ For shared platform context, also see:
 
 - [../../scripts/README.md](../../scripts/README.md)
 - [../../docs/README.md](../../docs/README.md)
+
+The existing protected release workflows also accept optional native Console
+requests through the dedicated Platform dispatch identity. The native guard
+binds original App/source/inputs; human environment approval and source PR merge
+remain required. The operator procedure is
+[release governance](runbooks/release-governance.md#native-console-entry).

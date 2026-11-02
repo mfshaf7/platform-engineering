@@ -23,6 +23,11 @@ platform_operation_provider:
   composition_id: refinement-catalog
   subject_ref: profile:accepted-idea-delivery
   security_gate_id: gate:ai-routing-composed-security
+governed_release:
+  # Optional post-setup connection. Core startup does not install an App or wait
+  # for this provider. Availability needs derived acceptance and a commissioned lease.
+  permitted: true
+  security_review_ref: docs/reviews/components/2026-11-02-console-native-governed-release.md
 repository_provisioning:
   enabled: true
   security_gate_id: gate:repository-custody-runtime-activation

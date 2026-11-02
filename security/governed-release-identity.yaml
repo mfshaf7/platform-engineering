@@ -1,0 +1,47 @@
+schema_version: 1
+identity:
+  id: governed-release-dispatch-github-app-v1
+  provider: github
+  api_base_url: https://api.github.com
+  api_version: '2026-03-10'
+  app_slug: mfshaf7-governed-releases
+  account_login: mfshaf7
+  account_id: 244414185
+  repository: mfshaf7/platform-engineering
+  repository_id: 1195328534
+  repository_selection: selected
+  required_permissions:
+    metadata: read
+    contents: read
+    actions: write
+    pull_requests: read
+  events: []
+  maximum_token_lifetime_seconds: 3600
+  rotate_before_expiry_seconds: 900
+secret_custody:
+  owner: platform-engineering
+  backend: vault
+  path: components/governance-operations-console/governed-release-dispatch
+  property: privateKey
+  runtime_bundle: governed-release/credential.json
+  private_key_in_oos: false
+  private_key_in_console: false
+  token_in_browser: false
+  secrets_in_receipts: false
+execution:
+  source_branch: main
+  workflows:
+    readiness: confirm-stage-promotion-readiness.yaml
+    promotion: promote-environment.yaml
+    runtime: manage-prod-environment.yaml
+  protected_environments: [stage, prod]
+  automatic_environment_approval: false
+  automatic_source_merge: false
+  successful_workflow_is_completed_release: false
+  ambiguous_dispatch_retry: false
+  runtime_health_from_source: false
+security_authority:
+  review: docs/reviews/components/2026-11-02-console-native-governed-release.md
+  owner: security-architecture
+  exact_composed_review_required: true
+  normal_availability: disabled-until-commissioned

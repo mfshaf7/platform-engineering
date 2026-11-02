@@ -207,8 +207,14 @@ def create_app_jwt(app_id: int, private_key_path: Path, now: int | None = None) 
     return f"{header}.{claims}.{_b64url(result.stdout)}"
 
 
+class ProviderHttpError(IdentityError):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"provider request failed with HTTP {status_code}")
+        self.status_code = status_code
+
+
 class ProviderClient:
-    def __init__(self, api_base_url: str, *, sandbox: bool = False) -> None:
+    def __init__(self, api_base_url: str, *, sandbox: bool = False, api_version: str = GITHUB_API_VERSION, request_timeout: float = 15) -> None:
         normalized = api_base_url.rstrip("/")
         parsed = parse.urlparse(normalized)
         if sandbox:
@@ -216,6 +222,12 @@ class ProviderClient:
                 raise IdentityError("sandbox provider destination must be loopback HTTP")
         elif normalized != "https://api.github.com":
             raise IdentityError("provider destination must be pinned to https://api.github.com")
+        if api_version not in {GITHUB_API_VERSION, "2026-03-10"}:
+            raise IdentityError("provider API version is not admitted")
+        self.api_version = api_version
+        if isinstance(request_timeout, bool) or not isinstance(request_timeout, (int, float)) or not 0 < request_timeout <= 15:
+            raise IdentityError("provider request timeout is outside its bounded limit")
+        self.request_timeout = request_timeout
         self.api_base_url = normalized
         self.opener = request.build_opener(NoRedirect())
 
@@ -235,13 +247,13 @@ class ProviderClient:
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {bearer}",
-                "X-GitHub-Api-Version": GITHUB_API_VERSION,
+                "X-GitHub-Api-Version": self.api_version,
                 "Content-Type": "application/json",
                 "User-Agent": "platform-repository-provider-identity/1",
             },
         )
         try:
-            with self.opener.open(req, timeout=15) as response:
+            with self.opener.open(req, timeout=self.request_timeout) as response:
                 raw = response.read(2_000_001)
                 if len(raw) > 2_000_000:
                     raise IdentityError("provider response exceeded 2 MB")
@@ -251,7 +263,7 @@ class ProviderClient:
         except IdentityError:
             raise
         except error.HTTPError as exc:
-            raise IdentityError(f"provider request failed with HTTP {exc.code}") from None
+            raise ProviderHttpError(exc.code) from None
         except (error.URLError, TimeoutError, json.JSONDecodeError):
             raise IdentityError("provider request failed or returned invalid JSON") from None
 

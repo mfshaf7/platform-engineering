@@ -650,6 +650,45 @@ class BootstrapSourceIntentTests(unittest.TestCase):
         })
         return snapshot
 
+    def verification_source(self):
+        snapshot = self.bootstrap_source()
+        entry = yaml.safe_load(snapshot.intake)["repos"]["sample-owner"]
+        entry.pop("status")
+        entry.update(posture="active", lifecycle="active", owns=["Application source"], must_not_own=["Shared platform authority"])
+        entry["record"]["lineage"] = {"source": "workspace-intake", "source_ref": "repo:sample-owner", "intake_entry_version": 1, "source_digest": "sha256:" + "f" * 64}
+        inventory = yaml.safe_load(snapshot.inventory)
+        inventory["repos"]["sample-owner"] = entry
+        subject = self.value["source_intent"]["subject"]
+        subject.update(operation="configure-verification", intake_entry_ref=None,
+                       inventory_entry_ref={"id": entry["record"]["id"], "version": entry["record"]["version"], "digest": intents.digest(entry)},
+                       allowed_paths=["contracts/delivery-art-work-session/evidence-profile.json"])
+        return intents.identity.replace(snapshot, inventory=yaml.safe_dump(inventory).encode(), intake=yaml.safe_dump({"schema_version": 2, "repos": {}}).encode())
+
+    def test_active_verification_reuses_source_issuer_with_inventory_binding_and_no_workflow_grant(self):
+        snapshot = self.verification_source()
+        result = self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(result["purpose"], "trusted-owner-bootstrap")
+        self.assertEqual(set(self.state.issued_permissions[-1]), {"metadata", "contents", "pull_requests", "checks"})
+        self.assertEqual(result, self.operate(inventory_reader=lambda: snapshot))
+
+    def test_active_verification_rejects_stale_inventory_suspended_owner_or_other_paths(self):
+        from agent_source_bootstrap import validate_subject, contract_from_snapshot
+        for mutation in ("stale", "suspended", "guidance", "workflow", "intake"):
+            with self.subTest(mutation=mutation):
+                snapshot = self.verification_source()
+                subject = self.value["source_intent"]["subject"]
+                if mutation == "stale": subject["inventory_entry_ref"]["digest"] = "sha256:" + "0" * 64
+                if mutation == "suspended":
+                    inventory = yaml.safe_load(snapshot.inventory)
+                    inventory["repos"]["sample-owner"].update(posture="suspended", lifecycle="suspended")
+                    snapshot = intents.identity.replace(snapshot, inventory=yaml.safe_dump(inventory).encode())
+                if mutation == "guidance": subject["allowed_paths"] = ["AGENTS.md"]
+                if mutation == "workflow": subject.update(allowed_paths=[".github/workflows/validate.yaml"], workflow_write=True, workflow_approval_ref="operator:bad-grant")
+                if mutation == "intake": subject["intake_entry_ref"] = dict(subject["inventory_entry_ref"])
+                with self.assertRaises(intents.identity.IdentityError):
+                    validate_subject(subject)
+                    contract_from_snapshot(intents.identity.load_contract(intents.identity.DEFAULT_CONTRACT), snapshot, self.value["source_intent"])
+
     def test_bootstrap_uses_the_same_exact_issuer_but_a_separately_marked_four_permission_projection(self):
         snapshot = self.bootstrap_source()
         result = self.operate(inventory_reader=lambda: snapshot)

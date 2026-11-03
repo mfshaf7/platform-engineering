@@ -22,8 +22,8 @@ Use these related standards alongside it:
   for version pins, runtime drift, and rollback
 - [ci-cd.md](ci-cd.md)
   for the CI or CD obligations that feed the release-governance model
-- [workspace-governance/contracts/release-verification.yaml](https://github.com/mfshaf7/workspace-governance/blob/main/contracts/release-verification.yaml)
-  for the shared verification, readiness, and evidence-reference vocabulary
+- [environment readiness](../../scripts/validate_environment_readiness.py)
+  for the implemented tier-specific readiness checks and evidence references
 
 ## Core Rule
 
@@ -305,3 +305,13 @@ Use the full product-grade flow:
 - stage verification
 - stage readiness decision
 - prod contract update
+
+## Application verification maturity
+
+Registration and ordinary early development do not establish application
+acceptance. A source owner may begin with application verification unconfigured
+and real source controls; source-validation CI is distinct from application
+test automation. Later acceptance uses the agreed project scope and real
+manual, automated or combined evidence. Existing product release tiers,
+security approval and environment readiness checks still apply before each
+supported release. A Portfolio listing is not production approval.

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import os
 from pathlib import Path
@@ -228,6 +230,34 @@ def _load_private_yaml(path: Path) -> dict[str, Any]:
             f"composition state is not a mapping: {path}",
         )
     return payload
+
+
+@contextmanager
+def _composition_state_lock(state_root: Path):
+    """Serialize metadata updates, without holding a lock during profile calls."""
+    _private_directory(state_root)
+    try:
+        descriptor = os.open(state_root / "state.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    except OSError as exc:
+        raise CompositionError("composition-state-invalid", "composition metadata lock is unavailable") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+            raise CompositionError("composition-state-invalid", "composition metadata lock is not operator-private")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
+
+
+def _owned_composition_state(path: Path, composition_id: str, operator: str) -> dict[str, Any]:
+    state = _load_private_yaml(path)
+    if state and (state.get("composition_id") != composition_id or state.get("operator") != operator):
+        raise CompositionError(
+            "composition-state-owner-mismatch",
+            "composition state is owned by a different composition or operator",
+        )
+    return state
 
 
 def composition_state_root(
@@ -782,15 +812,7 @@ def execute_composition(
             f"runtime compositions support only {', '.join(sorted(SUPPORTED_ACTIONS))}",
         )
     manifest_path = state_root / "current-composition.yaml"
-    state = _load_private_yaml(manifest_path)
-    if state and (
-        state.get("composition_id") != composition_id
-        or state.get("operator") != operator
-    ):
-        raise CompositionError(
-            "composition-state-owner-mismatch",
-            "composition state is owned by a different composition or operator",
-        )
+    state = _owned_composition_state(manifest_path, composition_id, operator)
 
     credentials: dict[str, str] = {}
     created_credentials = False
@@ -831,6 +853,21 @@ def execute_composition(
     )
     for environment in environments.values():
         environment["DEVINT_COMPOSITION_ACTION"] = action
+    if action in {"up", "down"}:
+        # Persist intent before the first profile mutation. An interrupted
+        # lifecycle action must not look like a recovered health-check failure.
+        with _composition_state_lock(state_root):
+            current = _owned_composition_state(manifest_path, composition_id, operator)
+            _write_private_yaml(manifest_path, {
+                **current,
+                "schema_version": 1,
+                "composition_id": composition_id,
+                "operator": operator,
+                "lifecycle": "degraded",
+                "last_action": action,
+                "last_lifecycle_result": {"action": action, "succeeded": False},
+                "updated_at": _now_utc(),
+            })
     run_order = list(reversed(profile_order)) if action == "down" else profile_order
     completed: list[str] = []
     failures: list[str] = []
@@ -861,8 +898,6 @@ def execute_composition(
     elif action == "down":
         remove_credentials(composition, state_root=state_root)
         lifecycle = "suspended"
-    elif action == "status":
-        lifecycle = state.get("lifecycle", "unknown")
 
     endpoint_projections = []
     for dependency in composition.get("dependencies") or []:
@@ -900,13 +935,33 @@ def execute_composition(
         "rollback_failed_profile_ids": rollback_failures,
         "updated_at": _now_utc(),
     }
-    _write_private_yaml(manifest_path, state_payload)
+    with _composition_state_lock(state_root):
+        current = _owned_composition_state(manifest_path, composition_id, operator)
+        if action == "status":
+            if not current:
+                raise CompositionError("composition-state-missing", "composition state disappeared during status")
+            last_result = current.get("last_lifecycle_result")
+            if last_result is None and current.get("lifecycle") == "active" and current.get("last_action") in {"up", "status"}:
+                # Existing active records already came from successful up.
+                # Ambiguous legacy degraded records require a normal up.
+                last_result = {"action": "up", "succeeded": True}
+            if not failures:
+                lifecycle = current.get("lifecycle", "unknown")
+                if (lifecycle == "degraded" and isinstance(last_result, dict)
+                    and last_result.get("action") == "up" and last_result.get("succeeded") is True):
+                    lifecycle = "active"
+        else:
+            last_result = {"action": action, "succeeded": not (failures or rollback_failures)}
+        state_payload["lifecycle"] = lifecycle
+        if last_result is not None:
+            state_payload["last_lifecycle_result"] = last_result
+        _write_private_yaml(manifest_path, state_payload)
 
     print(
         "dev-integration composition: "
         f"id={composition_id} action={action} state={lifecycle} "
         f"profiles={','.join(profile_order)}"
     )
-    if failures or rollback_failures:
+    if failures or rollback_failures or (action == "status" and lifecycle not in {"active", "suspended"}):
         return 1
     return 0

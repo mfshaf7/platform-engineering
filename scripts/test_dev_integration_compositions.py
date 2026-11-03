@@ -552,6 +552,176 @@ class RuntimeCompositionTests(unittest.TestCase):
             )
             self.assertEqual(state["lifecycle"], "degraded")
             self.assertTrue((state_root / "credentials/caller.secret").is_file())
+            secret = (state_root / "credentials/caller.secret").read_bytes()
+            self.assertEqual(state["last_lifecycle_result"], {"action": "up", "succeeded": True})
+            self.assertEqual(COMPOSITIONS.execute_composition(
+                action="status", dispatch=lambda _action, profile_id, _env: int(profile_id == "root"),
+                **arguments,
+            ), 1)
+            self.assertEqual(COMPOSITIONS.execute_composition(
+                action="status", dispatch=lambda *_: 0, **arguments,
+            ), 0)
+            recovered = yaml.safe_load((state_root / "current-composition.yaml").read_text())
+            self.assertEqual(recovered["lifecycle"], "active")
+            self.assertEqual(recovered["failed_profile_ids"], [])
+            self.assertEqual(recovered["completed_profile_ids"], order)
+            self.assertEqual((state_root / "credentials/caller.secret").read_bytes(), secret)
+
+    def status_arguments(self, state_root: Path) -> dict:
+        composition, order = self.composition()
+        return {
+            "composition_id": "example", "composition": composition, "profile_order": order,
+            "namespaces": {profile_id: f"{profile_id}-ns" for profile_id in order},
+            "operator": "operator", "state_root": state_root,
+        }
+
+    def test_healthy_status_cannot_complete_a_failed_up_or_down(self) -> None:
+        for action in ("up", "down"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir) / "state"
+                arguments = self.status_arguments(root)
+                COMPOSITIONS.execute_composition(action="up", dispatch=lambda *_: 0, **arguments)
+                self.assertEqual(COMPOSITIONS.execute_composition(
+                    action=action,
+                    dispatch=lambda current, profile, _env: int(current == action and profile == "gateway"),
+                    **arguments,
+                ), 1)
+                self.assertEqual(COMPOSITIONS.execute_composition(
+                    action="status", dispatch=lambda *_: 0, **arguments,
+                ), 1)
+                state = yaml.safe_load((root / "current-composition.yaml").read_text())
+                self.assertEqual(state["lifecycle"], "degraded")
+                self.assertEqual(state["last_lifecycle_result"], {"action": action, "succeeded": False})
+                self.assertEqual(COMPOSITIONS.execute_composition(
+                    action="up", dispatch=lambda *_: 0, **arguments,
+                ), 0)
+
+    def test_interrupted_lifecycle_intent_survives_later_healthy_checks(self) -> None:
+        for action in ("up", "down"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir) / "state"
+                arguments = self.status_arguments(root)
+                COMPOSITIONS.execute_composition(action="up", dispatch=lambda *_: 0, **arguments)
+
+                def interrupted(*_):
+                    state = yaml.safe_load((root / "current-composition.yaml").read_text())
+                    self.assertEqual(state["last_lifecycle_result"], {"action": action, "succeeded": False})
+                    raise RuntimeError("interrupted lifecycle")
+
+                with self.assertRaisesRegex(RuntimeError, "interrupted lifecycle"):
+                    COMPOSITIONS.execute_composition(action=action, dispatch=interrupted, **arguments)
+                self.assertEqual(COMPOSITIONS.execute_composition(
+                    action="status", dispatch=lambda *_: 0, **arguments,
+                ), 1)
+                self.assertEqual(yaml.safe_load((root / "current-composition.yaml").read_text())["lifecycle"], "degraded")
+
+    def test_status_preserves_newer_interrupted_shutdown_intent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "state"
+            arguments = self.status_arguments(root)
+            COMPOSITIONS.execute_composition(action="up", dispatch=lambda *_: 0, **arguments)
+            changed = False
+
+            def interrupted_shutdown(*_):
+                raise RuntimeError("interrupted shutdown")
+
+            def observed(*_):
+                nonlocal changed
+                if not changed:
+                    changed = True
+                    with self.assertRaisesRegex(RuntimeError, "interrupted shutdown"):
+                        COMPOSITIONS.execute_composition(
+                            action="down",
+                            dispatch=interrupted_shutdown,
+                            **arguments,
+                        )
+                return 0
+
+            self.assertEqual(COMPOSITIONS.execute_composition(action="status", dispatch=observed, **arguments), 1)
+            state = yaml.safe_load((root / "current-composition.yaml").read_text())
+            self.assertEqual(state["lifecycle"], "degraded")
+            self.assertEqual(state["last_lifecycle_result"], {"action": "down", "succeeded": False})
+
+    def test_profile_calls_do_not_hold_metadata_lock_and_pending_up_is_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "state"
+            arguments = self.status_arguments(root)
+            checked = False
+
+            def starting(*_):
+                nonlocal checked
+                if not checked:
+                    checked = True
+                    self.assertEqual(COMPOSITIONS.execute_composition(
+                        action="status", dispatch=lambda *_: 0, **arguments,
+                    ), 1)
+                return 0
+
+            self.assertEqual(COMPOSITIONS.execute_composition(action="up", dispatch=starting, **arguments), 0)
+            self.assertEqual(yaml.safe_load((root / "current-composition.yaml").read_text())["lifecycle"], "active")
+
+    def test_status_does_not_promote_suspended_unknown_or_ambiguous_records(self) -> None:
+        cases = [
+            ("suspended", {"action": "down", "succeeded": True}, 0),
+            ("unknown", {"action": "up", "succeeded": True}, 1),
+            ("degraded", None, 1),
+            ("degraded", {"action": "down", "succeeded": True}, 1),
+            ("degraded", {"action": "up", "succeeded": "true"}, 1),
+            ("degraded", {"action": "up", "succeeded": 1}, 1),
+        ]
+        for lifecycle, last_result, expected in cases:
+            with self.subTest(lifecycle=lifecycle, result=last_result), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir) / "state"
+                arguments = self.status_arguments(root)
+                arguments["composition"]["credential_bindings"] = {}
+                state = {"composition_id": "example", "operator": "operator", "lifecycle": lifecycle,
+                         "last_action": "status"}
+                if last_result is not None:
+                    state["last_lifecycle_result"] = last_result
+                COMPOSITIONS._write_private_yaml(root / "current-composition.yaml", state)
+                self.assertEqual(COMPOSITIONS.execute_composition(action="status", dispatch=lambda *_: 0, **arguments), expected)
+                self.assertEqual(yaml.safe_load((root / "current-composition.yaml").read_text())["lifecycle"], lifecycle)
+                self.assertFalse((root / "credentials").exists())
+
+    def test_legacy_active_record_can_recover_but_missing_state_is_not_recreated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "state"
+            arguments = self.status_arguments(root)
+            arguments["composition"]["credential_bindings"] = {}
+            path = root / "current-composition.yaml"
+            COMPOSITIONS._write_private_yaml(path, {
+                "composition_id": "example", "operator": "operator", "lifecycle": "active", "last_action": "up",
+            })
+            self.assertEqual(COMPOSITIONS.execute_composition(
+                action="status", dispatch=lambda _action, profile, _env: int(profile == "root"), **arguments,
+            ), 1)
+            self.assertEqual(COMPOSITIONS.execute_composition(action="status", dispatch=lambda *_: 0, **arguments), 0)
+
+            def disappeared(*_):
+                path.unlink(missing_ok=True)
+                return 0
+
+            with self.assertRaisesRegex(COMPOSITIONS.CompositionError, "disappeared during status"):
+                COMPOSITIONS.execute_composition(action="status", dispatch=disappeared, **arguments)
+            self.assertFalse(path.exists())
+
+    def test_metadata_lock_rejects_symlink_or_unsafe_permissions_without_replacing_state(self) -> None:
+        for unsafe in ("symlink", "permissions"):
+            with self.subTest(unsafe=unsafe), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir) / "state"
+                arguments = self.status_arguments(root)
+                COMPOSITIONS.execute_composition(action="up", dispatch=lambda *_: 0, **arguments)
+                state_path = root / "current-composition.yaml"
+                before = state_path.read_bytes()
+                lock = root / "state.lock"
+                if unsafe == "symlink":
+                    lock.unlink()
+                    lock.symlink_to(state_path)
+                else:
+                    lock.chmod(0o644)
+                with self.assertRaises(COMPOSITIONS.CompositionError):
+                    COMPOSITIONS.execute_composition(action="status", dispatch=lambda *_: 0, **arguments)
+                self.assertEqual(state_path.read_bytes(), before)
 
     def test_up_replays_and_down_uses_reverse_order_without_secret_in_state(self) -> None:
         composition, order = self.composition()

@@ -156,10 +156,14 @@ approve a request or relax caller checks to bypass that failure.
 
 Runtime observations use a separate
 `governance-console-observations.service` oneshot and
-`governance-console-observations.timer`. Collection has its own nonblocking lock,
+`governance-console-observations.timer`. Periodic collection has its own nonblocking lock,
 ten-second per-command timeout, eighty-second service bound and256MiB memory
 limit. The timer schedules collection thirty seconds after the prior collection
-finishes. Its files are private under `private/runtime-observations` in the
+finishes. Normal activation and restart wait for an existing collector to
+release that same private lock, then collect fresh evidence themselves. The
+existing lifecycle deadline bounds startup; custody, collection failures and
+freshness still fail normally. An overlapping scheduled refresh alone does not
+fail startup or require pausing the timer. Its files are private under `private/runtime-observations` in the
 same complete-runtime state root. Both runtime and Portfolio consumers are
 wired from this producer. There are still exactly six admitted component
 observations and the existing120-second validity window; other products remain

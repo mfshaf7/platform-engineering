@@ -1928,7 +1928,7 @@ def activate(policy: dict[str, Any]) -> Path:
         operator_id=policy["platform_operation_provider"]["operator_id"], run=run)
     require_publication_owner_bindings(policy)
     if observation_refresh.enabled(policy):
-        observation_refresh.refresh(STATE_ROOT, operator=operator())
+        observation_refresh.refresh(STATE_ROOT, operator=operator(), wait_for_existing=True)
     print("Console startup: preparing and starting accepted frontend", flush=True)
     run(cross_domain_command("activate"))
     # Confirm direct artifact/consumer readiness before enabling the provider.
@@ -2068,7 +2068,7 @@ def restart(policy: dict[str, Any]) -> Path:
     ])
     apply_record_authority_binding(policy)
     if observation_refresh.enabled(policy):
-        observation_refresh.refresh(STATE_ROOT, operator=operator())
+        observation_refresh.refresh(STATE_ROOT, operator=operator(), wait_for_existing=True)
     run(cross_domain_command("restart"))
     write_active_marker(policy)
     write_repository_refresh_units()

@@ -16,6 +16,8 @@ import agent_source_identity as identity
 
 PURPOSE = "trusted-owner-bootstrap"
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+VERIFICATION_PATHS = frozenset({"scripts/validate_owner.py", "contracts/delivery-art-work-session/evidence-profile.json",
+    "contracts/delivery-art-work-session/evidence-profile.schema.json", "contracts/delivery-art-work-session/source-bootstrap.json"})
 PATHS = frozenset({"AGENTS.md", "README.md", "Makefile", ".gitignore", "scripts/validate_owner.py",
     "tests/test_owner_bootstrap.py", "contracts/delivery-art-work-session/evidence-profile.json",
     "contracts/delivery-art-work-session/evidence-profile.schema.json", "contracts/delivery-art-work-session/source-bootstrap.json",
@@ -30,10 +32,15 @@ def digest(value: Any) -> str:
 def validate_subject(subject: Any) -> None:
     fields = {"kind", "owner_repo", "intake_entry_ref", "custody_receipt_digest", "template_digest", "plan_digest",
               "decision_ref", "workflow_write", "workflow_approval_ref", "allowed_paths"}
+    active = isinstance(subject, dict) and subject.get("operation") == "configure-verification"
+    if active:
+        fields |= {"operation", "inventory_entry_ref"}
     if not isinstance(subject, dict) or set(subject) != fields or subject.get("kind") != "repository-bootstrap":
         raise identity.IdentityError("bootstrap requires its exact repository subject, not a Delivery or Prototype alias")
     owner = subject["owner_repo"]
-    reference = subject["intake_entry_ref"]
+    reference = subject["inventory_entry_ref"] if active else subject["intake_entry_ref"]
+    if active and subject["intake_entry_ref"] is not None:
+        raise identity.IdentityError("active verification cannot borrow Intake authority")
     if not isinstance(owner, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", owner):
         raise identity.IdentityError("bootstrap owner identity is invalid")
     if (not isinstance(reference, dict) or set(reference) != {"id", "version", "digest"}
@@ -47,11 +54,11 @@ def validate_subject(subject: Any) -> None:
     if not isinstance(decision, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:/._#-]{2,255}", decision):
         raise identity.IdentityError("bootstrap requires its explicit accountable operator decision")
     paths = subject["allowed_paths"]
-    if (not isinstance(paths, list) or not paths or any(not isinstance(path, str) or path not in PATHS for path in paths)
+    if (not isinstance(paths, list) or not paths or any(not isinstance(path, str) or path not in (VERIFICATION_PATHS if active else PATHS) for path in paths)
             or len(paths) != len(set(paths)) or paths != sorted(paths)):
         raise identity.IdentityError("bootstrap permits only a sorted unique subset of trusted owner-control files")
     workflow = subject["workflow_write"]
-    if type(workflow) is not bool or workflow != (".github/workflows/validate.yaml" in paths):
+    if type(workflow) is not bool or workflow != (".github/workflows/validate.yaml" in paths) or (active and workflow):
         raise identity.IdentityError("bootstrap workflow permission must match the actual finite source writes")
     approval = subject["workflow_approval_ref"]
     if ((not workflow and approval is not None) or
@@ -83,6 +90,28 @@ def contract_from_snapshot(contract: identity.Contract, snapshot: identity.Repos
     checked = identity.contract_from_record_snapshot(contract, snapshot)
     inventory, intake = yaml.safe_load(snapshot.inventory), yaml.safe_load(snapshot.intake)
     owner = subject["owner_repo"]
+    if subject.get("operation") == "configure-verification":
+        entry = inventory.get("repos", {}).get(owner, {})
+        record = entry.get("record", {})
+        behavior = entry.get("validation_behavior", {})
+        lineage = record.get("lineage", {})
+        binding = entry.get("provider_repository", {})
+        if (not entry or owner in intake.get("repos", {}) or owner in inventory.get("retired_repos", {})
+                or entry.get("posture") != "active" or entry.get("lifecycle") != "active"
+                or entry.get("requires_security_bindings") is not False
+                or entry.get("security_review_subject", False) is not False
+                or behavior.get("posture") != "covered-by-owner-repo" or behavior.get("wgcf_graph_role") != "product-runtime-source"
+                or not entry.get("owns") or not entry.get("must_not_own")
+                or lineage.get("source") != "workspace-intake" or lineage.get("source_ref") != f"repo:{owner}"
+                or subject["inventory_entry_ref"] != {"id": record.get("id"), "version": record.get("version"), "digest": digest(entry)}):
+            raise identity.IdentityError("verification setup requires exact current active source-only Inventory authority")
+        if (binding.get("provider") != "github" or binding.get("full_name") != intent["repository"]
+                or str(binding.get("provider_repository_id")) != str(intent["repository_id"])):
+            raise identity.IdentityError("verification provider identity differs from active owner")
+        repository = identity.Repository(binding["full_name"], int(binding["provider_repository_id"]))
+        if repository not in checked.repositories:
+            raise identity.IdentityError("verification owner is not an eligible current source identity")
+        return identity.replace(checked, repositories=(repository,))
     if owner in inventory.get("repos", {}) or owner in inventory.get("retired_repos", {}):
         raise identity.IdentityError("bootstrap cannot replace current or retired Inventory authority")
     entry = intake.get("repos", {}).get(owner, {})

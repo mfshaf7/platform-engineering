@@ -361,6 +361,26 @@ Failed start, status, teardown, ownership, lifecycle, credential, or projection
 checks fail closed. Composition state reports identifiers and outcomes only;
 it never records credential values.
 
+### Composition health after recovery
+
+After a completed composition `up`, a failed `status` marks the composition
+`degraded`. When a later `status` confirms every participant is healthy, it
+returns the composition to `active` using the same existing bindings. Status
+does not start profiles or create, rotate or replace credentials.
+
+The private record retains the last explicit startup/shutdown result separately
+from the latest health observation. Failed or interrupted `up`/`down` stays
+degraded until a normal successful `up`; healthy component observations alone
+cannot complete those operations. Suspended and unknown state is never promoted.
+Legacy degraded records without that result remain blocked until a normal
+successful `up`; existing active records retain their known completed startup.
+
+Lifecycle intent is recorded before the first profile call. Brief metadata
+locks and a fresh read at status completion preserve a newer startup/shutdown
+intent without locking the record throughout profile execution. Continue using
+`make devint-status COMPOSITION=<id>` and the normal lifecycle command; never
+repair the label by hand-editing `current-composition.yaml`.
+
 ### Lifecycle Context Composition
 
 The OOS-to-CGG lifecycle binding is intentionally narrower than a generic

@@ -1739,7 +1739,7 @@ def require_repository_projection_route(policy: dict[str, Any]) -> None:
                 body = {}
             if (
                 exc.code == 404 and isinstance(body, dict)
-                and body.get("code") == "repository_custody_oos_rejected"
+                and body.get("code") == "repository_custody_request_not_found"
                 and body.get("error") == "Repository custody request was not found."
                 and body.get("mode") == "live" and body.get("status") == "offline"
             ):

@@ -70,6 +70,17 @@ was created. Automatic deployed renewal and final Console proof remain pending.
 
 ## Follow-Up
 
+The first native activation exposed a readiness-check compatibility miss: the
+reviewed Console adapter preserves OOS's canonical
+`repository_custody_request_not_found` code, while Platform's negative-read probe
+still expected the former generic adapter code. The actual route returned the
+correct authenticated live 404 and original message; receipt-list reads worked.
+Align the existing check and regression cases with that canonical response,
+retaining exact HTTP status, message and live-mode checks. A wrong generic 404
+must remain denied. This does not enable another workflow or relax authority.
+After paired source acceptance, use the supported runtime restart and status
+path; a repeated full composition bring-up is unnecessary for this probe fix.
+
 Publish reviewed sources, update exact composed acceptance and activate through
 the existing complete-runtime procedure. Verify the maintained connection,
 actual consumer and live lookup. Update this record with final source/runtime

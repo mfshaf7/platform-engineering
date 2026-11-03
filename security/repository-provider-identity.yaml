@@ -10,6 +10,13 @@ identity:
     metadata: read
   maximum_repository_count: 100
   maximum_token_lifetime_seconds: 3600
+account_readback:
+  scope: single-approved-account
+  required_permissions:
+    metadata: read
+  installation_selection: all
+  covers_future_repositories: true
+  security_review_ref: docs/reviews/components/2026-11-03-account-repository-reader.md
 secret_custody:
   authority: platform-engineering
   private_key_source:

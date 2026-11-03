@@ -278,7 +278,7 @@ const results={};for(const s of specs){
         return {slug: {**results[slug], "expires_at": self.expiry(secret).isoformat()}
                 for slug, (_, _, secret) in bindings.items()}
 
-    def renew(self, *, force: bool = False, extra_annotations: dict | None = None) -> dict:
+    def renew(self, *, force: bool = False, extra_annotations: dict | None = None, reader_binding: dict | None = None) -> dict:
         bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
         self.probe(bindings, provider=False)
         bindings = self.reconcile_readiness(bindings)
@@ -290,7 +290,10 @@ const results={};for(const s of specs){
             # Finish an interrupted delivery before judging the mounted token or
             # minting another one. A fresh Secret alone does not prove consumption.
             bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
-            self.consume(bindings, extra_annotations)
+            if reader_binding:
+                self.consume(bindings, extra_annotations, reader_binding=reader_binding)
+            else:
+                self.consume(bindings, extra_annotations)
             observed = self.probe(bindings)
             due = [slug for slug in WORKFLOWS if observed[slug].get("http") == 401]
             if not due:
@@ -335,7 +338,10 @@ const results={};for(const s of specs){
             # after Secret replacement but before pod consumption. No forced restart
             # occurs on an unchanged timer tick, and the group takes one rollout.
             bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
-            self.consume(bindings, extra_annotations)
+            if reader_binding:
+                self.consume(bindings, extra_annotations, reader_binding=reader_binding)
+            else:
+                self.consume(bindings, extra_annotations)
             current = self.status()
             for client, old in previous:
                 try:
@@ -367,7 +373,7 @@ const results={};for(const s of specs){
         self.run(["k3s", "kubectl", "-n", target.namespace, "apply", "--server-side",
                   f"--field-manager={manager}", "-f", "-"], input_value=json.dumps(payload))
 
-    def consume(self, bindings: dict, extra_annotations: dict | None) -> None:
+    def consume(self, bindings: dict, extra_annotations: dict | None, *, reader_binding: dict | None = None) -> None:
         namespace = next(iter(bindings.values()))[1].namespace
         versions = dict(extra_annotations or {})
         versions.update({ANNOTATION + slug + "-token-expires-at": secret["metadata"]["annotations"][ANNOTATION + "token-expires-at"]
@@ -383,6 +389,21 @@ const results={};for(const s of specs){
         # Updating an exact expected revision does not enable either workflow.
         environment.extend({"name": name, "value": self.readiness_revision} for name in (
             "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF", "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF"))
+        if reader_binding == {"revoked": True}:
+            versions[ANNOTATION + "repository-reader-credential-version"] = "revoked"
+            environment.extend({"name": key, "$patch": "delete"} for key in (
+                "OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT"))
+        elif reader_binding:
+            if (set(reader_binding) != {"account", "version"}
+                    or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,38}", str(reader_binding["account"]))
+                    or not isinstance(reader_binding["version"], str) or not 1 <= len(reader_binding["version"]) <= 128):
+                raise CredentialError("account reader consumption binding is invalid")
+            # Optional references preserve core startup when the reader is
+            # revoked or missing. No workflow enablement or write token changes.
+            versions[ANNOTATION + "repository-reader-credential-version"] = reader_binding["version"]
+            environment.extend({"name": key, "value": None, "valueFrom": {"secretKeyRef": {
+                "name": "operator-orchestration-service-repository-provider", "key": key, "optional": True}}}
+                for key in ("OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT"))
         self.run(["k3s", "kubectl", "-n", namespace, "patch", "deployment/operator-orchestration-service",
                   "--type=strategic", "--patch", json.dumps({"spec": {"template": {
                       "metadata": {"annotations": versions}, "spec": {"containers": [{

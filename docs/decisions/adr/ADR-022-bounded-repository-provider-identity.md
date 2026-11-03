@@ -25,14 +25,36 @@ Use one dedicated GitHub App installation for repository-custody readback with:
 
 - `Metadata: read` as its only repository permission
 - no user authorization, webhook, or event subscription
-- selected-repository installation scope
-- explicit repository scope on every short-lived installation token
+- selected-repository installation scope and explicit per-token repository scope
+  by default, or the explicitly approved account metadata mode below
 - private-key custody in Platform Vault
 - no private key, app JWT, or installation token in source or evidence
 
 Platform commissions the identity by verifying the exact App, installation,
 permissions, selected repositories, provider destination, and immutable
 repository ids, then revokes the proof token before recording success.
+
+### Account Metadata Scope Maintenance
+
+The optional account metadata mode extends the same identity and producer. An
+operator may approve one personal account or organization with All repositories,
+including future private repositories. The App and issued token remain strictly
+Metadata read only. Token issuance deliberately omits repository filters so
+ordinary creation does not require another installation selection. OOS binds
+lookup and immutable-ID readback to the configured account; write/source
+credentials remain separate. Selected-repository isolation remains available
+and never widens automatically after denial.
+
+The existing complete-runtime timer consumes an explicitly generated private
+delivery receipt, maintains that scope, renews short-lived credentials and binds
+the same Secret to the existing OOS rollout. No receipt means no automatic
+selection. No new provider service, workflow enablement or host privilege is
+introduced. The primary procedure is
+[Repository Provider Identity](../../../docs/components/operator-orchestration-service/repository-provider-identity.md#account-metadata-reader).
+The separate
+[account reader Security delta](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-11-03-account-repository-reader.md)
+and exact accepted composition must precede normal activation. This maintenance
+does not qualify customer-facing setup or stage/production operation.
 
 Runtime delivery remains limited to the registered active
 `accepted-idea-delivery` profile. The operator command derives its namespace

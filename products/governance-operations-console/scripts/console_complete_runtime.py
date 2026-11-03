@@ -28,6 +28,7 @@ import yaml
 
 import platform_operation_provider as provider
 import console_workflow_credentials as workflow_credentials
+import console_repository_reader as repository_reader
 import console_record_authority as record_authority
 import console_session_projection as session_projection
 import console_model_management as model_management
@@ -905,6 +906,41 @@ def repository_identity_command(
     return command
 
 
+def renew_workflow_credentials(policy, delivered, *, force=None):
+    """Reuse the existing timer/rollout for an explicitly selected reader.
+
+    Reader failure stays local to that optional connection. It never prevents
+    maintenance of the five existing identities or chooses a broader scope.
+    """
+    reader = repository_reader.Reader(repo_root=REPO_ROOT, workspace_root=WORKSPACE_ROOT,
+        state_root=STATE_ROOT, session_manifest=dev_integration_session_manifest(policy),
+        run=run, private_key=vault_private_key)
+    try:
+        observation = reader.maintain(force=bool(force))
+    except (repository_reader.identity.IdentityError, OSError, ValueError, KeyError, RuntimeError):
+        observation = {"state": "unavailable"}
+    arguments = {"extra_annotations": {
+        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"]}}
+    if force is not None:
+        arguments["force"] = force
+    if observation.get("binding"):
+        arguments["reader_binding"] = observation["binding"]
+    elif observation["state"] == "revoked":
+        arguments["reader_binding"] = {"revoked": True}
+    result = workflow_credential_manager(policy).renew(**arguments)
+    if observation.get("binding"):
+        try:
+            consumer = reader.probe()
+            observation = {**observation, "consumer": consumer}
+            if consumer["state"] == "revoked":
+                observation = {"state": "revoked"}
+        except (repository_reader.identity.IdentityError, OSError, ValueError, KeyError, RuntimeError):
+            observation = {"state": "unavailable"}
+    if observation["state"] != "not-selected":
+        result = {**result, "repository_reader": {k: v for k, v in observation.items() if k != "binding"}}
+    return result
+
+
 def deliver_repository_provisioning_identity(policy: dict[str, Any]) -> dict[str, Any]:
     ensure_private(RECEIPT_ROOT)
     private_key = repository_provisioning_private_key(policy)
@@ -1043,9 +1079,7 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
         delivered = deliver_repository_provisioning_identity(policy)
     # A stable, non-secret delivery version makes consumption retryable after
     # a crash between Secret replacement and rollout, without rolling on every tick.
-    workflows = workflow_credential_manager(policy).renew(force=force, extra_annotations={
-        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
-    })
+    workflows = renew_workflow_credentials(policy, delivered, force=force)
     repository_provisioning_status(policy)
     # Optional release access renews through the existing timer. Its outage
     # withholds release actions without preventing core/provider maintenance.
@@ -1879,9 +1913,7 @@ def activate(policy: dict[str, Any]) -> Path:
     refresh_record_authorities(policy)
     print("Console startup: renewing scoped identities", flush=True)
     delivered = deliver_repository_provisioning_identity(policy)
-    workflow_credential_manager(policy).renew(extra_annotations={
-        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
-    })
+    renew_workflow_credentials(policy, delivered)
     secret = credential()
     gateway = cni_gateway()
     write_provider_unit(policy, gateway, secret)
@@ -2023,9 +2055,7 @@ def restart(policy: dict[str, Any]) -> Path:
         oos_repo=repo_path("operator-orchestration-service"), run=run)
     refresh_record_authorities(policy)
     delivered = deliver_repository_provisioning_identity(policy)
-    workflow_credential_manager(policy).renew(extra_annotations={
-        "workspace-governance/repository-token-expires-at": delivered["token_expires_at"],
-    })
+    renew_workflow_credentials(policy, delivered)
     run(["systemctl", "--user", "restart", UNIT_NAME])
     ns = namespace(policy)
     run([

@@ -71,6 +71,22 @@ finite actions declared in `complete-runtime-policy.yaml` and performs effects
 through the existing `dev_integration.py` owner command. Console and browser
 processes never receive the Platform provider credential.
 
+## Optional Repository Metadata Connection
+
+The existing identity producer can explicitly connect one GitHub user or
+organization account for metadata readback, including repositories created later.
+Follow [Repository Provider Identity](../../../docs/components/operator-orchestration-service/repository-provider-identity.md#account-metadata-reader)
+after the exact source and Security acceptance. This grants no content or write
+access and does not enable Repository lifecycle mutations.
+
+Its protected delivery receipt selects the connection. This runtime's existing
+credential timer maintains it and uses the same OOS group rollout for delivery
+changes. An absent selection has no effect; a failed reader does not block the
+five required workflow identities or core startup. Optional Secret references
+permit restart after revocation. Credential consumption and actual GitHub
+health are separate checks. Customer-facing setup remains outside this local
+operator procedure's qualification.
+
 ## Console capability completion
 
 Epic1332 extends this same lifecycle; it does not create a second runtime or

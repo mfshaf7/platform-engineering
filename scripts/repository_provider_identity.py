@@ -102,6 +102,7 @@ class IssuedToken:
     expires_at: str
     repositories: tuple[dict[str, Any], ...]
     permissions: dict[str, str]
+    repository_selection: str | None = None
 
 
 @dataclass(frozen=True)
@@ -302,6 +303,7 @@ class ProviderClient:
             expires_at=str(value.get("expires_at") or ""),
             repositories=tuple(value.get("repositories") or ()),
             permissions=dict(value.get("permissions") or {}),
+            repository_selection=value.get("repository_selection"),
         )
 
     def accessible_repositories(self, installation_token: str) -> tuple[dict[str, Any], ...]:
@@ -807,12 +809,17 @@ def secret_manifest(
 
 
 def command_validate(args: argparse.Namespace) -> int:
+    payload = yaml.safe_load(args.contract.read_text())
+    if isinstance(payload, dict) and payload.get("account_readback") is not None:
+        return account_command(args, "validate")
     contract = load_contract(args.contract)
     print(f"repository provider identity contract valid: {contract.identity_id}")
     return 0
 
 
 def command_commission(args: argparse.Namespace) -> int:
+    if getattr(args, "account", None):
+        return account_command(args, "commission")
     contract = load_contract(args.contract)
     client, token, repositories = validated_token(args, contract)
     client.revoke_token(token.token)
@@ -831,6 +838,8 @@ def command_commission(args: argparse.Namespace) -> int:
 
 
 def command_deliver(args: argparse.Namespace) -> int:
+    if getattr(args, "account", None):
+        return account_command(args, "deliver")
     contract = load_contract(args.contract)
     verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
     target = verify_dev_integration_cluster(
@@ -897,6 +906,8 @@ def command_deliver(args: argparse.Namespace) -> int:
 
 
 def command_revoke(args: argparse.Namespace) -> int:
+    if getattr(args, "account", None):
+        return account_command(args, "revoke")
     contract = load_contract(args.contract)
     verify_kubectl_command(args.kubectl, sandbox=args.sandbox)
     target = verify_dev_integration_cluster(
@@ -983,12 +994,22 @@ def command_revoke(args: argparse.Namespace) -> int:
 def add_identity_arguments(parser: argparse.ArgumentParser, *, private_key: bool = True) -> None:
     parser.add_argument("--app-id", type=int, required=True)
     parser.add_argument("--installation-id", type=int, required=True)
-    parser.add_argument("--repository", action="append", required=True)
+    scope = parser.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--repository", action="append")
+    scope.add_argument("--account", help="explicit account-wide Metadata: read connection")
     if private_key:
         parser.add_argument("--private-key-file", type=Path, required=True)
     parser.add_argument("--provider-api-base-url")
     parser.add_argument("--sandbox", action="store_true")
     parser.add_argument("--receipt", type=Path, required=True)
+
+
+def account_command(args: argparse.Namespace, action: str) -> int:
+    import repository_provider_account as account
+    try:
+        return account.command(args, action)
+    except account.identity.IdentityError as exc:
+        raise IdentityError(str(exc)) from None
 
 
 def parser() -> argparse.ArgumentParser:
@@ -1005,6 +1026,7 @@ def parser() -> argparse.ArgumentParser:
 
     deliver = commands.add_parser("deliver", help="deliver an exact short-lived token to Kubernetes")
     add_identity_arguments(deliver)
+    deliver.add_argument("--expected-selection-digest", help="deny a stale account-renewal selection")
     deliver.add_argument("--session-manifest", type=Path, required=True)
     deliver.add_argument("--workspace-root", type=Path, required=True)
     deliver.add_argument("--kubectl", default="k3s kubectl")

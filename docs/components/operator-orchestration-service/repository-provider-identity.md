@@ -19,17 +19,25 @@ Create one dedicated GitHub App for repository-custody readback:
 - no webhook
 - no event subscriptions
 - repository permission `Metadata: read` only
-- installation restricted to selected repositories
+- explicit installation scope: selected repositories, or the account metadata
+  connection described below
 - no organization, account, administration, contents, issues, pull-request,
   workflow, package, or write permission
 
-Install it only on the explicitly approved repository set. Keep its private key
+Approve either the selected repository set or one complete account's metadata
+scope explicitly; never fall back from a rejected selection to broader access.
+Keep its private key
 under the Platform Vault path recorded in the source contract. App and
 installation ids are non-secret runtime inputs; the private key and every
 issued token are secret values.
 
 The accepted security decision is
 [Repository Custody Provider Identity Boundary Review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-08-29-repository-custody-provider-identity-boundary.md).
+
+The account metadata extension is reviewed separately in
+[Account Repository Reader](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-11-03-account-repository-reader.md).
+Source availability alone does not activate the connection or qualify a customer
+installation.
 
 ## Validate Source Contract
 
@@ -118,6 +126,80 @@ make repository-provider-identity ACTION=revoke ARGS="\
 If the installation itself is compromised, suspend or uninstall the GitHub App
 installation and rotate the private key before any new delivery. The normal
 runtime must remain disabled while the identity is unavailable or mismatched.
+
+## Account Metadata Reader
+
+Use this mode when a personal GitHub account or organization should be connected
+once, including private repositories created later. It is an explicit
+**Metadata: read only** grant over that account. It grants neither source-content
+access nor repository creation, settings changes, archive or deletion. Customers
+needing selected-repository isolation may retain the original mode, whose access
+set must then be maintained deliberately.
+
+The App must still have only Metadata read permission and no events. Install it
+on the intended account with **All repositories**. A private App can be installed
+only on its owning account; a public App can be installed on other accounts.
+Verify the intended installation account before proceeding. Making the App
+installable by another account does not make repositories public.
+
+After the exact source review is accepted, materialize its key through the
+existing protected Vault procedure above. Use the existing command with
+`--account` instead of `--repository`:
+
+```bash
+make repository-provider-identity ACTION=commission ARGS="\
+  --app-id <app-id> --installation-id <installation-id> \
+  --account <account-login> --private-key-file $PRIVATE_KEY_FILE \
+  --receipt <operator-private-commission-receipt.json>"
+
+READER_RECEIPT="$HOME/.local/state/platform-engineering/governance-console-complete-runtime/private/repository-reader-delivery.json"
+make repository-provider-identity ACTION=deliver ARGS="\
+  --app-id <app-id> --installation-id <installation-id> \
+  --account <account-login> --private-key-file $PRIVATE_KEY_FILE \
+  --session-manifest <workspace-root>/.dev-integration/accepted-idea-delivery/<operator>/current-session.yaml \
+  --workspace-root <workspace-root> --kubectl 'k3s kubectl' \
+  --receipt $READER_RECEIPT"
+```
+
+Remove the temporary key after delivery. Keep the generated receipt private and
+unchanged: it is the selection binding for the existing complete-runtime timer.
+Absence of that file does not select an App, account or credential. The operator
+cannot combine `--account` with a repository list. The producer verifies the
+native account/installation and metadata-only App before requesting an
+installation token **without a repository filter**. Future repositories under
+the approved account therefore do not require another reader setup or token
+scope edit. Each request still verifies immutable repository identity, and OOS
+rejects another account.
+
+The existing `governance-console-repository-credentials` timer maintains this
+optional connection alongside the existing identities. After reviewed source
+activation, use `make governance-console-complete-runtime ACTION=refresh-credentials`
+to reconcile immediately. Tokens renew when fewer than twenty minutes remain.
+The same group rollout consumes the protected Secret and its delivery version;
+unchanged healthy ticks do not rotate it or create another service. Missing
+projection is restored only from a valid existing selection. A matching prepared
+delivery resumes without reissuing a token; malformed or foreign state withholds
+the connection. Previous tokens retire only after consumption is proven.
+
+Renewal uses a locked compare-and-swap of the protected selection. If disconnect
+or replacement changed that selection, a stale renewal cannot mint/project over
+it. Revocation clears the reader's consumer fields through the same group
+rollout, preserving the other identities and core operation. Always write a
+maintained connection's revoke outcome to its same `$READER_RECEIPT` selection.
+
+Reader Secret references are optional so revocation does not prevent core
+startup. A failed reader cannot block renewal of the existing five identities.
+Credential-consumption proof is not a provider health check: use an actual
+Console lookup to establish current connectivity. Never use the provisioning
+token as a reader fallback.
+
+For revocation, run the existing `revoke` action with the same `--account`, App,
+installation and session arguments, writing the outcome to `$READER_RECEIPT`.
+This revokes the token and removes its projection; it preserves repositories and
+workflow history. Reconnection requires the normal reviewed delivery procedure.
+The current implementation supports one selected reader account per local
+composition. Customer-facing registration and independent-installation
+qualification remain product-readiness work.
 
 ## Evidence
 

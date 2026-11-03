@@ -55,12 +55,18 @@ jobs:
         run: |
           python scripts/repository_provider_identity.py validate
           python scripts/test_repository_provider_identity.py
+          python scripts/test_repository_provider_account.py
           python scripts/repository_provisioning_identity.py validate
           python scripts/test_repository_provisioning_identity.py
           python scripts/repository_lifecycle_identity.py validate
           python scripts/test_repository_lifecycle_identity.py
           python scripts/workspace_intake_identity.py validate
           python scripts/test_workspace_intake_identity.py
+
+      - name: Validate Console reader credential maintenance
+        run: |
+          python products/governance-operations-console/scripts/test_console_repository_reader.py
+          python products/governance-operations-console/scripts/test_console_complete_runtime.py
 
       - name: Validate governance docs
         run: python scripts/validate_governance_docs.py

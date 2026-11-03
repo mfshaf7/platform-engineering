@@ -8,9 +8,11 @@ shared_paths:
       - dispatch_github_workflow_from_k3s_secret.sh
       - platform_drill.py
       - repository_provider_identity.py
+      - repository_provider_account.py
       - repository_provisioning_identity.py
       - repository_lifecycle_identity.py
       - test_repository_provider_identity.py
+      - test_repository_provider_account.py
       - test_repository_provisioning_identity.py
       - test_repository_lifecycle_identity.py
       - workspace_intake_identity.py

@@ -37,7 +37,7 @@ def bounded_runner(command):
         raise observations.ObservationError("Admitted workload observation timed out.") from None
 
 
-def refresh(state_root, *, operator, runner=bounded_runner, now=None):
+def refresh(state_root, *, operator, runner=bounded_runner, now=None, wait_for_existing=False):
     root, runtime_path, health_path, receipt_path = paths(state_root)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     if root.is_symlink() or not root.is_dir() or root.stat().st_uid != os.geteuid():
@@ -48,7 +48,10 @@ def refresh(state_root, *, operator, runner=bounded_runner, now=None):
         if os.fstat(fd).st_uid != os.geteuid() or os.fstat(fd).st_mode & 0o077:
             raise observations.ObservationError("Runtime observation lock custody is invalid.")
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Lifecycle commands share the collector's existing lock. Wait for
+            # its current owner rather than failing a healthy startup; periodic
+            # collection still declines overlap without waiting.
+            fcntl.flock(fd, fcntl.LOCK_EX | (0 if wait_for_existing else fcntl.LOCK_NB))
         except BlockingIOError:
             raise observations.ObservationError("Runtime observation refresh is already running.") from None
         policy = observations.load_policy()

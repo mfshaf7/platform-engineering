@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import base64
+import fcntl
 import io
 import json
 import os
@@ -10,6 +11,8 @@ import signal
 import time
 from pathlib import Path
 import tempfile
+import threading
+import test_console_observation_refresh as observation_tests
 from datetime import timedelta
 from contextlib import ExitStack
 import unittest
@@ -607,6 +610,8 @@ class CompleteRuntimeTests(unittest.TestCase):
 
     def accepted_policy(self) -> dict:
         policy = runtime.validate_policy()
+        # Synthetic catalogs must not inherit a real operator's recovery latch.
+        policy["runtime_state_root"] = str(runtime.STATE_ROOT)
         # These tests isolate the pre-existing complete-runtime controls. The
         # managed-provider extension has its own admitted composition tests.
         policy.pop("model_management")
@@ -720,6 +725,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         contract_bytes = (runtime.REPO_ROOT / contract_path).read_bytes()
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory)
+            policy["runtime_state_root"] = str(workspace / "private-state")
             def git(repo, *args):
                 return runtime.subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
                                                "-C", str(repo), *args], check=True,
@@ -1905,6 +1911,58 @@ class NativeWorkflowCredentialOwnershipTests(unittest.TestCase):
                 recovered = json.loads(self.kubectl(["get", "secret", name, "-o", "json"]).stdout)
                 self.assertEqual(recovered["data"], {key: base64.b64encode(value.encode()).decode()
                                  for key, value in original["stringData"].items()})
+
+
+class LifecycleObservationLockTests(observation_tests.ObservationRefreshTests):
+    def assert_lifecycle_waits_for_collector(self, *, collection_fails):
+        self.publish()
+        files = runtime.observation_refresh.paths(self.root)[1:]
+        before = [path.read_bytes() for path in files]
+        self.calls.clear()
+        entered, finished = threading.Event(), threading.Event()
+        errors = []
+
+        def collect():
+            entered.set()
+            try:
+                def runner(command):
+                    if collection_fails:
+                        self.calls.append(command)
+                        return runtime.subprocess.CompletedProcess(command, 1, "", "unavailable API")
+                    return self.runner(command)
+                runtime.observation_refresh.refresh(self.root, operator="mfshaf7", runner=runner,
+                    now=self.now + timedelta(seconds=30), wait_for_existing=True)
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                finished.set()
+
+        worker = threading.Thread(target=collect, daemon=True)
+        with (runtime.observation_refresh.paths(self.root)[0] / "refresh.lock").open("r+") as owner:
+            fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            worker.start()
+            self.assertTrue(entered.wait(1))
+            self.assertFalse(finished.wait(0.1))
+            self.assertEqual([], self.calls)
+            self.assertEqual(before, [path.read_bytes() for path in files])
+        self.assertTrue(finished.wait(3))
+        worker.join(1)
+        self.assertFalse(worker.is_alive())
+        if collection_fails:
+            self.assertEqual(1, len(errors))
+            self.assertIsInstance(errors[0], runtime.observation_refresh.observations.ObservationError)
+            self.assertEqual(before, [path.read_bytes() for path in files])
+            self.publish()
+        else:
+            self.assertEqual([], errors)
+            self.assertEqual(6, len(self.calls))
+            self.assertNotEqual(before, [path.read_bytes() for path in files])
+
+    def test_lifecycle_waits_for_real_collector_lock_then_publishes(self):
+        self.assert_lifecycle_waits_for_collector(collection_fails=False)
+
+    def test_failed_collection_after_wait_preserves_evidence_and_releases_lock(self):
+        self.assert_lifecycle_waits_for_collector(collection_fails=True)
 
 
 if __name__ == "__main__":

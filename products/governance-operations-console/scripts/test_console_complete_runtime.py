@@ -295,6 +295,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         for frontend_seconds, finishing_seconds, source_available in ((0, 0, True), (360, 0, True), (0, 360, True), (360, 360, True), (360, 360, False)):
             with self.subTest(frontend_seconds=frontend_seconds, finishing_seconds=finishing_seconds, source_available=source_available), ExitStack() as stack:
                 policy = self.accepted_policy(); events = []
+                policy["instance_records"] = {"enabled": True}
                 clock = {"now": 0, "valid_until": 300}
                 ignored = ("write_resolved_policies", "require_activation_allowed", "require_provider_tools", "require_publication_owner_bindings", "write_composition_supervisor", "write_provider_unit", "apply_kubernetes_binding", "apply_record_authority_binding")
                 root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='console-recovery-order-')))
@@ -307,6 +308,8 @@ class CompleteRuntimeTests(unittest.TestCase):
                     runtime.artifact_recovery.save(value, {'state': 'healthy'})
                     events.append('artifact-consumers-ready')
                 def run(command, **kwargs):
+                    if command == []:
+                        events.append('composition-up')
                     if command == ['frontend-activate']:
                         clock['now'] += frontend_seconds
                         events.append('frontend-ready')
@@ -332,6 +335,8 @@ class CompleteRuntimeTests(unittest.TestCase):
                 stack.enter_context(patch.object(runtime, "resolve_security_decision", return_value=(policy, {})))
                 stack.enter_context(patch.object(runtime, "repo_path", return_value=runtime.REPO_ROOT))
                 stack.enter_context(patch.object(runtime, "composition_command", return_value=[]))
+                stack.enter_context(patch.object(runtime.instance_records, "prepare", side_effect=lambda *a, **kw: events.append('private-records-prepared')))
+                stack.enter_context(patch.object(runtime.instance_records, "bind", side_effect=lambda *a, **kw: events.append('private-records-bound')))
                 stack.enter_context(patch.object(runtime, "cross_domain_command", return_value=['frontend-activate']))
                 stack.enter_context(patch.object(runtime, "deliver_repository_provisioning_identity", return_value={"token_expires_at": "synthetic-expiry"}))
                 stack.enter_context(patch.object(runtime, "workflow_credential_manager"))
@@ -343,7 +348,7 @@ class CompleteRuntimeTests(unittest.TestCase):
                     runtime.activate(policy)
                     catalog = runtime.provider.capability_catalog(policy, 'c'*40, activated=True)
                     self.assertTrue(all(item['available'] for item in catalog['subjects'][0]['capabilities']))
-                    self.assertEqual(events, ['frontend-ready', 'artifact-consumers-ready', "write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
+                    self.assertEqual(events, ['private-records-prepared', 'composition-up', 'private-records-bound', 'frontend-ready', 'artifact-consumers-ready', "write_active_marker", "refresh_stale_provider", "write_repository_refresh_units", "status"])
                     self.assertTrue((root / 'core-online.json').is_file())
                 else:
                     with self.assertRaisesRegex(runtime.record_authority.RecordAuthorityError, 'provider unavailable'):
@@ -640,6 +645,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         policy.pop("purpose_profiles")  # Tested through its own composition boundary.
         policy.pop("runtime_observations")  # Dedicated filesystem/timer composition witnesses.
         policy.pop("durable_orchestration")  # Dedicated exact-bundle composition witnesses.
+        policy["instance_records"] = {"enabled": False}  # Native binding is exercised explicitly in the startup ordering witness.
         revisions = {
             "context-governance-gateway": "3" * 40,
             "governance-operations-console": "a" * 40,

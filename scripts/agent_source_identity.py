@@ -22,6 +22,7 @@ from typing import Any, Callable, Iterator
 
 from jsonschema import Draft202012Validator
 import yaml
+from agent_source_instance import InstanceSourceSnapshot
 
 from repository_provider_identity import (
     IdentityError,
@@ -303,7 +304,10 @@ def read_current_workspace_inventory(contract: Contract, inventory_path: Path) -
         intake_schema=intake_schema, revision=revision, reviewed_revision=revision)
 
 
-def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInventorySnapshot) -> Contract:
+def contract_from_record_snapshot(contract: Contract, snapshot: RepositoryInventorySnapshot | InstanceSourceSnapshot) -> Contract:
+    from agent_source_instance import InstanceSourceSnapshot, contract_from_snapshot
+    if isinstance(snapshot, InstanceSourceSnapshot):
+        return contract_from_snapshot(contract, snapshot)
     if not REVISION_PATTERN.fullmatch(snapshot.revision) or not REVISION_PATTERN.fullmatch(snapshot.reviewed_revision):
         raise IdentityError("canonical inventory source revisions are invalid")
     documents = []
@@ -379,7 +383,7 @@ def select_installation(contract: Contract, repository_name: str) -> Contract:
 
 
 def load_operating_contract(
-    args: argparse.Namespace, *, inventory_reader: Callable[[], RepositoryInventorySnapshot] | None = None,
+    args: argparse.Namespace, *, inventory_reader: Callable[[], RepositoryInventorySnapshot | InstanceSourceSnapshot] | None = None,
     maintenance: bool = False,
 ) -> Contract:
     contract = load_contract(args.contract)
@@ -406,14 +410,12 @@ def load_operating_contract(
     return contract
 
 
-def _run(args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        args,
-        input=input_text,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+def _run(args: list[str], *, input_text: str | None = None, timeout_seconds: float | None = None) -> subprocess.CompletedProcess[str]:
+    options = {"timeout": timeout_seconds} if timeout_seconds is not None else {}
+    try:
+        result = subprocess.run(args, input=input_text, text=True, capture_output=True, check=False, **options)
+    except subprocess.TimeoutExpired:
+        raise IdentityError(f"{Path(args[0]).name} command timed out") from None
     if result.returncode != 0:
         raise IdentityError(f"{Path(args[0]).name} command failed")
     return result
@@ -466,6 +468,7 @@ def private_key_file(
     vault_command: str,
     sandbox: bool,
     sandbox_private_key: Path | None,
+    timeout_seconds: float | None = None,
 ) -> Iterator[Path]:
     if sandbox_private_key is not None:
         if not sandbox:
@@ -482,7 +485,8 @@ def private_key_file(
             "-mount=kv",
             f"-field={contract.vault_property}",
             contract.vault_path,
-        ]
+        ],
+        **({"timeout_seconds": timeout_seconds} if timeout_seconds is not None else {}),
     )
     if "PRIVATE KEY" not in result.stdout:
         raise IdentityError("Vault did not return valid private-key material")

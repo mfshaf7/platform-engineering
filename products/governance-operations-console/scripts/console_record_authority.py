@@ -573,3 +573,21 @@ def read_repository_admission(cache_root: Path, reviewed: str) -> dict[str, Any]
     return {"revision": revision, "reviewed_revision": reviewed,
         "inventory": sources[paths[0]], "intake": sources[paths[1]],
         "inventory_schema": schemas["repos"], "intake_schema": schemas["intake-register"]}
+
+
+def read_instance_source_policy(cache_root: Path, reviewed: str) -> dict[str, str]:
+    """Bind native eligibility to the current accepted control-source checkpoint."""
+    import hashlib
+    before = snapshot_status(cache_root, "workspace-governance", reviewed)
+    revision = before["record_revision"]
+    try:
+        result = subprocess.run(["git", "-C", str(cache_root / "workspace-governance"), "show",
+            f"{revision}:contracts/instance-operational-records.yaml"], capture_output=True, timeout=15, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        raise RecordAuthorityError("internal source policy is unavailable") from None
+    if result.returncode or not result.stdout or len(result.stdout) > 262144:
+        raise RecordAuthorityError("internal source policy is unavailable or exceeds its bound")
+    if snapshot_status(cache_root, "workspace-governance", reviewed)["record_revision"] != revision:
+        raise RecordAuthorityError("internal source policy changed during preparation")
+    return {"repo": "workspace-governance", "revision": revision,
+        "contract_digest": "sha256:" + hashlib.sha256(result.stdout).hexdigest()}

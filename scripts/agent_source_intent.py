@@ -137,7 +137,7 @@ def validate_operation_input(value: Any, *, caller_id: str, operator_id: str) ->
 def operate(
     args: argparse.Namespace, *, state_root: Path, action: str, command_id: str,
     input_value: dict[str, Any], caller_id: str, operator_id: str,
-    inventory_reader: Callable[[], identity.RepositoryInventorySnapshot] | None = None,
+    inventory_reader: Callable[[], identity.RepositoryInventorySnapshot | identity.InstanceSourceSnapshot] | None = None,
 ) -> dict[str, Any]:
     """Execute only after authenticated provider command authorization.
 
@@ -312,7 +312,9 @@ def operate(
                                 admitted_contract(), intent["repository"],
                             )
                             current_repository = identity.expected_repository(current_contract, intent["repository"])
-                            if (current_repository != repository or current_contract.installation_id != contract.installation_id):
+                            if (current_repository != repository or current_contract.installation_id != contract.installation_id
+                                    or contract.repository_inventory_ref.get("kind") == "internal-instance-record"
+                                    and current_contract.repository_inventory_ref != contract.repository_inventory_ref):
                                 raise identity.IdentityError("canonical source admission changed before credential issuance")
                         state["pending"]["stage"] = "issuing"
                         state["pending"]["started_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

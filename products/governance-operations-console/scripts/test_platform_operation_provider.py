@@ -18,6 +18,9 @@ assert SPEC and SPEC.loader
 provider = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(provider)
 from test_agent_source_intent import source_input
+from test_agent_source_intent import admission_snapshot
+from test_console_instance_source import native as native_source_proof, POLICY as INSTANCE_POLICY, OWNER as INSTANCE_OWNER
+import yaml
 
 
 SOURCE = "a" * 40
@@ -25,6 +28,9 @@ SOURCE = "a" * 40
 
 def accepted_policy(root: Path) -> dict:
     value = provider.load_policy()
+    # Exercise the disabled transport separately from the installation's
+    # selected route. Enabling alone never replaces composed Security acceptance.
+    value["instance_records"] = {"enabled": False}
     # Stable synthetic actor, independent of the installed human principal.
     value["platform_operation_provider"]["operator_id"] = "operator:workspace-owner"
     value["workspace_root"] = str(root)
@@ -73,6 +79,174 @@ def command(policy: dict, *, action: str = "dev-integration.status", input_value
 
 
 class PlatformOperationProviderTests(unittest.TestCase):
+    def test_selected_internal_registration_still_requires_composed_security_acceptance(self):
+        policy = provider.load_policy()
+        with self.assertRaises(provider.ProviderError) as denied:
+            provider.require_security_activation(policy, SOURCE)
+        self.assertEqual(denied.exception.code, "platform_provider_security_gate_required")
+
+    def test_private_checkout_has_strict_authenticated_default_off_transport_and_no_command_journal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); policy = accepted_policy(root)
+            policy["security"]["reviewed_revisions"]["workspace-governance"] = INSTANCE_POLICY["revision"]
+            store = provider.OperationStore(root / "state")
+            service = provider.ProviderService(policy, root / "policy.yaml", store, SOURCE)
+            lookup = {"schema_version": 1, "owner_repo": INSTANCE_OWNER, "operation": "bootstrap", "action": "clone", "branch": "main", "expected_base": "a" * 40,
+                "authority_ref": {key: native_source_proof()["source_authority"][key] for key in ("canonical_authority", "record_ref", "policy_ref")}}
+            handler = provider.handler_for(service, "oos", "synthetic-owner-secret")
+            with provider.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+                target = f"http://127.0.0.1:{server.server_port}/v1/console-operations/source-checkout"
+                def request(value=lookup, secret="synthetic-owner-secret", suffix=""):
+                    return Request(target + suffix, data=json.dumps(value).encode(), headers={"x-platform-caller-id": "oos", "x-platform-caller-secret": secret})
+                try:
+                    with patch.object(provider, "activation_is_current", return_value=True), \
+                         patch.object(provider.private_checkout, "checkout", return_value={"synthetic": "checkout-receipt"}) as effect, \
+                         patch.object(provider, "spawn_worker") as worker:
+                        for req, code in ((request(secret="wrong"), 403), (request(), 503)):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertEqual(denied.exception.code, code); denied.exception.close()
+                        effect.assert_not_called(); policy["instance_records"] = {"enabled": True}
+                        for req in (request({**lookup, "destination": "/arbitrary/source"}), request(suffix="?token=forged")):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertEqual(denied.exception.code, 400); denied.exception.close()
+                        with urlopen(request(), timeout=2) as response: self.assertEqual(json.load(response), {"synthetic": "checkout-receipt"})
+                        self.assertEqual(effect.call_args.kwargs["workspace_root"], root)
+                        self.assertEqual(list(store.operations.glob("*.json")), []); worker.assert_not_called()
+                finally:
+                    server.shutdown(); thread.join()
+
+    def test_host_source_authority_read_is_authenticated_current_default_off_and_has_no_source_effect(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = accepted_policy(root)
+            policy["security"]["reviewed_revisions"]["workspace-governance"] = INSTANCE_POLICY["revision"]
+            store = provider.OperationStore(root / "state")
+            service = provider.ProviderService(policy, root / "policy.yaml", store, SOURCE)
+            lookup = {"schema_version": 1, "owner_repo": INSTANCE_OWNER, "operation": "ordinary-source"}
+            native = native_source_proof("ordinary-source")
+            reader = unittest.mock.Mock()
+            reader.read.return_value = SimpleNamespace(source_authority=native["source_authority"])
+            with patch.object(provider, "activation_is_current", return_value=True), \
+                 patch.object(provider.record_authority, "read_instance_source_policy", return_value=INSTANCE_POLICY), \
+                 patch.object(provider, "instance_source_connection", return_value=reader), \
+                 patch.object(provider.private_source, "inspect_owner_controls") as source_files, \
+                 patch.object(provider, "spawn_worker") as worker:
+                handler = provider.handler_for(service, "oos", "synthetic-owner-secret")
+                with provider.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+                    thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+                    target = f"http://127.0.0.1:{server.server_port}/v1/console-operations/source-authority/inspect"
+                    def request(value=lookup, secret="synthetic-owner-secret", suffix=""):
+                        return Request(target + suffix, data=json.dumps(value).encode(),
+                            headers={"x-platform-caller-id": "oos", "x-platform-caller-secret": secret})
+                    try:
+                        for req, code in ((request(secret="wrong"), 403), (request(), 503)):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertEqual(denied.exception.code, code); denied.exception.close()
+                        reader.read.assert_not_called()
+                        policy["instance_records"] = {"enabled": True}
+                        for req in (request({**lookup, "operation": []}), request({**lookup, "caller_secret": "forged"}), request(suffix="?instance_id=other")):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertEqual(denied.exception.code, 400); denied.exception.close()
+                        with urlopen(request(), timeout=2) as response: self.assertEqual(json.load(response), native)
+                        reader.read.assert_called_once_with(INSTANCE_OWNER, "ordinary-source")
+                        reader.read.return_value = None
+                        with urlopen(request(), timeout=2) as response:
+                            legacy = json.load(response)
+                        self.assertEqual(legacy["canonical_authority"], {"kind": "legacy-git", "repo": "workspace-governance", "revision": INSTANCE_POLICY["revision"]})
+                        reader.read.side_effect = provider.instance_source.InstanceSourceError("private dependency detail")
+                        with self.assertRaises(HTTPError) as denied: urlopen(request(), timeout=2)
+                        self.assertEqual(denied.exception.code, 503)
+                        self.assertNotIn("private dependency detail", denied.exception.read().decode()); denied.exception.close()
+                        source_files.assert_not_called(); worker.assert_not_called()
+                        self.assertEqual(list(store.operations.glob("*.json")), [])
+                    finally:
+                        server.shutdown(); thread.join()
+
+    def test_private_control_inspection_is_authenticated_default_off_strict_and_never_a_generic_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = accepted_policy(root)
+            store = provider.OperationStore(root / "state")
+            service = provider.ProviderService(policy, root / "policy.yaml", store, SOURCE)
+            lookup = {"schema_version": 1, "owner_repo": INSTANCE_OWNER, "operation": "bootstrap", "paths": ["AGENTS.md"],
+                "authority_ref": {key: native_source_proof()["source_authority"][key] for key in ("canonical_authority", "record_ref", "policy_ref")}}
+            handler = provider.handler_for(service, "oos", "synthetic-owner-secret")
+            with provider.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+                target = f"http://127.0.0.1:{server.server_port}/v1/console-operations/source-controls/inspect"
+                def request(raw=None, secret="synthetic-owner-secret", suffix=""):
+                    return Request(target + suffix, data=json.dumps(lookup).encode() if raw is None else raw,
+                        headers={"x-platform-caller-id": "oos", "x-platform-caller-secret": secret})
+                try:
+                    with patch.object(provider, "activation_is_current", return_value=True), \
+                         patch.object(provider.private_source, "inspect_owner_controls", return_value={"synthetic": "private-owner-files"}) as inspect, \
+                         patch.object(provider, "spawn_worker") as worker:
+                        for req, code in ((request(secret="wrong"), 403), (request(), 503)):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertEqual(denied.exception.code, code)
+                            denied.exception.close()
+                        inspect.assert_not_called()
+                        policy["instance_records"] = {"enabled": True}
+                        policy["security"]["reviewed_revisions"]["workspace-governance"] = INSTANCE_POLICY["revision"]
+                        for req in (request(b'{"owner_repo":"one","owner_repo":"two"}'), request(suffix="?instance_id=other"), request(b"x" * 16385)):
+                            with self.assertRaises(HTTPError) as denied: urlopen(req, timeout=2)
+                            self.assertIn(denied.exception.code, (400, 413))
+                            denied.exception.close()
+                        inspect.assert_not_called()
+                        with urlopen(request(), timeout=2) as response: self.assertEqual(json.load(response), {"synthetic": "private-owner-files"})
+                        inspect.assert_called_once()
+                        self.assertEqual(inspect.call_args.args[0], lookup)
+                        self.assertEqual(list(store.operations.glob("*.json")), [])
+                        worker.assert_not_called()
+                finally:
+                    server.shutdown(); thread.join()
+
+    def test_native_source_uses_a_fresh_independent_reader_and_resolves_actual_alias_by_provider_id(self):
+        from dataclasses import replace
+        legacy = admission_snapshot()
+        legacy = replace(legacy, inventory=yaml.safe_dump({"schema_version": 2, "repos": {}, "retired_repos": {}}).encode())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "private").mkdir(mode=0o700)
+            binding = root / "private/instance-source-reader.json"
+            binding.write_text(json.dumps({"schema_version": 1, "instance_id": "synthetic-installation", "base_url": "http://127.0.0.1:8080",
+                "caller_id": "platform-engineering-source-reader", "caller_secret": "p" * 32}))
+            binding.chmod(0o600)
+            policy = provider.load_policy()
+            policy.update(runtime_state_root=str(root), instance_records={"enabled": True})
+            policy["security"]["reviewed_revisions"]["workspace-governance"] = INSTANCE_POLICY["revision"]
+            intent = source_input()["source_intent"]
+            intent.update(repository="example-org/different-physical-name", repository_id=123)
+            with patch.object(provider.record_authority, "read_repository_admission", return_value=vars(legacy)), \
+                 patch.object(provider.record_authority, "read_instance_source_policy", return_value=INSTANCE_POLICY), \
+                 patch.object(provider.instance_source.InstanceSourceReader, "_fetch", return_value=native_source_proof("ordinary-source")) as read:
+                result = provider.source_inventory_snapshot(policy, intent)
+                self.assertEqual(result.owner_repo, INSTANCE_OWNER)
+                self.assertIn("/provider-repositories/github/123/source-authority?operation=ordinary-source", read.call_args.args[0].full_url)
+                self.assertEqual(read.call_args.args[0].get_header("X-wgcf-caller-id"), "platform-engineering-source-reader")
+                binding.chmod(0o644)
+                with self.assertRaises(provider.source_credentials.SourceIntentError) as failure:
+                    provider.source_inventory_snapshot(policy, intent)
+                self.assertEqual(failure.exception.code, "platform_source_authority_unavailable")
+                self.assertEqual(read.call_count, 1)
+
+    def test_unconfigured_native_reader_does_not_revoke_legacy_admission_or_fake_a_new_native_owner(self):
+        legacy = admission_snapshot()
+        with tempfile.TemporaryDirectory() as directory:
+            policy = provider.load_policy()
+            policy["runtime_state_root"] = directory
+            policy["security"]["reviewed_revisions"]["workspace-governance"] = "e" * 40
+            intent = source_input()["source_intent"]
+            intent.update(repository="mfshaf7-workspace/sample-owner", repository_id=123456789)
+            with patch.object(provider.record_authority, "read_repository_admission", return_value=vars(legacy)):
+                self.assertEqual(provider.source_inventory_snapshot(policy, intent), legacy)
+                policy["instance_records"] = {"enabled": True}
+                self.assertEqual(provider.source_inventory_snapshot(policy, intent), legacy)
+                intent.update(repository="example-org/new-private-owner", repository_id=321)
+                with self.assertRaises(provider.source_credentials.SourceIntentError): provider.source_inventory_snapshot(policy, intent)
+
     def test_case_1291_positive_catalog_is_exact_and_finite(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             policy = accepted_policy(Path(temp_dir))

@@ -20,6 +20,7 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import agent_source_intent as intents
+import agent_source_instance as instance_source
 import test_agent_source_identity as fixture
 
 
@@ -649,6 +650,63 @@ class BootstrapSourceIntentTests(unittest.TestCase):
             "workflow_write": workflow, "workflow_approval_ref": "operator:fixture-workflows-grant" if workflow else None,
         })
         return snapshot
+
+    def native_source(self, operation="bootstrap"):
+        legacy = self.bootstrap_source() if operation == "bootstrap" else self.verification_source()
+        collection = legacy.intake if operation == "bootstrap" else legacy.inventory
+        entry = yaml.safe_load(collection)["repos"]["sample-owner"]
+        phase = "intake" if operation == "bootstrap" else "inventory"
+        reference = {"id": "repo:sample-owner", "version": entry["record"]["version"], "digest": intents.digest({"phase": phase, **entry})}
+        authority = {"kind": "internal-instance-record", "instance_id": "synthetic-installation", "record_id": reference["id"]}
+        policy = {"repo": "workspace-governance", "revision": "d" * 40, "contract_digest": "sha256:" + "f" * 64}
+        proof = {"schema_version": 1, "owner_repo": "sample-owner", "classification": entry.get("status", "active"),
+            "inventory_posture": None if operation == "bootstrap" else "active", "intake_entry_ref": reference if operation == "bootstrap" else None,
+            "provider_repository": entry["provider_repository"], "owner_purpose": "Synthetic internal project",
+            "source_bootstrap_eligible": operation == "bootstrap", "ordinary_source_eligible": operation != "bootstrap",
+            "model_writes_allowed": False, "canonical_mutation": False, "runtime_activation": False,
+            "canonical_authority": authority, "record_ref": {key: reference[key] for key in ("version", "digest")}, "policy_ref": policy}
+        if operation == "bootstrap": proof["validation_behavior"] = entry["validation_behavior"]
+        else: proof.update(inventory_entry_ref=reference, verification_setup_eligible=True)
+        self.value["source_intent"]["subject"]["intake_entry_ref" if operation == "bootstrap" else "inventory_entry_ref"] = reference
+        return instance_source.InstanceSourceSnapshot("synthetic-installation", "sample-owner", operation, policy, proof)
+
+    def test_native_registration_bootstrap_uses_current_instance_authority_without_fake_git_evidence(self):
+        snapshot = self.native_source()
+        result = self.operate(inventory_reader=lambda: snapshot)
+        self.assertEqual(self.state.issued, [("sample-owner",)])
+        self.assertEqual(result["purpose"], "trusted-owner-bootstrap")
+        _, credential = self.credential()
+        self.assertEqual(credential["repository_id"], 123456789)
+        contract = intents.bootstrap.contract_from_snapshot(intents.identity.load_contract(self.args().contract), snapshot, self.value["source_intent"])
+        self.assertEqual(contract.repository_inventory_ref["kind"], "internal-instance-record")
+        self.assertEqual(contract.repository_inventory_ref["record_ref"], snapshot.source_authority["record_ref"])
+        self.assertNotIn("revision", contract.repository_inventory_ref)
+        self.assertNotIn("workflows", result["permissions"])
+
+    def test_native_active_verification_requires_its_current_inventory_ref_before_token_issuance(self):
+        snapshot = self.native_source("configure-verification")
+        self.assertEqual(self.operate(inventory_reader=lambda: snapshot)["purpose"], "trusted-owner-bootstrap")
+        self.assertEqual(self.state.issued, [("sample-owner",)])
+
+    def test_native_namespace_or_record_change_cannot_authorize_a_bootstrap_token(self):
+        snapshot = self.native_source()
+        wrong = intents.identity.replace(snapshot, instance_id="another-installation")
+        with self.assertRaises(intents.identity.IdentityError): self.operate(inventory_reader=lambda: wrong)
+        self.assertEqual(self.state.issued, [])
+        changed = deepcopy(snapshot)
+        changed.source_authority["record_ref"]["version"] += 1
+        changed.source_authority["intake_entry_ref"]["version"] += 1
+        calls = []
+        def reader():
+            calls.append(True)
+            return snapshot if len(calls) == 1 else changed
+        with self.assertRaises(intents.identity.IdentityError): self.operate(inventory_reader=reader)
+        self.assertEqual(self.state.issued, [])
+
+    def test_native_proposed_snapshot_cannot_be_used_for_ordinary_source(self):
+        snapshot = self.native_source()
+        with self.assertRaises(intents.identity.IdentityError):
+            intents.identity.contract_from_record_snapshot(intents.identity.load_contract(self.args().contract), snapshot)
 
     def verification_source(self):
         snapshot = self.bootstrap_source()

@@ -13,6 +13,7 @@ from pathlib import Path
 import tempfile
 import threading
 import test_console_observation_refresh as observation_tests
+from test_console_backend_connection import BackendConnectionTests
 from datetime import timedelta
 from contextlib import ExitStack
 import unittest
@@ -30,6 +31,27 @@ SPEC.loader.exec_module(runtime)
 
 
 class CompleteRuntimeTests(unittest.TestCase):
+    def test_connection_refresh_requires_accepted_source_and_preserves_owner_runtime(self):
+        policy = self.accepted_policy()
+        with (
+            patch.object(runtime, "resolve_security_decision", return_value=(policy, {})) as resolve,
+            patch.object(runtime, "require_activation_allowed") as allowed,
+            patch.object(runtime, "write_resolved_policies") as policies,
+            patch.object(runtime, "run") as run,
+            patch.object(runtime, "receipt", return_value=Path("receipt")),
+            patch.object(runtime, "deliver_repository_provisioning_identity") as credentials,
+            patch.object(runtime, "composition_command") as composition,
+        ):
+            runtime.refresh_connections(policy)
+            resolve.assert_called_once_with(policy)
+            allowed.assert_called_once_with(policy)
+            policies.assert_called_once_with(policy, {})
+            commands = [call.args[0] for call in run.call_args_list if call.args[0][0] != "git"]
+            self.assertEqual(len(commands), 1)
+            self.assertIn("refresh-connections", commands[0])
+            credentials.assert_not_called()
+            composition.assert_not_called()
+
     def test_provider_checks_require_same_boot_successful_core_signal(self):
         policy = self.accepted_policy()
         policy["model_management"] = {"enabled": True}

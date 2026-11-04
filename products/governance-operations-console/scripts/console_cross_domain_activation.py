@@ -23,6 +23,7 @@ from urllib.request import Request, urlopen
 import yaml
 import console_record_authority as record_authority
 import console_frontend_artifact as frontend
+import console_backend_connection as backend_connection
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -578,11 +579,35 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
     return path
 
 
-def write_units(policy: dict[str, Any], env_path: Path) -> None:
+def write_connection_units(policy: dict[str, Any]) -> None:
     UNIT_ROOT.mkdir(parents=True, exist_ok=True)
     k3s_path = shutil.which("k3s")
+    if not k3s_path:
+        raise ActivationError("validated runtime executable path is unavailable")
+    for role in ("oos", "wgcf"):
+        owner = policy["owners"][role]
+        content = f"""[Unit]
+Description=Governance Console {role.upper()} dev-integration tunnel
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart={sys.executable} {Path(backend_connection.__file__).resolve()} --k3s {k3s_path} --namespace {namespace(owner['namespace'])} --service {owner['service']} --local-port {owner['local_port']} --remote-port {owner['remote_port']}
+KillMode=control-group
+TimeoutStopSec=8
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+"""
+        (UNIT_ROOT / unit_name(role)).write_text(content, encoding="utf-8")
+
+
+def write_units(policy: dict[str, Any], env_path: Path) -> None:
+    UNIT_ROOT.mkdir(parents=True, exist_ok=True)
     npm_path = shutil.which("npm")
-    if not k3s_path or not npm_path:
+    if not npm_path:
         raise ActivationError("validated runtime executable path is unavailable")
     revision = console_source_revision(policy)
     try:
@@ -590,21 +615,7 @@ def write_units(policy: dict[str, Any], env_path: Path) -> None:
             stop_consumer=lambda: run(['systemctl', '--user', 'stop', unit_name('console')]))
     except frontend.FrontendArtifactError as exc:
         raise ActivationError(str(exc)) from None
-    for role in ("oos", "wgcf"):
-        owner = policy["owners"][role]
-        content = f"""[Unit]
-Description=Governance Console {role.upper()} dev-integration tunnel
-After=network.target
-
-[Service]
-ExecStart={k3s_path} kubectl -n {namespace(owner['namespace'])} port-forward service/{owner['service']} {owner['local_port']}:{owner['remote_port']} --address 127.0.0.1
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=default.target
-"""
-        (UNIT_ROOT / unit_name(role)).write_text(content, encoding="utf-8")
+    write_connection_units(policy)
     console = f"""[Unit]
 Description=Governance Operations Console cross-domain dev-integration
 Wants={unit_name('oos')} {unit_name('wgcf')}
@@ -1035,6 +1046,7 @@ def receipt(
     runtime_boundary: dict[str, Any] | None = None,
     repository_catalog_proof: dict[str, Any] | None = None,
     proposal_target_proof: dict[str, Any] | None = None,
+    proof_scope: dict[str, Any] | None = None,
 ) -> Path:
     ensure_private_directory(RECEIPT_ROOT)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -1047,7 +1059,7 @@ def receipt(
         "operator": operator(),
         "activation": policy["activation"],
         "architecture": policy["architecture"],
-        "proof_scope": policy["proof_scope"],
+        "proof_scope": policy["proof_scope"] if proof_scope is None else proof_scope,
         "source_revisions": expected_source_revisions(policy),
         "credential_boundary": {
             "browser_credentials_allowed": policy["credentials"]["browser_credentials_allowed"],
@@ -1126,6 +1138,29 @@ def status(policy: dict[str, Any]) -> Path:
         runtime_boundary=active_runtime_boundary(policy),
         repository_catalog_proof=catalog,
     )
+
+
+def refresh_connections(policy: dict[str, Any]) -> Path:
+    """Refresh accepted connection supervision without restarting owner workloads."""
+    validate(policy)
+    write_connection_units(policy)
+    run(["systemctl", "--user", "daemon-reload"])
+    units = [unit_name(role) for role in ("oos", "wgcf")]
+    run(["systemctl", "--user", "reset-failed", *units])
+    run(["systemctl", "--user", "restart", *units])
+    statuses = {}
+    for role in ("oos", "wgcf"):
+        for attempt in range(15):
+            status = backend_connection.probe(policy["owners"][role]["local_port"])
+            if status == 200:
+                statuses[role] = {"transport": "responsive", "liveness_http_status": status}
+                break
+            if attempt == 14:
+                raise ActivationError(f"{role} connection liveness is not confirmed")
+            time.sleep(1)
+    return receipt("refresh-connections", policy, {"scope": "backend-connection-liveness-only", "owners": statuses},
+        proof_scope={"includes": ["backend-connection-liveness"],
+                     "excludes": ["owner-workflow-readiness", "full-console-operating-readiness", "application-acceptance"]})
 
 
 def restart(policy: dict[str, Any]) -> Path:
@@ -1976,7 +2011,7 @@ def main() -> int:
             "validate", "activate", "status", "restart", "rehearse",
             "catalog-rehearse", "commission", "verify-commissioning",
             "proposal-target-commission", "verify-proposal-target-commissioning",
-            "rollback", "cleanup",
+            "rollback", "cleanup", "refresh-connections",
         ),
     )
     parser.add_argument(
@@ -2014,6 +2049,7 @@ def main() -> int:
             "activate": activate,
             "status": status,
             "restart": restart,
+            "refresh-connections": refresh_connections,
             "rehearse": rehearse,
             "catalog-rehearse": catalog_rehearse,
             "commission": commission,

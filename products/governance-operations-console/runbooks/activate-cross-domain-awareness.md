@@ -53,6 +53,12 @@ build export and serves its source-bound standalone artifact, with static assets
 and runtime memory containment. The full operating and development procedure is
 in [Operate the complete Console runtime](operate-complete-runtime.md#everyday-frontend-development-and-memory).
 
+Both existing owner connections also detect a tunnel process that remains alive
+but stops responding. Use the
+[connection recovery procedure](operate-complete-runtime.md#backend-connection-recovery)
+for accepted-source connection-only refresh and its scope limits. No separate
+watchdog timer or owner-workload restart is introduced.
+
 ## Rehearsal
 
 ```bash

@@ -1,5 +1,13 @@
 # Console Platform Integration Scripts
 
+`console_backend_connection.py` supervises each existing OOS/WGCF loopback
+tunnel. It detects a child that stays alive but stops responding, reaps only
+that process group and lets the existing service reconnect. No new timer or
+backend authority is introduced. Use the complete-runtime
+`refresh-connections` action and the
+[primary procedure](../runbooks/operate-complete-runtime.md#backend-connection-recovery),
+not direct helper arguments.
+
 `console_artifact_recovery.py` connects the finite shared image checker to the
 existing lifecycle, owner locks, maintenance timer and retained supervisor. The
 frontend helper also rebuilds proven corrupt derived output once per incident.

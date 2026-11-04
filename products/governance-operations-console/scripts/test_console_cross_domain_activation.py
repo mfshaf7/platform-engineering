@@ -229,6 +229,7 @@ class CrossDomainActivationTests(unittest.TestCase):
                 self.assertEqual(call.args[0][:2], ["systemctl", "--user"])
                 self.assertNotIn(activation.unit_name("console"), call.args[0])
             self.assertEqual(receipt.call_args.args[2]["scope"], "backend-connection-liveness-only")
+            self.assertEqual(receipt.call_args.kwargs["proof_scope"]["includes"], ["backend-connection-liveness"])
 
     def test_private_state_directory_is_hardened_when_it_already_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

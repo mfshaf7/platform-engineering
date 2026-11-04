@@ -1046,6 +1046,7 @@ def receipt(
     runtime_boundary: dict[str, Any] | None = None,
     repository_catalog_proof: dict[str, Any] | None = None,
     proposal_target_proof: dict[str, Any] | None = None,
+    proof_scope: dict[str, Any] | None = None,
 ) -> Path:
     ensure_private_directory(RECEIPT_ROOT)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -1058,7 +1059,7 @@ def receipt(
         "operator": operator(),
         "activation": policy["activation"],
         "architecture": policy["architecture"],
-        "proof_scope": policy["proof_scope"],
+        "proof_scope": policy["proof_scope"] if proof_scope is None else proof_scope,
         "source_revisions": expected_source_revisions(policy),
         "credential_boundary": {
             "browser_credentials_allowed": policy["credentials"]["browser_credentials_allowed"],
@@ -1157,7 +1158,9 @@ def refresh_connections(policy: dict[str, Any]) -> Path:
             if attempt == 14:
                 raise ActivationError(f"{role} connection liveness is not confirmed")
             time.sleep(1)
-    return receipt("refresh-connections", policy, {"scope": "backend-connection-liveness-only", "owners": statuses})
+    return receipt("refresh-connections", policy, {"scope": "backend-connection-liveness-only", "owners": statuses},
+        proof_scope={"includes": ["backend-connection-liveness"],
+                     "excludes": ["owner-workflow-readiness", "full-console-operating-readiness", "application-acceptance"]})
 
 
 def restart(policy: dict[str, Any]) -> Path:

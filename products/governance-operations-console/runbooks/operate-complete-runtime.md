@@ -1,5 +1,67 @@
 # Operate the complete Console runtime
 
+## Private source and internal records — unpublished maintenance
+
+Operator-approved maintenance extends the existing source controls to project
+registrations held in installation-private operational storage. Landing Unit
+decision `feature_single_landing_unit`, `maintenance-private-source-platform`.
+This candidate is not runtime acceptance or permission to activate it.
+
+Platform must independently read current installation-bound source eligibility
+before issuing a project credential. Legacy Git admission keeps its existing
+reader; native authority must not be represented as a fictitious Git record or
+trusted from a caller-supplied digest. A distinct read-only Platform binding to
+the existing WGCF authority endpoint must not grant registration writes, generic
+record export or reconciliation.
+
+Private inspection reuses the approved Source App, verifies its full installation
+contract, then reduces the temporary token to Contents/Metadata read for exactly
+one canonical repository. The finite bootstrap control-file allowlist, bounded
+regular Git tree/blob checks and unconditional token revocation remain required.
+The Metadata App, browser, ordinary model requests and public Studio records
+must not receive private source contents or the token. Existing source write,
+review, merge and revocation procedures remain the effect boundary.
+
+The same protected provider exposes a separate source-authority inspection
+read for the synchronous OOS host admission interface. It returns only current
+registration eligibility and carries no source key, token, file content or
+generic operation journal. It requires current accepted source and recovery
+health, compares policy before and after the WGCF read, and denies namespace
+substitution. OOS checks that policy against its own exact accepted cache bytes.
+The separate finite checkout transport derives its managed destination beneath
+`.worktrees/instance-sources/<installation namespace>/repositories/` and permits
+only clone, fetch and exact branch-reference reads. The read token stays in
+Platform, in a temporary private askpass file removed before return, and is
+revoked on success or failure. No caller destination, URL, command or token is
+accepted. Git failures and uncertain revocation preserve the checkout and
+withhold completion. Native project files are never copied into public root
+owner indexes or automatic model requests.
+
+When the accepted policy explicitly enables `instance_records`, the existing
+complete-runtime startup prepares one private `instance-installation.json`
+before derived source-reader/host bindings. Retries retain the same identity
+and source-reader secret; missing original state with retained derived bindings
+blocks recovery rather than generating a replacement installation. The host
+uses its existing authenticated OOS-to-Platform private CNI connection. Its
+RFC1918 HTTP allowance applies only to that commissioned host connection.
+After composition startup, the lifecycle verifies the existing WGCF migration
+contains `0016_instance_records` (or a proven descendant), then projects native
+flags and the distinct source-only read role. It uses the original OOS role for
+registration writes. No per-project account grant or new database is created.
+Do not enable this candidate before exact-source acceptance and batch review.
+
+The approved publication selects `instance_records.enabled` in this installation's
+canonical complete-runtime policy. Backend/native transport defaults still deny
+an absent or disabled binding. This selection performs no activation: the policy
+retains `security.status: pending`, and the normal lifecycle must verify the exact
+landed source set, accepted Security decision and migration before commissioning
+the private connections and native owner flags. Do not edit a running environment
+or add a second policy overlay to bypass those checks.
+
+Publication, exact-source Security acceptance, explicit composition activation
+and a real operating witness remain separate later steps. This unpublished
+preparation changes no live provider permission, service or business record.
+
 ## Backend connection recovery
 
 Live and preview Console servers share the two existing loopback OOS/WGCF

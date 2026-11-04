@@ -123,6 +123,11 @@ These support shared platform operations:
     real Delivery/Prototype binding, private tombstones and secret-free receipts
   - no standalone mint command, new daemon, source writer or bootstrap grant;
     primary procedure: [Agent source identity](../docs/components/operator-orchestration-service/agent-source-identity.md)
+- `agent_source_instance.py`
+  - validates the existing issuer's installation-bound source eligibility proof
+    without rewriting internal registration as Git inventory
+  - preserves exact owner version, policy, provider identity and finite setup
+    purpose; performs no API call, credential issuance or source mutation itself
 - `test_workspace_intake_identity.py`
   - checks exact scope and permissions, provider mismatch denials, runtime
     delivery and teardown, direct Intake/Inventory readiness, identity binding,

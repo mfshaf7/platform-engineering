@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,9 @@ import console_governed_products as governed_products
 import console_release_dispatch as release_dispatch
 import agent_source_intent as source_credentials
 import console_record_authority as record_authority
+import console_instance_source as instance_source
+import console_private_source as private_source
+import console_private_checkout as private_checkout
 import console_artifact_recovery as artifact_recovery
 import prototype_closure_disposition as closure_disposition
 import prototype_closure_evidence as closure_evidence
@@ -77,7 +81,7 @@ def now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def source_inventory_snapshot(policy: dict[str, Any]) -> source_credentials.identity.RepositoryInventorySnapshot:
+def source_inventory_snapshot(policy: dict[str, Any], source_intent: dict[str, Any] | None = None) -> source_credentials.identity.RepositoryInventorySnapshot | source_credentials.identity.InstanceSourceSnapshot:
     if policy.get("record_authority", {}).get("enabled") is not True:
         raise ProviderError(409, "platform_source_inventory_unavailable", "Source issuance requires current canonical record authority.")
     reviewed = policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
@@ -86,7 +90,48 @@ def source_inventory_snapshot(policy: dict[str, Any]) -> source_credentials.iden
     # Fixed owner-selected cache. No HTTP field can choose its path, revision,
     # schema, provider binding or freshness checkpoint.
     cache = Path(policy["runtime_state_root"]) / "record-authority"
-    return source_credentials.identity.RepositoryInventorySnapshot(**record_authority.read_repository_admission(cache, reviewed))
+    legacy = source_credentials.identity.RepositoryInventorySnapshot(**record_authority.read_repository_admission(cache, reviewed))
+    if policy.get("instance_records", {}).get("enabled") is not True or source_intent is None:
+        return legacy
+    # Current positive legacy admission can authorize its original repository.
+    # A missing legacy repository cannot select a guessed basename or fallback.
+    if source_intent.get("purpose") == "ordinary-source":
+        known = source_credentials.identity.contract_from_record_snapshot(
+            source_credentials.identity.load_contract(REPO_ROOT / "security/agent-source-identity.yaml"), legacy)
+        if any(repo.full_name == source_intent.get("repository") and repo.provider_repository_id == source_intent.get("repository_id") for repo in known.repositories):
+            return legacy
+    try:
+        reader = instance_source_connection(policy, cache, reviewed)
+        if source_intent.get("purpose") == "trusted-owner-bootstrap":
+            subject = source_intent.get("subject", {})
+            operation = "configure-verification" if subject.get("operation") == "configure-verification" else "bootstrap"
+            current = reader.read(subject.get("owner_repo"), operation)
+        else:
+            current = reader.read_provider(str(source_intent.get("repository_id")), source_intent.get("repository"), "ordinary-source")
+        return current if current is not None else legacy
+    except (instance_source.InstanceSourceError, record_authority.RecordAuthorityError, OSError, ValueError, TypeError):
+        raise source_credentials.SourceIntentError("platform_source_authority_unavailable",
+            "Current source authority is unavailable or changed. Restore its connection and retry the original request.") from None
+
+
+def instance_source_connection(policy: dict[str, Any], cache: Path, reviewed: str) -> instance_source.InstanceSourceReader:
+    # The complete-runtime owner supplies this private binding after exact
+    # acceptance. HTTP command input cannot choose its file, caller or endpoint.
+    private = Path(policy["runtime_state_root"]) / "private"
+    if private.is_symlink():
+        raise instance_source.InstanceSourceError("The private source-reader binding is unavailable.")
+    descriptor = os.open(private / "instance-source-reader.json", os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) & 0o077 or info.st_size > 16384:
+            raise instance_source.InstanceSourceError("The private source-reader binding is invalid.")
+        binding = json.loads(stream.read(16385), object_pairs_hook=instance_source.strict_object)
+    if (not isinstance(binding, dict) or set(binding) != {"schema_version", "instance_id", "base_url", "caller_id", "caller_secret"}
+            or type(binding["schema_version"]) is not int or binding["schema_version"] != 1
+            or binding["caller_id"] != "platform-engineering-source-reader"):
+        raise instance_source.InstanceSourceError("The source-reader binding does not identify the protected Platform reader.")
+    return instance_source.InstanceSourceReader(base_url=binding["base_url"], caller_id=binding["caller_id"], caller_secret=binding["caller_secret"],
+        instance_id=binding["instance_id"], policy_reader=lambda: record_authority.read_instance_source_policy(cache, reviewed))
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -528,7 +573,7 @@ def _execute_worker(store: OperationStore, policy: dict[str, Any], command_id: s
                     input_value=record["command"]["input"],
                     caller_id=policy["platform_operation_provider"]["caller_id"],
                     operator_id=policy["platform_operation_provider"]["operator_id"],
-                    inventory_reader=lambda: source_inventory_snapshot(policy),
+                    inventory_reader=lambda: source_inventory_snapshot(policy, record["command"]["input"]["source_intent"]),
                 )
                 returncode = 0
                 log.write("Exact source-intent credential operation completed; secret-free receipt retained.\n")
@@ -642,6 +687,99 @@ class ProviderService:
         except Exception:
             raise ProviderError(503, "platform_closure_disposition_unavailable",
                 "Exact current graduation and managed runtime absence are not proven.") from None
+
+    def inspect_source_authority(self, body: Any) -> dict[str, Any]:
+        """Host admission read only; no source key, token or operation journal."""
+        if (not isinstance(body, dict) or set(body) != {"schema_version", "owner_repo", "operation"}
+                or type(body["schema_version"]) is not int or body["schema_version"] != 1
+                or not isinstance(body["owner_repo"], str) or not instance_source.NAME.fullmatch(body["owner_repo"])
+                or not isinstance(body["operation"], str) or body["operation"] not in instance_source.OPERATIONS):
+            raise ProviderError(400, "platform_source_authority_input_invalid", "Select one source owner and operation.")
+        if self.policy.get("instance_records", {}).get("enabled") is not True:
+            raise ProviderError(503, "platform_source_authority_disabled", "Internal source admission is not enabled in the accepted composition.")
+        require_security_activation(self.policy, self.source_version)
+        if not activation_is_current(self.policy, self.source_version):
+            raise ProviderError(503, "platform_source_authority_inactive", "Current accepted source admission is required.")
+        root = Path(self.policy["runtime_state_root"])
+        reviewed = self.policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
+        if not isinstance(reviewed, str) or not re.fullmatch(r"[0-9a-f]{40}", reviewed):
+            raise ProviderError(503, "platform_source_authority_unconfigured", "The accepted source policy binding is required.")
+        try:
+            with artifact_recovery.owner_guard(root, exclusive=False):
+                if artifact_recovery.blocked(root):
+                    raise ProviderError(503, "platform_source_authority_recovery_required", "Restore the accepted source authority before continuing.")
+                policy = record_authority.read_instance_source_policy(root / "record-authority", reviewed)
+                snapshot = instance_source_connection(self.policy, root / "record-authority", reviewed).read(body["owner_repo"], body["operation"])
+                if record_authority.read_instance_source_policy(root / "record-authority", reviewed) != policy:
+                    raise instance_source.InstanceSourceError("The current source policy changed during admission.")
+                if snapshot is None:
+                    return {"schema_version": 1, "canonical_authority": {"kind": "legacy-git", "repo": "workspace-governance", "revision": policy["revision"]},
+                        "record_id": f"repo:{body['owner_repo']}"}
+                return {"schema_version": 1, "canonical_authority": snapshot.source_authority["canonical_authority"],
+                    "source_authority": snapshot.source_authority}
+        except ProviderError:
+            raise
+        except (instance_source.InstanceSourceError, record_authority.RecordAuthorityError, artifact_recovery.RecoveryDeferred, OSError, ValueError, TypeError):
+            raise ProviderError(503, "platform_source_authority_unavailable", "Current source admission is unavailable; no alternate authority was selected.") from None
+
+    def source_checkout(self, body: Any) -> dict[str, Any]:
+        if self.policy.get("instance_records", {}).get("enabled") is not True:
+            raise ProviderError(503, "platform_private_checkout_disabled", "Private checkout is not enabled in the accepted composition.")
+        require_security_activation(self.policy, self.source_version)
+        if not activation_is_current(self.policy, self.source_version):
+            raise ProviderError(503, "platform_private_checkout_inactive", "Current accepted source is required for private checkout.")
+        try:
+            value = private_checkout.validate_input(body)
+        except private_source.PrivateSourceError as exc:
+            raise ProviderError(400, "platform_private_checkout_input_invalid", str(exc)) from None
+        root = Path(self.policy["runtime_state_root"])
+        reviewed = self.policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
+        if not isinstance(reviewed, str) or not re.fullmatch(r"[0-9a-f]{40}", reviewed):
+            raise ProviderError(503, "platform_private_checkout_unconfigured", "The accepted source policy binding is required.")
+        try:
+            with artifact_recovery.owner_guard(root, exclusive=False):
+                if artifact_recovery.blocked(root):
+                    raise ProviderError(503, "platform_private_checkout_recovery_required", "Restore the accepted runtime before private checkout.")
+                def current():
+                    return instance_source_connection(self.policy, root / "record-authority", reviewed).read(value["owner_repo"], value["operation"])
+                args = argparse.Namespace(contract=REPO_ROOT / "security/agent-source-identity.yaml", sandbox=False, vault_command="vault", private_key_file=None)
+                return private_checkout.checkout(value, workspace_root=Path(self.policy["workspace_root"]), private_root=root / "private",
+                    snapshot_reader=current, args=args)
+        except ProviderError:
+            raise
+        except (private_source.PrivateSourceError, instance_source.InstanceSourceError, record_authority.RecordAuthorityError,
+                artifact_recovery.RecoveryDeferred, OSError, ValueError, TypeError):
+            raise ProviderError(503, "platform_private_checkout_unavailable", "Authenticated checkout could not complete; preserve its source and retry the original request.") from None
+
+    def inspect_owner_controls(self, body: Any) -> dict[str, Any]:
+        if self.policy.get("instance_records", {}).get("enabled") is not True:
+            raise ProviderError(503, "platform_private_source_disabled", "Private source inspection is not enabled in the accepted composition.")
+        require_security_activation(self.policy, self.source_version)
+        if not activation_is_current(self.policy, self.source_version):
+            raise ProviderError(503, "platform_private_source_inactive", "The current reviewed runtime is required for private source inspection.")
+        try:
+            value = private_source.validate_input(body)
+        except private_source.PrivateSourceError as exc:
+            raise ProviderError(400, "platform_private_source_input_invalid", str(exc)) from None
+        root = Path(self.policy["runtime_state_root"])
+        try:
+            with artifact_recovery.owner_guard(root, exclusive=False):
+                if artifact_recovery.blocked(root):
+                    raise ProviderError(503, "platform_private_source_recovery_required", "Restore the accepted runtime before source inspection.")
+                reviewed = self.policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
+                if not isinstance(reviewed, str) or not re.fullmatch(r"[0-9a-f]{40}", reviewed):
+                    raise ProviderError(503, "platform_private_source_authority_unconfigured", "The accepted source policy binding is required.")
+                def current():
+                    return instance_source_connection(self.policy, root / "record-authority", reviewed).read(value["owner_repo"], value["operation"])
+                args = argparse.Namespace(contract=REPO_ROOT / "security/agent-source-identity.yaml", sandbox=False,
+                    vault_command="vault", private_key_file=None)
+                # The private file bytes bypass generic command/event journals.
+                return private_source.inspect_owner_controls(value, snapshot_reader=current, args=args)
+        except ProviderError:
+            raise
+        except (private_source.PrivateSourceError, instance_source.InstanceSourceError, record_authority.RecordAuthorityError,
+                artifact_recovery.RecoveryDeferred, OSError, ValueError, TypeError):
+            raise ProviderError(503, "platform_private_source_unavailable", "The current protected source inspection could not be completed; no contents were returned.") from None
 
     def submit(self, body: Any) -> tuple[int, dict[str, Any]]:
         raw = body.get("command") if isinstance(body, dict) else None
@@ -865,16 +1003,16 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
             observed_secret = self.headers.get("x-platform-caller-secret", "")
             return hmac.compare_digest(observed_id, caller_id) and hmac.compare_digest(observed_secret, caller_secret)
 
-        def body(self) -> Any:
+        def body(self, *, max_bytes: int = 524288, strict: bool = False) -> Any:
             try:
                 length = int(self.headers.get("content-length", "0"))
             except ValueError:
                 raise ProviderError(400, "platform_provider_request_invalid", "Request length is invalid.") from None
-            if length < 0 or length > 524_288:
+            if length < 0 or length > max_bytes:
                 raise ProviderError(413, "platform_provider_request_too_large", "Request is too large.")
             try:
-                return json.loads(self.rfile.read(length))
-            except json.JSONDecodeError:
+                return json.loads(self.rfile.read(length), **({"object_pairs_hook": instance_source.strict_object, "parse_constant": instance_source.invalid_constant} if strict else {}))
+            except (ValueError, UnicodeError):
                 raise ProviderError(400, "platform_provider_request_invalid", "Request body is invalid JSON.") from None
 
         def respond(self, status: int, value: dict[str, Any]) -> None:
@@ -918,6 +1056,21 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                     return
                 if self.command == "POST" and path == "/v1/console-operations/prototype-closure-dispositions":
                     self.respond(200, service.closure_disposition(self.body()))
+                    return
+                if self.command == "POST" and path == "/v1/console-operations/source-authority/inspect":
+                    if urlparse(self.path).query:
+                        raise ProviderError(400, "platform_source_authority_input_invalid", "Source admission does not accept query selectors.")
+                    self.respond(200, service.inspect_source_authority(self.body(max_bytes=16384, strict=True)))
+                    return
+                if self.command == "POST" and path == "/v1/console-operations/source-checkout":
+                    if urlparse(self.path).query:
+                        raise ProviderError(400, "platform_private_checkout_input_invalid", "Checkout does not accept query selectors.")
+                    self.respond(200, service.source_checkout(self.body(max_bytes=16384, strict=True)))
+                    return
+                if self.command == "POST" and path == "/v1/console-operations/source-controls/inspect":
+                    if urlparse(self.path).query:
+                        raise ProviderError(400, "platform_private_source_input_invalid", "Source inspection does not accept query selectors.")
+                    self.respond(200, service.inspect_owner_controls(self.body(max_bytes=16384, strict=True)))
                     return
                 control = re.fullmatch(r"/v1/console-operations/([^/]+)/controls", path)
                 if self.command == "POST" and control:

@@ -36,6 +36,7 @@ import console_profile_requests as profile_requests
 import console_observation_refresh as observation_refresh
 import console_durable_composition as durable_composition
 import console_artifact_recovery as artifact_recovery
+import console_instance_records as instance_records
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -1918,6 +1919,9 @@ def activate(policy: dict[str, Any]) -> Path:
         oos_repo=repo_path("operator-orchestration-service"), run=run)
     refresh_record_authorities(policy)
     print("Console startup: starting composition participants", flush=True)
+    if instance_records.enabled(policy):
+        activation = yaml.safe_load((repo_path("platform-engineering") / "products/governance-operations-console/cross-domain-activation-policy.yaml").read_text())
+        instance_records.prepare(policy, state_root=STATE_ROOT, gateway=cni_gateway(), provider_secret=credential(), wgcf_port=activation["owners"]["wgcf"]["local_port"])
     run(composition_command(policy, "up"))
     # Full composition startup may take longer than the data freshness window.
     refresh_record_authorities(policy)
@@ -1930,6 +1934,7 @@ def activate(policy: dict[str, Any]) -> Path:
     print("Console startup: checking consumed owner bindings", flush=True)
     apply_kubernetes_binding(policy, gateway, secret)
     apply_record_authority_binding(policy)
+    instance_records.bind(policy, state_root=STATE_ROOT, operator=operator(), run=run)
     model_management.bind_oos(policy, state_root=STATE_ROOT,
         namespace=policy["runtime"]["namespace_pattern"].format(operator=operator()),
         operator_id=policy["platform_operation_provider"]["operator_id"], run=run)

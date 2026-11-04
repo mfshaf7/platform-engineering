@@ -79,6 +79,8 @@ record_authority:
   owner_repos:
     - workspace-governance
     - workspace-prototype-studio
+instance_records:
+  enabled: true
 source_realization:
   enabled: true
   profile_id: source-realization-v1

@@ -82,9 +82,16 @@ def validate_projection(value: dict[str, Any]) -> dict[str, Any]:
     return dict(value)
 
 
-def contract_from_snapshot(contract: identity.Contract, snapshot: identity.RepositoryInventorySnapshot, intent: dict[str, Any]) -> identity.Contract:
+def contract_from_snapshot(contract: identity.Contract, snapshot: identity.RepositoryInventorySnapshot | identity.InstanceSourceSnapshot, intent: dict[str, Any]) -> identity.Contract:
     subject = intent["subject"]
     validate_subject(subject)
+    from agent_source_instance import InstanceSourceSnapshot, contract_from_snapshot as instance_contract
+    if isinstance(snapshot, InstanceSourceSnapshot):
+        current = instance_contract(contract, snapshot, subject=subject)
+        repository = current.repositories[0]
+        if repository.full_name != intent["repository"] or repository.provider_repository_id != intent["repository_id"]:
+            raise identity.IdentityError("owner setup provider identity differs from its current internal record")
+        return current
     # Reuse the existing canonical schema/uniqueness/legacy protections; this
     # result alone still cannot grant ordinary source for the proposed owner.
     checked = identity.contract_from_record_snapshot(contract, snapshot)

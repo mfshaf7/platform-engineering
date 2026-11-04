@@ -253,6 +253,14 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
             or not provider.DIGEST.fullmatch(str(reference.get("digest", "")))
         ):
             raise RuntimeError(f"complete runtime repository {name} is invalid")
+    custody = policy.get("repository_custody")
+    if custody is not None:
+        reference = custody.get("credential_binding_ref") if isinstance(custody, dict) else None
+        if (not isinstance(custody, dict) or set(custody) != {"credential_binding_ref"}
+                or not isinstance(reference, dict) or set(reference) != {"uri", "digest"}
+                or reference.get("uri") != "platform-engineering://credential-bindings/repository-custody-github-app-v1"
+                or not provider.DIGEST.fullmatch(str(reference.get("digest", "")))):
+            raise RuntimeError("complete runtime repository custody binding is invalid")
     identity = repository.get("identity")
     if (
         not isinstance(identity, dict)
@@ -559,6 +567,8 @@ def resolved_activation_policy(policy: dict[str, Any]) -> dict[str, Any]:
         "repository_custody": {
             "policy_profile_ref": policy["repository_provisioning"]["policy_profile_ref"],
             "provisioning_credential_binding_ref": policy["repository_provisioning"]["credential_binding_ref"],
+            **({"credential_binding_ref": policy["repository_custody"]["credential_binding_ref"]}
+               if policy.get("repository_custody") else {}),
             "wgcf_readiness_enabled": True,
         },
         "prototype_preview": {

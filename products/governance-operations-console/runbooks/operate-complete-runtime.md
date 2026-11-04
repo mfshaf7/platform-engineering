@@ -122,6 +122,24 @@ permit restart after revocation. Credential consumption and actual GitHub
 health are separate checks. Customer-facing setup remains outside this local
 operator procedure's qualification.
 
+Existing-repository linking uses the separate nonsecret
+`repository_custody.credential_binding_ref` in the complete-runtime policy. Its
+URI identifies `repository-custody-github-app-v1`; its digest comes from the
+validated account reader delivery receipt, not the creation credential. Check
+the protected receipt against the reader's account contract, Secret and consumed
+OOS binding before accepting or changing this reference. Normal activation
+projects it as the two server-only `REPOSITORY_CUSTODY_CREDENTIAL_BINDING_*`
+values. Omitting it leaves link submission unavailable and preserves lookup and
+repository creation. Never substitute the provisioning binding.
+
+The reference records the account/App/installation/metadata scope, not a token
+or current connection health. Normal token renewal preserves it; changing the
+selected account or installation requires reconciling the reference and accepted
+configuration before activation. Revocation and provider failure still deny
+owner readback/submission; a configured reference alone proves neither health
+nor successful linking. Existing operator confirmation, OOS authorization,
+WGCF readiness and canonical custody readback remain required.
+
 ## Console capability completion
 
 Epic1332 extends this same lifecycle; it does not create a second runtime or

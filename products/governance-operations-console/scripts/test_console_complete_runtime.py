@@ -737,9 +737,25 @@ class CompleteRuntimeTests(unittest.TestCase):
             policy["repository_provisioning"]["credential_binding_ref"],
         )
         self.assertEqual(activation["authority"]["security_revision"], "f" * 40)
+        self.assertEqual(activation["repository_custody"]["credential_binding_ref"],
+                         policy["repository_custody"]["credential_binding_ref"])
+        self.assertNotEqual(activation["repository_custody"]["credential_binding_ref"],
+                            activation["repository_custody"]["provisioning_credential_binding_ref"])
         self.assertEqual(activation["authority"]["workspace_governance_binding"], "reviewed-record-only")
         self.assertEqual(set(activation["architecture"]["security_review_revisions"]), set(revisions.values()))
         self.assertFalse((runtime.PRODUCT_ROOT / "complete-runtime-activation-policy.yaml").exists())
+
+    def test_custody_binding_rejects_creation_identity_and_invalid_digest(self) -> None:
+        policy = runtime.validate_policy()
+        for reference in (policy["repository_provisioning"]["credential_binding_ref"],
+                          {**policy["repository_custody"]["credential_binding_ref"], "digest": "invalid"}):
+            with self.subTest(reference=reference), tempfile.TemporaryDirectory() as directory:
+                changed = json.loads(json.dumps(policy))
+                changed["repository_custody"]["credential_binding_ref"] = reference
+                path = Path(directory) / "policy.yaml"
+                path.write_text(runtime.yaml.safe_dump(changed))
+                with self.assertRaisesRegex(RuntimeError, "repository custody binding"):
+                    runtime.validate_policy(path)
 
     def test_real_git_squash_acceptance_binds_runtime_without_rewriting_review_provenance(self) -> None:
         policy = runtime.validate_policy()

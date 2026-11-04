@@ -338,13 +338,18 @@ def validate(policy: dict[str, Any]) -> None:
             raise ActivationError("the Console session projection policy is unavailable")
     repository_custody = policy.get("repository_custody")
     if repository_custody is not None:
-        if not isinstance(repository_custody, dict) or set(repository_custody) != {
+        required_custody = {
             "policy_profile_ref",
             "provisioning_credential_binding_ref",
             "wgcf_readiness_enabled",
-        }:
+        }
+        if (not isinstance(repository_custody, dict)
+                or not required_custody.issubset(repository_custody)
+                or set(repository_custody) - required_custody - {"credential_binding_ref"}):
             raise ActivationError("the repository-custody runtime binding is invalid")
-        for name in ("policy_profile_ref", "provisioning_credential_binding_ref"):
+        for name in ("policy_profile_ref", "provisioning_credential_binding_ref", "credential_binding_ref"):
+            if name == "credential_binding_ref" and name not in repository_custody:
+                continue
             reference = repository_custody.get(name)
             if (
                 not isinstance(reference, dict)
@@ -355,6 +360,10 @@ def validate(policy: dict[str, Any]) -> None:
                 or not re.fullmatch(r"sha256:[0-9a-f]{64}", reference["digest"])
             ):
                 raise ActivationError(f"the repository-custody {name} is invalid")
+        if ("credential_binding_ref" in repository_custody
+                and repository_custody["credential_binding_ref"]["uri"] !=
+                "platform-engineering://credential-bindings/repository-custody-github-app-v1"):
+            raise ActivationError("the repository-custody reader identity is invalid")
         if repository_custody.get("wgcf_readiness_enabled") is not True:
             raise ActivationError("WGCF repository-custody readiness is not enabled")
     security = repo_path("security-architecture")
@@ -543,6 +552,12 @@ def write_private_env(policy: dict[str, Any], oos_secret: str, history_secret: s
             f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_URI={credential_ref['uri']}",
             f"REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_DIGEST={credential_ref['digest']}",
         ])
+        custody_ref = repository_custody.get("credential_binding_ref")
+        if custody_ref is not None:
+            values.extend([
+                f"REPOSITORY_CUSTODY_CREDENTIAL_BINDING_URI={custody_ref['uri']}",
+                f"REPOSITORY_CUSTODY_CREDENTIAL_BINDING_DIGEST={custody_ref['digest']}",
+            ])
     preview = policy.get("prototype_preview")
     if preview:
         values.extend([

@@ -2045,6 +2045,15 @@ def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     return result
 
 
+def refresh_connections(policy: dict[str, Any]) -> Path:
+    policy, activation = resolve_security_decision(policy)
+    require_activation_allowed(policy)
+    write_resolved_policies(policy, activation)
+    run(cross_domain_command("refresh-connections"))
+    return receipt("refresh-connections", policy, {"scope": "backend-connection-liveness-only",
+        "owner_workloads_restarted": False, "credentials_renewed": False})
+
+
 def restart(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     write_resolved_policies(policy, activation)
@@ -2363,7 +2372,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "refresh-observations", "install-integrity", "check-integrity"),
+        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "refresh-observations", "refresh-connections", "install-integrity", "check-integrity"),
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
@@ -2385,6 +2394,7 @@ def main() -> int:
             "verify-operating": verify_operating,
             "refresh-credentials": refresh_repository_credentials,
             "refresh-observations": refresh_observations,
+            "refresh-connections": refresh_connections,
             "install-integrity": install_integrity,
             "check-integrity": check_integrity,
         }

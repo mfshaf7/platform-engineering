@@ -1,5 +1,40 @@
 # Operate the complete Console runtime
 
+## Backend connection recovery
+
+Live and preview Console servers share the two existing loopback OOS/WGCF
+connections. Their services supervise the tunnel child and probe `/healthz`
+every ten seconds, with a two-second request timeout. Three consecutive
+transport failures recycle only that child; initial startup has a twenty-second
+grace. After cleanup, systemd waits five seconds before reconnecting. An HTTP
+error is a responding backend, not proof of readiness and not a reason to
+restart its working connection. No business operation is replayed.
+
+After exact merged-source Security acceptance, install/refresh only these
+connections without rebuilding the frontend, restarting owner workloads or
+renewing credentials:
+
+```bash
+make governance-console-complete-runtime ACTION=refresh-connections
+```
+
+Normal activation/restart installs the same supervision. The command takes the
+existing lifecycle lock and rejects unaccepted source. Its receipt proves only
+connection liveness. It does not certify application or complete-system health.
+
+Inspect `governance-console-cross-domain-oos.service` and
+`governance-console-cross-domain-wgcf.service` with `systemctl --user status` and
+`journalctl --user -u <unit>`. A repeated `Backend tunnel is unresponsive` line
+records automatic recovery. The supervisor uses no provider/account credential,
+does not follow health redirects/proxies and does not publish backend payloads.
+Ordinary stop/rollback/suspension stops the supervisor and child together; no
+separate timer restarts a deliberately stopped connection. Rollback selects the
+previous accepted Platform/Security pair and runs its matching operator path.
+
+The internal stream-freeze trigger remains unproven. Recovery prevents an
+indefinite silent stall, but callers may see a transient failure during detection
+and reconnect. Existing durable request recovery still governs interrupted work.
+
 ## Automatic artifact integrity and recovery
 
 This extension is staged until exact Security acceptance. After accepted source

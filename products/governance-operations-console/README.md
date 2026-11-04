@@ -1,5 +1,11 @@
 # Governance Operations Console Platform Integration
 
+The existing backend connections detect non-exiting transport stalls and
+reconnect only their tunnel child. Use the
+[connection recovery procedure](runbooks/operate-complete-runtime.md#backend-connection-recovery)
+for accepted-source refresh, inspection and limits. This is local connection
+recovery, not full operating readiness.
+
 The existing complete-runtime lifecycle also owns bounded artifact integrity
 checks and recovery after exact Security acceptance. Follow the
 [primary integrity procedure](runbooks/operate-complete-runtime.md#automatic-artifact-integrity-and-recovery)

@@ -200,9 +200,35 @@ class CrossDomainActivationTests(unittest.TestCase):
             # on that exit as well as on a nonzero exit.
             self.assertIn("Restart=always\nRestartSec=2", console_unit)
             for role in ("oos", "wgcf"):
-                self.assertIn("Restart=on-failure", (units / activation.unit_name(role)).read_text())
+                tunnel = (units / activation.unit_name(role)).read_text()
+                self.assertIn("console_backend_connection.py", tunnel)
+                self.assertIn("Restart=on-failure\nRestartSec=5", tunnel)
+                self.assertIn("StartLimitIntervalSec=0", tunnel)
+                self.assertIn("KillMode=control-group\nTimeoutStopSec=8", tunnel)
+                self.assertNotIn("EnvironmentFile", tunnel)
             self.assertNotIn("secret", console_unit)
             self.assertIn("Wants=governance-console-cross-domain-oos.service", console_unit)
+
+    def test_connection_refresh_changes_only_existing_tunnels(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(activation, "UNIT_ROOT", Path(directory)),
+            patch.object(activation, "validate") as validate,
+            patch.object(activation, "operator", return_value="operator"),
+            patch.object(activation.shutil, "which", return_value="/tools/k3s"),
+            patch.object(activation, "run") as run,
+            patch.object(activation.backend_connection, "probe", return_value=200),
+            patch.object(activation, "receipt", return_value=Path("receipt")) as receipt,
+            patch.object(activation.frontend, "prepare") as build,
+        ):
+            activation.refresh_connections(self.policy)
+            validate.assert_called_once_with(self.policy)
+            build.assert_not_called()
+            self.assertEqual(len(list(Path(directory).glob("*.service"))), 2)
+            for call in run.call_args_list:
+                self.assertEqual(call.args[0][:2], ["systemctl", "--user"])
+                self.assertNotIn(activation.unit_name("console"), call.args[0])
+            self.assertEqual(receipt.call_args.args[2]["scope"], "backend-connection-liveness-only")
 
     def test_private_state_directory_is_hardened_when_it_already_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

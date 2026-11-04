@@ -678,6 +678,15 @@ class CrossDomainActivationTests(unittest.TestCase):
             values = dict(line.split("=", 1) for line in path.read_text().splitlines())
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(values["OOS_CALLER_SECRET"], "synthetic-oos")
+            reader = policy["repository_custody"]["credential_binding_ref"]
+            self.assertEqual(values["REPOSITORY_CUSTODY_CREDENTIAL_BINDING_URI"], reader["uri"])
+            self.assertEqual(values["REPOSITORY_CUSTODY_CREDENTIAL_BINDING_DIGEST"], reader["digest"])
+            generated["repository_custody"].pop("credential_binding_ref")
+            values = dict(line.split("=", 1) for line in activation.write_private_env(
+                generated, "synthetic-oos", "synthetic-wgcf").read_text().splitlines())
+            self.assertNotIn("REPOSITORY_CUSTODY_CREDENTIAL_BINDING_URI", values)
+            self.assertNotIn("REPOSITORY_CUSTODY_CREDENTIAL_BINDING_DIGEST", values)
+            self.assertIn("REPOSITORY_PROVISIONING_CREDENTIAL_BINDING_DIGEST", values)
             self.assertEqual(values["WGCF_CALLER_SECRET"], "synthetic-wgcf")
             self.assertEqual(values["GOVERNANCE_CONSOLE_OPERATOR_ID"], generated["session"]["operator_id"])
             self.assertIn("REPOSITORY_CUSTODY_POLICY_PROFILE_URI", values)

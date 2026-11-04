@@ -28,6 +28,12 @@ governed_release:
   # for this provider. Availability needs derived acceptance and a commissioned lease.
   permitted: true
   security_review_ref: docs/reviews/components/2026-11-02-console-native-governed-release.md
+repository_custody:
+  # Non-secret approval evidence for the separately commissioned metadata reader.
+  # This is not its installation token, health, or a repository write grant.
+  credential_binding_ref:
+    uri: platform-engineering://credential-bindings/repository-custody-github-app-v1
+    digest: sha256:e230463ad7ba5f379a38198dc8bc51dde2f6eb6526c118e6902d09a413d6392b
 repository_provisioning:
   enabled: true
   security_gate_id: gate:repository-custody-runtime-activation

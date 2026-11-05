@@ -29,6 +29,7 @@ import yaml
 import platform_operation_provider as provider
 import console_workflow_credentials as workflow_credentials
 import console_repository_reader as repository_reader
+import console_repository_connections as repository_connections
 import console_record_authority as record_authority
 import console_session_projection as session_projection
 import console_model_management as model_management
@@ -926,6 +927,13 @@ def renew_workflow_credentials(policy, delivered, *, force=None):
     reader = repository_reader.Reader(repo_root=REPO_ROOT, workspace_root=WORKSPACE_ROOT,
         state_root=STATE_ROOT, session_manifest=dev_integration_session_manifest(policy),
         run=run, private_key=vault_private_key)
+    connection_path = STATE_ROOT / "private/repository-connections.json"
+    connections = repository_connections.Connections(state_root=STATE_ROOT,
+        namespace=namespace(policy), run=run, private_key=vault_private_key) if connection_path.exists() or connection_path.is_symlink() else None
+    try:
+        connected = connections.maintain(force=bool(force)) if connections else None
+    except (repository_reader.identity.IdentityError, OSError, ValueError, KeyError, RuntimeError):
+        connected = {"state": "unavailable"}
     try:
         observation = reader.maintain(force=bool(force))
     except (repository_reader.identity.IdentityError, OSError, ValueError, KeyError, RuntimeError):
@@ -934,11 +942,17 @@ def renew_workflow_credentials(policy, delivered, *, force=None):
         "workspace-governance/repository-token-expires-at": delivered["token_expires_at"]}}
     if force is not None:
         arguments["force"] = force
+    if connected and connected.get("digest"):
+        arguments["connection_binding"] = connected["digest"]
     if observation.get("binding"):
         arguments["reader_binding"] = observation["binding"]
     elif observation["state"] == "revoked":
         arguments["reader_binding"] = {"revoked": True}
     result = workflow_credential_manager(policy).renew(**arguments)
+    if connected and connected.get("digest"):
+        connections.probe(connected["digest"])
+    if connected:
+        result = {**result, "repository_connections": connected}
     if observation.get("binding"):
         try:
             consumer = reader.probe()

@@ -278,7 +278,7 @@ const results={};for(const s of specs){
         return {slug: {**results[slug], "expires_at": self.expiry(secret).isoformat()}
                 for slug, (_, _, secret) in bindings.items()}
 
-    def renew(self, *, force: bool = False, extra_annotations: dict | None = None, reader_binding: dict | None = None) -> dict:
+    def renew(self, *, force: bool = False, extra_annotations: dict | None = None, reader_binding: dict | None = None, connection_binding: str | None = None) -> dict:
         bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
         self.probe(bindings, provider=False)
         bindings = self.reconcile_readiness(bindings)
@@ -290,7 +290,9 @@ const results={};for(const s of specs){
             # Finish an interrupted delivery before judging the mounted token or
             # minting another one. A fresh Secret alone does not prove consumption.
             bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
-            if reader_binding:
+            if connection_binding:
+                self.consume(bindings, extra_annotations, reader_binding=reader_binding, connection_binding=connection_binding)
+            elif reader_binding:
                 self.consume(bindings, extra_annotations, reader_binding=reader_binding)
             else:
                 self.consume(bindings, extra_annotations)
@@ -338,7 +340,9 @@ const results={};for(const s of specs){
             # after Secret replacement but before pod consumption. No forced restart
             # occurs on an unchanged timer tick, and the group takes one rollout.
             bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
-            if reader_binding:
+            if connection_binding:
+                self.consume(bindings, extra_annotations, reader_binding=reader_binding, connection_binding=connection_binding)
+            elif reader_binding:
                 self.consume(bindings, extra_annotations, reader_binding=reader_binding)
             else:
                 self.consume(bindings, extra_annotations)
@@ -373,7 +377,7 @@ const results={};for(const s of specs){
         self.run(["k3s", "kubectl", "-n", target.namespace, "apply", "--server-side",
                   f"--field-manager={manager}", "-f", "-"], input_value=json.dumps(payload))
 
-    def consume(self, bindings: dict, extra_annotations: dict | None, *, reader_binding: dict | None = None) -> None:
+    def consume(self, bindings: dict, extra_annotations: dict | None, *, reader_binding: dict | None = None, connection_binding: str | None = None) -> None:
         namespace = next(iter(bindings.values()))[1].namespace
         versions = dict(extra_annotations or {})
         versions.update({ANNOTATION + slug + "-token-expires-at": secret["metadata"]["annotations"][ANNOTATION + "token-expires-at"]
@@ -404,6 +408,13 @@ const results={};for(const s of specs){
             environment.extend({"name": key, "value": None, "valueFrom": {"secretKeyRef": {
                 "name": "operator-orchestration-service-repository-provider", "key": key, "optional": True}}}
                 for key in ("OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT"))
+        if connection_binding:
+            if not re.fullmatch(r"sha256:[a-f0-9]{64}", connection_binding):
+                raise CredentialError("GitHub connection consumption binding is invalid")
+            versions[ANNOTATION + "repository-connections-digest"] = connection_binding
+            environment.append({"name": "OOS_REPOSITORY_CONNECTIONS_JSON", "value": None,
+                "valueFrom": {"secretKeyRef": {"name": "operator-orchestration-service-repository-provisioning-provider",
+                    "key": "OOS_REPOSITORY_CONNECTIONS_JSON", "optional": True}}})
         self.run(["k3s", "kubectl", "-n", namespace, "patch", "deployment/operator-orchestration-service",
                   "--type=strategic", "--patch", json.dumps({"spec": {"template": {
                       "metadata": {"annotations": versions}, "spec": {"containers": [{

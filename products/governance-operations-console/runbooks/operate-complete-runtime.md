@@ -1,5 +1,66 @@
 # Operate the complete Console runtime
 
+## Connected GitHub accounts
+
+The account-routing extension reuses this lifecycle, credential timer,
+purpose-specific Vault custody and the repository-provisioning Secret. Review
+source/preview first; only the existing exact composed Security acceptance and
+normal activation may commission it.
+
+The engineering selection is the existing complete-runtime state's
+`private/repository-connections.json`, a private regular mode0600 file. Example
+with synthetic IDs:
+
+```json
+{"schema_version":1,"default_connection_id":"github:example-company","connections":[
+  {"account":"example-personal","account_type":"personal","grants":{
+    "metadata":{"app_id":101,"installation_id":201},
+    "provisioning":{"app_id":102,"installation_id":202}}},
+  {"account":"example-company","account_type":"organization","grants":{
+    "metadata":{"app_id":101,"installation_id":203},
+    "provisioning":{"app_id":102,"installation_id":204}}}
+]}
+```
+
+Connecting an account is explicit authorization. Verify native App installations;
+an organization-private App cannot be assumed installable on a personal account.
+Reuse an appropriately installable App or commission a separate App with the same
+purpose and exact permissions. Optional `key_slot` selects a private key beneath
+that purpose's existing Vault prefix `connections/<slot>`, with a bounded lowercase
+identifier. Arbitrary key paths are rejected. Without it, reuse the existing key.
+No key or token belongs in the selection, browser, command arguments or receipts.
+
+The timer verifies App ID, account ID/login/type, suspension, events, exact role
+permissions and native token lifetime. Metadata requires an approved All
+repositories grant for future repositories. Provisioning retains the approved
+native installation selection, including selected-repository installations;
+it does not widen access. Optional lifecycle grants additionally name one
+`repository` with `name` and decimal `provider_repository_id`: the token is filtered
+and readback-verified for that one repository, preserving the existing maximum-one
+scope. Account-wide lifecycle tokens are denied, and the separate activation gate
+still applies. Source authoring retains its separately verified Source App.
+
+Delivery rechecks the selection, uses Secret resource-version CAS, and reuses the
+existing rollout/fingerprint probe. Previous in-memory tokens are revoked after
+consumption; a crash leaves any unretired old lease bounded by native expiry.
+Current ticks and restart reuse verified deliveries. Unavailable account/role pairs
+are listed in the sanitized private delivery receipt and retried by the timer;
+healthy connections remain usable. Inspect that receipt and the Console's
+authenticated connection read. Credential currency is not proof of application
+acceptance or of a still-authorized provider operation.
+
+Changing the default changes only new form selection. Removing an account removes
+it from the next consumed projection; native App suspension/uninstallation provides
+immediate provider revocation. An explicit empty connection list/default null
+disables account routing without falling back to legacy credentials.
+
+Before packaged release, implement the existing Console provider-onboarding
+requirement: after installation ask for personal accounts, organizations or both,
+guide native authorization, verify connections and choose a default. Allow later
+changes in one trusted installation with one private Registry. Current engineering
+configuration does not qualify customer onboarding or require building an installer
+in this maintenance batch.
+
 ## Private source and internal records — unpublished maintenance
 
 Operator-approved maintenance extends the existing source controls to project

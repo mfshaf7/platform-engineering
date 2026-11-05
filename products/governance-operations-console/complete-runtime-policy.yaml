@@ -40,7 +40,7 @@ repository_provisioning:
   security_review_ref: docs/reviews/components/2026-10-15-repository-custody-controlled-activation.md
   policy_profile_ref:
     uri: repo://workspace-governance/contracts/repository-custody.yaml
-    digest: sha256:2e50df2e22bc233bf7abbf119a814a21c31b52659a9478f34ae4fb410e1f9f4f
+    digest: sha256:3743465948524d9b07c30a729658106eed168d84f11f5d00d5f657a1feb99824
   credential_binding_ref:
     uri: platform-engineering://credential-bindings/repository-provisioning-github-app-v1
     digest: sha256:1c3b84794319e3bbe79f6aca30608710527260afefe7fa8951a699e0d8afe321

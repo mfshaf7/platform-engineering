@@ -1,5 +1,16 @@
 # ADR-023: Separated Repository Provisioning Identity
 
+## Account-routing extension
+
+The operator-approved account-routing maintenance extends the original bounded
+organization route to separately verified personal and organization connections.
+An installation may use either or both, with a default destination. The existing
+[complete-runtime procedure](../../../products/governance-operations-console/runbooks/operate-complete-runtime.md#connected-github-accounts)
+owns scoped delivery and renewal. Metadata, provisioning, explicit single-repo
+lifecycle and Source App authorities remain separate. The organization-only
+procedure below remains the original commissioning path; it is not an architectural
+ban on personal accounts or permission to borrow their credentials.
+
 ## Status
 
 - Accepted for bounded dev-integration evidence

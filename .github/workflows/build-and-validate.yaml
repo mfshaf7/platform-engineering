@@ -66,6 +66,7 @@ jobs:
       - name: Validate Console reader credential maintenance
         run: |
           python products/governance-operations-console/scripts/test_console_repository_reader.py
+          python products/governance-operations-console/scripts/test_console_repository_connections.py
           python products/governance-operations-console/scripts/test_console_complete_runtime.py
 
       - name: Validate governance docs

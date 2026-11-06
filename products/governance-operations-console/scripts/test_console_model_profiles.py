@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 import unittest
+import threading
+from http.server import ThreadingHTTPServer
 from unittest import mock
 from types import SimpleNamespace
 
@@ -16,6 +18,7 @@ sys.path.insert(0,str(HERE));sys.path.insert(0,str(ROOT/'scripts'))
 import console_model_profiles as profiles
 import platform_operation_provider as provider
 import test_model_profile_lifecycle as native_tests
+from gateway_app import Handler as GatewayHandler
 OOS_ROOT,PROFILE_ID=native_tests.OOS_ROOT,native_tests.PROFILE_ID
 
 
@@ -91,7 +94,19 @@ class ProfileConsoleTests(unittest.TestCase):
         if argv[:2]==['k3s','kubectl']:
             source=profiles.native.source_state(self.root)
             states={key:{'status':value['status'],'activation_eligible':value['status']=='active','ready':value['status']=='active'} for key,value in profiles.native.read_yaml(self.root/profiles.native.REGISTRY)['model_profiles'].items()}
-            return json.dumps({'selected_binding':{'profile_registry_digest':source['registry_digest'],'access_plane_digest':source['access_plane_digest']},'profiles':states})
+            observed={'ready':True,'selected_binding':{'profile_registry_digest':source['registry_digest'],'access_plane_digest':source['access_plane_digest']},'profiles':states}
+            # Keep source/provider data controlled, but execute the real HTTP
+            # handler and the controller's actual observation script. A fake
+            # kubectl success must not conceal a nonexistent gateway endpoint.
+            with ThreadingHTTPServer(('127.0.0.1',0),GatewayHandler) as server:
+                server.runtime=SimpleNamespace(readiness=lambda:observed)
+                thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+                script=argv[-1].replace('http://127.0.0.1:8080',f'http://127.0.0.1:{server.server_port}')
+                try:
+                    result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,timeout=15)
+                    self.assertEqual(0,result.returncode,result.stderr)
+                    return result.stdout
+                finally:server.shutdown();thread.join(timeout=5)
         if argv[0]=='git' and ('fetch' in argv or 'ls-remote' in argv):return ''
         if argv[0]=='git' and argv[-1]=='origin/main':
             if 'rev-parse' in argv:return self.fixture.base_version

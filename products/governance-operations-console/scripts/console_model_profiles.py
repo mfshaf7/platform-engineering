@@ -471,7 +471,7 @@ class ProfileOperations:
             self.save(record, "runtime-unverified", "reconcile", "Source is applied; the running gateway has not confirmed the policy.")
             return
         # A runner completion alone is not profile readback.
-        script = "import json,urllib.request; print(json.dumps(json.load(urllib.request.urlopen('http://127.0.0.1:8080/ready',timeout=10))))"
+        script = "import json,urllib.request; print(json.dumps(json.load(urllib.request.urlopen('http://127.0.0.1:8080/readyz',timeout=10))))"
         namespace = "devint-governed-ai-gateway-" + self.reviewer()
         observed = json.loads(self.run(["k3s", "kubectl", "-n", namespace, "exec", "deployment/governed-ai-gateway", "--", "python3", "-c", script]))
         profile_id = record["context"]["candidate"]["profile_id"]

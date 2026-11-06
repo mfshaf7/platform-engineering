@@ -179,3 +179,9 @@ limitations are in [Model management](../../components/governed-ai-gateway/model
 The original preview proof changed no live runtime. Publication selects the
 canonical preparation/lifecycle configuration; exact composition acceptance and
 an operating witness remain separate. The fresh lifecycle assessment covers it.
+
+Final release inspection corrected the native running-policy observation URL to
+the gateway's existing `/readyz` route. The adapter tests now execute their actual
+observation script against the real gateway HTTP handler with controlled source
+data; the old URL reproduces HTTP404 and the corrected URL supplies the checked
+policy readback. This changes no activation authority or endpoint contract.

@@ -356,66 +356,83 @@ def mutate_sources(
         for binding in profiles[profile_id]["bindings"].values():
             binding["status"] = "retired"
 
-    profile = profiles[profile_id]
+    affected = [profile_id]
+    if profiles[profile_id].get("capability_id", profile_id) == profile_id:
+        base = profiles[profile_id]
+        for variant_id, variant in profiles.items():
+            if variant_id == profile_id or variant.get("capability_id") != profile_id:
+                continue
+            for field in ("purpose", "allowed_callers", "task_contracts", "bindings", "selected_binding_by_environment",
+                          "provider_output_schema_ref", "accepted_record_schema_ref", "invocation_path",
+                          "human_approval_required", "direct_provider_access_allowed"):
+                variant[field] = copy.deepcopy(base[field])
+            for binding in variant["bindings"].values():
+                binding["status"] = "retired" if variant["status"] == "retired" else "active" if variant["status"] == "active" else "selected-not-active"
+            affected.append(variant_id)
     plane = access["access_plane"]
-    plane["allowed_callers"] = [
-        item for item in plane["allowed_callers"] if item.get("required_profile") != profile_id
-    ]
-    for route in plane["provider_routes"]:
-        route["allowed_profiles"] = [value for value in route["allowed_profiles"] if value != profile_id]
-    plane["allowed_profiles"] = [value for value in plane["allowed_profiles"] if value != profile_id]
-    active = profile["status"] == "active"
-    retired = profile["status"] == "retired"
-    if not retired:
-        plane["allowed_profiles"].append(profile_id)
-        for binding in profile["bindings"].values():
-            route = next(
-                (item for item in plane["provider_routes"] if item["route_id"] == binding["provider_route"]),
-                None,
-            )
-            if route is None or binding["upstream_model"] not in route["allowed_models"]:
-                raise LifecycleError("target_profile requires an unreviewed provider route or model")
-            route["allowed_profiles"].append(profile_id)
-        plane["allowed_callers"].extend(
-            caller_projection(profile_id, caller, profile)
-            for caller in profile["allowed_callers"]
-        )
-    for route in plane["provider_routes"]:
-        route["allowed_profiles"] = sorted(set(route["allowed_profiles"]))
-    plane["allowed_profiles"] = sorted(set(plane["allowed_profiles"]))
-    plane["allowed_callers"].sort(key=lambda item: item["caller_id"])
+    for affected_id in affected:
+        profile = profiles[affected_id]
+        plane["allowed_callers"] = [
+            item for item in plane["allowed_callers"] if item.get("required_profile") != affected_id
+        ]
+        for route in plane["provider_routes"]:
+            route["allowed_profiles"] = [value for value in route["allowed_profiles"] if value != affected_id]
+        plane["allowed_profiles"] = [value for value in plane["allowed_profiles"] if value != affected_id]
+        active = profile["status"] == "active"
+        retired = profile["status"] == "retired"
+        if not retired:
+            plane["allowed_profiles"].append(affected_id)
+            for binding in profile["bindings"].values():
+                route = next(
+                    (item for item in plane["provider_routes"] if item["route_id"] == binding["provider_route"]),
+                    None,
+                )
+                if route is None or binding["upstream_model"] not in route["allowed_models"]:
+                    raise LifecycleError("target_profile requires an unreviewed provider route or model")
+                route["allowed_profiles"].append(affected_id)
+            if profile.get("capability_id", affected_id) == affected_id:
+                plane["allowed_callers"].extend(
+                    caller_projection(affected_id, caller, profile)
+                    for caller in profile["allowed_callers"]
+                )
+        for route in plane["provider_routes"]:
+            route["allowed_profiles"] = sorted(set(route["allowed_profiles"]))
+        plane["allowed_profiles"] = sorted(set(plane["allowed_profiles"]))
+        plane["allowed_callers"].sort(key=lambda item: item["caller_id"])
 
-    environment = decision["activation_environment"]
-    if environment is None:
-        environment = sorted(profile["selected_binding_by_environment"])[0]
-    binding_id = profile["selected_binding_by_environment"][environment]
-    plane["activation_state"]["profile_activations"][profile_id] = {
-        "activation_allowed": active,
-        "environment": environment,
-        "binding": binding_id,
-        "reason": (
-            f"security-reviewed-lifecycle-decision:{decision['decision_id']}"
-            if active
-            else f"lifecycle-{profile['status']}:{decision['decision_id']}"
-        ),
-    }
+        environment = decision["activation_environment"] if affected_id == profile_id else None
+        if environment is None:
+            environment = sorted(profile["selected_binding_by_environment"])[0]
+        binding_id = profile["selected_binding_by_environment"][environment]
+        prior_activation = plane["activation_state"]["profile_activations"].get(affected_id, {})
+        inherited = affected_id != profile_id
+        plane["activation_state"]["profile_activations"][affected_id] = {
+            "activation_allowed": active and (not inherited or prior_activation.get("activation_allowed") is True),
+            "environment": environment,
+            "binding": binding_id,
+            "reason": prior_activation.get("reason", f"inherited-capability-contract:{decision['decision_id']}") if inherited else (
+                f"security-reviewed-lifecycle-decision:{decision['decision_id']}"
+                if active
+                else f"lifecycle-{profile['status']}:{decision['decision_id']}"
+            ),
+        }
 
     contract = runtime["contract"]
     contract["model_profiles"] = sorted(profiles)
     consumers = contract["consumers"]
     consumers["allowed_callers"] = sorted(
         caller
-        for value in profiles.values()
-        if value.get("status") == "active"
+        for key, value in profiles.items()
+        if value.get("capability_id", key) == key and value.get("status") == "active"
         for caller in value.get("allowed_callers") or []
     )
     consumers["registered_not_active_callers"] = sorted(
         caller
-        for value in profiles.values()
-        if value.get("status") == "selected-not-active"
+        for key, value in profiles.items()
+        if value.get("capability_id", key) == key and value.get("status") == "selected-not-active"
         for caller in value.get("allowed_callers") or []
     )
-    return before, profile["status"]
+    return before, profiles[profile_id]["status"]
 
 
 def render_yaml(value: dict[str, Any]) -> bytes:
@@ -436,6 +453,21 @@ def validate_candidate(
         errors = validate_ai_model_profiles(candidate)
         if errors:
             raise LifecycleError("candidate Platform lifecycle source is invalid: " + "; ".join(errors))
+        # Prove that the actual runtime can consume the authored policy, not
+        # merely that its source documents satisfy their individual schemas.
+        runtime_modules = repo_root / "dev-integration/profiles/governed-ai-gateway/runtime"
+        sys.path.insert(0, str(runtime_modules))
+        try:
+            from model_profile_resolver import resolve_model_profile_registry, ModelProfileResolutionError
+            registry = read_yaml(candidate / REGISTRY)
+            environments = sorted({env for profile in registry["model_profiles"].values()
+                                   for env in profile["selected_binding_by_environment"]})
+            for environment in environments:
+                resolve_model_profile_registry(candidate / REGISTRY, candidate / ACCESS_PLANE, environment=environment)
+        except ModelProfileResolutionError as error:
+            raise LifecycleError("candidate policy is not consumable by the runtime: " + str(error)) from error
+        finally:
+            sys.path.remove(str(runtime_modules))
 
 
 def write_atomic(path: Path, content: bytes) -> None:
@@ -605,14 +637,22 @@ def projection_for(repo_root: Path, source_version: str | None) -> dict[str, Any
     activations = access["activation_state"]["profile_activations"]
     profiles = []
     for profile_id, profile in sorted(registry["model_profiles"].items()):
+        activation = copy.deepcopy(activations[profile_id])
+        capability_id = profile.get("capability_id", profile_id)
+        if capability_id != profile_id:
+            base = registry["model_profiles"][capability_id]
+            if base["status"] != "active" or activations[capability_id].get("activation_allowed") is not True:
+                activation.update(activation_allowed=False, reason="The base AI capability is not active; this permission profile cannot be used.")
         profiles.append(
             {
                 "profile_id": profile_id,
                 "lifecycle": profile["status"],
+                **({"capability_id": profile["capability_id"]} if "capability_id" in profile else {}),
+                **({"display_name": profile["display_name"]} if "display_name" in profile else {}),
                 "purpose": profile["purpose"],
                 "allowed_callers": sorted(profile["allowed_callers"]),
                 "selected_environments": sorted(profile["selected_binding_by_environment"]),
-                "activation": copy.deepcopy(activations[profile_id]),
+                "activation": activation,
                 "security_review_ref": copy.deepcopy(profile["security_review_ref"]),
             }
         )

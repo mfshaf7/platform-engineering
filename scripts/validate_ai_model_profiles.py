@@ -169,14 +169,16 @@ def validate_runtime_assist_contract(
             )
         expected_allowed = sorted(
             caller
-            for profile in profiles.values()
-            if isinstance(profile, dict) and profile.get("status") == "active"
+            for key, profile in profiles.items()
+            if isinstance(profile, dict) and profile.get("capability_id", key) == key
+            and profile.get("status") == "active"
             for caller in (profile.get("allowed_callers") or [])
         )
         expected_registered = sorted(
             caller
-            for profile in profiles.values()
+            for key, profile in profiles.items()
             if isinstance(profile, dict)
+            and profile.get("capability_id", key) == key
             and profile.get("status") == "selected-not-active"
             for caller in (profile.get("allowed_callers") or [])
         )

@@ -1194,3 +1194,30 @@ The workflow-created source PR may show GitHub's **Approve workflows to run**
 banner. The human reviewer starts those checks and waits for required results
 before merge. The native adapter does not add an approval bypass or substitute
 workflow success for source review. See [GitHub's workflow-trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+### Optional automatic profile-request preparation
+
+The single-form Model request extension is source-staged and disabled by default.
+After exact composed Security acceptance, the reviewed `purpose_profiles`
+policy may set `preparation.enabled: true` and `preparation.context_base_url`
+to the accepted CGG service origin. This is internal Platform configuration,
+not a user-entered form value or a provider account requirement. The owner
+composition binds the corresponding OOS preparation flag and CGG origin.
+Existing model-management caller, operator and token custody are reused.
+
+A disabled preparation path does not prevent core startup or native full-reference
+requests. Disabling/rolling back clears the preparation flag and origin, retains
+canonical request history and leaves CGG artifact custody with CGG. Current
+policy keeps preparation disabled pending operator preview review and exact
+composed acceptance. Do not hand-edit runtime environment files or widen
+credentials to make the form appear connected.
+
+## Capability profile commissioning extension
+
+The source-only maintenance extension supports explicit permission-preset
+selection inside the existing model configuration and native profile lifecycle.
+It needs the same fresh exact-source Security/composition acceptance and a
+disposable real profile witness before activation; checked-in preparation and
+lifecycle flags remain off. Source proof or preview is not commissioning.
+Definitions, effects, limitations and original-request recovery belong in
+[Model management](../../../docs/components/governed-ai-gateway/model-management.md#capability-permission-profiles-maintenance-extension).

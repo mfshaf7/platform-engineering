@@ -129,6 +129,14 @@ class GatewayRuntimeTests(unittest.TestCase):
                 ).read_text(encoding="utf-8")
             )
         )
+        app_data = next(doc["data"] for doc in documents if doc.get("kind") == "ConfigMap" and doc["metadata"]["name"] == "governed-ai-gateway-app")
+        materialized = self.audit_root / "materialized-runtime"
+        materialized.mkdir()
+        for name, content in app_data.items():
+            (materialized / name).write_text(content)
+        # Exercise imports from the rendered ConfigMap, not the source checkout.
+        # A new local dependency must be present in the actual packaged runtime.
+        subprocess.run([sys.executable, "-I", "-c", "import sys;sys.path.insert(0,sys.argv[1]);import gateway_app;from profile_request_setup import profile_request_options", str(materialized)], check=True, capture_output=True, text=True)
         policies = {
             document["metadata"]["name"]: document
             for document in documents

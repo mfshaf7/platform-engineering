@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
+import copy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import hmac
@@ -15,6 +17,7 @@ from typing import Any
 from gateway_policy import GatewayPolicy, InvocationDecision
 from ollama_adapter import OllamaAdapter, OllamaAdapterError, ProviderIntegrityError, SYSTEM_PROMPT
 from model_configuration import ConfigurationError, InvocationJournal, closed
+from profile_request_setup import profile_request_options
 from model_management import ModelManagement
 from task_routing import TaskRouting
 from urllib.parse import urlparse, parse_qs
@@ -113,6 +116,8 @@ class GatewayRuntime:
         self.audit_ledger = prepare_audit_ledger(audit_root)
         self.compatibility_profile_id = compatibility_profile_id
         self.management = management
+        if management:
+            management.configuration.profiles = copy.deepcopy(self.profiles)
         if compatibility_profile_id not in self.profiles:
             raise ValueError("compatibility profile is missing from selections")
         self.max_request_bytes = max(
@@ -125,7 +130,15 @@ class GatewayRuntime:
 
     def _routed_adapter(self, model, effort, limits):
         if model["backend_id"].startswith("source-binding:"):
-            return self.adapters[model["backend_id"].removeprefix("source-binding:")]
+            adapter = self.adapters[model["backend_id"].removeprefix("source-binding:")]
+            if isinstance(adapter, OllamaAdapter):
+                # Reuse the same concurrency gates while applying the selected
+                # permission preset's stricter per-invocation limits.
+                adapter = copy.copy(adapter)
+                adapter.timeout_seconds = min(adapter.timeout_seconds, limits["timeout_seconds"])
+                adapter.max_output_tokens = min(adapter.max_output_tokens, limits["max_output_tokens"])
+                adapter.retry_count = 0
+            return adapter
         return self.management.adapter(model, effort, limits)
 
     @classmethod
@@ -332,7 +345,31 @@ class GatewayRuntime:
     def invoke(self, request: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if not self.audit_storage_ready():
             return 503, {"policy_decision": "deny", "reasons": ["audit-storage-unavailable"]}
+        snapshot = self.management.configuration.snapshot() if self.management else None
         decision = self.policy.evaluate(request)
+        base = decision.profile
+        if base and base.get("capability_id", base["profile_id"]) != base["profile_id"]:
+            decision = replace(decision, allowed=False, reasons=("request-base-capability-profile",))
+        if decision.allowed and snapshot is not None:
+            selected_id = snapshot["configuration"].get("profile_assignments", {}).get(base["profile_id"], base["profile_id"])
+            if selected_id != base["profile_id"]:
+                selected = self.profiles.get(selected_id)
+                if not selected or selected.get("capability_id") != base["profile_id"]:
+                    decision = replace(decision, allowed=False, reasons=("selected-profile-not-compatible",))
+                else:
+                    selected_request = {**request, "profile_id": selected_id,
+                                        "caller_identity": {**request["caller_identity"], "requested_profile_id": selected_id}}
+                    preset = self.policy.evaluate(selected_request)
+                    if not preset.allowed:
+                        decision = replace(decision, allowed=False, reasons=tuple("selected-profile:" + reason for reason in preset.reasons))
+                    else:
+                        # The base capability still authorizes caller/input/output.
+                        # Its chosen preset is an additional restriction, not a
+                        # replacement grant or a different task implementation.
+                        effective = {**base, "selected_policy_profile_id": selected_id,
+                                     "runtime_limits": {key: min(value, preset.profile["runtime_limits"][key])
+                                                        for key, value in base["runtime_limits"].items()}}
+                        decision = replace(decision, profile=effective)
         profile = decision.profile
         task = decision.task
         correlation_id = (
@@ -379,7 +416,7 @@ class GatewayRuntime:
         if self.routing:
             try:
                 return self.routing.invoke(
-                    request=request, profile=profile, task=task, provider_input=provider_input,
+                    request=request, profile=profile, task=task, provider_input=provider_input, snapshot=snapshot,
                     system_prompt=system_prompt, prompt_version=prompt_version,
                     complete=lambda result, selection, attempts, failure: self._routed_result(
                         request, decision, event_base, correlation_id, result, selection, attempts, failure),
@@ -459,6 +496,10 @@ class GatewayRuntime:
 
     def _routed_result(self, request, decision, event_base, correlation_id, result, selection, attempts, failure):
         event_base = dict(event_base)
+        if "policy_profile_id" in selection:
+            event_base["selected_policy_profile_id"] = selection["policy_profile_id"]
+        else:
+            event_base.pop("selected_policy_profile_id", None)
         if attempts:
             selected = attempts[-1]
             backend_id = selected["backend_id"]
@@ -510,6 +551,7 @@ class GatewayRuntime:
             "caller_identity": request.get("caller_identity") or {},
             "operator_identity": request.get("operator_identity") or {},
             "approved_profile_id": profile.get("profile_id"),
+            **({"selected_policy_profile_id": profile["selected_policy_profile_id"]} if "selected_policy_profile_id" in profile else {}),
             "selected_binding": (
                 self.selected_binding_evidence(profile) if profile else None
             ),
@@ -636,7 +678,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(403, {"error": "model-management-forbidden"})
                 return
             parsed = urlparse(self.path)
-            if self.command == "GET" and parsed.path == "/v1/model-management/backends" and not parsed.query:
+            if self.command == "GET" and parsed.path == "/v1/model-management/profile-request-options" and not parsed.query:
+                self.send_json(200, profile_request_options(self.runtime.profiles, manager.configuration.tasks))
+            elif self.command == "GET" and parsed.path == "/v1/model-management/backends" and not parsed.query:
                 self.send_json(200, manager.describe_backends())
             elif self.command == "POST" and parsed.path == "/v1/model-management/health" and not parsed.query:
                 if self.read_json() != {}:

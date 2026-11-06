@@ -277,6 +277,25 @@ require_active_profile() {
 
 require_active_model_binding() {
   if ! python3 -c 'import json,sys; sys.exit(0 if any(p["activation_eligible"] for p in json.load(sys.stdin)["profiles"].values()) else 2)' <<<"${MODEL_SELECTIONS_JSON}"; then
+    # An accepted management overlay keeps controls online with all profiles
+    # inactive. It does not make any profile eligible or permit inference.
+    if [[ -n "${DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY:-}" ]] && python3 - "${DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY}" <<'PY'
+import json, pathlib, sys
+try:
+    path=pathlib.Path(sys.argv[1])
+    if path.is_symlink() or path.stat().st_mode & 0o077: raise ValueError()
+    value=json.loads(path.read_text()); owner=value['owner_policy']
+    assert set(value)=={'image','owner_policy','memory_limit','cpu_limit'}
+    assert owner['schema_version']==1 and owner['caller_id']=='operator-orchestration-service'
+    assert owner['operator_id'].startswith('operator:')
+    assert owner['token_file']=='/run/model-management/management-token'
+except (OSError,ValueError,KeyError,AssertionError,TypeError):
+    raise SystemExit(2)
+PY
+    then
+      printf 'No profile is active; starting the accepted management control plane only.\n'
+      return
+    fi
     echo "refused: no governed model profile is activation eligible." >&2
     exit 2
   fi
@@ -300,6 +319,7 @@ render_gateway_app() {
     provider_accounts.py \
     model_login.py \
     model_management.py \
+    profile_request_setup.py \
     api_provider_adapter.py \
     provider_connections.py \
     strict_output_schema.py; do
@@ -418,6 +438,8 @@ $(sed 's/^/    /' "${RENDERED_DIR}/provider_accounts.py")
 $(sed 's/^/    /' "${RENDERED_DIR}/model_login.py")
   model_management.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/model_management.py")
+  profile_request_setup.py: |
+$(sed 's/^/    /' "${RENDERED_DIR}/profile_request_setup.py")
   api_provider_adapter.py: |
 $(sed 's/^/    /' "${RENDERED_DIR}/api_provider_adapter.py")
   provider_connections.py: |

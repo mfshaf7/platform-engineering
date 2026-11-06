@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import secrets
 import sys
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -25,9 +26,39 @@ def enabled(policy):
     return policy.get("purpose_profiles", {}).get("enabled") is True
 
 
+def preparation_settings(policy):
+    value = policy.get("purpose_profiles", {}).get("preparation", {"enabled": False})
+    if not isinstance(value, dict) or set(value) - {"enabled", "context_base_url"} or type(value.get("enabled")) is not bool:
+        raise ProfileCompositionError("Purpose-profile preparation configuration is invalid.")
+    if not value["enabled"]:
+        return {"OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED": "false", "CGG_MODEL_PROFILE_REQUEST_BASE_URL": ""}
+    origin = value.get("context_base_url", "")
+    parsed = urlsplit(origin) if isinstance(origin, str) else None
+    if parsed is None or parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in {"", "/"}:
+        raise ProfileCompositionError("Automatic profile preparation needs the accepted context-service origin.")
+    return {"OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED": "true", "CGG_MODEL_PROFILE_REQUEST_BASE_URL": origin.rstrip("/")}
+
+
 def paths(state_root):
     root = state_root / "private/model-profile-requests"
     return root, root / "current-registry.json", root / "request-history", root / "fulfillment-caller-secret"
+
+
+def lifecycle_settings(policy):
+    value=policy.get('purpose_profiles',{}).get('lifecycle',{'enabled':False})
+    if not isinstance(value,dict) or set(value)-{'enabled','oos_base_url','security_operator_ids'} or type(value.get('enabled')) is not bool:
+        raise ProfileCompositionError('Purpose-profile lifecycle configuration is invalid.')
+    if not value['enabled']:
+        return {'OOS_MODEL_PROFILE_LIFECYCLE_ENABLED':'false','OOS_MODEL_PROFILE_SECURITY_OPERATOR_IDS':''}
+    if preparation_settings(policy).get('OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED')!='true':
+        raise ProfileCompositionError('Lifecycle requires accepted request preparation.')
+    parsed=urlsplit(value.get('oos_base_url',''))
+    if parsed.scheme not in {'http','https'} or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in {'','/'}:
+        raise ProfileCompositionError('Lifecycle requires the accepted request-owner origin.')
+    operators=value.get('security_operator_ids',[])
+    if not isinstance(operators,list) or len(operators)>16 or any(not isinstance(v,str) or not v.startswith('operator:') or ',' in v or any(c.isspace() for c in v) for v in operators):
+        raise ProfileCompositionError('Security decision makers must be explicitly admitted.')
+    return {'OOS_MODEL_PROFILE_LIFECYCLE_ENABLED':'true','OOS_MODEL_PROFILE_SECURITY_OPERATOR_IDS':','.join(operators)}
 
 
 def private_directory(path):
@@ -42,6 +73,8 @@ def prepare(policy, *, repo_root, state_root, run):
         return
     if policy.get("security", {}).get("status") != "accepted":
         raise ProfileCompositionError("Model-profile composition requires exact Security acceptance.")
+    preparation_settings(policy)
+    lifecycle_settings(policy)
     root, projection, history, credential = paths(state_root)
     private_directory(root)
     private_directory(history)
@@ -67,6 +100,7 @@ def bind_oos(policy, *, state_root, namespace, operator_id, run):
         return
     if policy.get("security", {}).get("status") != "accepted":
         raise ProfileCompositionError("Model-profile bindings require exact Security acceptance.")
+    preparation = {**preparation_settings(policy),**lifecycle_settings(policy)}
     _, _, _, credential = paths(state_root)
     if (credential.is_symlink() or not credential.is_file() or
             credential.stat().st_uid != os.geteuid() or credential.stat().st_mode & 0o077):
@@ -99,7 +133,7 @@ def bind_oos(policy, *, state_root, namespace, operator_id, run):
     settings = {"OOS_MODEL_PROFILE_REQUEST_ENABLED": "true",
                 "OOS_MODEL_PROFILE_REQUEST_STATE_ROOT": "/var/lib/oos/model-profile-requests",
                 "OOS_MODEL_PROFILE_REQUEST_CALLER_OPERATOR_BINDINGS_JSON": json.dumps({CALLER: operator_id}),
-                "OOS_MODEL_PROFILE_FULFILLMENT_CALLER_IDS": FULFILLER}
+                "OOS_MODEL_PROFILE_FULFILLMENT_CALLER_IDS": FULFILLER, **preparation}
     # Base composition can replace this shared Secret while retaining our pod
     # annotation. Bind consumption to the actual publication, not only equal
     # desired bytes, so a resumed process cannot keep its older environment.
@@ -149,7 +183,7 @@ def disable(policy, *, namespace, run):
     if not observed.stdout.strip():
         return
     patch = {"spec": {"template": {"spec": {"containers": [{"name": "operator-orchestration-service",
-        "env": [{"name": "OOS_MODEL_PROFILE_REQUEST_ENABLED", "value": "false"}]}]}}}}
+        "env": [{"name": "OOS_MODEL_PROFILE_REQUEST_ENABLED", "value": "false"}, {"name": "OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED", "value": "false"}, {"name": "CGG_MODEL_PROFILE_REQUEST_BASE_URL", "value": ""}, {"name":"OOS_MODEL_PROFILE_LIFECYCLE_ENABLED","value":"false"}, {"name":"OOS_MODEL_PROFILE_SECURITY_OPERATOR_IDS","value":""}]}]}}}}
     run(["k3s", "kubectl", "-n", namespace, "patch", "deployment", "operator-orchestration-service",
          "--type=strategic", "--patch-file=/dev/stdin"], input_value=json.dumps(patch))
     observed = run(["k3s", "kubectl", "-n", namespace, "get", "secret",

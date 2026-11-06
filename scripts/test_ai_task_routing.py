@@ -272,6 +272,63 @@ class TaskRoutingTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigurationError, "Refresh"):
             self.command("routing.save", payload, command_id="stale", expected=original)
 
+    def permission_variant(self):
+        base_id = self.request["profile_id"]
+        variant = copy.deepcopy(self.selections["profiles"][base_id])
+        variant.update(profile_id="restricted-profile", capability_id=base_id, display_name="Restricted planning")
+        variant["runtime_limits"]["max_output_tokens"] = 32
+        self.selections["profiles"][variant["profile_id"]] = variant
+        self.configuration.profiles = copy.deepcopy(self.selections["profiles"])
+        return base_id, variant
+
+    def test_explicit_permission_selection_enforces_limits_and_replays_original_after_restart(self):
+        base_id, variant = self.permission_variant()
+        self.save(self.route())
+        limits_seen = []
+        original = self.backends["cloud"].adapter
+        def adapter(model, effort, limits):
+            limits_seen.append(copy.deepcopy(limits))
+            return original(model, effort, limits)
+        self.backends["cloud"].adapter = adapter
+        self.command("profile.assign", {"capability_id": base_id, "profile_id": variant["profile_id"]})
+        accepted_revision = self.configuration.snapshot()["revision"]
+        status, result = self.runtime.invoke(self.request)
+        self.assertEqual(status, 200)
+        self.assertEqual(result["profile_id"], base_id)  # base contract still authorizes the request
+        self.assertEqual(result["effective_selection"]["policy_profile_id"], variant["profile_id"])
+        self.assertEqual(result["effective_selection"]["revision"], accepted_revision)
+        self.assertEqual(limits_seen[0]["max_output_tokens"], 32)
+        self.assertEqual(self.runtime.latest_audit_event()["latest"]["selected_policy_profile_id"], variant["profile_id"])
+        self.command("profile.assign", {"capability_id": base_id, "profile_id": base_id})
+        restarted = GatewayRuntime(selections=self.selections, audit_root=self.root / "audit",
+                                   compatibility_profile_id=base_id, management=self.manager)
+        self.assertEqual(tuple(restarted.invoke(self.request)), (status, result))
+        self.assertEqual(len(self.backends["cloud"].calls), 1)
+        recovered = ModelConfiguration(self.root / "config", tasks=self.tasks, backends=self.policy,
+                                       profiles=self.selections["profiles"])
+        self.assertEqual(recovered.snapshot()["configuration"]["profile_assignments"][base_id], base_id)
+
+    def test_permission_presets_cannot_bypass_base_or_selected_policy(self):
+        base_id, variant = self.permission_variant()
+        self.save(self.route())
+        variant["profile_status"] = "suspended"
+        self.configuration.profiles = copy.deepcopy(self.selections["profiles"])
+        with self.assertRaisesRegex(ConfigurationError, "must be active"):
+            self.command("profile.assign", {"capability_id": base_id, "profile_id": variant["profile_id"]})
+        variant["profile_status"] = "active"
+        self.configuration.profiles = copy.deepcopy(self.selections["profiles"])
+        self.command("profile.assign", {"capability_id": base_id, "profile_id": variant["profile_id"]})
+        variant["profile_status"] = "suspended"
+        self.assertEqual(self.runtime.invoke(self.request)[0], 403)
+        variant["profile_status"] = "active"
+        self.selections["profiles"][base_id]["profile_status"] = "suspended"
+        self.assertEqual(self.runtime.invoke(self.request)[0], 403)
+        direct = copy.deepcopy(self.request)
+        direct["profile_id"] = variant["profile_id"]
+        direct["caller_identity"]["requested_profile_id"] = variant["profile_id"]
+        self.assertEqual(self.runtime.invoke(direct)[0], 403)
+        self.assertTrue(all(not backend.calls for backend in self.backends.values()))
+
     def test_concurrent_edits_have_exactly_one_winner(self):
         revision = self.configuration.snapshot()["revision"]
         barrier, outcomes = threading.Barrier(2), []
@@ -448,6 +505,23 @@ class TaskRoutingTests(unittest.TestCase):
         status, result = self.runtime.invoke(self.request)
         self.assertEqual((status, result["reasons"]), (503, ["provider-completion-unknown"]))
         self.assertFalse(self.backends["cloud"].calls)
+
+    def test_unknown_prior_turn_keeps_original_policy_evidence_after_selection_changes(self):
+        base_id, preset = self.permission_variant()
+        self.save(self.route())
+        self.command("profile.assign", {"capability_id":base_id,"profile_id":preset["profile_id"]})
+        selection = self.configuration.selection(self.configuration.snapshot(),base_id+"/intake_classification")
+        selection["policy_profile_id"] = preset["profile_id"]
+        identity = {"caller":self.request["caller_identity"]["caller_id"],"operator":"operator:test",
+                    "profile":base_id,"task":"intake_classification","invocation":"invocation:1"}
+        with InvocationJournal(self.root/"audit/invocations").invocation(identity,digest(self.request),selection):
+            pass
+        self.command("profile.assign", {"capability_id":base_id,"profile_id":base_id})
+        status,result = self.runtime.invoke(self.request)
+        self.assertEqual(status,503)
+        self.assertEqual(result["effective_selection"]["policy_profile_id"],preset["profile_id"])
+        self.assertEqual(self.runtime.latest_audit_event()["latest"]["selected_policy_profile_id"],preset["profile_id"])
+        self.assertTrue(all(not backend.calls for backend in self.backends.values()))
 
     def test_rollback_is_a_new_revision_and_rechecks_current_permissions(self):
         chosen = self.save(self.route())

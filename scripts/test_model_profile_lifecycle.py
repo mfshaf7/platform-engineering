@@ -78,6 +78,61 @@ class ModelProfileConsumerCoherenceTests(unittest.TestCase):
             {key: value for key, value in after.items() if key != profile_id})
         return self.resolve()
 
+    def test_permission_variant_inherits_capability_updates_without_new_activation(self):
+        documents = self.read_documents()
+        base = documents[0]["model_profiles"][PROFILE_ID]
+        variant = copy.deepcopy(base)
+        variant.update(capability_id=PROFILE_ID, display_name="Restricted review", status="suspended")
+        variant["runtime_limits"]["max_output_tokens"] = 32
+        for binding in variant["bindings"].values():
+            binding["status"] = "selected-not-active"
+        selected = self.transition("restricted-review", "create", variant)
+        self.assertEqual(selected["profiles"]["restricted-review"]["capability_id"], PROFILE_ID)
+        self.assertFalse(selected["profiles"]["restricted-review"]["activation_eligible"])
+        documents = self.read_documents()
+        callers = documents[1]["access_plane"]["allowed_callers"]
+        self.assertEqual(len({row["caller_id"] for row in callers}), len(callers))
+        for caller_id in variant["allowed_callers"]:
+            registrations = [row for row in callers if row["caller_id"] == caller_id]
+            self.assertEqual(len(registrations), 1)
+            self.assertEqual(registrations[0]["required_profile"], PROFILE_ID)
+        variant["status"] = "active"
+        for binding in variant["bindings"].values():
+            binding["status"] = "active"
+        self.transition("restricted-review", "activate", variant)
+        documents = self.read_documents()
+        base = copy.deepcopy(documents[0]["model_profiles"][PROFILE_ID])
+        base["status"] = "suspended"
+        for binding in base["bindings"].values():
+            binding["status"] = "selected-not-active"
+            binding["runtime_version"] = "synthetic-updated-runtime"
+        before_state, after_state = lifecycle.mutate_sources(*documents, {"intent":"amend","profile_id":PROFILE_ID,"target_profile":base,
+             "decision_id":"synthetic-capability-maintenance","activation_environment":None})
+        self.assertEqual(after_state,"suspended")
+        rendered = [lifecycle.render_yaml(value) for value in documents]
+        lifecycle.validate_candidate(self.root, *rendered)
+        for path, content in zip((lifecycle.REGISTRY,lifecycle.ACCESS_PLANE,lifecycle.RUNTIME_ASSIST),rendered):
+            lifecycle.write_atomic(self.root/path,content)
+        resolved = self.resolve()["profiles"]
+        self.assertEqual(resolved["restricted-review"]["runtime_version"], "synthetic-updated-runtime")
+        self.assertEqual(resolved["restricted-review"]["runtime_limits"]["max_output_tokens"],32)
+        self.assertEqual(resolved["restricted-review"]["profile_status"],"active")
+        self.assertFalse(resolved["restricted-review"]["activation_eligible"])
+        self.assertIn("base-capability-not-active",resolved["restricted-review"]["activation_denial_reasons"])
+        projection = lifecycle.projection_for(self.root, "synthetic-source")
+        projected = next(row for row in projection["profiles"] if row["profile_id"]=="restricted-review")
+        self.assertFalse(projected["activation"]["activation_allowed"])
+        self.assertIn("base AI capability", projected["activation"]["reason"])
+        lifecycle.mutate_sources(*documents, {"intent":"retire","profile_id":PROFILE_ID,
+            "decision_id":"synthetic-capability-retirement","activation_environment":None})
+        rendered = [lifecycle.render_yaml(value) for value in documents]
+        lifecycle.validate_candidate(self.root, *rendered)
+        for path, content in zip((lifecycle.REGISTRY,lifecycle.ACCESS_PLANE,lifecycle.RUNTIME_ASSIST),rendered):
+            lifecycle.write_atomic(self.root/path,content)
+        self.assertFalse(self.resolve()["profiles"]["restricted-review"]["activation_eligible"])
+        self.assertFalse(any(row["required_profile"] == PROFILE_ID
+            for row in documents[1]["access_plane"]["allowed_callers"]))
+
     def launch_check(self):
         return subprocess.run(["bash", "-c",
             "source dev-integration/profiles/governed-ai-gateway/scripts/common.sh; require_active_model_binding"],

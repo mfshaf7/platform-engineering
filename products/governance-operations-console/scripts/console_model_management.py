@@ -148,11 +148,19 @@ def build_image(policy, repo_root, run, *, import_image=False):
     return tag
 
 
-def owner_policy(repo_root, operator_id):
+def owner_policy(repo_root, operator_id, *, lifecycle_policy=None):
     profiles = yaml.safe_load((repo_root / "security/governed-ai-model-profiles.yaml").read_text())["model_profiles"]
     if set(profiles) != TASK_PROFILES:
-        raise ModelCompositionError("Review the changed profile/data boundary before commissioning.")
-    tasks = sorted(name + "/" + task for name, profile in profiles.items() for task in profile["task_contracts"]["allowed"])
+        import console_model_profiles as lifecycle
+        import subprocess
+        accepted=Path(lifecycle_policy['workspace_root'])/'platform-engineering' if lifecycle_policy else None
+        exact=False
+        if accepted is not None and lifecycle_policy.get('security',{}).get('status')=='accepted':
+            def source(*args):return subprocess.check_output(['git','-C',str(accepted),*args],text=True).strip()
+            exact=source('branch','--show-current')=='main' and not source('status','--porcelain') and source('rev-parse','HEAD')==lifecycle_policy['security'].get('platform_revision') and source('rev-parse','HEAD^{tree}')==lifecycle_policy['security'].get('platform_tree')
+        if accepted is None or not (exact or lifecycle.admitted_policy_source(lifecycle_policy,accepted)) or any((accepted/path).read_bytes()!=(repo_root/path).read_bytes() for path in (lifecycle.native.REGISTRY,lifecycle.native.ACCESS_PLANE,lifecycle.native.RUNTIME_ASSIST)):
+            raise ModelCompositionError("Review the changed profile/data boundary before commissioning.")
+    tasks = sorted(name + "/" + task for name, profile in profiles.items() if profile.get("capability_id", name) == name for task in profile["task_contracts"]["allowed"])
     value = {
         "schema_version": 1, "caller_id": "operator-orchestration-service", "operator_id": operator_id,
         "token_file": "/run/model-management/management-token", "backends": {
@@ -225,7 +233,7 @@ def prepare(policy, *, repo_root, state_root, operator_id, gateway_namespace, ru
         account_lease(owner_json(renewed.stdout))
     document = secret_document(gateway_namespace, GATEWAY_SECRET, {"management-token": management.read_text(), "vault-token": account_token.read_text()})
     run(["k3s", "kubectl", "apply", "-f", "-"], input_value=json.dumps(document))
-    overlay = {"image": image, "owner_policy": owner_policy(repo_root, operator_id),
+    overlay = {"image": image, "owner_policy": owner_policy(repo_root, operator_id,lifecycle_policy=policy),
                "memory_limit": policy["model_management"]["memory_limit"], "cpu_limit": policy["model_management"]["cpu_limit"]}
     path = root / "overlay.json"
     private_write(path, json.dumps(overlay))

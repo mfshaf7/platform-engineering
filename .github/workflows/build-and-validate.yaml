@@ -78,6 +78,7 @@ jobs:
           python scripts/test_ai_model_profiles.py
           python scripts/model_profile_lifecycle.py --oos-repo-root /tmp/operator-orchestration-service validate
           OOS_REPO_ROOT=/tmp/operator-orchestration-service python scripts/test_model_profile_lifecycle.py
+          OOS_REPO_ROOT=/tmp/operator-orchestration-service python products/governance-operations-console/scripts/test_console_model_profiles.py
           python scripts/test_governed_ai_gateway_policy.py
           python scripts/test_governed_ai_gateway_runtime.py
           python scripts/test_governed_ai_ollama_adapter.py

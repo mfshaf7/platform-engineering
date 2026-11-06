@@ -19,6 +19,8 @@ from urllib.request import Request, HTTPRedirectHandler, build_opener
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 import model_profile_lifecycle as native
+from dev_integration import resolve_smoke_composition_context
+from dev_integration_compositions import bounded_child_environment
 
 INTENTS = {"create", "amend", "activate", "suspend", "retire", "exception"}
 ENVIRONMENT = "dev-integration"
@@ -183,8 +185,8 @@ class ProfileOperations:
             self.owner = OwnerClient(base, native.ACTOR_ID, secret)
 
     @staticmethod
-    def _run(argv, *, cwd=None):
-        result = subprocess.run(argv, cwd=cwd, text=True, capture_output=True, timeout=600)
+    def _run(argv, *, cwd=None, env=None):
+        result = subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True, timeout=600)
         if result.returncode:
             # Provider output can contain credentials or private source data.
             # Keep it out of the Console and operation journal.
@@ -440,6 +442,25 @@ class ProfileOperations:
         self.run([sys.executable,str(merged/'scripts/model_profile_lifecycle.py'),'--repo-root',str(merged),'project','--source-version',record['merge_commit'],'--output',str(Path(self.policy['runtime_state_root'])/'private/model-profile-requests/current-registry.json')])
         self.save(record, "source-applied", "reconcile", "Platform read back the merged source; running state still needs verification.")
 
+    def gateway_environment(self, overlay):
+        # Reuse the existing read-only active-context lookup used by profile
+        # smoke. It validates owner, lifecycle, participants and original
+        # credentials; an absent/degraded composition is never a standalone up.
+        composition_id=self.policy['platform_operation_provider']['composition_id']
+        try:
+            context=resolve_smoke_composition_context(operator=self.reviewer(),
+                profile_id='governed-ai-gateway',repo_overrides={'platform-engineering':self.repo},
+                requested_composition_id=composition_id,workspace_root=self.workspace)
+        except (SystemExit,RuntimeError) as error:
+            raise ProfileError('The active composition binding is unavailable.') from error
+        if not context or context['composition_id']!=composition_id:
+            raise ProfileError('The active composition binding is unavailable.')
+        return bounded_child_environment(context['composition'],base_environment=os.environ,
+            profile_environment={**context['profile_environment'],
+                'DEVINT_COMPOSITION_ID':composition_id,
+                'DEVINT_COMPOSITION_ROOT_PROFILE_ID':context['root_profile_id'],
+                'DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY':str(overlay)})
+
     def reconcile(self, record):
         # Reuse the profile runner. It retains its normal admission gates and
         # reports failure rather than treating merged source as live activation.
@@ -461,11 +482,22 @@ class ProfileOperations:
         overlay=native.read_json(overlay_path)
         if set(overlay)!={'image','owner_policy','memory_limit','cpu_limit'}:
             raise ProfileError('The commissioned model-management overlay is invalid.')
-        overlay['owner_policy']=management.owner_policy(merged,'operator:'+self.reviewer(),lifecycle_policy=self.policy)
+        # Policy bytes must still match the original merged receipt. Execute
+        # current independently accepted code, so a later reviewed maintenance
+        # landing cannot force reuse of an obsolete runner snapshot.
+        if self.run(['git','-C',str(self.repo),'status','--porcelain']) or self.run(['git','-C',str(self.repo),'branch','--show-current'])!='main':
+            raise ProfileError('Runtime reconciliation requires clean accepted Platform main.')
+        if self.run(['git','-C',str(self.repo),'rev-parse','HEAD^{tree}'])!=self.policy['security']['platform_tree'] and not admitted_policy_source(self.policy,self.repo,store_root=self.store.root):
+            raise ProfileError('Runtime reconciliation requires accepted code or its receipted policy-only source.')
+        for path in (native.REGISTRY,native.ACCESS_PLANE,native.RUNTIME_ASSIST):
+            if (self.repo/path).read_bytes()!=(merged/path).read_bytes():
+                raise ProfileError('Current policy differs from the original merged receipt.')
+        overlay['owner_policy']=management.owner_policy(self.repo,'operator:'+self.reviewer(),lifecycle_policy=self.policy)
         current_overlay=root/'model-management-overlay.json'
         native.write_atomic(current_overlay,native.canonical_json(overlay))
         try:
-            self.run(['env','DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY='+str(current_overlay),sys.executable,str(self.repo/'scripts/dev_integration.py'),'up','--workspace-root',str(self.workspace),'--profile','governed-ai-gateway','--operator',self.reviewer(),'--repo-path','platform-engineering='+str(merged)])
+            environment=self.gateway_environment(current_overlay)
+            self.run([sys.executable,str(self.repo/'scripts/dev_integration.py'),'up','--workspace-root',str(self.workspace),'--profile','governed-ai-gateway','--operator',self.reviewer(),'--repo-path','platform-engineering='+str(self.repo)],env=environment)
         except ProfileError:
             record["runtime_state"] = "unverified"
             self.save(record, "runtime-unverified", "reconcile", "Source is applied; the running gateway has not confirmed the policy.")

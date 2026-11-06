@@ -17,6 +17,7 @@ ROOT=HERE.parents[2]
 sys.path.insert(0,str(HERE));sys.path.insert(0,str(ROOT/'scripts'))
 import console_model_profiles as profiles
 import platform_operation_provider as provider
+from dev_integration import guard_composition_owned_profile_action
 import test_model_profile_lifecycle as native_tests
 from gateway_app import Handler as GatewayHandler
 OOS_ROOT,PROFILE_ID=native_tests.OOS_ROOT,native_tests.PROFILE_ID
@@ -64,15 +65,18 @@ class ProfileConsoleTests(unittest.TestCase):
         (self.workspace/'operator-orchestration-service').symlink_to(OOS_ROOT,target_is_directory=True)
         self.store=provider.OperationStore(self.workspace/'private-state/provider')
         self.policy={'workspace_root':str(self.workspace),'runtime_state_root':str(self.workspace/'private-state'),
-          'purpose_profiles':{'lifecycle':{'enabled':True}},'platform_operation_provider':{'operator_id':'operator:workspace-owner'},
+          'purpose_profiles':{'lifecycle':{'enabled':True}},'platform_operation_provider':{'operator_id':'operator:workspace-owner','composition_id':'synthetic-composition'},
           'security':{'platform_revision':self.fixture.base_version,'platform_tree':subprocess.check_output(['git','-C',str(self.root),'rev-parse','HEAD^{tree}'],text=True).strip()}}
+        self.gateway_context={'composition_id':'synthetic-composition','root_profile_id':'root','composition':{'credential_bindings':{'owned':{'projections':[{'environment_variable':'CONTEXT_SHARED_SECRET'}]}}},'profile_environment':{'CONTEXT_SHARED_SECRET':'synthetic-not-real-secret'}}
+        context=mock.patch.object(profiles,'resolve_smoke_composition_context',return_value=self.gateway_context,create=True)
+        self.context_resolver=context.start();self.addCleanup(context.stop)
         self.calls=[];self.pr=None;self.provider_online=True
         overlay=Path(self.policy['runtime_state_root'])/'private/model-management/overlay.json'
         overlay.parent.mkdir(parents=True)
         profiles.native.write_atomic(overlay,profiles.native.canonical_json({'image':'synthetic-commissioned-image','owner_policy':{},'memory_limit':'1Gi','cpu_limit':'1'}))
         self.input={'request_id':'model-profile-request:test-amend','intent':'amend','profile_id':PROFILE_ID,'environment':'dev-integration','changes':{'runtime_limits':{'max_output_tokens':4000}}}
 
-    def run_owner(self,argv,*,cwd=None):
+    def run_owner(self,argv,*,cwd=None,env=None):
         self.calls.append(argv)
         if argv[0]=='make':return '{}'
         if argv[0]=='node':
@@ -88,7 +92,13 @@ class ProfileConsoleTests(unittest.TestCase):
         if argv[:3]==['gh','pr','close']:self.pr['closed']=True;return ''
         if argv[0]=='gh':return ''
         if any(str(arg).endswith('scripts/dev_integration.py') for arg in argv):
-            self.assertEqual('env',argv[0]);self.assertTrue(argv[1].startswith('DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY='))
+            # Exercise the real ownership guard, rather than assuming every
+            # selected-profile up invocation is valid in an active composition.
+            try:guard_composition_owned_profile_action(action='up',existing_manifest={'runtime_composition_id':'synthetic-composition','runtime_composition_root_profile_id':'root'},environment=env or {},composition_lifecycle='active')
+            except SystemExit as error:raise profiles.ProfileError(str(error)) from None
+            self.assertIn('DEVINT_GAI_MODEL_MANAGEMENT_OVERLAY',env)
+            self.assertEqual('synthetic-not-real-secret',env['CONTEXT_SHARED_SECRET'])
+            self.assertNotIn('synthetic-not-real-secret',repr(argv))
             if not self.provider_online:raise profiles.ProfileError('Synthetic provider offline')
             return ''
         if argv[:2]==['k3s','kubectl']:
@@ -163,6 +173,33 @@ class ProfileConsoleTests(unittest.TestCase):
         self.assertEqual('applied',self.owner.projection['fulfillment_state'])
         self.assertFalse(Path(self.store.read(flow.key(request_id))['checkout']).exists())
         self.assertTrue(profiles.admitted_policy_source(self.policy,self.root,store_root=self.store.root))
+
+    def test_missing_active_composition_never_falls_back_to_standalone_up(self):
+        self.context_resolver.side_effect=SystemExit('composition context inactive')
+        flow=self.flow();request_id=self.input['request_id']
+        result=flow.control({'request_id':request_id,'action':'implement','expected_operation_digest':None})
+        result=flow.control({'request_id':request_id,'action':'approve-merge','expected_operation_digest':result['operation_digest']})
+        self.assertTrue(result['source_applied']);self.assertEqual('runtime-unverified',result['state'])
+        self.assertFalse(any(any(str(arg).endswith('scripts/dev_integration.py') for arg in call) for call in self.calls))
+
+    def test_independently_accepted_code_can_reconcile_and_restore_original_policy(self):
+        before={str(p):(self.root/p).read_bytes() for p in (profiles.native.REGISTRY,profiles.native.ACCESS_PLANE,profiles.native.RUNTIME_ASSIST)}
+        self.provider_online=False;flow=self.flow();request_id=self.input['request_id']
+        result=flow.control({'request_id':request_id,'action':'implement','expected_operation_digest':None})
+        result=flow.control({'request_id':request_id,'action':'approve-merge','expected_operation_digest':result['operation_digest']})
+        self.assertEqual('runtime-unverified',result['state'])
+        code=self.root/'scripts/reviewed-maintenance.py';code.write_text('accepted_maintenance = True\n')
+        subprocess.run(['git','-C',str(self.root),'add',str(code)],check=True)
+        subprocess.run(['git','-C',str(self.root),'commit','-qm','Independent maintenance'],check=True)
+        with self.assertRaises(profiles.ProfileError):flow.control({'request_id':request_id,'action':'reconcile','expected_operation_digest':result['operation_digest']})
+        self.policy['security']['platform_tree']=subprocess.check_output(['git','-C',str(self.root),'rev-parse','HEAD^{tree}'],text=True).strip()
+        self.provider_online=True;result=flow.inspect(request_id)
+        result=flow.control({'request_id':request_id,'action':'reconcile','expected_operation_digest':result['operation_digest']})
+        self.assertEqual('verified',result['state'])
+        restored=flow.control({'request_id':request_id,'action':'restore','expected_operation_digest':result['operation_digest']})
+        restored=flow.control({'request_id':request_id,'action':'approve-merge','expected_operation_digest':restored['operation_digest']})
+        self.assertEqual('verified',restored['state']);self.assertTrue(code.exists())
+        for path,content in before.items():self.assertEqual(content,(self.root/path).read_bytes())
 
     def test_only_receipted_policy_descendants_keep_control_acceptance(self):
         flow=self.flow();result=flow.control({'request_id':self.input['request_id'],'action':'implement','expected_operation_digest':None})

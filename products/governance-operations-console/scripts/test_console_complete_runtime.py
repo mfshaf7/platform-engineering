@@ -217,6 +217,12 @@ class CompleteRuntimeTests(unittest.TestCase):
                 runtime.require_provider_tools()
             self.assertEqual(which.call_args_list, [unittest.mock.call(name, path=path) for name in ("vault", "openssl", "git", "k3s", "docker")])
 
+    def test_native_lifecycle_checks_service_node_without_requiring_optional_tooling_for_core(self):
+        with patch.object(runtime.shutil,'which',side_effect=lambda name,**kwargs:None if name=='node' else '/resolved/tool'):
+            runtime.require_provider_tools({'purpose_profiles':{'lifecycle':{'enabled':False}}})
+            with self.assertRaisesRegex(runtime.RuntimeError,'required tools unavailable: node'):
+                runtime.require_provider_tools({'purpose_profiles':{'lifecycle':{'enabled':True}}})
+
     def test_missing_provider_tools_deny_activation_before_runtime_effects(self):
         policy = self.accepted_policy()
         with ExitStack() as stack:
@@ -565,7 +571,7 @@ class CompleteRuntimeTests(unittest.TestCase):
             patch.object(runtime, "operating_proof_lock", side_effect=AssertionError("outer delegate must not hold the inner unit's lock")),
         ):
             self.assertEqual(runtime.main(), 0)
-            tools.assert_called_once_with()
+            tools.assert_called_once_with(policy)
             install.assert_called_once_with(policy)
             commands.assert_called_once_with(["systemctl", "--user", "restart", "workspace-devint-accepted-idea-delivery-synthetic.service"])
 

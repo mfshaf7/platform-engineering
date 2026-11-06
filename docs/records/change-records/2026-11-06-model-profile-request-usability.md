@@ -211,3 +211,41 @@ commissioning. The earlier source assessment's identity boundary is preserved.
 The primary operator runbook now also reflects the approved canonical flag
 selection; it no longer says those source flags remain off. Runtime acceptance
 and the actual operating witness remain separate.
+
+
+## Composition-preserving runtime reconciliation
+
+The real Console request reached approved source, Gary publication and human
+merge (PR372). Running apply correctly failed the existing ownership guard:
+its gateway is part of the accepted runtime composition, while the new adapter
+had invoked a standalone profile update. The guard is unchanged. Reuse the
+existing validated active-composition lookup and bounded child environment for
+this finite gateway action, retaining original namespaces, dependencies and
+credential bindings. Missing, incomplete or degraded parent context cannot fall
+back to standalone mutation. Credential values pass as process environment,
+never command arguments, browser data or logs.
+
+Execute current clean, independently accepted Platform code only after its three
+policy documents match the original merged receipt. This permits a separately
+reviewed maintenance landing to advance executable acceptance while original
+request/source/rollback evidence remains unchanged. Unaccepted code, unrelated
+policy drift and corrupt receipt chains still deny reconciliation. Rollback
+continues to restore only the original three policy documents and preserves
+later independently accepted executable maintenance.
+
+The service also lacked Node/npm in its documented tool path, although the
+terminal's NVM installation worked. The existing admitted Node22/npm installation
+is now persistently linked into the operator tool directory. Native lifecycle
+selection adds Node/npm/gh/make to the existing controlled-path startup preflight;
+unselected lifecycle does not make those optional management tools a core gate.
+
+Landing Unit decision `child_isolated_landing_unit`,
+`maintenance-profile-composition-reconcile-platform`, branch
+`maintenance/profile-composition-reconcile`, base
+`63e825845a3e3d6d5b6acf3e0d84b0498428d6a7`. This owner maintenance repair changes no
+ART item, service, browser-selected path, profile policy or composition guard.
+The existing adapter harness now calls the actual ownership guard; it fails the
+old standalone invocation, rather than assuming runner success. Current accepted
+code plus unchanged policy, inactive context, original recovery and receipt
+restoration remain explicit tests. Exact composed Security acceptance, deployment
+and the original actual Console operation/rollback remain required.

@@ -1342,9 +1342,12 @@ def provider_service_path() -> str:
                      "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"))
 
 
-def require_provider_tools() -> None:
+def require_provider_tools(policy: dict[str, Any] | None = None) -> None:
     path = provider_service_path()
-    missing = [name for name in ("vault", "openssl", "git", "k3s", "docker")
+    tools = ("vault", "openssl", "git", "k3s", "docker")
+    if (policy or {}).get("purpose_profiles", {}).get("lifecycle", {}).get("enabled") is True:
+        tools += ("node", "npm", "gh", "make")
+    missing = [name for name in tools
                if not shutil.which(name, path=path)]
     if missing:
         raise RuntimeError("Platform provider required tools unavailable: " + ", ".join(missing))
@@ -1921,7 +1924,7 @@ def activate(policy: dict[str, Any]) -> Path:
     policy, activation = resolve_security_decision(policy)
     require_activation_allowed(policy)
     (STATE_ROOT / "core-online.json").unlink(missing_ok=True)
-    require_provider_tools()
+    require_provider_tools(policy)
     wait_runtime_dependencies(policy)
     write_resolved_policies(policy, activation)
     write_composition_supervisor(policy)
@@ -2440,7 +2443,7 @@ def main() -> int:
             require_activation_allowed(resolved)
             if args.policy.resolve() != POLICY_PATH.resolve():
                 raise RuntimeError("normal activation requires the canonical complete-runtime policy")
-            require_provider_tools()
+            require_provider_tools(resolved)
             write_composition_supervisor(resolved)
             run(["systemctl", "--user", "restart", composition_supervisor_unit(resolved)])
             result = status(policy, action="activate")

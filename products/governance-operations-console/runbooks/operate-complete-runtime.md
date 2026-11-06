@@ -1223,3 +1223,21 @@ composed acceptance precedes commissioning. Source proof or preview is not
 commissioning.
 Definitions, effects, limitations and original-request recovery belong in
 [Model management](../../../docs/components/governed-ai-gateway/model-management.md#capability-permission-profiles-maintenance-extension).
+
+
+### Native profile implementation prerequisites and parent context
+
+When native profile lifecycle is selected, the provider's documented operator
+tool path must contain Node22, npm, gh and make as well as its existing base
+tools. An interactive NVM shell alone does not supply the service PATH. Keep
+those installed tools in the existing operator tool directory or standard Unix
+paths; do not alter global manager environment or runtime policy to bypass a
+missing prerequisite. Startup checks presence before runtime effects.
+
+A gateway policy update inherits its verified active parent composition context
+through the existing bounded child runner. It retains the parent's namespace,
+consumer and credential bindings. Missing or degraded context stops the original
+operation without a standalone fallback. Resume that operation after the parent
+is healthy. Original approved policy bytes must remain exact; separately accepted
+current executable maintenance may advance without rewriting the original
+receipt. Native rollback restores the three policy files and retains that code.

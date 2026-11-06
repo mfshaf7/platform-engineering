@@ -1207,9 +1207,9 @@ Existing model-management caller, operator and token custody are reused.
 
 A disabled preparation path does not prevent core startup or native full-reference
 requests. Disabling/rolling back clears the preparation flag and origin, retains
-canonical request history and leaves CGG artifact custody with CGG. Current
-policy keeps preparation disabled pending operator preview review and exact
-composed acceptance. Do not hand-edit runtime environment files or widen
+canonical request history and leaves CGG artifact custody with CGG. The approved canonical
+policy selects preparation, but the adapters default off and commissioning still
+requires exact composed acceptance. Do not hand-edit runtime environment files or widen
 credentials to make the form appear connected.
 
 ## Capability profile commissioning extension
@@ -1217,7 +1217,9 @@ credentials to make the form appear connected.
 The source-only maintenance extension supports explicit permission-preset
 selection inside the existing model configuration and native profile lifecycle.
 It needs the same fresh exact-source Security/composition acceptance and a
-disposable real profile witness before activation; checked-in preparation and
-lifecycle flags remain off. Source proof or preview is not commissioning.
+disposable real profile witness for operating acceptance. The approved canonical
+policy selects preparation and lifecycle; adapters still default off and exact
+composed acceptance precedes commissioning. Source proof or preview is not
+commissioning.
 Definitions, effects, limitations and original-request recovery belong in
 [Model management](../../../docs/components/governed-ai-gateway/model-management.md#capability-permission-profiles-maintenance-extension).

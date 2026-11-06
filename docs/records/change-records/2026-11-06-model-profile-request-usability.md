@@ -51,7 +51,8 @@ The Platform whole-tree acceptance check previously would invalidate itself on
 profile changes. The same exact-source admission is extended only for a complete
 native receipt/readback chain through the three policy files. Other source and
 unreviewed policy still fail closed; no generic source trust bypass is added.
-Checked-in lifecycle flags stay off. Native original request/command/fulfillment/
+The approved canonical policy selects lifecycle and preparation; adapter defaults
+remain off until commissioned. Native original request/command/fulfillment/
 receipt/projection schema bytes and the existing source lock remain compatible.
 Source/controlled conformance and preview are separate from later commissioned
 operating proof. See the
@@ -206,3 +207,7 @@ batch. Landing Unit decision `child_isolated_landing_unit`,
 the preceding source review has already merged; no ART item or new mechanism.
 Exact composed Security acceptance must advance to the new merged tree before
 commissioning. The earlier source assessment's identity boundary is preserved.
+
+The primary operator runbook now also reflects the approved canonical flag
+selection; it no longer says those source flags remain off. Runtime acceptance
+and the actual operating witness remain separate.

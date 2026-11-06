@@ -167,3 +167,102 @@ Source validation: `python3 scripts/test_ai_task_routing.py` and the admitted
 `python3 scripts/test_dev_integration.py` entrypoint. Tests exercise synthetic
 providers, real local HTTP/subprocess transport and filesystem recovery. They
 are not Codex/Ollama account entitlement or Console operating proof.
+
+## Profile request setup metadata
+
+The existing authenticated management listener also supports
+`GET /v1/model-management/profile-request-options`. It returns bounded setup for
+registered task IDs: readable workflow label, responsible repository, caller
+bindings, environment, output contract and its actual schema digest, default
+operating requirements and a digest of those request-relevant coordinates.
+It returns no provider credentials, private schema contents or native account
+state and never probes or invokes a model. Unknown caller ownership fails closed
+rather than inferring an unrecorded repository.
+
+OOS uses this read for its optional single-form profile request preparation.
+The setup digest changes with caller/environment/output-contract setup, rather
+than unrelated model or provider selection. OOS rechecks it before recording the
+request. Context admission, request review and activation remain with their
+existing owners. Existing full-reference native-v1 requests and Platform's
+pinned fulfillment source reader remain unchanged.
+
+
+## Purpose-profile lifecycle controls
+
+The Console profile dashboard and request history consume the existing
+[OOS operator workflow](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/model-profile-request-operator-surface.md).
+Platform's existing authenticated operation provider exposes only profile
+prepare, inspect and control. Source preparation reads this owner's registry,
+access plane and task contracts without contacting an AI provider. It validates
+all three candidate policy documents before returning impact. Policy edits are
+bounded data-scope rules and existing runtime limits; changing integrations,
+output contracts, provider endpoints or privilege vocabulary remains owner
+integration work, never arbitrary browser policy JSON.
+
+The native lifecycle CLI remains the apply/readback/restore authority. The
+adapter stores its original request, candidate, actual review artifact,
+Security acceptance where required, source PR/head, receipt and rollback bundle
+under the existing private operation store. Gary uses the normal maintenance
+source identity and OOS publication bridge. The accountable human performs the
+explicit exact-head review/merge. The existing runner applies merged state and
+actual readiness source digests/profile state prove running truth. Applied source
+is separate from available provider service.
+
+A narrow source-admission extension prevents a reviewed policy update from
+invalidating its own recovery control. It accepts only an unbroken native
+receipt/readback chain from the accepted Platform tree through the same three
+policy documents. It verifies saved review evidence, candidate/source hashes,
+activation/exception Security evidence, and exact Git source bytes. Missing or
+corrupt evidence, unrelated source, unreviewed policy or drift fail closed.
+Code acceptance is unchanged. Ordinary complete-runtime acceptance can advance
+the anchor after validating this same chain; this is not a generic descendant
+or GitHub-main trust bypass.
+
+`purpose_profiles.lifecycle.enabled` is false in checked-in composition. Exact
+commissioning needs accepted preparation, the installation's existing OOS
+origin and an explicit list of Security operator identities. Bind these through
+`console_profile_requests.py`, never browser credentials or copied CLI tokens.
+No installer, model/provider startup dependency, new service or database is
+introduced. Source tests and disconnected preview do not substitute for a live
+disposable-profile witness after accepted source landing.
+
+## Capability permission profiles maintenance extension
+
+The operator approved several named permission profiles per installed AI
+capability, with explicit selection. Reuse the existing model configuration
+revision, original-command journal, receipt and rollback controls. `profile.assign`
+accepts only `{capability_id, profile_id}`; the owner permits only an active,
+compatible profile under an active base capability. It cannot add callers,
+change prompts, supply endpoints or grant broader implementation privileges.
+Legacy configurations without `profile_assignments` retain the base profile.
+A retained revision restores its saved choices as a new revision, subject to
+current registered capability compatibility; an inactive choice never permits
+an inference. Current readback reconciles catalog choices with configuration.
+
+Capability contracts remain stable across variants. Source creation retains a
+canonical capability ID and human profile name. Compatible variants inherit the
+unique base caller registration; they create no new caller grants. Runtime
+resolution rejects duplicate caller IDs. Native source validation includes the actual runtime
+resolver. Base-contract/source-binding maintenance updates its variants' shared
+scaffolding while preserving each variant's own limits, lifecycle and prior
+activation permission; it cannot create a new Security acceptance.
+
+The gateway checks both base and chosen permission policy. The stricter numeric
+limits apply, with existing provider caps and conservative no-retry behavior.
+Data-scope prose documents approved handling; it does not compile into an access
+filter. Actual context access stays with the registered integration and CGG.
+A single configuration snapshot binds policy and model routing. Evidence adds
+optional `policy_profile_id` while retaining the stable capability/task contract;
+original invocation identity remains stable through selection changes and process
+restart. Capability usage guides describe implemented input/output and instructions.
+Profile descriptions and reviewer notes remain request metadata. Unsupported
+provider limits are explained rather than offered as effective controls.
+
+Policy revisions reuse their original request. The preparation adapter reads
+current source and admits supporting context before atomically saving a revised
+candidate. Prior Security acceptance clears. A replay recovers the original
+revision without another owner preparation or context admission. Direct review
+metadata edits cannot silently remove prepared integration evidence. New capability
+code remains a source-maintainer responsibility; a request is not an implementation.
+This extension is staged source/preview work, pending the fresh lifecycle Security
+assessment and exact operating acceptance. It adds no service, database or ART.

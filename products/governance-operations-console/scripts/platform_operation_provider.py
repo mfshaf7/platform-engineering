@@ -39,6 +39,7 @@ import console_artifact_recovery as artifact_recovery
 import prototype_closure_disposition as closure_disposition
 import prototype_closure_evidence as closure_evidence
 import prototype_closure_identity as closure_identity
+import console_model_profiles as model_profiles
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -193,7 +194,7 @@ def require_security_activation(policy: dict[str, Any], source_version: str) -> 
         raise ProviderError(503, "platform_provider_security_gate_required", "The exact Platform Security gate is not accepted.")
     if not re.fullmatch(r"[0-9a-f]{40}", str(security.get("platform_revision", ""))):
         raise ProviderError(503, "platform_provider_security_gate_invalid", "The Security-reviewed Platform revision is invalid.")
-    if security.get("platform_tree") != git_tree():
+    if security.get("platform_tree") != git_tree() and not model_profiles.admitted_policy_source(policy,REPO_ROOT):
         raise ProviderError(503, "platform_provider_security_gate_stale", "The Platform source tree is not the Security-accepted tree.")
     if not DIGEST.fullmatch(str(security.get("decision_digest", ""))):
         raise ProviderError(503, "platform_provider_security_gate_invalid", "The Platform Security decision digest is invalid.")
@@ -975,10 +976,11 @@ def activation_is_current(policy: dict[str, Any], source_version: str) -> bool:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
+    policy_delta=model_profiles.admitted_policy_source(policy,REPO_ROOT)
     expected = {
         "schema_version": 1,
-        "platform_revision": source_version,
-        "platform_tree": git_tree(),
+        "platform_revision": policy['security']['platform_revision'] if policy_delta else source_version,
+        "platform_tree": policy['security']['platform_tree'] if policy_delta else git_tree(),
         "security_decision_digest": policy["security"]["decision_digest"],
         "security_decision_uri": policy["security"]["decision_uri"],
     }
@@ -1029,6 +1031,26 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                 if not self.authenticated():
                     raise ProviderError(403, "platform_provider_forbidden", "Platform provider caller is not admitted.")
                 path = urlparse(self.path).path
+                if self.command == 'POST' and path in {'/v1/console-operations/model-profiles/prepare','/v1/console-operations/model-profiles/inspect','/v1/console-operations/model-profiles/control'}:
+                    if urlparse(self.path).query or not activation_is_current(service.policy,service.source_version):
+                        raise ProviderError(409,'platform_profile_lifecycle_not_active','The exact accepted Platform provider is not active.')
+                    body=self.body(max_bytes=32768,strict=True)
+                    flow=model_profiles.ProfileOperations(service.policy,service.store)
+                    try:
+                        flow.require()
+                        if path.endswith('/prepare'):
+                            value=model_profiles.prepare(flow.repo,body,workspace=flow.workspace)
+                        elif path.endswith('/inspect'):
+                            if not isinstance(body,dict) or set(body)!={'request_id'}:raise model_profiles.ProfileError('Select the original request.')
+                            value=flow.inspect(body['request_id'])
+                        else:
+                            with artifact_recovery.owner_guard(service.store.root.parent,exclusive=False):
+                                value=flow.control(body)
+                    except artifact_recovery.RecoveryDeferred:
+                        raise ProviderError(503,'platform_profile_recovery_busy','Runtime recovery is in progress. The original policy operation is preserved; retry after recovery.') from None
+                    except model_profiles.ProfileError as exc:
+                        raise ProviderError(409,'platform_profile_lifecycle_blocked',str(exc)) from None
+                    self.respond(200,value);return
                 if self.command == "GET" and path == "/v1/console-operations/catalog":
                     self.respond(200, service.catalog())
                     return

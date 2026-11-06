@@ -174,3 +174,14 @@ and protected OpenClaw workflows. Its separate optional identity is default-off;
 follow the [complete-runtime procedure](../runbooks/operate-complete-runtime.md#optional-native-governed-release-connection)
 for commissioning, status, renewal and revocation. Do not use Gary or ambient human
 credentials for runtime dispatch. Source validation is not live acceptance.
+
+
+`console_model_profiles.py` is the finite adapter used by the existing operation
+provider for native purpose-profile preparation, source review, exact readback,
+runtime reconciliation and receipt rollback. Its operator path is documented in
+[Model management](../../../docs/components/governed-ai-gateway/model-management.md).
+It reuses the private operation store and normal source custody; it is not a
+new service or a generic command runner. Lifecycle is default off until exact
+composition acceptance. Run the controlled source test with an explicit locked
+OOS checkout through `test_console_model_profiles.py`; it does not grant live
+operating acceptance.

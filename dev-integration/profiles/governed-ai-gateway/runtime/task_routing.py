@@ -19,9 +19,9 @@ class TaskRouting:
 
     def invoke(self, *, request: dict[str, Any], profile: dict[str, Any], task: dict[str, Any],
                provider_input: dict[str, Any], system_prompt: str, prompt_version: str,
-               complete: Callable) -> Any | None:
+               complete: Callable, snapshot: dict[str, Any] | None = None) -> Any | None:
         task_id = profile["profile_id"] + "/" + task["task_kind"]
-        snapshot = self.configuration.snapshot()
+        snapshot = snapshot or self.configuration.snapshot()
         selection = self.configuration.selection(snapshot, task_id)
         if selection is None:
             # Once revisioned routing is commissioned, even an unchanged source
@@ -33,6 +33,8 @@ class TaskRouting:
                          "fallbacks": [], "on_exhausted": "fail-closed"}, "models": {model_id: {
                              "backend_id": model_id, "model": profile["upstream_model"],
                              "model_digest": profile["model_digest"], "runtime_version": profile["runtime_version"]}}}
+        if "selected_policy_profile_id" in profile:
+            selection["policy_profile_id"] = profile["selected_policy_profile_id"]
         identity = {"caller": request["caller_identity"]["caller_id"],
                     "operator": request["operator_identity"]["operator_id"],
                     "profile": profile["profile_id"], "task": task["task_kind"],
@@ -44,6 +46,7 @@ class TaskRouting:
                 frozen = record["selection"]
                 evidence = {"revision": frozen["revision"], "configuration_digest": frozen["configuration_digest"],
                             "task": frozen["task"], "attempts": [],
+                            **({"policy_profile_id": frozen["policy_profile_id"]} if "policy_profile_id" in frozen else {}),
                             "selection_ref": "ai-routing-selection:" + digest({"selection": frozen, "identity": identity})[7:]}
                 return complete(None, evidence, [], "provider-completion-unknown")
             attempts = []
@@ -97,6 +100,7 @@ class TaskRouting:
                             pass
             evidence = {"revision": selection["revision"], "configuration_digest": selection["configuration_digest"],
                         "task": task_id, "attempts": attempts,
+                        **({"policy_profile_id": selection["policy_profile_id"]} if "policy_profile_id" in selection else {}),
                         "selection_ref": "ai-routing-selection:" + digest({
                             "selection": selection, "identity": identity}).removeprefix("sha256:")}
             response = complete(result, evidence, attempts, failure)

@@ -73,9 +73,10 @@ class ModelConfiguration:
     a lost response can be replayed after later edits without another mutation.
     State is local dev-integration custody, not a new shared storage service.
     """
-    def __init__(self, root: Path, *, tasks: set[str], backends: dict[str, Any]):
+    def __init__(self, root: Path, *, tasks: set[str], backends: dict[str, Any], profiles: dict[str, Any] | None = None):
         self.root = root
         self.tasks = set(tasks)
+        self.profiles = copy.deepcopy(profiles or {})
         self.backends = copy.deepcopy(backends)
         self.path = root / "model-configuration.json"
 
@@ -170,6 +171,17 @@ class ModelConfiguration:
                 if not isinstance(payload["model_id"], str) or payload["model_id"] not in config["models"]:
                     raise ConfigurationError("model-not-registered", "Model registration does not exist.")
                 del config["models"][payload["model_id"]]
+            elif action == "profile.assign":
+                closed(payload, {"capability_id", "profile_id"}, action)
+                capability, profile_id = payload["capability_id"], payload["profile_id"]
+                if not isinstance(capability, str) or not isinstance(profile_id, str):
+                    raise ConfigurationError("invalid-command", "Choose registered capability and profile identities.")
+                base, profile = self.profiles.get(capability), self.profiles.get(profile_id)
+                if not base or base.get("capability_id", capability) != capability or not profile or profile.get("capability_id", profile_id) != capability:
+                    raise ConfigurationError("profile-not-compatible", "Choose a registered permission profile for this AI capability.")
+                if profile.get("profile_status") != "active" or not profile.get("activation_eligible") or base.get("profile_status") != "active" or not base.get("activation_eligible"):
+                    raise ConfigurationError("profile-not-active", "Both the capability and its permission profile must be active before selection.")
+                config.setdefault("profile_assignments", {})[capability] = profile_id
             elif action == "routing.save":
                 closed(payload, {"default", "overrides"}, action)
                 config["default"], config["overrides"] = copy.deepcopy(payload["default"]), copy.deepcopy(payload["overrides"])
@@ -241,7 +253,15 @@ class ModelConfiguration:
         return value if value and value.get("binding") == binding else None
 
     def validate(self, config: dict[str, Any]) -> None:
-        closed(config, {"backends", "models", "default", "overrides"}, "configuration")
+        closed(config, {"backends", "models", "default", "overrides"} |
+               ({"profile_assignments"} if "profile_assignments" in config else set()), "configuration")
+        assignments = config.get("profile_assignments", {})
+        if not isinstance(assignments, dict) or len(assignments) > 128:
+            raise ConfigurationError("profile-selection-invalid", "Permission profile choices must be a bounded mapping.")
+        for capability, profile_id in assignments.items():
+            base, profile = self.profiles.get(capability), self.profiles.get(profile_id)
+            if not base or base.get("capability_id", capability) != capability or not profile or profile.get("capability_id", profile_id) != capability:
+                raise ConfigurationError("profile-not-compatible", "A saved permission profile no longer belongs to its AI capability.")
         if not all(isinstance(config[key], dict) for key in ("backends", "models", "overrides")):
             raise ConfigurationError("invalid-configuration", "Registration and override maps are required.")
         for key, backend in config["backends"].items():

@@ -243,6 +243,20 @@ def resolve_model_profile(
         raise ModelProfileResolutionError(f"unknown governed model profile: {profile_id}")
     profile = _mapping(profiles[profile_id], f"model_profiles.{profile_id}")
 
+    capability_id = _non_empty_string(profile.get("capability_id", profile_id), f"profile {profile_id} capability_id")
+    base_profile = _mapping(profiles.get(capability_id), f"capability {capability_id}")
+    if base_profile.get("capability_id", capability_id) != capability_id:
+        raise ModelProfileResolutionError("Profile variants must reference a base capability, not another variant")
+    for field in ("purpose", "allowed_callers", "task_contracts", "provider_output_schema_ref", "accepted_record_schema_ref", "invocation_path", "human_approval_required", "direct_provider_access_allowed"):
+        if profile.get(field) != base_profile.get(field):
+            raise ModelProfileResolutionError(f"Profile {profile_id} changes the registered capability contract: {field}")
+    display_name = _non_empty_string(profile.get("display_name", profile_id), f"profile {profile_id} display_name")
+    if capability_id != profile_id:
+        bindings_without_state = lambda row: {key: {k: v for k, v in value.items() if k != "status"}
+                                              for key, value in row.get("bindings", {}).items()}
+        if profile.get("selected_binding_by_environment") != base_profile.get("selected_binding_by_environment") or bindings_without_state(profile) != bindings_without_state(base_profile):
+            raise ModelProfileResolutionError("Permission profiles inherit their capability's source binding; choose models through model routing")
+
     bindings = _mapping(
         profile.get("bindings"), f"model_profiles.{profile_id}.bindings"
     )
@@ -424,16 +438,17 @@ def resolve_model_profile(
             f"provider route {provider_route} credential_required must be boolean"
         )
 
-    # Registry callers on retired rows are retained history, never live grants.
-    for caller_id in ([] if retired else allowed_callers):
+    # Permission variants inherit one base caller registration. Retired bases
+    # retain variant history, but no longer have a live caller registration.
+    for caller_id in ([] if retired or base_profile.get("status") == "retired" else allowed_callers):
         caller = caller_contracts.get(caller_id)
         if caller is None:
             raise ModelProfileResolutionError(
                 f"profile caller {caller_id} is missing from access-plane callers"
             )
-        if caller.get("required_profile") != profile_id:
+        if caller.get("required_profile") != capability_id:
             raise ModelProfileResolutionError(
-                f"caller {caller_id} required_profile does not match {profile_id}"
+                f"caller {caller_id} required_profile does not match capability {capability_id}"
             )
         if caller.get("purpose") != purpose:
             raise ModelProfileResolutionError(
@@ -494,6 +509,10 @@ def resolve_model_profile(
         )
 
     activation_denial_reasons = []
+    if capability_id != profile_id:
+        base_activation = access_plane.get("activation_state", {}).get("profile_activations", {}).get(capability_id, {})
+        if base_profile.get("status") != "active" or base_activation.get("activation_allowed") is not True:
+            activation_denial_reasons.append("base-capability-not-active")
     if profile_status != "active":
         activation_denial_reasons.append("profile-not-active")
     if binding_status != "active":
@@ -514,6 +533,8 @@ def resolve_model_profile(
         "schema_version": 1,
         "profile_id": profile_id,
         "profile_status": profile_status,
+        "capability_id": capability_id,
+        "display_name": display_name,
         "purpose": purpose,
         "environment": environment,
         "binding_id": binding_id,
@@ -533,6 +554,7 @@ def resolve_model_profile(
         "task_contracts": task_contracts,
         "default_task_kind": default_task_kind,
         "runtime_limits": normalized_limits,
+        "allowed_data_scope": _string_list(profile.get("allowed_data_scope"), f"profile {profile_id} allowed_data_scope"),
         "provider_output_schema_ref": default_output_schema_ref,
         "selection_metadata": selection_metadata,
         "profile_registry_digest": registry_digest,

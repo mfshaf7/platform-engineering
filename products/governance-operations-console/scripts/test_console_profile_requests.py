@@ -81,6 +81,24 @@ class ProfileRequestsCompositionTests(unittest.TestCase):
         profiles.bind_oos(self.policy, state_root=self.root, namespace="synthetic-namespace",
                           operator_id="operator:synthetic", run=self.owner_run)
 
+    def test_preparation_is_optional_and_has_no_core_startup_dependency(self):
+        self.assertEqual("false", profiles.preparation_settings(self.policy)["OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED"])
+        self.prepare()
+        self.bind()
+        self.assertEqual("false", self.settings["OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED"])
+        self.assertEqual("", self.settings["CGG_MODEL_PROFILE_REQUEST_BASE_URL"])
+
+    def test_explicit_preparation_uses_accepted_origin_and_rejects_unsafe_configuration(self):
+        self.policy["purpose_profiles"]["preparation"] = {"enabled": True, "context_base_url": "http://context.synthetic:8080"}
+        self.prepare()
+        self.bind()
+        self.assertEqual("true", self.settings["OOS_MODEL_PROFILE_REQUEST_PREPARATION_ENABLED"])
+        self.assertEqual("http://context.synthetic:8080", self.settings["CGG_MODEL_PROFILE_REQUEST_BASE_URL"])
+        self.policy["purpose_profiles"]["preparation"]["context_base_url"] = "http://user:password@context.synthetic"
+        before = len(self.calls)
+        with self.assertRaises(profiles.ProfileCompositionError): self.bind()
+        self.assertEqual(before, len(self.calls))
+
     def test_first_use_publishes_current_registry_without_any_transaction(self):
         self.prepare()
         root, projection, history, credential = profiles.paths(self.root)

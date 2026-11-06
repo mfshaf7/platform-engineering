@@ -199,7 +199,7 @@ class ModelManagement:
         if policy["schema_version"] != 1 or not all(isinstance(policy[k], str) and policy[k] for k in ("caller_id", "operator_id", "token_file")):
             raise ConfigurationError("invalid-policy", "Owner identity and authentication policy are required.")
         tasks = {profile_id + "/" + kind for profile_id, profile in selections["profiles"].items()
-                 for kind in profile["task_contracts"]}
+                 if profile.get("capability_id", profile_id) == profile_id for kind in profile["task_contracts"]}
         backends = {}
         for backend_id, backend in policy["backends"].items():
             if not isinstance(backend.get("allowed_tasks"), list) or set(backend["allowed_tasks"]) - tasks:
@@ -217,7 +217,7 @@ class ModelManagement:
                                                    executable_digest=backend["executable_digest"], account=account)
             else:
                 raise ConfigurationError("backend-not-admitted", "This runtime does not implement the requested provider protocol.")
-        configuration = ModelConfiguration(root, tasks=tasks, backends=policy["backends"])
+        configuration = ModelConfiguration(root, tasks=tasks, backends=policy["backends"], profiles=selections["profiles"])
         connections = None
         if "api_connections" in policy:
             admitted = policy["api_connections"]
@@ -371,7 +371,17 @@ class ModelManagement:
         self.sync_connections()
         snapshot = self.configuration.snapshot()
         registered = snapshot["configuration"]["backends"]
-        return {"health": self.health(snapshot), "tasks": sorted(self.configuration.tasks), "backends": [
+        capabilities = []
+        for capability_id, base in sorted(self.configuration.profiles.items()):
+            if base.get("capability_id", capability_id) != capability_id:
+                continue
+            selected_id = snapshot["configuration"].get("profile_assignments", {}).get(capability_id, capability_id)
+            profiles = [{"profile_id": key, "name": row.get("display_name", key),
+                         "state": row["profile_status"], "selectable": bool(row["activation_eligible"] and base["activation_eligible"])}
+                        for key, row in sorted(self.configuration.profiles.items()) if row.get("capability_id", key) == capability_id]
+            capabilities.append({"capability_id": capability_id, "name": base.get("display_name", capability_id),
+                                 "purpose": base["purpose"], "selected_profile_id": selected_id, "profiles": profiles})
+        return {**({"capabilities": capabilities} if capabilities else {}), "health": self.health(snapshot), "tasks": sorted(self.configuration.tasks), "backends": [
             {"backend_id": key, "provider": value.get("provider"), "allowed_tasks": value["allowed_tasks"],
              "registered": key in registered, "account_login_supported": isinstance(self.backends.get(key), CodexBackend),
              "availability": "not-probed", **({"experimental": True, "qualification": "real-account-verification-pending",

@@ -87,6 +87,17 @@ source_realization:
   security_review_ref: docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md
 purpose_profiles:
   enabled: true
+  # Approved batch selection; activation still requires exact composed acceptance.
+  preparation:
+    enabled: true
+    context_base_url: http://context-governance-gateway-api.devint-context-governance-gateway-mfshaf7.svc.cluster.local:8080
+  lifecycle:
+    # Commission after exact source/composition review; qualify with a disposable
+    # profile. No provider/model needs to be online for these controls.
+    enabled: true
+    oos_base_url: http://127.0.0.1:38180
+    security_operator_ids:
+      - operator:mfshaf7
 runtime_observations:
   enabled: true
 durable_orchestration:

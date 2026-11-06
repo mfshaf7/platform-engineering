@@ -199,8 +199,11 @@ def validate_policy(policy_path: Path = POLICY_PATH) -> dict[str, Any]:
     if policy.get("source_realization") != {"enabled": True, "profile_id": "source-realization-v1",
         "security_review_ref": "docs/reviews/components/2026-10-15-bounded-source-realization-boundary.md"}:
         raise RuntimeError("complete runtime source realization boundary is invalid")
-    if policy.get("purpose_profiles") != {"enabled": True}:
+    purpose = policy.get("purpose_profiles", {})
+    if not isinstance(purpose, dict) or purpose.get("enabled") is not True or set(purpose) - {"enabled", "preparation", "lifecycle"}:
         raise RuntimeError("complete runtime Purpose-profile boundary is invalid")
+    profile_requests.preparation_settings(policy)
+    profile_requests.lifecycle_settings(policy)
     if policy.get("runtime_observations") != {"enabled": True}:
         raise RuntimeError("complete runtime observation boundary is invalid")
     if policy.get("durable_orchestration") != {"enabled": True}:
@@ -401,7 +404,9 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
     for name, revision in revisions.items():
         if name == "platform-engineering":
             if git_tree(name) != trees[name]:
-                raise RuntimeError("platform-engineering is not the exact Security-reviewed source tree")
+                binding={**policy,'security':{**policy['security'],'platform_tree':trees[name],'platform_revision':revision}}
+                if not provider.model_profiles.admitted_policy_source(binding,repo_path(name)):
+                    raise RuntimeError("platform-engineering is not the exact Security-reviewed source tree or receipted policy-only descendant")
             if run(["git", "-C", str(repo_path(name)), "status", "--porcelain"]).stdout.strip():
                 raise RuntimeError("platform-engineering must be clean before activation")
         else:
@@ -493,7 +498,7 @@ def resolve_security_decision(policy: dict[str, Any]) -> tuple[dict[str, Any], d
         # runtime readback must bind the actual selected execution revision.
         # Original review provenance remains in reviewed_revisions unchanged.
         "platform_revision": git_head("platform-engineering"),
-        "platform_tree": trees["platform-engineering"],
+        "platform_tree": git_tree('platform-engineering'),
         "reviewed_revisions": revisions,
         "security_revision": acceptance_revision,
     })

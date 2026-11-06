@@ -185,3 +185,24 @@ the gateway's existing `/readyz` route. The adapter tests now execute their actu
 observation script against the real gateway HTTP handler with controlled source
 data; the old URL reproduces HTTP404 and the corrected URL supplies the checked
 policy readback. This changes no activation authority or endpoint contract.
+
+
+## Publication readback correction
+
+The real OOS publication receipt reports the source App as
+`mfshaf7-agent-gary[bot]`; GitHub's `gh pr view` reports the same App as
+`app/mfshaf7-agent-gary`. The lifecycle adapter must accept the exact publisher
+identity as well as its existing GitHub display label. No other author gains
+permission. The later repository/head/base and exact human-review checks stay
+unchanged. The existing native adapter harness now returns the actual publisher
+receipt's author field instead of omitting it, exposing the mismatch before the
+one-line correction. All native adapter cases must then pass.
+
+This required publication repair is owner-repo maintenance under the approved
+batch. Landing Unit decision `child_isolated_landing_unit`,
+`maintenance-profile-publisher-readback-platform`, branch
+`maintenance/profile-publisher-readback`, base
+`a6d6a1f8e053fcec989ed66c7e0849aa1340ff36`. It is a separate source landing because
+the preceding source review has already merged; no ART item or new mechanism.
+Exact composed Security acceptance must advance to the new merged tree before
+commissioning. The earlier source assessment's identity boundary is preserved.

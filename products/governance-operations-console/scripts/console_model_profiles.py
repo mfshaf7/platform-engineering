@@ -385,7 +385,7 @@ class ProfileOperations:
             self.run(["git", "-C", str(checkout), "commit", "-m", ("Restore" if record["restore"] else "Apply") + " reviewed purpose profile lifecycle"])
         publication = self.source(record, "publish")
         pr = publication["pull_request"]
-        if pr.get("author") not in {None, "app/mfshaf7-agent-gary"}:
+        if pr.get("author") not in {None, "mfshaf7-agent-gary[bot]", "app/mfshaf7-agent-gary"}:
             raise ProfileError("The published source does not have the admitted Gary author.")
         record["review"] = {"url": pr["url"], "number": pr["number"], "head": publication["pushed_head"]}
         self.save(record, "awaiting-review", "approve-merge", "Gary published the exact policy change for accountable human review.")

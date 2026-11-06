@@ -79,7 +79,7 @@ class ProfileConsoleTests(unittest.TestCase):
             if 'publish' not in argv:return '{}'
             checkout=Path(argv[argv.index('--repo-root')+1]);head=subprocess.check_output(['git','-C',str(checkout),'rev-parse','HEAD'],text=True).strip()
             self.pr={'url':'https://github.com/mfshaf7/platform-engineering/pull/42','number':42,'head':head}
-            return json.dumps({'pull_request':{'url':self.pr['url'],'number':42},'pushed_head':head})
+            return json.dumps({'pull_request':{'url':self.pr['url'],'number':42,'author':'mfshaf7-agent-gary[bot]'},'pushed_head':head})
         if argv[:3]==['gh','api','user']:return 'workspace-owner'
         if argv[:3]==['gh','pr','view']:
             return json.dumps({'url':self.pr['url'],'author':{'login':'app/mfshaf7-agent-gary'},'headRefOid':self.pr['head'],'baseRefName':'main','state':'MERGED' if self.pr.get('merged') else 'CLOSED' if self.pr.get('closed') else 'OPEN','mergeCommit':{'oid':self.pr['head']}})

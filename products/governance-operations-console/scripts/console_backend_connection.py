@@ -7,6 +7,7 @@ import os
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -49,15 +50,32 @@ def stop_child(child: subprocess.Popen, timeout: float = 3) -> None:
         child.wait(timeout=timeout)
 
 
+def watch_transport_errors(stream, failed: threading.Event) -> None:
+    """Drain bounded kubectl diagnostics; backend HTTP payloads never enter here."""
+    while chunk := stream.readline(4096):
+        sys.stderr.write(chunk)
+        sys.stderr.flush()
+        if re.search(r"\bportforward\.go:\d+\] error creating (?:error|forwarding) stream for port \d+ -> \d+: Timeout occurred\s*$", chunk):
+            failed.set()
+
+
 def supervise(command: list[str], port: int, stop: threading.Event, *,
               interval: float = 10, startup_grace: float = 20,
               failure_limit: int = 3, probe_timeout: float = 2) -> int:
-    child = subprocess.Popen(command, start_new_session=True)
+    child = subprocess.Popen(command, start_new_session=True, stderr=subprocess.PIPE,
+                             text=True, encoding="utf-8", errors="replace")
+    stream_failed = threading.Event()
+    reader = threading.Thread(target=watch_transport_errors,
+                              args=(child.stderr, stream_failed), daemon=True)
+    reader.start()
     grace_until = time.monotonic() + startup_grace
     next_probe = time.monotonic()
     failures = 0
     try:
         while not stop.is_set():
+            if stream_failed.is_set():
+                print("Backend tunnel stream timed out; recycling only this connection.", flush=True)
+                return 75
             if child.poll() is not None:
                 print("Backend tunnel exited; supervised reconnect required.", flush=True)
                 return 1
@@ -77,6 +95,9 @@ def supervise(command: list[str], port: int, stop: threading.Event, *,
         return 0
     finally:
         stop_child(child)
+        reader.join(timeout=2)
+        if not reader.is_alive():
+            child.stderr.close()
 
 
 def dns_label(value: str) -> str:

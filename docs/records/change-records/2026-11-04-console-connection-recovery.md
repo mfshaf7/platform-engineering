@@ -23,8 +23,9 @@ intervention or backend workload restart.
 
 Operator-authorized repair of existing local runtime outside active ART work.
 Landing Unit: `feature_single_landing_unit`,
-`maintenance-console-connection-recovery`. The pending Console UI batch remains
-unpublished. Recommendation: extend existing services; no new daemon, timer,
+`maintenance-console-connection-recovery`. The November 7 continuation uses
+`maintenance-backend-stream-recovery-20261107` after publication of the register
+batch exposed partial stream failures during native qualification. Recommendation: extend existing services; no new daemon, timer,
 endpoint, principal or network exposure.
 
 ## Ownership
@@ -95,3 +96,30 @@ freeze trigger eliminated or promise no transient request failure. Preserve
 truthful errors and original request identities. A reviewed cluster/transport
 upgrade is separate. Rollback restores the previous accepted Platform/Security
 source pair and refreshes the two connections through the matching procedure.
+
+
+## Partial stream recovery — 2026-11-07
+
+Final register-batch qualification reproduced kubectl error-stream creation
+timeouts while the same tunnel still returned successful health probes. The
+existing connection refresh restored native reads; health-only supervision
+cannot detect this partial transport failure. The internal transport trigger
+remains unproven. No application source/data corruption is inferred.
+
+Operator-approved maintenance extends the existing supervisor only. Landing Unit
+Decision: feature_single_landing_unit,
+maintenance-backend-stream-recovery-20261107. A bounded reader drains the same
+kubectl stderr and recognizes its exact stream-creation timeout signature.
+That signal recycles/reaps only the tunnel through existing systemd restart,
+even if a health probe succeeds. Generic diagnostics and backend HTTP503 do not
+trigger this path. Namespace/service/port admission, stop behavior, delays,
+credentials, application workloads and canonical request recovery are unchanged;
+no business mutation is replayed.
+
+Seven focused tests pass, including a real child whose health endpoint remains
+200 while it emits the observed kubectl failure, ordinary HTTP503, unrelated
+and long diagnostics, frozen-child recovery, stop cleanup and unexpected exit.
+The complete-runtime CI entrypoint already imports this same suite. Full owner
+validation and exact-source Security acceptance precede the existing
+refresh-connections procedure. Native proof must show usable owner reads and
+UI registers afterward; source tests alone do not claim live completion.

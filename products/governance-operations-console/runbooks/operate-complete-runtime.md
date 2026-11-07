@@ -148,7 +148,12 @@ connection liveness. It does not certify application or complete-system health.
 Inspect `governance-console-cross-domain-oos.service` and
 `governance-console-cross-domain-wgcf.service` with `systemctl --user status` and
 `journalctl --user -u <unit>`. A repeated `Backend tunnel is unresponsive` line
-records automatic recovery. The supervisor uses no provider/account credential,
+records automatic recovery. A `Backend tunnel stream timed out` message also
+records recovery when kubectl reports its specific stream-creation timeout while
+health still responds. The same supervised connection is replaced; backend HTTP
+errors and unrelated diagnostics do not request recycling. The stderr reader
+uses bounded chunks, and no application payload is inspected. The supervisor
+uses no provider/account credential,
 does not follow health redirects/proxies and does not publish backend payloads.
 Ordinary stop/rollback/suspension stops the supervisor and child together; no
 separate timer restarts a deliberately stopped connection. Rollback selects the

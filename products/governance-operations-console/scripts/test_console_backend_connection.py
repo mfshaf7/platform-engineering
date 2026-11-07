@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise non-exiting hangs and cleanup with real local child processes."""
 import http.server
+import contextlib
+import io
 import os
 from pathlib import Path
 import signal
@@ -32,6 +34,51 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 class BackendConnectionTests(unittest.TestCase):
+    def test_stream_timeout_recycles_while_health_keeps_responding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', 0))
+                port = listener.getsockname()[1]
+            fake = root / 'partial.py'
+            marker, probed = root / 'pid', root / 'probed'
+            fake.write_text('''import http.server, os, sys, threading, time
+from pathlib import Path
+class Handler(http.server.BaseHTTPRequestHandler):
+ def do_GET(self):
+  Path(sys.argv[3]).touch(); self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
+ def log_message(self,*args): pass
+server=http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),Handler)
+Path(sys.argv[2]).write_text(str(os.getpid()))
+def failed_stream():
+ time.sleep(.3)
+ print('E1107 12:59:13.619648 123 portforward.go:351] error creating error stream for port 38180 -> 8080: Timeout occurred',file=sys.stderr,flush=True)
+threading.Thread(target=failed_stream,daemon=True).start()
+server.serve_forever()
+''')
+            result = []
+            stop = threading.Event()
+            thread = threading.Thread(target=lambda: result.append(connection.supervise(
+                [sys.executable, str(fake), str(port), str(marker), str(probed)],
+                port, stop, interval=.03, startup_grace=1, probe_timeout=.1)))
+            thread.start()
+            try:
+                thread.join(5)
+                self.assertEqual(result, [75])
+                self.assertTrue(probed.exists(), 'health must succeed before the stream fault')
+                with self.assertRaises(ProcessLookupError):
+                    os.kill(int(marker.read_text()), 0)
+            finally:
+                stop.set()
+                thread.join(5)
+
+    def test_unrelated_diagnostics_do_not_request_reconnect(self):
+        failed = threading.Event()
+        stream = io.StringIO('x' * 10000 + '\nBackend returned HTTP503\n')
+        with contextlib.redirect_stderr(io.StringIO()):
+            connection.watch_transport_errors(stream, failed)
+        self.assertFalse(failed.is_set())
+
     def test_http_error_is_responsive_and_redirects_are_not_followed(self):
         with http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler) as server:
             thread = threading.Thread(target=server.serve_forever, daemon=True)

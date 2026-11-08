@@ -5,6 +5,10 @@ and exact-artifact cache refresher. Admission and consumer workflow are owned by
 the calling product lifecycle; this shared helper never accepts caller paths,
 shell commands or image references and never touches data volumes. See
 [ADR-031](../docs/decisions/adr/ADR-031-bounded-local-artifact-recovery.md).
+Before removing a damaged image, recovery retains an exact, validated OCI
+archive in its existing root-owned state directory. Replacement reimports that
+archive without an upstream pull; an unavailable or invalid original blocks
+before removal. `test_runtime_image_archives.py` covers this boundary.
 
 This directory is now reserved for shared platform scripts only.
 

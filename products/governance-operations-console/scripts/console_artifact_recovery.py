@@ -184,15 +184,34 @@ def recover_images(root, run, report):
 def _recover_images(root, run, report):
     assert_idle(root, run)
     current = journal(root)
-    if current['state'] in {'repairing', 'operator-required', 'restored-awaiting-readiness', 'resume-requested'}:
+    prior = {item['reference'] for item in current.get('corrupt', [])}
+    incoming = {item['reference'] for item in report.get('corrupt', [])}
+    additional = (current['state'] == 'restored-awaiting-readiness' and prior and incoming and prior.isdisjoint(incoming))
+    interrupted = (current['state'] in {'repairing', 'resume-requested'} and incoming and incoming <= prior
+                   and all(item.get('resume_from_archive') is True for item in report['corrupt']))
+    if current['state'] in {'repairing', 'operator-required', 'restored-awaiting-readiness', 'resume-requested'} and not (additional or interrupted):
         raise RecoveryError('earlier uncertain/failed recovery requires operator inspection; not replayed')
     controllers, completed = affected_controllers(report, run)
+    to_retire = list(completed)
+    if additional or interrupted:
+        # Keep original desired replicas and consumer identities across distinct
+        # artifacts. Root incidents still enforce one replacement per image.
+        selected = {(item['namespace'], item['resource']): item for item in controllers}
+        for item in current.get('controllers', []):
+            key = (item['namespace'], item['resource'])
+            if key in selected and selected[key]['uid'] != item['uid']:
+                raise RecoveryError('consumer identity changed during recovery')
+            selected[key] = item
+        controllers = list(selected.values())
+        completed = current.get('completed_pods', []) + [item for item in completed if item not in current.get('completed_pods', [])]
     if current['state'] == 'quiescing':
         # Safe idempotent continuation before the destructive-attempt boundary.
         controllers = current['controllers']
-    value = {'state': 'quiescing', 'controllers': controllers, 'corrupt': report['corrupt'],
+    value = {**current, 'state': 'quiescing', 'controllers': controllers,
+             'corrupt': current.get('corrupt', []) + [item for item in report['corrupt'] if item['reference'] not in prior]
+                        if additional or interrupted else report['corrupt'],
              'completed_pods': current.get('completed_pods', completed) if current['state'] == 'quiescing' else completed,
-             'started_at': time.time()}
+             'started_at': current.get('started_at', time.time()) if additional or interrupted else time.time()}
     save(root, value)
     for item in controllers:
         observed = json.loads(run(['k3s', 'kubectl', '-n', item['namespace'], 'get', item['resource'], '-o', 'json']).stdout)
@@ -202,7 +221,7 @@ def _recover_images(root, run, report):
             continue
         run(['k3s', 'kubectl', '-n', item['namespace'], 'scale', item['resource'],
              '--replicas=0', '--current-replicas=' + str(item['replicas'])])
-    for ns, name, uid in completed:
+    for ns, name, uid in to_retire:
         # Completed pods have no mutable running work; delete only the exact UID.
         run(['k3s', 'kubectl', 'delete', '--raw', '/api/v1/namespaces/' + ns + '/pods/' + name, '-f', '-'],
             input_value=json.dumps({'apiVersion': 'v1', 'kind': 'DeleteOptions', 'preconditions': {'uid': uid}}))
@@ -226,7 +245,8 @@ def _recover_images(root, run, report):
     except RecoveryError as exc:
         value.update(state='operator-required', reason=str(exc)); save(root, value)
         raise
-    value.update(state='restored-awaiting-readiness', repaired=repaired['repaired']); save(root, value)
+    value.update(state='restored-awaiting-readiness',
+                 repaired=sorted(set(current.get('repaired', []) + repaired['repaired']))); save(root, value)
     return repaired
 
 

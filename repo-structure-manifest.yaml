@@ -38,6 +38,7 @@ shared_paths:
       - dev_integration_preflight.py
       - runtime_artifact_integrity.py
       - test_runtime_artifact_integrity.py
+      - test_runtime_image_archives.py
       - dev_integration_host_services.py
       - test_dev_integration.py
       - test_dev_integration_auto_resume.py

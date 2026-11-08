@@ -209,7 +209,7 @@ def registry_blob(reference, digest, target, *, manifest=False):
         raise IntegrityError('exact public registry artifact unavailable; cache/data unchanged') from None
 
 
-def verified_blob(digest, directory, *, reference=None, manifest=False):
+def verified_blob(digest, directory, *, reference=None, manifest=False, archive=None):
     if not DIGEST.fullmatch(digest):
         raise IntegrityError('invalid content digest')
     target = directory / digest.split(':')[1]
@@ -221,6 +221,15 @@ def verified_blob(digest, directory, *, reference=None, manifest=False):
             process.kill(); process.wait()
             raise IntegrityError('content read timed out') from None
     if code or target.stat().st_size > 4 * 1024**3 or 'sha256:' + sha(target) != digest:
+        if archive is not None:
+            # The complete archive graph was validated once for this fresh
+            # baseline. Restore its content without contacting an upstream.
+            with archive.extractfile('blobs/sha256/' + digest.split(':')[1]) as source, target.open('wb') as output:
+                for block in iter(lambda: source.read(1024 * 1024), b''):
+                    output.write(block)
+            if target.stat().st_size > 4 * 1024**3 or 'sha256:' + sha(target) != digest:
+                raise IntegrityError('retained archive content failed fresh digest verification')
+            return target
         if reference is None:
             raise IntegrityError('trusted image content is unavailable or corrupt; operator required')
         # containerd may discard compressed layers after unpack. Missing/bad
@@ -229,22 +238,22 @@ def verified_blob(digest, directory, *, reference=None, manifest=False):
     return target
 
 
-def trusted_inventory(reference, directory):
+def trusted_inventory(reference, directory, *, archive=None):
     digest = reference.split('@', 1)[1]
-    metadata = json.loads(verified_blob(digest, directory, reference=reference, manifest=True).read_bytes())
+    metadata = json.loads(verified_blob(digest, directory, reference=reference, manifest=True, archive=archive).read_bytes())
     if 'manifests' in metadata:
         candidates = [x for x in metadata['manifests'] if x.get('platform', {}).get('os') == 'linux'
                       and x.get('platform', {}).get('architecture') == 'amd64']
         if len(candidates) != 1:
             raise IntegrityError('image has no unique admitted linux/amd64 platform')
-        metadata = json.loads(verified_blob(candidates[0]['digest'], directory, reference=reference, manifest=True).read_bytes())
+        metadata = json.loads(verified_blob(candidates[0]['digest'], directory, reference=reference, manifest=True, archive=archive).read_bytes())
     config = metadata['config']['digest']
-    info = json.loads(verified_blob(config, directory, reference=reference).read_bytes())
+    info = json.loads(verified_blob(config, directory, reference=reference, archive=archive).read_bytes())
     if info.get('os') != 'linux' or info.get('architecture') != 'amd64':
         raise IntegrityError('image platform mismatch')
     entries = {}
     for descriptor in metadata['layers']:
-        path = verified_blob(descriptor['digest'], directory, reference=reference)
+        path = verified_blob(descriptor['digest'], directory, reference=reference, archive=archive)
         with path.open('rb') as stream:
             layer_inventory(stream, entries)
         path.unlink()
@@ -294,7 +303,13 @@ def baseline(reference, *, fresh=False):
         except (ValueError, KeyError, TypeError):
             pass
     with tempfile.TemporaryDirectory(prefix='content-', dir=STATE) as directory:
-        value = trusted_inventory(reference, Path(directory))
+        saved = archive_path(reference)
+        if saved.exists() or saved.is_symlink():
+            verify_archive(saved, reference)
+            with tarfile.open(saved, 'r:') as archive:
+                value = trusted_inventory(reference, Path(directory), archive=archive)
+        else:
+            value = trusted_inventory(reference, Path(directory))
     write(path, {'value': value, 'digest': hashlib.sha256(canonical(value)).hexdigest()})
     return value
 
@@ -398,7 +413,10 @@ def admitted_inventory(policy):
         else:
             incident = STATE / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json')
             if incident.exists() and json.loads(incident.read_bytes()).get('phase') != 'closed':
-                raise IntegrityError('interrupted repair has missing image metadata; operator required')
+                if json.loads(incident.read_bytes()).get('phase') != 'attempted' or policy.get('automatic_repair') is not True:
+                    raise IntegrityError('interrupted repair has missing image metadata; operator required')
+                verify_archive(archive_path(reference), reference)
+                result.append((reference, []))
     write(path, sorted(references))
     return result, pods
 
@@ -418,6 +436,121 @@ def restore_aliases(reference, aliases):
                 raise IntegrityError('original image alias changed during repair')
         else:
             command(ctr('images', 'tag', reference, alias))
+
+
+def archive_path(reference):
+    if '@' not in reference or not DIGEST.fullmatch(reference.split('@', 1)[1]):
+        raise IntegrityError('archive requires the admitted immutable image')
+    root = STATE / 'verified-archives'
+    if root.is_symlink():
+        raise IntegrityError('unsafe image archive directory')
+    root.mkdir(mode=0o700, exist_ok=True)
+    if root.stat().st_uid != os.getuid() or root.stat().st_mode & 0o022:
+        raise IntegrityError('image archive has foreign custody')
+    return root / (hashlib.sha256(reference.encode()).hexdigest() + '.oci.tar')
+
+
+def verify_archive(path, reference):
+    """Validate the selected OCI graph without extracting or trusting aliases."""
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
+        or info.st_mode & 0o022 or info.st_size > 4 * 1024**3):
+        raise IntegrityError('unsafe or oversized image archive')
+    try:
+        with tarfile.open(path, 'r:') as archive:
+            members = {}
+            for member in archive:
+                if member.isdir() and member.name in {'blobs', 'blobs/sha256'}:
+                    continue
+                if (not member.isfile() or member.name in members or len(members) >= 1024 or
+                    member.name not in {'oci-layout', 'index.json'} and not re.fullmatch(r'blobs/sha256/[0-9a-f]{64}', member.name)):
+                    raise IntegrityError('invalid OCI archive member')
+                members[member.name] = member
+                if member.name.startswith('blobs/'):
+                    digest = hashlib.sha256()
+                    with archive.extractfile(member) as stream:
+                        for block in iter(lambda: stream.read(1024 * 1024), b''):
+                            digest.update(block)
+                    if digest.hexdigest() != member.name.rsplit('/', 1)[1]:
+                        raise IntegrityError('image archive blob digest mismatch')
+
+            def document(name):
+                member = members[name]
+                if member.size > 1024 * 1024:
+                    raise IntegrityError('oversized image archive metadata')
+                with archive.extractfile(member) as stream:
+                    return json.load(stream)
+
+            def blob(descriptor):
+                digest = descriptor['digest']
+                if not DIGEST.fullmatch(digest):
+                    raise IntegrityError('invalid image archive descriptor')
+                name = 'blobs/sha256/' + digest.split(':')[1]
+                if members[name].size != descriptor['size']:
+                    raise IntegrityError('image archive descriptor size mismatch')
+                return name
+
+            if document('oci-layout') != {'imageLayoutVersion': '1.0.0'}:
+                raise IntegrityError('unsupported OCI archive layout')
+            index = document('index.json')
+            roots = index['manifests']
+            if (index['schemaVersion'] != 2 or len(roots) != 1 or
+                roots[0]['digest'] != reference.split('@')[1] or
+                roots[0].get('annotations', {}).get('io.containerd.image.name') != reference or
+                roots[0].get('annotations', {}).get('org.opencontainers.image.ref.name', '@' + reference.split('@')[1]) != '@' + reference.split('@')[1]):
+                raise IntegrityError('image archive does not bind the exact original reference')
+            manifest = document(blob(roots[0]))
+            if 'manifests' in manifest:
+                selected = [item for item in manifest['manifests'] if item.get('platform', {}).get('os') == 'linux'
+                            and item.get('platform', {}).get('architecture') == 'amd64']
+                if len(selected) != 1:
+                    raise IntegrityError('image archive has no unique admitted platform')
+                manifest = document(blob(selected[0]))
+            config = document(blob(manifest['config']))
+            if config.get('os') != 'linux' or config.get('architecture') != 'amd64':
+                raise IntegrityError('image archive platform mismatch')
+            for layer in manifest['layers']:
+                blob(layer)
+    except (OSError, tarfile.TarError, ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
+        raise IntegrityError('image archive is incomplete or invalid') from exc
+
+
+def retain_archive(reference):
+    target = archive_path(reference)
+    if target.exists() or target.is_symlink():
+        verify_archive(target, reference)
+        return target
+    # Export trusted compressed content, never the damaged unpacked filesystem.
+    # Keep this proof before the first destructive image/snapshot operation.
+    with tempfile.TemporaryDirectory(prefix='.preparing-', dir=target.parent) as directory:
+        temporary = Path(directory) / 'image.oci.tar'
+        command(ctr('images', 'export', '--platform', 'linux/amd64', '--skip-manifest-json',
+                    str(temporary), reference), timeout=180)
+        temporary.chmod(0o600)
+        verify_archive(temporary, reference)
+        with temporary.open('rb') as stream:
+            os.fsync(stream.fileno())
+        temporary.replace(target)
+        descriptor = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    return target
+
+
+def restore_archive(reference, aliases, incident, record):
+    target = archive_path(reference)
+    verify_archive(target, reference)
+    # This is the same bounded replacement attempt. A failed/uncertain import
+    # is not replayed; a later check can still prove that it finished safely.
+    write(incident, {**record, 'phase': 'importing-archive'})
+    command(ctr('images', 'import', '--platform', 'linux/amd64', '--digests', str(target)), timeout=180)
+    restore_aliases(reference, aliases)
+    _, differences = compare(reference)
+    if differences:
+        raise IntegrityError('replacement failed trusted byte verification; operator required')
+    write(incident, {**record, 'phase': 'restored-awaiting-readiness', 'replacement': 'verified-local-archive'})
 
 
 def repair(reference, aliases, expected, incident, policy=None):
@@ -442,6 +575,7 @@ def repair(reference, aliases, expected, incident, policy=None):
         time.sleep(2)
     # Recheck all content before destructive cache metadata effects.
     baseline(reference, fresh=True)
+    retain_archive(reference)
     record = {'phase': 'attempted', 'reference': reference, 'aliases': aliases,
               'started_at': time.time(), 'mismatch_evidence': expected.get('mismatch_evidence', {})}
     write(incident, record)
@@ -449,12 +583,7 @@ def repair(reference, aliases, expected, incident, policy=None):
     result = subprocess.run([K3S, *ctr('snapshots', 'info', expected['chain'])], capture_output=True, timeout=30, env=ENVIRONMENT)
     if result.returncode == 0:
         raise IntegrityError('unpacked snapshot retained by another user; operator required')
-    command(['crictl', 'pull', reference], timeout=300)
-    restore_aliases(reference, aliases)
-    _, differences = compare(reference)
-    if differences:
-        raise IntegrityError('replacement failed trusted byte verification; operator required')
-    write(incident, {**record, 'phase': 'restored-awaiting-readiness'})
+    restore_archive(reference, aliases, incident, record)
 
 
 def operate(action, policy):
@@ -474,15 +603,31 @@ def operate(action, policy):
     else:
         fresh = False
     for reference, aliases in assets:
-        expected, differences = ({}, []) if fresh else compare(reference)
         incident = STATE / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json')
+        if not aliases:
+            record = json.loads(incident.read_bytes())
+            if record.get('phase') != 'attempted' or record.get('reference') != reference:
+                raise IntegrityError('missing image is outside the retained replacement attempt')
+            if action == 'repair':
+                expected = baseline(reference)
+                if image_users(expected['config'], reference):
+                    raise IntegrityError('interrupted replacement has image consumers')
+                restore_archive(reference, record['aliases'], incident, record)
+                report['repaired'].append(reference)
+            elif action == 'check':
+                report['corrupt'].append({'reference': reference, 'files': [], 'count': 0,
+                    'reason': 'interrupted-image-replacement', 'resume_from_archive': True})
+            else:
+                raise IntegrityError('image replacement has not completed')
+            continue
+        expected, differences = ({}, []) if fresh else compare(reference)
         if differences:
             report['corrupt'].append({'reference': reference, 'files': differences[:10], 'count': len(differences),
                                       'mismatch_evidence': expected['mismatch_evidence']})
             if action == 'repair':
                 repair(reference, aliases, expected, incident, policy)
                 report['repaired'].append(reference)
-        elif action == 'check' and incident.exists() and json.loads(incident.read_bytes()).get('phase') == 'attempted':
+        elif action == 'check' and incident.exists() and json.loads(incident.read_bytes()).get('phase') in {'attempted', 'importing-archive'}:
             previous = json.loads(incident.read_bytes())
             # A crash after the replacement can resume from freshly proven
             # bytes without repeating image removal/pull. Restore only absent

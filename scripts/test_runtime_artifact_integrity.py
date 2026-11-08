@@ -59,7 +59,7 @@ class IntegrityTests(unittest.TestCase):
     def test_read_only_view_is_removed_even_when_verification_fails(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(integrity, 'STATE', Path(directory)), patch.object(integrity, 'command') as command:
             with self.assertRaises(integrity.IntegrityError):
-                with integrity.mounted('repo@sha256:exact'):
+                with integrity.mounted('repo@sha256:' + 'a'*64):
                     raise integrity.IntegrityError('synthetic verification failure')
             self.assertIn('--rm', command.call_args.args[0])
             self.assertEqual(command.call_args.args[0][3:5], ['images', 'unmount'])
@@ -133,13 +133,14 @@ class IntegrityTests(unittest.TestCase):
         for differences in ([], ['bin/check']):
             with tempfile.TemporaryDirectory() as directory:
                 incident = Path(directory) / 'incident.json'
-                with patch.object(integrity, 'image_users', return_value=[]), patch.object(integrity, 'baseline'), patch.object(integrity, 'command') as command, patch.object(integrity.subprocess, 'run') as run, patch.object(integrity, 'compare', return_value=({}, differences)):
+                with patch.object(integrity, 'STATE', Path(directory)), patch.object(integrity, 'retain_archive'), patch.object(integrity, 'verify_archive'), patch.object(integrity, 'image_users', return_value=[]), patch.object(integrity, 'baseline'), patch.object(integrity, 'command') as command, patch.object(integrity.subprocess, 'run') as run, patch.object(integrity, 'compare', return_value=({}, differences)):
                     run.return_value.returncode = 1
                     if differences:
-                        with self.assertRaises(integrity.IntegrityError): integrity.repair('repo@sha256:exact', ['repo:tag'], {'config': 'id', 'chain': 'chain'}, incident)
+                        with self.assertRaises(integrity.IntegrityError): integrity.repair('repo@sha256:' + 'a'*64, ['repo:tag'], {'config': 'id', 'chain': 'chain'}, incident)
                     else:
-                        integrity.repair('repo@sha256:exact', ['repo:tag'], {'config': 'id', 'chain': 'chain'}, incident)
-                    self.assertIn(unittest.mock.call(['crictl', 'pull', 'repo@sha256:exact'], timeout=300), command.call_args_list)
+                        integrity.repair('repo@sha256:' + 'a'*64, ['repo:tag'], {'config': 'id', 'chain': 'chain'}, incident)
+                    self.assertTrue(any(call.args[0][3:5] == ['images', 'import'] for call in command.call_args_list))
+                    self.assertFalse(any(call.args[0][0] == 'crictl' for call in command.call_args_list))
                     self.assertNotEqual(json.loads(incident.read_text())['phase'], 'closed')
 
 

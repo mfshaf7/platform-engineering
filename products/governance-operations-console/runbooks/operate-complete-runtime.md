@@ -211,6 +211,44 @@ reason and evidence. Root state is
 reasons expose recovery blocking. Integrity success alone does not prove owner
 data or readiness healthy.
 
+### Verified local image archives
+
+The reviewed recovery extension retains one OCI archive for an affected immutable
+image under the existing root state `verified-archives/` before removing any
+image aliases or unpacked snapshot. It exports original compressed content,
+validates every included blob digest and size, binds the top reference to the
+admitted digest and requires the complete Linux/amd64 manifest, config and layers.
+It never archives the damaged unpacked filesystem. Archives remain root-owned;
+validation streams bounded buffers and imposes the existing finite content-size
+boundary. This uses disk, not an additional service or resident image cache.
+
+A retained archive also supplies fresh trusted baseline content if native
+compressed blobs are missing or damaged, with fresh descriptor checks before use.
+Repair reimports this verified archive and rechecks the unpacked files against
+the trusted baseline. It does not need to pull the replacement from the original
+registry. An unavailable original or invalid archive fails before removal;
+uncertain import or failed replacement verification remains operator-required.
+Archives are retained for recovery evidence; do not delete an archive while its
+image or retained incident still needs it. An archive does not authorize an image
+upgrade, foreign repository, caller path, namespace or workload.
+
+If a crash removed image metadata before the one archive import started, the
+root checker reports that exact interrupted replacement. Recovery may finish its
+single verified import without repeating removal. An already-started uncertain
+import is not replayed; fresh byte proof can establish that it finished. Missing
+metadata without the matching incident and valid archive remains blocked.
+
+A separate damaged image found while earlier images await consumer readiness
+can be repaired under its own existing root incident. The lifecycle preserves
+original consumer UIDs, desired replicas, retired-pod evidence and all affected
+references. It never repeats completed pod deletion or clears an earlier failed
+artifact by noticing a different success. Each image retains its one-attempt
+boundary, and final owner readiness is still required before healthy status.
+
+Source checks do not commission this extension. Follow exact merged-source
+Security acceptance, `ACTION=install-integrity`, normal activation and native
+readback. Current source and reviewed helper/policy hashes must agree.
+
 For a latched attempt, preserve journals and inspect exact bytes, root incident
 and consumer/owner state through the same administrator path. Do not delete
 journals or blindly replay uncertain effects. Unmanaged users, unsupported

@@ -70,6 +70,48 @@ class RecoveryTests(unittest.TestCase):
                 recovery.recover_images(root, None, {})
             consumers.assert_not_called()
 
+    def test_distinct_image_preserves_original_consumer_and_prior_evidence(self):
+        old = 'repo@sha256:' + 'a'*64; new = 'repo@sha256:' + 'b'*64
+        controller = {'namespace':'devint-proof','resource':'deployment/store','uid':'same-owner','replicas':1}
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            recovery.save(root, {'state':'restored-awaiting-readiness','corrupt':[{'reference':old}],
+                'controllers':[controller], 'completed_pods':[['devint-proof','already-retired','original-uid']],
+                'repaired':[old], 'started_at':100})
+            calls=[]
+            def run(args, **kwargs):
+                calls.append(args)
+                return subprocess.CompletedProcess(args,0,json.dumps({'metadata':{'uid':'same-owner'},'spec':{'replicas':0},'status':{'replicas':0}}))
+            with patch.object(recovery,'assert_idle'), \
+                 patch.object(recovery,'affected_controllers',return_value=([{**controller,'replicas':0}],[])), \
+                 patch.object(recovery,'helper',return_value={'repaired':[new]}):
+                recovery.recover_images(root,run,{'corrupt':[{'reference':new}]})
+            value=recovery.journal(root)
+            self.assertEqual(value['controllers'],[controller])
+            self.assertEqual(value['started_at'],100)
+            self.assertEqual({item['reference'] for item in value['corrupt']},{old,new})
+            self.assertEqual(value['repaired'],[old,new])
+            self.assertFalse(any('delete' in call for call in calls))
+            with patch.object(recovery,'assert_idle'),patch.object(recovery,'helper') as helper,self.assertRaises(recovery.RecoveryError):
+                recovery.recover_images(root,run,{'corrupt':[{'reference':new}]})
+            helper.assert_not_called()
+
+    def test_interrupted_archive_resume_requires_root_proof_for_same_attempt(self):
+        reference='repo@sha256:'+'a'*64
+        for resume in (False,True):
+            with self.subTest(resume=resume),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);recovery.save(root,{'state':'repairing','corrupt':[{'reference':reference}],
+                    'controllers':[],'completed_pods':[]})
+                report={'corrupt':[{'reference':reference,'resume_from_archive':resume}]}
+                with patch.object(recovery,'assert_idle'),patch.object(recovery,'affected_controllers',return_value=([],[])), \
+                     patch.object(recovery,'helper',return_value={'repaired':[reference]}) as helper:
+                    if resume:
+                        recovery.recover_images(root,None,report)
+                        self.assertEqual(recovery.journal(root)['state'],'restored-awaiting-readiness')
+                    else:
+                        with self.assertRaises(recovery.RecoveryError):recovery.recover_images(root,None,report)
+                        helper.assert_not_called()
+
     def test_recovery_requests_retained_supervisor_and_never_launches_owner_helpers(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(recovery, 'runtime_fault', return_value=True), patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value={'status': 'corrupt'}), patch.object(recovery, 'recover_images'):
             calls = []

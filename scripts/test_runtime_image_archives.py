@@ -148,8 +148,11 @@ class ArchiveTests(unittest.TestCase):
     def test_missing_metadata_resumes_only_before_the_single_archive_import(self):
         reference, body = fixture()
         for phase in ('attempted', 'importing-archive'):
-            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory, patch.object(integrity, 'STATE', Path(directory)):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory, \
+                 patch.object(integrity, 'STATE', Path(directory)), patch.object(integrity, 'INSTALL', Path(directory)):
                 root=Path(directory); archive=integrity.archive_path(reference); archive.write_bytes(body)
+                (root/'policy.json').write_text(json.dumps({'schema_version':1,'lane':'dev-integration',
+                    'automatic_repair':True,'namespaces':['devint-proof'],'repositories':['docker.io/example/tool']}))
                 incident=root/(hashlib.sha256(reference.encode()).hexdigest()+'.incident.json')
                 integrity.write(incident, {'phase':phase,'reference':reference,'aliases':[reference]})
                 integrity.write(root/'inventory.json', [reference])

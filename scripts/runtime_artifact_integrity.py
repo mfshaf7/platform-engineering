@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from datetime import datetime
 import fcntl
 import hashlib
 import json
@@ -62,6 +63,76 @@ def sha(path):
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+
+
+def cleanup_stale_inspection_views(policy):
+    """Retire only our unmounted, pre-boot read views of admitted image chains."""
+    chains = set()
+    for path in STATE.glob('*.baseline.json'):
+        if path.is_symlink():
+            continue
+        try:
+            envelope = json.loads(path.read_bytes())
+            value = envelope['value']
+            if (envelope['digest'] == hashlib.sha256(canonical(value)).hexdigest()
+                and value['reference'].split('@')[0] in policy['repositories']
+                and DIGEST.fullmatch(value['chain'])):
+                chains.add(value['chain'])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue  # Unknown custody/content never authorizes cleanup.
+    if not chains:
+        return []
+    boot_start = time.time() - float(Path('/proc/uptime').read_text().split()[0])
+    mounted_paths = {line.split()[4] for line in Path('/proc/self/mountinfo').read_text().splitlines()}
+    removed = []
+    for line in command(ctr('leases', 'ls')).decode().splitlines()[1:]:
+        fields = line.split(None, 2)
+        if len(fields) != 3:
+            continue
+        key, created, labels = fields
+        if not re.fullmatch(re.escape(str(STATE)) + r'/mount-[a-z0-9_-]{6,32}', key):
+            continue
+        labels = dict(item.split('=', 1) for item in labels.split(',') if '=' in item)
+        if labels.get('containerd.io/gc.ref.snapshot.overlayfs') != key or key in mounted_paths:
+            continue
+        try:
+            created_at = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            if created_at.tzinfo is None or created_at.timestamp() >= boot_start:
+                continue
+        except ValueError:
+            continue
+        path = Path(key)
+        if path.exists() or path.is_symlink():
+            info = path.lstat()
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+                or stat.S_IMODE(info.st_mode) & 0o022 or any(path.iterdir())):
+                continue
+        result = subprocess.run([K3S, *ctr('snapshots', 'info', key)],
+                                capture_output=True, timeout=30, env=ENVIRONMENT)
+        if result.returncode:
+            if b'not found' in result.stderr.lower():
+                continue
+            raise IntegrityError('cannot inspect retained verifier view')
+        info = json.loads(result.stdout)
+        try:
+            snapshot_created = datetime.fromisoformat(info['Created'].replace('Z', '+00:00'))
+            eligible = (info['Name'] == key and info['Kind'] == 'View' and info['Parent'] in chains
+                        and snapshot_created.tzinfo is not None and snapshot_created.timestamp() < boot_start)
+        except (KeyError, ValueError, TypeError):
+            eligible = False
+        if not eligible:
+            continue
+        for args in (ctr('leases', 'rm', key), ctr('snapshots', 'rm', key)):
+            result = subprocess.run([K3S, *args], capture_output=True, timeout=30, env=ENVIRONMENT)
+            if result.returncode and b'not found' not in result.stderr.lower():
+                raise IntegrityError('retained verifier view cleanup failed; inspect owner state')
+        if path.exists():
+            path.rmdir()  # Never recursively remove files or follow a link.
+        removed.append({'view': key, 'parent': info['Parent'], 'created': created})
+    if removed:
+        write(STATE / 'last-view-cleanup.json', {
+            'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip(), 'removed': removed})
+    return removed
 
 
 def write(path, value):
@@ -399,6 +470,18 @@ def admitted_inventory(policy):
             raise IntegrityError('retained image inventory is invalid')
     current_repositories = {reference.split('@')[0] for reference in references}
     references.update(reference for reference in prior if reference.split('@')[0] not in current_repositories)
+    # An unresolved replacement remains in scope even when another version of
+    # its repository is present or its native image metadata was removed.
+    for incident_path in STATE.glob('*.incident.json'):
+        record = json.loads(incident_path.read_bytes())
+        if record.get('phase') == 'closed':
+            continue
+        reference = record.get('reference', '')
+        if (reference.split('@')[0] not in policy['repositories']
+            or not DIGEST.fullmatch(reference.split('@')[-1])
+            or incident_path.name != hashlib.sha256(reference.encode()).hexdigest() + '.incident.json'):
+            raise IntegrityError('retained image incident has invalid admission')
+        references.add(reference)
     available = command(ctr('images', 'list')).decode().splitlines()
     result = []
     for reference in sorted(references):
@@ -545,7 +628,8 @@ def restore_archive(reference, aliases, incident, record):
     # This is the same bounded replacement attempt. A failed/uncertain import
     # is not replayed; a later check can still prove that it finished safely.
     write(incident, {**record, 'phase': 'importing-archive'})
-    command(ctr('images', 'import', '--platform', 'linux/amd64', '--digests', str(target)), timeout=180)
+    command(ctr('images', 'import', '--platform', 'linux/amd64', '--base-name',
+                reference.split('@')[0], '--digests', str(target)), timeout=180)
     restore_aliases(reference, aliases)
     _, differences = compare(reference)
     if differences:
@@ -587,6 +671,7 @@ def repair(reference, aliases, expected, incident, policy=None):
 
 
 def operate(action, policy):
+    cleanup_stale_inspection_views(policy)
     assets, pods = admitted_inventory(policy)
     if action == 'repair' and policy.get('automatic_repair') is not True:
         raise IntegrityError('automatic repair disabled by root admission policy')

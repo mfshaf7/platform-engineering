@@ -10,6 +10,35 @@ import console_artifact_recovery as recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_maintenance_never_replaces_a_pending_recovery_journal(self):
+        for state in ('quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested', 'operator-required'):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                original = {'state': state, 'controllers': [{'uid': 'original', 'replicas': 1}],
+                            'corrupt': [{'reference': 'original'}], 'completed_pods': [['ns', 'pod', 'uid']]}
+                recovery.save(root, original)
+                with patch.object(recovery, 'runtime_fault') as fault, patch.object(recovery, 'helper') as helper:
+                    self.assertFalse(recovery.maintenance(root, None, 'retained.service'))
+                fault.assert_not_called(); helper.assert_not_called()
+                self.assertEqual(recovery.journal(root), original)
+
+    def test_unknown_fault_preserves_existing_recovery_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); retained = {'state': 'healthy', 'controllers': [{'uid': 'original'}],
+                                               'inspected_resume': {'receipt': 'retained'}}
+            recovery.save(root, retained)
+            def run(args, **kwargs): return subprocess.CompletedProcess(args, 0, '')
+            with patch.object(recovery, 'runtime_fault', return_value=True), patch.object(recovery, 'assert_idle'), \
+                 patch.object(recovery, 'helper', return_value={'status': 'healthy'}):
+                self.assertFalse(recovery.maintenance(root, run, 'retained.service'))
+            current = recovery.journal(root)
+            self.assertEqual(current['controllers'], retained['controllers'])
+            self.assertEqual(current['inspected_resume'], retained['inspected_resume'])
+            with patch.object(recovery, 'runtime_fault', return_value=False):
+                self.assertFalse(recovery.maintenance(root, run, 'retained.service'))
+            self.assertEqual(recovery.journal(root)['state'], 'healthy')
+            self.assertEqual(recovery.journal(root)['inspected_resume'], retained['inspected_resume'])
+
     def test_corrupt_or_unknown_helper_result_cannot_be_confirmed_healthy(self):
         for state in ('corrupt', 'unexpected-state'):
             value = {'status': state, 'helper_sha256': recovery.digest(recovery.SOURCE), 'policy_sha256': recovery.digest(recovery.POLICY)}

@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -31,6 +32,53 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_only_unmounted_pre_boot_admitted_read_views_are_reclaimed(self):
+        for case in ('eligible', 'current-boot', 'snapshot-current', 'mounted', 'active-snapshot',
+                     'foreign-parent', 'foreign-label', 'symlink', 'nonempty', 'unsafe-custody',
+                     'invalid-baseline-reference', 'snapshot-already-collected'):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); view = root / 'mount-oldview1'; view.mkdir(mode=0o700)
+                chain = 'sha256:' + 'a'*64; reference = 'docker.io/example/tool@sha256:' + 'b'*64
+                value = {'reference': reference, 'chain': chain, 'config': 'sha256:' + 'c'*64, 'entries': {}}
+                if case == 'invalid-baseline-reference': value['reference'] = None
+                integrity.write(root / 'known.baseline.json', {'value': value,
+                    'digest': hashlib.sha256(integrity.canonical(value)).hexdigest()})
+                old = '1970-01-01T00:16:40+00:00'; new = '2100-01-01T00:00:00+00:00'
+                created = new if case == 'current-boot' else old
+                label = str(root / 'another-view') if case == 'foreign-label' else str(view)
+                leases = f'ID CREATED LABELS\n{view} {created} containerd.io/gc.ref.snapshot.overlayfs={label}\n'.encode()
+                info = {'Name': str(view), 'Kind': 'Active' if case == 'active-snapshot' else 'View',
+                        'Parent': 'sha256:' + 'd'*64 if case == 'foreign-parent' else chain,
+                        'Created': new if case == 'snapshot-current' else created}
+                if case == 'symlink':
+                    view.rmdir(); view.symlink_to(root / 'unique-data')
+                elif case == 'nonempty':
+                    (view / 'unique-data').write_text('preserve')
+                elif case == 'unsafe-custody':
+                    view.chmod(0o777)
+                calls = []
+                def native(args, **kwargs):
+                    calls.append(args)
+                    if args[4:6] == ['snapshots', 'info']:
+                        return subprocess.CompletedProcess(args, 0, json.dumps(info).encode(), b'')
+                    if case == 'snapshot-already-collected' and args[4:6] == ['snapshots', 'rm']:
+                        return subprocess.CompletedProcess(args, 1, b'', b'not found')
+                    return subprocess.CompletedProcess(args, 0, b'', b'')
+                original_read = Path.read_text
+                def read(path, *args, **kwargs):
+                    if str(path) == '/proc/self/mountinfo' and case == 'mounted':
+                        return f'1 0 0:1 / {view} ro - overlay overlay ro\n'
+                    return original_read(path, *args, **kwargs)
+                wall = float(Path('/proc/uptime').read_text().split()[0]) + 10000
+                with patch.object(integrity, 'STATE', root), patch.object(integrity, 'command', return_value=leases), \
+                     patch.object(integrity.subprocess, 'run', side_effect=native), \
+                     patch.object(integrity.time, 'time', return_value=wall), patch.object(Path, 'read_text', read):
+                    removed = integrity.cleanup_stale_inspection_views({'repositories': ['docker.io/example/tool']})
+                eligible = case in ('eligible', 'snapshot-already-collected')
+                self.assertEqual(len(removed), 1 if eligible else 0)
+                self.assertEqual(any(args[4:6] == ['leases', 'rm'] for args in calls), eligible)
+                if case == 'nonempty': self.assertEqual((view / 'unique-data').read_text(), 'preserve')
+
     def test_aliases_recreated_by_cri_pull_are_not_tagged_again_or_overwritten(self):
         reference = 'repo@sha256:' + 'a'*64
         rows = ('REF TYPE DIGEST\nrepo:tag type sha256:' + 'a'*64 + '\nsha256:config type sha256:' + 'a'*64 + '\n').encode()

@@ -319,13 +319,13 @@ def maintenance(root, run, supervisor, *, revision=None):
     """Existing timer: cheap fault signals first, hash only once per fault."""
     import console_frontend_artifact as frontend
     current = journal(root)
-    if current['state'] in {'operator-required', 'repairing', 'resume-requested'}:
+    if current['state'] in {'operator-required', 'quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested'}:
         return False
     fault = runtime_fault(run)
     active = run(['systemctl', '--user', 'is-active', '--quiet', 'governance-console-cross-domain-console.service'], check=False).returncode == 0
     if not fault and active:
         if current['state'] == 'unresolved-runtime-fault':
-            save(root, {'state': 'healthy'})
+            save(root, {**current, 'state': 'healthy'})
         return False
     if current['state'] == 'unresolved-runtime-fault':
         return False  # no repeated full scans for the same ongoing failure
@@ -345,7 +345,7 @@ def maintenance(root, run, supervisor, *, revision=None):
         except frontend.FrontendArtifactError:
             needs_resume = True
     if not needs_resume:
-        save(root, {'state': 'unresolved-runtime-fault', 'reason': 'No declared artifact corruption proven; owner diagnosis required'})
+        save(root, {**current, 'state': 'unresolved-runtime-fault', 'reason': 'No declared artifact corruption proven; owner diagnosis required'})
         return False
     save(root, {**journal(root), 'state': 'resume-requested'})
     # Child owner helpers must be retained by their established supervisor,

@@ -211,6 +211,26 @@ reason and evidence. Root state is
 reasons expose recovery blocking. Integrity success alone does not prove owner
 data or readiness healthy.
 
+A completed `check-integrity` command records an inspection result. Read its
+receipt's `proof.status`, `corrupt` and `checked_references`; command completion
+does not mean the result is healthy. Every unresolved incident retains its exact
+immutable image in coverage even if another version of that repository exists.
+An absent image with an uncertain import remains blocked rather than disappearing
+from the next scan.
+
+Maintenance leaves quiescing, repairing and readiness-pending journals alone.
+It preserves original consumer identities, desired replicas and inspection
+evidence when recording or clearing an otherwise unresolved runtime fault.
+
+Before inspection, the root helper may retire its own stale read views from a
+previous boot. Both lease and snapshot must predate this boot; the snapshot must
+be a `View` of a digest-validated baseline from an admitted repository, with the
+matching lease reference under the reserved root `mount-*` path. Active mounts,
+current-boot views, unknown parents, nonempty directories, links and unsafe
+custody are left alone. Cleanup removes only those read-view references and an
+empty directory, recording a private receipt. It never recursively deletes
+files, changes a workload, resets an incident or authorizes image replacement.
+
 ### Verified local image archives
 
 The reviewed recovery extension retains one OCI archive for an affected immutable
@@ -226,11 +246,18 @@ A retained archive also supplies fresh trusted baseline content if native
 compressed blobs are missing or damaged, with fresh descriptor checks before use.
 Repair reimports this verified archive and rechecks the unpacked files against
 the trusted baseline. It does not need to pull the replacement from the original
-registry. An unavailable original or invalid archive fails before removal;
+registry. Import explicitly uses the admitted repository as its base name;
+containerd must not invent an `import-<date>` repository which can become an
+unresolvable CRI image reference. An unavailable original or invalid archive fails before removal;
 uncertain import or failed replacement verification remains operator-required.
 Archives are retained for recovery evidence; do not delete an archive while its
 image or retained incident still needs it. An archive does not authorize an image
 upgrade, foreign repository, caller path, namespace or workload.
+
+Historical temporary import names or already-running containers reporting those
+names require administrator inspection of the exact native image/index and
+consumer state. The new import behavior does not silently rewrite running pod
+identity, accept foreign image references or replay a failed replacement.
 
 If a crash removed image metadata before the one archive import started, the
 root checker reports that exact interrupted replacement. Recovery may finish its

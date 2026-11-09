@@ -52,6 +52,41 @@ def fixture(*, architecture='amd64', omit_layer=False, corrupt_layer=False, extr
 
 
 class ArchiveTests(unittest.TestCase):
+    def test_import_names_use_the_admitted_repository(self):
+        reference, body = fixture()
+        with tempfile.TemporaryDirectory() as directory, patch.object(integrity, 'STATE', Path(directory)):
+            path = integrity.archive_path(reference); path.write_bytes(body)
+            incident = Path(directory) / 'incident.json'
+            with patch.object(integrity, 'command', return_value=b'') as command, \
+                 patch.object(integrity, 'restore_aliases'), patch.object(integrity, 'compare', return_value=({}, [])):
+                integrity.restore_archive(reference, [reference], incident, {'phase': 'attempted'})
+            imported = next(c.args[0] for c in command.call_args_list if c.args[0][3:5] == ['images', 'import'])
+            self.assertEqual(imported[imported.index('--base-name') + 1], 'docker.io/example/tool')
+
+    def test_unresolved_digest_cannot_disappear_behind_another_version(self):
+        reference, body = fixture(); other = reference.split('@')[0] + '@sha256:' + 'f' * 64
+        for phase in ('attempted', 'importing-archive', 'closed'):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory, \
+                 patch.object(integrity, 'STATE', Path(directory)):
+                root = Path(directory); integrity.archive_path(reference).write_bytes(body)
+                integrity.write(root / 'inventory.json', [other])  # Earlier incomplete scan lost the original digest.
+                integrity.write(root / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json'),
+                                {'phase': phase, 'reference': reference, 'aliases': [reference]})
+                workload = {'kind': 'Job', 'metadata': {'namespace': 'devint-proof'},
+                            'spec': {'template': {'spec': {'containers': [{'image': other}]}}}}
+                def native(args):
+                    if args[0] == 'crictl':
+                        return {'images': [{'id': 'sha256:' + 'b'*64, 'repoDigests': [other]}]}
+                    return {'items': [] if args[2] == 'pods' else [workload]}
+                with patch.object(integrity, 'native_json', side_effect=native), \
+                     patch.object(integrity, 'command', return_value=('REF TYPE DIGEST\n' + other + ' type ' + other.split('@')[1] + '\n').encode()):
+                    policy = {'namespaces': ['devint-proof'], 'repositories': ['docker.io/example/tool'], 'automatic_repair': True}
+                    if phase == 'importing-archive':
+                        with self.assertRaises(integrity.IntegrityError): integrity.admitted_inventory(policy)
+                    else:
+                        assets, _ = integrity.admitted_inventory(policy)
+                        self.assertEqual({ref for ref, _ in assets}, {other, reference} if phase == 'attempted' else {other})
+
     def test_complete_exact_archive_and_reference_binding(self):
         reference, body = fixture()
         with tempfile.TemporaryDirectory() as directory:

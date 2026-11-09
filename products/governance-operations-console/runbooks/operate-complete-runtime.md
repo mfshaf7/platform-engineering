@@ -218,6 +218,22 @@ immutable image in coverage even if another version of that repository exists.
 An absent image with an uncertain import remains blocked rather than disappearing
 from the next scan.
 
+Before replacing an image for changed regular-file bytes, the verifier refreshes
+its independently trusted baseline and requests a clean-cache reread for only
+those files inside its read-only image view. It opens no write descriptor, does
+not call sync and does not change host-wide cache settings. Escaped paths, links,
+metadata-only changes and unsupported advice cannot establish recovery. If the
+reread matches, a separate fresh native view must also match before the receipt
+marks a cache readback recovered. Persistent or recurring mismatches retain the
+existing replacement guards and operator-inspection boundary.
+
+The receipt's `cache_readbacks` retain before/after hashes and recovery outcome.
+Confirmation can reuse a recent proof only from the same boot, helper, policy
+and image set. The existing idle-checked maintenance path requests its retained
+supervisor after proven cache recovery; it does not replace the image for that
+case. A global cache reset remains an inspected operator maintenance action,
+not an automatic root-helper capability or a permanent memory policy.
+
 Maintenance leaves quiescing, repairing and readiness-pending journals alone.
 It preserves original consumer identities, desired replicas and inspection
 evidence when recording or clearing an otherwise unresolved runtime fault.

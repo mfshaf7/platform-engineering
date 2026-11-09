@@ -334,6 +334,10 @@ def maintenance(root, run, supervisor, *, revision=None):
     needs_resume = report['status'] == 'corrupt'
     if needs_resume:
         recover_images(root, run, report)
+    elif any(item.get('recovered') is True for item in report.get('cache_readbacks', [])):
+        # The idle-checked verifier restored trusted reads without replacing
+        # an image. Resume through the same retained supervisor.
+        needs_resume = True
     elif not active:
         # Only a proven corrupt derived artifact authorizes automatic rebuild.
         try:

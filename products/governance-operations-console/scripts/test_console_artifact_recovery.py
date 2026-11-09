@@ -10,6 +10,21 @@ import console_artifact_recovery as recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_proven_cache_readback_resumes_existing_supervisor_without_image_replacement(self):
+        for recovered in (False, True):
+            with self.subTest(recovered=recovered), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); calls = []
+                def run(args, **kwargs):
+                    calls.append(args); return subprocess.CompletedProcess(args, 0, '')
+                with patch.object(recovery, 'runtime_fault', return_value=True), \
+                     patch.object(recovery, 'assert_idle') as idle, \
+                     patch.object(recovery, 'helper', return_value={'status': 'healthy', 'cache_readbacks': [{'recovered': recovered}]}), \
+                     patch.object(recovery, 'recover_images') as replace:
+                    self.assertEqual(recovery.maintenance(root, run, 'retained.service'), recovered)
+                idle.assert_called_once(); replace.assert_not_called()
+                self.assertEqual(['systemctl', '--user', '--no-block', 'restart', 'retained.service'] in calls, recovered)
+                self.assertEqual(recovery.journal(root)['state'], 'resume-requested' if recovered else 'unresolved-runtime-fault')
+
     def test_maintenance_never_replaces_a_pending_recovery_journal(self):
         for state in ('quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested', 'operator-required'):
             with self.subTest(state=state), tempfile.TemporaryDirectory() as directory:

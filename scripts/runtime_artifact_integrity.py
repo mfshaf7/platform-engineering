@@ -385,17 +385,56 @@ def baseline(reference, *, fresh=False):
     return value
 
 
+def reread_clean_file_cache(root, expected, observed):
+    """Discard only clean cached pages of mismatched immutable regular files."""
+    readbacks = []
+    for name, wanted in expected.items():
+        seen = observed.get(name, {})
+        if (wanted.get('kind') != 'file' or seen.get('kind') != 'file'
+            or wanted.get('sha256') == seen.get('sha256')):
+            continue
+        descriptor = None
+        try:
+            target = root / name
+            if path_key(name) != name or not target.resolve().is_relative_to(root.resolve()):
+                continue
+            descriptor = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                continue
+            # No sync, file write or global cache reset. The kernel retains
+            # dirty pages; a persistent mismatch still needs normal recovery.
+            os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
+            readbacks.append({'file': name, 'before_sha256': seen.get('sha256'),
+                              'expected_sha256': wanted['sha256']})
+        except (IntegrityError, OSError, AttributeError, RuntimeError):
+            pass  # Advice failure cannot substitute for the following hash proof.
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+    return readbacks
+
+
 def compare(reference):
     expected = baseline(reference)
+    readbacks = []
     with mounted(reference) as root:
         actual = filesystem_inventory(root)
     if actual != expected['entries']:
         # A cached baseline is an optimization, never the final corruption proof.
         expected = baseline(reference, fresh=True)
         with mounted(reference) as root:
+            readbacks = reread_clean_file_cache(root, expected['entries'], actual)
             actual = filesystem_inventory(root)
+        if readbacks and actual == expected['entries']:
+            # A good read in one mount is insufficient when corrupted cached
+            # pages can recur. Require a separate native view before recovery.
+            with mounted(reference) as root:
+                actual = filesystem_inventory(root)
+        for item in readbacks:
+            item['after_sha256'] = actual.get(item['file'], {}).get('sha256')
+            item['recovered'] = actual.get(item['file']) == expected['entries'][item['file']]
     differences = [key for key in sorted(actual.keys() | expected['entries'].keys()) if actual.get(key) != expected['entries'].get(key)]
-    return {**expected, 'mismatch_evidence': {key: {'expected': expected['entries'].get(key), 'observed': actual.get(key)} for key in differences[:10]}}, differences
+    return {**expected, 'cache_readbacks': readbacks, 'mismatch_evidence': {key: {'expected': expected['entries'].get(key), 'observed': actual.get(key)} for key in differences[:10]}}, differences
 
 
 def normalized_image(value):
@@ -675,7 +714,7 @@ def operate(action, policy):
     assets, pods = admitted_inventory(policy)
     if action == 'repair' and policy.get('automatic_repair') is not True:
         raise IntegrityError('automatic repair disabled by root admission policy')
-    report = {'status': 'healthy', 'checked_images': len(assets), 'corrupt': [], 'repaired': [],
+    report = {'status': 'healthy', 'checked_images': len(assets), 'corrupt': [], 'repaired': [], 'cache_readbacks': [],
               'helper_sha256': sha(Path(__file__)), 'policy_sha256': sha(INSTALL / 'policy.json'),
               'checked_references': [ref for ref, _ in assets], 'checked_monotonic': time.monotonic(),
               'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
@@ -683,10 +722,14 @@ def operate(action, policy):
     if action == 'confirm' and previous.exists():
         prior = json.loads(previous.read_bytes())
         fresh = (prior.get('status') == 'healthy' and prior.get('boot_id') == report['boot_id']
+                 and prior.get('helper_sha256') == report['helper_sha256']
+                 and prior.get('policy_sha256') == report['policy_sha256']
                  and prior.get('checked_references') == report['checked_references']
                  and 0 <= time.monotonic() - prior.get('checked_monotonic', -1) <= 1800)
     else:
         fresh = False
+    if fresh:
+        report['cache_readbacks'] = prior.get('cache_readbacks', [])
     for reference, aliases in assets:
         incident = STATE / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json')
         if not aliases:
@@ -706,6 +749,7 @@ def operate(action, policy):
                 raise IntegrityError('image replacement has not completed')
             continue
         expected, differences = ({}, []) if fresh else compare(reference)
+        report['cache_readbacks'].extend({'reference': reference, **item} for item in expected.get('cache_readbacks', []))
         if differences:
             report['corrupt'].append({'reference': reference, 'files': differences[:10], 'count': len(differences),
                                       'mismatch_evidence': expected['mismatch_evidence']})

@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -32,6 +33,108 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_confirmation_reuses_only_same_helper_and_policy_proof(self):
+        reference = 'docker.io/example/tool@sha256:' + 'a'*64
+        boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        for changed in ('none', 'helper_sha256', 'policy_sha256'):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                prior = {'status': 'healthy', 'boot_id': boot, 'checked_monotonic': 100,
+                         'checked_references': [reference], 'helper_sha256': 'current-helper',
+                         'policy_sha256': 'current-policy', 'cache_readbacks': [{'recovered': True}]}
+                if changed != 'none': prior[changed] = 'previous-version'
+                integrity.write(root / 'last-result.json', prior)
+                with patch.object(integrity, 'STATE', root), patch.object(integrity, 'cleanup_stale_inspection_views'), \
+                     patch.object(integrity, 'admitted_inventory', return_value=([(reference, [reference])], [])), \
+                     patch.object(integrity, 'sha', side_effect=['current-helper', 'current-policy']), \
+                     patch.object(integrity.time, 'monotonic', return_value=200), \
+                     patch.object(integrity, 'compare', return_value=({}, [])) as compare:
+                    result = integrity.operate('confirm', {})
+                self.assertEqual(compare.call_count, 0 if changed == 'none' else 1)
+                self.assertEqual(result['cache_readbacks'], prior['cache_readbacks'] if changed == 'none' else [])
+
+    def test_clean_cache_reread_requires_read_only_fd_and_fresh_trusted_bytes(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); target = root / 'program'; target.write_bytes(b'healthy')
+            entries = integrity.filesystem_inventory(root); state = {'evicted': False}
+            original_sha = integrity.sha
+            def read_sha(path):
+                return 'a'*64 if Path(path) == target and not state['evicted'] else original_sha(path)
+            def advise(fd, offset, length, advice):
+                self.assertEqual(fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_ACCMODE, os.O_RDONLY)
+                self.assertEqual((offset, length, advice), (0, 0, os.POSIX_FADV_DONTNEED))
+                state['evicted'] = True
+            with patch.object(integrity, 'baseline', return_value={'entries': entries}) as baseline, \
+                 patch.object(integrity, 'mounted') as mounted, patch.object(integrity, 'sha', side_effect=read_sha), \
+                 patch.object(integrity.os, 'posix_fadvise', side_effect=advise), patch.object(integrity, 'repair') as repair:
+                mounted.return_value.__enter__.return_value = root
+                result, differences = integrity.compare('admitted@sha256:' + 'a'*64)
+            self.assertEqual(differences, [])
+            self.assertTrue(baseline.call_args.kwargs['fresh'])
+            self.assertTrue(result['cache_readbacks'][0]['recovered'])
+            self.assertEqual(target.read_bytes(), b'healthy')
+            repair.assert_not_called()
+
+    def test_persistent_bad_bytes_and_unavailable_advice_never_become_healthy(self):
+        for unsupported in (False, True):
+            with self.subTest(unsupported=unsupported), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); target = root / 'program'; target.write_bytes(b'healthy')
+                entries = integrity.filesystem_inventory(root); target.write_bytes(b'bad disk bytes')
+                with patch.object(integrity, 'baseline', return_value={'entries': entries}), \
+                     patch.object(integrity, 'mounted') as mounted, \
+                     patch.object(integrity.os, 'posix_fadvise', side_effect=OSError('unsupported') if unsupported else None):
+                    mounted.return_value.__enter__.return_value = root
+                    result, differences = integrity.compare('admitted@sha256:' + 'a'*64)
+                self.assertEqual(differences, ['program'])
+                self.assertFalse(any(item['recovered'] for item in result['cache_readbacks']))
+                self.assertEqual(target.read_bytes(), b'bad disk bytes')
+
+    def test_cache_mismatch_recurring_in_a_fresh_mount_is_not_recovered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); target = root / 'program'; target.write_bytes(b'healthy')
+            entries = integrity.filesystem_inventory(root); state = {'mount': 0, 'evicted': False}
+            original_sha = integrity.sha
+            def enter():
+                state['mount'] += 1
+                return root
+            def read_sha(path):
+                if Path(path) == target and (not state['evicted'] or state['mount'] >= 3):
+                    return 'a'*64
+                return original_sha(path)
+            def advise(*args): state['evicted'] = True
+            with patch.object(integrity, 'baseline', return_value={'entries': entries}), \
+                 patch.object(integrity, 'mounted') as mounted, patch.object(integrity, 'sha', side_effect=read_sha), \
+                 patch.object(integrity.os, 'posix_fadvise', side_effect=advise):
+                mounted.return_value.__enter__.side_effect = enter
+                result, differences = integrity.compare('admitted@sha256:' + 'a'*64)
+            self.assertEqual(differences, ['program'])
+            self.assertFalse(result['cache_readbacks'][0]['recovered'])
+            self.assertEqual(state['mount'], 3)
+
+    def test_cache_advice_excludes_escaped_paths_and_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory); root = base / 'image'; root.mkdir()
+            outside = base / 'outside'; outside.mkdir(); (outside / 'data').write_text('preserve')
+            (root / 'parent').symlink_to(outside, target_is_directory=True)
+            (root / 'leaf').symlink_to(outside / 'data')
+            entries = {name: {'kind': 'file', 'sha256': 'a'*64} for name in
+                       ('../outside/data', str(outside / 'data'), 'parent/data', 'leaf')}
+            actual = {name: {'kind': 'file', 'sha256': 'b'*64} for name in entries}
+            with patch.object(integrity.os, 'posix_fadvise') as advise:
+                self.assertEqual(integrity.reread_clean_file_cache(root, entries, actual), [])
+            advise.assert_not_called()
+            self.assertEqual((outside / 'data').read_text(), 'preserve')
+
+    def test_metadata_only_mismatch_does_not_discard_file_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); (root / 'program').write_text('healthy')
+            entries = integrity.filesystem_inventory(root)
+            actual = {**entries, 'program': {**entries['program'], 'mode': 0o777}}
+            with patch.object(integrity.os, 'posix_fadvise') as advise:
+                self.assertEqual(integrity.reread_clean_file_cache(root, entries, actual), [])
+            advise.assert_not_called()
+
     def test_only_unmounted_pre_boot_admitted_read_views_are_reclaimed(self):
         for case in ('eligible', 'current-boot', 'snapshot-current', 'mounted', 'active-snapshot',
                      'foreign-parent', 'foreign-label', 'symlink', 'nonempty', 'unsafe-custody',

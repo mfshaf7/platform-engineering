@@ -193,7 +193,7 @@ closes the incident. Unknown faults get one scan, not speculative restart loops.
 
 For corrupt frontend output, stop the managed frontend, quarantine derived cache,
 rebuild exact clean accepted source/toolchain without credentials and verify its
-native process/artifact. Failed/uncertain attempts latch across restart. Later
+native process/artifact. Failed/uncertain replacement attempts latch across restart. Later
 new incidents can repair after successful confirmation; this is not a lifetime
 attempt cap.
 
@@ -217,6 +217,30 @@ does not mean the result is healthy. Every unresolved incident retains its exact
 immutable image in coverage even if another version of that repository exists.
 An absent image with an uncertain import remains blocked rather than disappearing
 from the next scan.
+
+With reviewed `automatic_verification_resume` enabled, a failed image check
+that started from a healthy recovery journal records explicit eligibility for
+one verification attempt per boot. Startup and the existing maintenance timer
+reuse this same attempt guard; it is saved before checking and survives process
+loss. Busy owner work or Helm compensation defers the check without spending
+the attempt or discarding the original journal. A failed attempt stays blocked
+for that boot; another boot can verify once again.
+
+Only a fresh same-boot result from the exact accepted helper and policy, with
+nonempty complete image coverage, no corruptions and no `pending_repairs`, may
+resume the existing retained supervisor. Healthy image bytes alone cannot close
+an image incident or establish owner readiness. The journal retains the failure,
+verification proof, consumer identities and replacement guards; it moves only
+to readiness pending. Normal frontend, owner-binding and service checks must
+finish before confirmation records healthy. Verification never calls the image
+repair action, imports an image or repeats consumer quiescence.
+
+Uncertain replacement, incomplete consumer recovery, frontend failure, unsafe
+custody and legacy failures without explicit eligibility remain operator-required.
+Error text is never used to infer eligibility. Disabling the reviewed policy
+flag restores manual inspection for these verification failures too. The root
+check retains its existing non-destructive inspection-view and proven-alias
+reconciliation behavior; this does not add a new root action or restart K3s.
 
 Before replacing an image for changed regular-file bytes, the verifier refreshes
 its independently trusted baseline and requests a clean-cache reread for only
@@ -292,7 +316,7 @@ Source checks do not commission this extension. Follow exact merged-source
 Security acceptance, `ACTION=install-integrity`, normal activation and native
 readback. Current source and reviewed helper/policy hashes must agree.
 
-For a latched attempt, preserve journals and inspect exact bytes, root incident
+For an ineligible or still-failing latched attempt, preserve journals and inspect exact bytes, root incident
 and consumer/owner state through the same administrator path. Do not delete
 journals or blindly replay uncertain effects. Unmanaged users, unsupported
 controllers, retained shared snapshots, unavailable upstream and failed verified

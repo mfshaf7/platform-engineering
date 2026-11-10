@@ -10,6 +10,173 @@ import console_artifact_recovery as recovery
 
 
 class RecoveryTests(unittest.TestCase):
+    def healthy_report(self):
+        return {'status': 'healthy', 'corrupt': [], 'pending_repairs': [],
+                'checked_images': 1, 'checked_references': ['repo@sha256:' + 'a'*64],
+                'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                'checked_monotonic': recovery.time.monotonic()}
+
+    def latch(self, root):
+        with patch.object(recovery, 'helper', side_effect=recovery.RecoveryError('read unavailable')):
+            with self.assertRaises(recovery.RecoveryError):
+                recovery.startup(root, None)
+        return recovery.journal(root)
+
+    def test_check_failure_can_resume_but_not_become_healthy_before_owner_confirmation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recovery.save(root, {'state': 'healthy', 'controllers': [{'uid': 'original'}]})
+            previous = self.latch(root)
+            self.assertEqual(previous['automatic_recheck']['failure_stage'], 'integrity-check')
+            with patch.object(recovery, 'helper', return_value=self.healthy_report()) as helper, \
+                 patch.object(recovery, 'assert_idle'), patch.object(recovery, 'recover_images') as repair:
+                result = recovery.startup(root, None)
+            self.assertEqual(result['status'], 'healthy')
+            helper.assert_called_once_with('check'); repair.assert_not_called()
+            current = recovery.journal(root)
+            self.assertEqual(current['controllers'], previous['controllers'])
+            self.assertEqual(current['state'], 'restored-awaiting-readiness')
+            with patch.object(recovery, 'helper', side_effect=recovery.RecoveryError('owner not ready')):
+                with self.assertRaises(recovery.RecoveryError): recovery.confirmed(root)
+            self.assertEqual(recovery.journal(root), current)
+            with patch.object(recovery, 'helper', return_value=self.healthy_report()): recovery.confirmed(root)
+            self.assertEqual(recovery.journal(root)['state'], 'healthy')
+
+    def test_bad_or_incomplete_recheck_stays_latched_and_does_not_restart(self):
+        mutations = [{'status': 'corrupt'}, {'corrupt': [{'reference': 'bad'}]},
+                     {'pending_repairs': None}, {'boot_id': 'old-boot'},
+                     {'checked_references': []}, {'checked_images': 2},
+                     {'checked_references': ['duplicate', 'duplicate'], 'checked_images': 2},
+                     {'checked_monotonic': -1000}, {'checked_monotonic': recovery.time.monotonic() + 1000}]
+        mutations += [{'pending_repairs': [{'phase': phase}]} for phase in
+                      ('attempted', 'importing-archive', 'restored-awaiting-readiness')]
+        for delta in mutations:
+            with self.subTest(delta=delta), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); self.latch(root); calls = []
+                def run(args, **kwargs): calls.append(args)
+                with patch.object(recovery, 'assert_idle'), \
+                     patch.object(recovery, 'helper', return_value={**self.healthy_report(), **delta}), \
+                     patch.object(recovery, 'recover_images') as repair:
+                    self.assertFalse(recovery.maintenance(root, run, 'retained.service'))
+                self.assertEqual(recovery.journal(root)['state'], 'operator-required')
+                self.assertEqual(recovery.journal(root)['automatic_recheck']['result'], 'blocked')
+                self.assertEqual(calls, []); repair.assert_not_called()
+
+    def test_failed_recheck_is_not_repeated_in_the_same_boot_and_survives_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); self.latch(root)
+            with patch.object(recovery, 'assert_idle'), \
+                 patch.object(recovery, 'helper', side_effect=recovery.RecoveryError('read unavailable')) as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+                saved = recovery.journal(root)
+                recovery.save(root, json.loads(json.dumps(saved)))
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            helper.assert_called_once_with('check')
+            # The persisted guard from an earlier boot permits one new check.
+            saved['automatic_recheck']['attempted_boot_id'] = 'previous-boot'
+            recovery.save(root, saved)
+            with patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value=self.healthy_report()):
+                self.assertIsNotNone(recovery.recheck_latched(root, None))
+
+    def test_busy_owner_preserves_failure_and_unspent_recheck(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); previous = self.latch(root)
+            with patch.object(recovery, 'assert_idle', side_effect=recovery.RecoveryDeferred('busy')), \
+                 patch.object(recovery, 'helper') as helper:
+                with self.assertRaises(recovery.RecoveryDeferred): recovery.startup(root, None)
+            self.assertEqual(recovery.journal(root), previous); helper.assert_not_called()
+
+    def test_failed_repair_does_not_gain_automatic_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(recovery, 'helper', return_value={'status': 'corrupt'}), \
+                 patch.object(recovery, 'recover_images', side_effect=recovery.RecoveryError('uncertain import')):
+                with self.assertRaises(recovery.RecoveryError): recovery.startup(root, None)
+            self.assertNotIn('automatic_recheck', recovery.journal(root))
+            with patch.object(recovery, 'helper') as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            helper.assert_not_called()
+
+    def test_check_failure_during_pending_recovery_cannot_be_reclassified(self):
+        for state in ('repairing', 'quiescing', 'restored-awaiting-readiness', 'resume-requested'):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); recovery.save(root, {'state': state, 'controllers': [{'uid': 'original'}]})
+                self.latch(root)
+                self.assertNotIn('automatic_recheck', recovery.journal(root))
+                self.assertEqual(recovery.journal(root)['controllers'], [{'uid': 'original'}])
+
+    def test_frontend_failure_after_verified_recheck_cannot_reuse_old_eligibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); self.latch(root)
+            with patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value=self.healthy_report()), \
+                 patch.object(recovery, 'frontend_restartable', side_effect=recovery.RecoveryError('bad frontend')):
+                with self.assertRaises(recovery.RecoveryError): recovery.startup(root, None, revision='accepted')
+            self.assertEqual(recovery.journal(root)['state'], 'operator-required')
+            self.assertNotIn('automatic_recheck', recovery.journal(root))
+            with patch.object(recovery, 'helper') as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            helper.assert_not_called()
+
+    def test_initial_frontend_failure_is_not_classified_as_an_image_check_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recovery.save(root, {'state': 'healthy'})
+            with patch.object(recovery, 'frontend_restartable', side_effect=recovery.RecoveryError('bad frontend')):
+                with self.assertRaises(recovery.RecoveryError): recovery.startup(root, None, revision='accepted')
+            self.assertNotIn('automatic_recheck', recovery.journal(root))
+
+    def test_recheck_uses_only_existing_retained_supervisor_and_keeps_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); self.latch(root); calls = []
+            with patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value=self.healthy_report()):
+                self.assertTrue(recovery.maintenance(root, lambda args: calls.append(args), 'retained.service'))
+            self.assertEqual(calls, [['systemctl', '--user', '--no-block', 'restart', 'retained.service']])
+            self.assertEqual(recovery.journal(root)['state'], 'resume-requested')
+            self.assertEqual(recovery.journal(root)['automatic_recheck']['result'], 'verified-awaiting-readiness')
+
+    def test_policy_can_disable_recheck_without_altering_the_latch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); previous = self.latch(root)
+            policy = root / 'disabled.json'; policy.write_text('{"automatic_verification_resume": false}')
+            with patch.object(recovery, 'POLICY', policy), patch.object(recovery, 'helper') as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            self.assertEqual(recovery.journal(root), previous); helper.assert_not_called()
+
+    def test_maintenance_check_failure_records_the_same_explicit_eligibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def run(args, **kwargs): return subprocess.CompletedProcess(args, 0, '')
+            with patch.object(recovery, 'runtime_fault', return_value=True), patch.object(recovery, 'assert_idle'), \
+                 patch.object(recovery, 'helper', side_effect=recovery.RecoveryError('read unavailable')):
+                with self.assertRaises(recovery.RecoveryError): recovery.maintenance(root, run, 'retained.service')
+            value = recovery.journal(root)
+            self.assertEqual(value['state'], 'operator-required')
+            self.assertEqual(value['automatic_recheck']['result'], 'eligible')
+
+    def test_successful_old_recheck_is_evidence_not_permission_to_clear_a_new_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); self.latch(root)
+            with patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value=self.healthy_report()):
+                recovery.recheck_latched(root, None)
+            value = recovery.journal(root)
+            value.update(state='operator-required', reason='new unrelated failure')
+            value['automatic_recheck']['attempted_boot_id'] = 'previous-boot'
+            recovery.save(root, value)
+            with patch.object(recovery, 'helper') as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            helper.assert_not_called()
+
+    def test_new_check_failure_after_success_does_not_reset_the_same_boot_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); self.latch(root)
+            with patch.object(recovery, 'assert_idle'), patch.object(recovery, 'helper', return_value=self.healthy_report()):
+                recovery.recheck_latched(root, None)
+                recovery.confirmed(root)
+            self.latch(root)
+            with patch.object(recovery, 'helper') as helper:
+                self.assertIsNone(recovery.recheck_latched(root, None))
+            helper.assert_not_called()
+
     def test_proven_cache_readback_resumes_existing_supervisor_without_image_replacement(self):
         for recovered in (False, True):
             with self.subTest(recovered=recovered), tempfile.TemporaryDirectory() as directory:

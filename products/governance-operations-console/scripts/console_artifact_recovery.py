@@ -264,16 +264,77 @@ def frontend_restartable(revision):
         raise RecoveryError('frontend repair did not produce a verified artifact; inspect retained recovery evidence') from None
 
 
+def remember_check_failure(root, exc):
+    current = journal(root)
+    if current['state'] != 'healthy':
+        return False
+    previous = current.get('automatic_recheck')
+    save(root, {**current, 'state': 'operator-required', 'reason': str(exc),
+                'automatic_recheck': {'failure_stage': 'integrity-check', 'result': 'eligible',
+                                      'failed_at': time.time(),
+                                      'attempted_boot_id': previous.get('attempted_boot_id') if isinstance(previous, dict) else None}})
+    return True
+
+
+def recheck_latched(root, run):
+    """One verification attempt per boot, never a retry of image replacement."""
+    if json.loads(POLICY.read_text()).get('automatic_verification_resume') is not True:
+        return None
+    with owner_guard(root, exclusive=True):
+        current = journal(root)
+        retry = current.get('automatic_recheck')
+        boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        if (current['state'] != 'operator-required' or not isinstance(retry, dict)
+            or retry.get('failure_stage') != 'integrity-check'
+            or retry.get('result') not in {'eligible', 'checking', 'blocked'}
+            or retry.get('attempted_boot_id') == boot):
+            return None
+        assert_idle(root, run)
+        retry = {**retry, 'attempted_boot_id': boot, 'result': 'checking'}
+        save(root, {**current, 'automatic_recheck': retry})
+        try:
+            report = helper('check')
+            references = report.get('checked_references')
+            if (report.get('status') != 'healthy' or report.get('corrupt') != []
+                or report.get('pending_repairs') != [] or report.get('boot_id') != boot
+                or not isinstance(references, list) or not references
+                or any(not isinstance(ref, str) for ref in references)
+                or len(set(references)) != len(references)
+                or type(report.get('checked_images')) is not int
+                or report['checked_images'] != len(references)
+                or not isinstance(report.get('checked_monotonic'), (int, float))
+                or not 0 <= time.monotonic() - report['checked_monotonic'] <= 640):
+                raise RecoveryError('fresh verification does not prove complete healthy coverage without pending repairs')
+        except RecoveryError as exc:
+            save(root, {**current, 'automatic_recheck': {**retry, 'result': 'blocked', 'reason': str(exc)}})
+            return None
+        save(root, {**current, 'state': 'restored-awaiting-readiness',
+                    'automatic_recheck': {**retry, 'result': 'verified-awaiting-readiness', 'proof': report}})
+        return report
+
+
 def startup(root, run, *, revision=None):
+    check_failed = False
+    retained_latch = False
     try:
         current = journal(root)
         if current['state'] == 'operator-required':
-            raise RecoveryError(current.get('reason', 'earlier failed recovery requires inspection'))
+            report = recheck_latched(root, run)
+            if report is None:
+                retained_latch = True
+                raise RecoveryError(current.get('reason', 'earlier failed recovery requires inspection'))
+            if revision is not None:
+                frontend_restartable(revision)
+            return report
         if current['state'] == 'deferred':
             assert_idle(root, run)
         if revision is not None:
             frontend_restartable(revision)
-        report = helper('check')
+        try:
+            report = helper('check')
+        except RecoveryError as exc:
+            check_failed = remember_check_failure(root, exc)
+            raise
         if report['status'] == 'corrupt':
             report = recover_images(root, run, report)
         elif journal(root)['state'] == 'repairing':
@@ -284,10 +345,15 @@ def startup(root, run, *, revision=None):
             raise RecoveryError('uncertain previous recovery is latched; operator inspection required')
         return report
     except RecoveryDeferred as exc:
-        save(root, {'state': 'deferred', 'reason': str(exc)})
+        # A busy owner must not erase a retained repair or its retry guard.
+        current = journal(root)
+        if current['state'] not in {'operator-required', 'quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested'}:
+            save(root, {**current, 'state': 'deferred', 'reason': str(exc)})
         raise
     except RecoveryError as exc:
         current = journal(root)
+        if not check_failed and not retained_latch:
+            current.pop('automatic_recheck', None)
         current.update(state='operator-required', reason=str(exc)); save(root, current)
         raise
 
@@ -316,10 +382,16 @@ def confirmed(root):
 
 
 def maintenance(root, run, supervisor, *, revision=None):
-    """Existing timer: cheap fault signals first, hash only once per fault."""
+    """Existing timer: bounded verification and retained-supervisor recovery."""
     import console_frontend_artifact as frontend
     current = journal(root)
-    if current['state'] in {'operator-required', 'quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested'}:
+    if current['state'] == 'operator-required':
+        if recheck_latched(root, run) is None:
+            return False
+        save(root, {**journal(root), 'state': 'resume-requested'})
+        run(['systemctl', '--user', '--no-block', 'restart', supervisor])
+        return True
+    if current['state'] in {'quiescing', 'repairing', 'restored-awaiting-readiness', 'resume-requested'}:
         return False
     fault = runtime_fault(run)
     active = run(['systemctl', '--user', 'is-active', '--quiet', 'governance-console-cross-domain-console.service'], check=False).returncode == 0
@@ -330,7 +402,11 @@ def maintenance(root, run, supervisor, *, revision=None):
     if current['state'] == 'unresolved-runtime-fault':
         return False  # no repeated full scans for the same ongoing failure
     assert_idle(root, run)
-    report = helper('check')
+    try:
+        report = helper('check')
+    except RecoveryError as exc:
+        remember_check_failure(root, exc)
+        raise
     needs_resume = report['status'] == 'corrupt'
     if needs_resume:
         recover_images(root, run, report)

@@ -41,7 +41,8 @@ class IntegrityError(RuntimeError):
 
 def validate_admission(policy):
     if (policy.get('schema_version') != 1 or policy.get('lane') != 'dev-integration'
-        or not isinstance(policy.get('automatic_repair'), bool)):
+        or not isinstance(policy.get('automatic_repair'), bool)
+        or not isinstance(policy.get('automatic_verification_resume', False), bool)):
         raise IntegrityError('invalid local image recovery admission')
     for name in ('namespaces', 'repositories'):
         if not isinstance(policy.get(name), list) or not 1 <= len(policy[name]) <= 64:
@@ -774,6 +775,15 @@ def operate(action, policy):
                              'confirmed_monotonic': time.monotonic(), 'boot_id': report['boot_id']})
     if report['corrupt'] and action != 'repair':
         report['status'] = 'corrupt'
+    # Healthy bytes do not establish that an earlier replacement or its
+    # consumer recovery finished. Project that separate fact for the caller.
+    report['pending_repairs'] = []
+    for reference, _ in assets:
+        incident = STATE / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json')
+        if incident.exists():
+            record = json.loads(incident.read_bytes())
+            if record.get('phase') != 'closed':
+                report['pending_repairs'].append({'reference': reference, 'phase': record.get('phase')})
     write(STATE / 'last-result.json', report)
     return report
 

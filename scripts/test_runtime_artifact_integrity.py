@@ -33,6 +33,24 @@ def archive(items):
 
 
 class IntegrityTests(unittest.TestCase):
+    def test_healthy_bytes_keep_unfinished_repairs_visible_until_owner_confirmation(self):
+        reference = 'docker.io/example/tool@sha256:' + 'a'*64
+        for phase in ('closed', 'attempted', 'importing-archive', 'restored-awaiting-readiness'):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                record = root / (hashlib.sha256(reference.encode()).hexdigest() + '.incident.json')
+                integrity.write(record, {'phase': phase, 'reference': reference, 'aliases': [reference]})
+                with patch.object(integrity, 'STATE', root), patch.object(integrity, 'cleanup_stale_inspection_views'), \
+                     patch.object(integrity, 'admitted_inventory', return_value=([(reference, [reference])], [])), \
+                     patch.object(integrity, 'sha', return_value='current'), \
+                     patch.object(integrity, 'compare', return_value=({}, [])), \
+                     patch.object(integrity, 'restore_aliases'), patch.object(integrity, 'repair') as repair:
+                    result = integrity.operate('check', {})
+                self.assertEqual(result['status'], 'healthy')
+                self.assertEqual(result['pending_repairs'], [] if phase == 'closed' else
+                                 [{'reference': reference, 'phase': 'restored-awaiting-readiness'}])
+                repair.assert_not_called()
+
     def test_confirmation_reuses_only_same_helper_and_policy_proof(self):
         reference = 'docker.io/example/tool@sha256:' + 'a'*64
         boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()

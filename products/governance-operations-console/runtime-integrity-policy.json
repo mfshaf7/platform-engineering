@@ -30,5 +30,6 @@
     "ghcr.io/mfshaf7/workspace-governance-control-fabric-worker"
   ],
   "automatic_repair": true,
-  "unmanaged_assets": "Host executables, mutable data, credentials and source work have no generic automatic restoration permission. Integrity/owner errors remain operator-required."
+  "automatic_verification_resume": true,
+  "unmanaged_assets": "Host executables, mutable data, credentials and source work have no generic automatic restoration permission. Only explicitly recorded verification failures may resume after fresh healthy coverage and no pending repair; uncertain repairs and other owner errors remain operator-required."
 }

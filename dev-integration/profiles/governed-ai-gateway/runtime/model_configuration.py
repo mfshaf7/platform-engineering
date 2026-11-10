@@ -287,9 +287,18 @@ class ModelConfiguration:
         if set(config["overrides"]) - self.tasks:
             raise ConfigurationError("task-not-admitted", "A task override is outside the existing profile contracts.")
         for task in self.tasks:
-            route = config["overrides"].get(task, config["default"])
+            route = self.configured_route(config, task)
             if route is not None:
                 self.validate_route(config, route, task)
+
+    @staticmethod
+    def configured_route(config, task):
+        # Source assistance inherits the configured source-generation route.
+        parents = {
+            "prototype-source-authoring-v1/source_editor_assistance": "prototype-source-authoring-v1/prototype_source_authoring",
+            "source-realization-v1/source_editor_assistance": "source-realization-v1/source_realization",
+        }
+        return config["overrides"].get(task, config["overrides"].get(parents.get(task), config["default"]))
 
     def validate_route(self, config: dict[str, Any], route: Any, task: str) -> None:
         closed(route, {"primary", "fallbacks", "on_exhausted"}, "task route")
@@ -317,7 +326,7 @@ class ModelConfiguration:
         if task not in self.tasks:
             raise ConfigurationError("task-not-admitted", "Task is outside the current profile contracts.")
         config = snapshot["configuration"]
-        route = config["overrides"].get(task, config["default"])
+        route = self.configured_route(config, task)
         if route is None:
             return None  # Preserve the existing explicit source-selected binding.
         self.validate_route(config, route, task)

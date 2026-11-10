@@ -61,6 +61,24 @@ class Backend:
 
 
 class TaskRoutingTests(unittest.TestCase):
+    def test_source_editor_assistance_inherits_source_route_and_allows_explicit_override(self):
+        for profile, generation in [("prototype-source-authoring-v1", "prototype_source_authoring"), ("source-realization-v1", "source_realization")]:
+            parent = profile + "/" + generation
+            child = profile + "/source_editor_assistance"
+            # The static invocation fixture intentionally predates this source
+            # extension; admit the new task to this isolated routing policy.
+            self.configuration.tasks.add(child)
+            for backend in self.configuration.backends.values():
+                backend["allowed_tasks"] = [*backend["allowed_tasks"], child]
+            self.command("routing.save", {"default": self.route("local", effort="low"), "overrides": {parent: self.route("cloud", effort="high")}})
+            selected = self.configuration.selection(self.configuration.snapshot(), child)
+            self.assertEqual(selected["task"], child)
+            self.assertEqual(selected["route"]["primary"], {"model_id": self.ids["cloud"], "effort": "high"})
+            self.command("routing.save", {"default": self.route("cloud"), "overrides": {parent: self.route("cloud"), child: self.route("local", effort="low")}})
+            selected = self.configuration.selection(self.configuration.snapshot(), child)
+            self.assertEqual(selected["route"]["primary"]["model_id"], self.ids["local"])
+
+
     def test_post_start_health_detects_drift_without_inference_or_configuration_mutation(self):
         class Local(OllamaBackend):
             calls = []

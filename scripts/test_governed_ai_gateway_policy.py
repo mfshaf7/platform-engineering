@@ -30,6 +30,22 @@ def caller(profile_id: str, caller_id: str) -> dict:
 
 
 class GatewayPolicyTests(unittest.TestCase):
+    def test_source_editor_assistance_requires_its_existing_source_caller_and_admitted_packet(self):
+        # Resolve this branch's actual task/output schemas, then use isolated
+        # active-profile policy evaluation; no runtime/account is activated.
+        resolved = resolve_model_profile_registry(REPO_ROOT / "security/governed-ai-model-profiles.yaml", REPO_ROOT / "security/governed-ai-access-plane.yaml", environment="dev-integration")
+        for profile_id, caller_id in [("prototype-source-authoring-v1", "operator-orchestration-service/prototype-source-authoring"), ("source-realization-v1", "operator-orchestration-service/source-realization")]:
+            profile = resolved["profiles"][profile_id]
+            profile.update(profile_activation_allowed=True, activation_eligible=True, profile_status="active", binding_status="active", provider_route_status="active")
+            request = {"profile_id":profile_id, "caller_identity":caller(profile_id,caller_id), "operator_identity":{"operator_id":"operator:sample"},
+                "task":{"kind":"source_editor_assistance","contract_ref":"oos.source-editor-assistance.v1","version":"1.0"},
+                "provider_output_schema_ref":"platform-engineering/security/schemas/source-editor-assistance.schema.json",
+                "input":{"task_instruction":"Explain selected text; propose only inert edits.", "model_safe_packet":{"content":"Synthetic admitted operator buffers","packet_ref":"/v1/context/packets/example","redaction_receipt_ref":"/v1/context/receipts/example","projection_receipt_ref":"/v1/context/lifecycle/projections/example","artifact_digest":"sha256:"+"a"*64},"source_binding":{"session_id":"sample","base_commit":"b"*40,"objective_digest":"sha256:"+"c"*64,"context_digest":"sha256:"+"d"*64}}}
+            self.assertTrue(GatewayPolicy(resolved).evaluate(request).allowed)
+            for mutate in [lambda value:value["caller_identity"].update(caller_workflow="different"),lambda value:value["input"].update(raw_context="unadmitted"),lambda value:value.update(provider_output_schema_ref="wrong-schema")]:
+                wrong=copy.deepcopy(request);mutate(wrong);self.assertFalse(GatewayPolicy(resolved).evaluate(wrong).allowed)
+
+
     def test_prototype_source_profile_is_separate_and_suspension_still_denies_it(self) -> None:
         resolved = selections()
         request = {

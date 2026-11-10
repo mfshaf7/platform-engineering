@@ -59,7 +59,7 @@ access_plane:
       accepted_record_schema_ref:
         repo: operator-orchestration-service
         path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
-      allowed_task_kinds: [prototype_source_authoring]
+      allowed_task_kinds: [prototype_source_authoring, source_editor_assistance]
     - caller_id: operator-orchestration-service/source-realization
       purpose: bounded-source-realization
       required_profile: source-realization-v1
@@ -71,6 +71,7 @@ access_plane:
         path: contracts/delivery-art-work-session/source-realization-change-set.schema.json
       allowed_task_kinds:
         - source_realization
+        - source_editor_assistance
     - caller_id: workspace-governance/intake-assist
       purpose: workspace-intake-assist
       required_profile: intake-classifier-v1

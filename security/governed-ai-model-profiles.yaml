@@ -29,6 +29,7 @@ model_profiles:
     allowed_callers:
       - operator-orchestration-service/prototype-source-authoring
     allowed_data_scope:
+      - Explicitly selected operator editor buffers and bounded conversation through CGG; inert assistance only
       - CGG receipt-bound selected Prototype app and design context only
       - exact real Prototype session, source commit, objective and context digest bindings
       - OOS-owned bounded task instruction; no raw context or repository credentials
@@ -41,6 +42,21 @@ model_profiles:
     task_contracts:
       default_task_kind: prototype_source_authoring
       allowed:
+        source_editor_assistance:
+          contract_ref: oos.source-editor-assistance.v1
+          contract_version: "1.0"
+          contract_source_ref:
+            repo: operator-orchestration-service
+            path: contracts/delivery-art-work-session/source-editor-assistance.schema.json
+          instruction_owner_repo: operator-orchestration-service
+          instruction_source: caller
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/source-editor-assistance.schema.json
+          input_contract:
+            allowed_fields: [task_instruction, model_safe_packet, source_binding]
+            required_fields: [task_instruction, model_safe_packet, source_binding]
+            model_safe_packet_required_fields: [content, packet_ref, redaction_receipt_ref, projection_receipt_ref, artifact_digest]
         prototype_source_authoring:
           contract_ref: oos.prototype.source-authoring.v1
           contract_version: "1.0"
@@ -102,6 +118,7 @@ model_profiles:
     allowed_callers:
       - operator-orchestration-service/source-realization
     allowed_data_scope:
+      - Explicitly selected operator editor buffers and bounded conversation through CGG; inert assistance only
       - CGG receipt-bound model-safe work-session objective and repository context
       - exact source session, commit, objective digest and context digest bindings
       - OOS-owned bounded task instruction
@@ -114,6 +131,21 @@ model_profiles:
     task_contracts:
       default_task_kind: source_realization
       allowed:
+        source_editor_assistance:
+          contract_ref: oos.source-editor-assistance.v1
+          contract_version: "1.0"
+          contract_source_ref:
+            repo: operator-orchestration-service
+            path: contracts/delivery-art-work-session/source-editor-assistance.schema.json
+          instruction_owner_repo: operator-orchestration-service
+          instruction_source: caller
+          provider_output_schema_ref:
+            repo: platform-engineering
+            path: security/schemas/source-editor-assistance.schema.json
+          input_contract:
+            allowed_fields: [task_instruction, model_safe_packet, source_binding]
+            required_fields: [task_instruction, model_safe_packet, source_binding]
+            model_safe_packet_required_fields: [content, packet_ref, redaction_receipt_ref, projection_receipt_ref, artifact_digest]
         source_realization:
           contract_ref: oos.delivery-art.source-realization.v1
           contract_version: "1.0"

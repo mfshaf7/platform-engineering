@@ -430,7 +430,10 @@ class TaskRoutingTests(unittest.TestCase):
         self.command("routing.save", {"default": self.route("cloud", effort="high"), "overrides": {
             "agent-console-assistant-v1/assistant_response": self.route("local", effort="low")}})
         self.assertEqual(self.runtime.invoke(self.request)[0], 200)
-        self.backends["local"].output = {"text": "Synthetic bounded agent response"}
+        self.backends["local"].output = {
+            "text": "Synthetic bounded agent response",
+            "draft_reply": {"intent": "answer", "message": "Synthetic bounded agent response", "edits": []},
+        }
         profile = self.selections["profiles"]["agent-console-assistant-v1"]
         task = profile["task_contracts"]["assistant_response"]
         request = {"profile_id": profile["profile_id"], "caller_identity": {

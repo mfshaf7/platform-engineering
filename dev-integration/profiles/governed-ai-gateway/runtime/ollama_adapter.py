@@ -43,6 +43,11 @@ class ProviderUnavailable(OllamaAdapterError):
     code = "provider-unavailable"
 
 
+class ProviderContextExceeded(ProviderUnavailable):
+    """Pre-submission input does not fit this bounded local runtime."""
+    code = "provider-context-exceeded"
+
+
 class ProviderTimeout(OllamaAdapterError):
     code = "provider-timeout"
 
@@ -77,6 +82,7 @@ class ProviderResult:
 
 class OllamaAdapter:
     _provider_slots = threading.BoundedSemaphore(1)
+    CONTEXT_WINDOW_TOKENS = 4096
     def __init__(
         self,
         *,
@@ -139,6 +145,14 @@ class OllamaAdapter:
         prompt_version: str,
         system_prompt: str,
     ) -> ProviderResult:
+        # Keep the local memory envelope fixed. This conservative preflight
+        # rejects clearly oversized messages before any provider request, rather
+        # than relying on Ollama's implicit prompt truncation. It is an estimate,
+        # not a claim of tokenizer-exact capacity qualification.
+        prompt_bytes = len((system_prompt + json.dumps(input_payload, ensure_ascii=False)).encode("utf-8"))
+        output_reserve = min(self.max_output_tokens, 1024)
+        if prompt_bytes > (self.CONTEXT_WINDOW_TOKENS - output_reserve) * 3:
+            raise ProviderContextExceeded("The complete request exceeds the local model's bounded context; select a suitable model or a smaller scope.")
         if not self._slots.acquire(blocking=False):
             raise ProviderBusy("provider concurrency limit reached")
         if self.shared_provider_limit and not self._provider_slots.acquire(blocking=False):
@@ -165,7 +179,7 @@ class OllamaAdapter:
                     "options": {
                         "temperature": 0,
                         "seed": 0,
-                        "num_ctx": 4096,
+                        "num_ctx": self.CONTEXT_WINDOW_TOKENS,
                         "num_predict": self.max_output_tokens,
                     },
                     "keep_alive": self.keep_alive,

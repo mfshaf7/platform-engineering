@@ -1,5 +1,25 @@
 # Governed AI Gateway Operations
 
+## Work Design reasoning allowance
+
+Context and Build Tree share the existing Work Design task profile. Its provider
+deadline is ten minutes; consumer transport deadlines must include projection,
+provider cleanup and response-delivery margin. Reads and unrelated tasks retain
+their own limits. Select native `xhigh` separately for the two task overrides
+through Model Operations after exact source acceptance and commissioning; this
+source update does not change unrelated routing or register another model.
+
+A request that loses its response after submission remains unconfirmed. Do not
+automatically repeat it or fall back. Browser cancellation stops waiting and
+prevents local edits; it is not evidence that the provider turn was interrupted.
+The existing owner deadline still bounds that work. Busy account capacity is
+reported separately from provider offline state. Large context must fit the
+selected provider; do not increase local model memory or silently shorten input.
+
+This is staged maintenance. Qualify detailed Context and Build Tree requests,
+including their rendered results, on the accepted composed source before claiming
+the new allowance operates end to end.
+
 ## Native advisor draft replies — approved preview batch
 
 Work Design and Agent Console provider outputs now require the closed native

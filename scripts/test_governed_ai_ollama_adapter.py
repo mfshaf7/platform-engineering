@@ -21,6 +21,7 @@ from ollama_adapter import (  # noqa: E402
     ProviderOutputInvalid,
     ProviderTimeout,
     ProviderUnavailable,
+    ProviderContextExceeded,
 )
 
 
@@ -79,6 +80,24 @@ def adapter(opener=valid_opener, **overrides) -> OllamaAdapter:
 
 
 class OllamaAdapterTests(unittest.TestCase):
+    def test_oversized_context_is_rejected_before_any_provider_access(self):
+        calls = []
+        def opener(request, **kwargs):
+            calls.append(request.full_url)
+            return valid_opener(request, **kwargs)
+        instance = adapter(opener)
+        with self.assertRaises(ProviderContextExceeded) as failure:
+            instance.classify({"operator_supplied_intake_notes": "architecture " * 3000})
+        self.assertEqual(failure.exception.code, "provider-context-exceeded")
+        self.assertEqual(calls, [])
+        # Refusal releases no inference slot and does not change the local RAM
+        # budget. A later small request still uses the existing context window.
+        def small_opener(request, **kwargs):
+            if request.full_url.endswith("/api/chat"):
+                self.assertEqual(json.loads(request.data)["options"]["num_ctx"], 4096)
+            return valid_opener(request, **kwargs)
+        self.assertEqual(adapter(small_opener).classify({"operator_supplied_intake_notes": "small"}).output["confidence"], "medium")
+
     def test_real_http_metadata_integrity_without_model_invocation(self):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import threading

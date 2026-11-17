@@ -222,7 +222,7 @@ class ModelConfiguration:
 
     def record_outcome(self, model, code, reference, account_binding=None):
         # Capacity admission rejected the call before a provider attempt.
-        if code == "provider-busy":
+        if code in {"provider-busy", "provider-context-exceeded"}:
             return
         model_id = digest({"backend_id": model["backend_id"], "model": model["model"]})
         with locked(self.root / "configuration.lock"):

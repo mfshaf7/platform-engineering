@@ -43,8 +43,8 @@ class ProviderUnavailable(OllamaAdapterError):
     code = "provider-unavailable"
 
 
-class ProviderContextExceeded(ProviderUnavailable):
-    """Pre-submission input does not fit this bounded local runtime."""
+class ProviderContextExceeded(OllamaAdapterError):
+    """Terminal input refusal; not an unavailable provider eligible for fallback."""
     code = "provider-context-exceeded"
 
 

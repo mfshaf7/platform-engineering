@@ -15,6 +15,9 @@ prevents local edits; it is not evidence that the provider turn was interrupted.
 The existing owner deadline still bounds that work. Busy account capacity is
 reported separately from provider offline state. Large context must fit the
 selected provider; do not increase local model memory or silently shorten input.
+Input-capacity refusal is terminal and non-retryable. Only the existing
+provider-unavailable/busy outcomes permit pre-submission fallback. Choosing a
+suitable model or smaller complete input is an explicit operator action.
 
 This is staged maintenance. Qualify detailed Context and Build Tree requests,
 including their rendered results, on the accepted composed source before claiming

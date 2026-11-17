@@ -55,6 +55,16 @@ or input refusal does not overwrite successful model-health evidence. Configured
 fallback remains pre-submission only; uncertain completion never dispatches a
 second inference.
 
+The publication cross-consumer check found that the new capacity exception
+inherited provider-unavailable behavior and could produce a fallback chain
+rejected by the existing OOS/Console success-evidence contract. The follow-up
+Landing Unit `maintenance-work-design-capacity-refusal-20261118` corrects only
+that classification: an oversized input stops with its non-retryable capacity
+error and never invokes a configured fallback. The strengthened actual-routing
+case fails before this correction and proves one attempt, zero fallback calls
+and unchanged health after it. No consumer allowlist or fallback permission is
+expanded. This follows already-merged PR383 and precedes composed activation.
+
 ## Artifact And Deployment Evidence
 
 Local adapter, routing, gateway and registry checks precede publication. Exact

@@ -62,13 +62,16 @@ class Backend:
 
 class TaskRoutingTests(unittest.TestCase):
     def test_input_capacity_refusal_preserves_model_health_and_records_the_attempt(self):
-        self.save(self.route("local"))
+        self.save(self.route("local", ["cloud"]))
         self.backends["local"].failure = ProviderContextExceeded
         before = self.configuration.outcomes()
         status, result = self.runtime.invoke(self.request)
         self.assertEqual(status, 503)
+        self.assertEqual(result["reasons"], ["provider-context-exceeded"])
         self.assertEqual(result["effective_selection"]["attempts"][0]["outcome"], "provider-context-exceeded")
+        self.assertEqual(len(result["effective_selection"]["attempts"]), 1)
         self.assertEqual(len(self.backends["local"].calls), 1)
+        self.assertEqual(self.backends["cloud"].calls, [])
         self.assertEqual(self.configuration.outcomes(), before)
 
     def test_source_editor_assistance_inherits_source_route_and_allows_explicit_override(self):

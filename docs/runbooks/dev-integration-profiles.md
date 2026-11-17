@@ -149,6 +149,15 @@ composition activates the independently reviewed
 `delivery-refinement-advisor-v1` profile. The Console still cannot call the
 gateway or Temporal directly.
 
+Gateway startup applies its exact `governed-ai-gateway-app` runtime ConfigMap
+through server-side apply. Large embedded provider schemas must not be copied
+into the client-side last-applied annotation. Only that namespace/name-bound,
+Platform-owned ConfigMap transfers field ownership to
+`platform-governed-ai-gateway`; other resources retain their existing apply
+behavior. No configuration data is trimmed and no security schema is relaxed.
+Use normal profile/composition startup after accepted-source review; do not
+manually delete the ConfigMap or bypass runtime source acceptance.
+
 ### Workspace Intake And Inventory Commissioning
 
 The `refinement-catalog` composition also carries the OOS Workspace Intake and

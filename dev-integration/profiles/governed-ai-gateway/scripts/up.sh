@@ -11,7 +11,7 @@ need_cmd python3
 ensure_state_dirs
 render_runtime_manifest
 
-kubectl_cmd apply -f "${RENDERED_DIR}/governed-ai-gateway-runtime.yaml"
+apply_runtime_manifest
 kubectl_cmd -n "${NAMESPACE}" rollout restart "deployment/${GATEWAY_DEPLOYMENT}" >/dev/null 2>&1 || true
 wait_for_runtime_ready
 

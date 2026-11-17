@@ -720,6 +720,30 @@ EOF
   fi
 }
 
+apply_runtime_manifest() {
+  # The finite Platform-owned runtime can exceed the client-side annotation
+  # limit while remaining within Kubernetes' ConfigMap data limit. Transfer only
+  # this ConfigMap's fields to the profile manager; never force other resources.
+  python3 - "${RENDERED_DIR}" "${NAMESPACE}" <<'PY'
+import pathlib
+import sys
+import yaml
+
+root = pathlib.Path(sys.argv[1])
+documents = list(yaml.safe_load_all((root / "governed-ai-gateway-runtime.yaml").read_text()))
+runtime = [doc for doc in documents if doc.get("kind") == "ConfigMap"
+           and doc.get("metadata", {}).get("name") == "governed-ai-gateway-app"]
+if len(runtime) != 1 or runtime[0]["metadata"].get("namespace") != sys.argv[2]:
+    raise SystemExit("Expected the exact profile-owned gateway runtime ConfigMap")
+(root / "governed-ai-gateway-app.yaml").write_text(yaml.safe_dump(runtime[0], sort_keys=False))
+(root / "governed-ai-gateway-resources.yaml").write_text(yaml.safe_dump_all(
+    [doc for doc in documents if doc is not runtime[0]], sort_keys=False))
+PY
+  kubectl_cmd apply -f "${RENDERED_DIR}/governed-ai-gateway-resources.yaml"
+  kubectl_cmd apply --server-side --field-manager=platform-governed-ai-gateway \
+    --force-conflicts -f "${RENDERED_DIR}/governed-ai-gateway-app.yaml"
+}
+
 run_consumer_probe() {
   local gateway_url="http://${GATEWAY_SERVICE}.${NAMESPACE}.svc.cluster.local:8080"
   local provider_url="http://${PROVIDER_SERVICE}.${PROVIDER_NAMESPACE}.svc.cluster.local:8080"

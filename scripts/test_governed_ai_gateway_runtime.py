@@ -239,6 +239,7 @@ class GatewayRuntimeTests(unittest.TestCase):
                 "confidence": "high",
                 "required_operator_action": "review",
                 "text": "Keep one outcome per Feature.",
+                "draft_reply": {"intent": "answer", "message": "Keep one outcome per Feature.", "edits": []},
                 "affected_node_id": "feature-1",
                 "patch_proposal": None,
             }

@@ -166,6 +166,11 @@ class OllamaAdapterTests(unittest.TestCase):
                                 "confidence": "high",
                                 "required_operator_action": "review",
                                 "text": "Split the package into two bounded Features.",
+                                "draft_reply": {
+                                    "intent": "answer",
+                                    "message": "Keep one outcome per Feature.",
+                                    "edits": [],
+                                },
                                 "affected_node_id": "feature-1",
                                 "patch_proposal": {
                                     "patch_type": "tree_shape",
@@ -185,6 +190,7 @@ class OllamaAdapterTests(unittest.TestCase):
         )
 
         self.assertEqual(result.output["affected_node_id"], "feature-1")
+        self.assertEqual(result.output["draft_reply"]["intent"], "answer")
         self.assertEqual(result.prompt_version, "oos.delivery-work-design.tree-advice.v1")
 
     def test_model_digest_drift_fails_closed(self) -> None:

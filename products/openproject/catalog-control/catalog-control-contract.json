@@ -193,7 +193,7 @@
       "gap_status": "owner_routed",
       "lifecycle_state": "read_only",
       "next_action_label": "Open Owner Route",
-      "next_action_detail": "Manage membership through the OpenProject identity owner route.",
+      "next_action_detail": "Use Console Manage Members for existing accounts and project roles. Account creation remains in OpenProject.",
       "evidence_refs": ["openproject://projects/workspace-delivery-art/memberships"],
       "source": {"kind": "principals"}
     },

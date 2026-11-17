@@ -1,5 +1,12 @@
 # Runtime Contract
 
+The staged Console project-membership extension uses the existing local
+Delivery dev-integration adapter and native OpenProject services. It does not
+activate new routes or permissions in the platform-integrated production
+runtime. See [Catalog control](catalog-control/README.md) for the boundary and
+[identity provisioning](runbooks/provision-operator-orchestration-identity.md)
+for the project-specific, non-admin permission grant.
+
 ## Purpose
 
 OpenProject provides an internal project-management service for local operator

@@ -51,6 +51,7 @@ shared_paths:
       - test_model_profile_lifecycle.py
       - test_governed_ai_gateway_policy.py
       - test_governed_ai_gateway_runtime.py
+      - test_native_advisor_schema.py
       - test_ai_task_routing.py
       - test_profile_request_setup.py
       - test_api_provider_connections.py

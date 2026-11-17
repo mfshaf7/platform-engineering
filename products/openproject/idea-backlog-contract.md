@@ -1,5 +1,10 @@
 # Idea Backlog Contract
 
+The unpublished Delivery project-membership extension does not add Proposal
+membership administration. The local broker's new membership role is limited
+to Delivery; Proposal roles remain unchanged. See the
+[identity procedure](runbooks/provision-operator-orchestration-identity.md).
+
 ## Purpose
 
 Define the canonical OpenProject project model for captured ideas and proposals

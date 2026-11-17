@@ -1,5 +1,12 @@
 # Access OpenProject
 
+After coordinated activation of the current maintenance batch, existing-account
+Delivery membership is managed from Console's Catalog → Assignee / Responsible
+→ Manage Members. Account creation/invitations and global roles remain native
+OpenProject operations. The staged extension and project-specific permission
+boundary are documented in [identity provisioning](provision-operator-orchestration-identity.md).
+Platform-integrated production access remains unchanged.
+
 ## Purpose
 
 This runbook defines the local operator access path for OpenProject.

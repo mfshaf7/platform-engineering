@@ -2,6 +2,16 @@
 
 ## Purpose
 
+The unpublished Console membership extension is limited to the accepted Delivery
+dev-integration profile. Its project-specific provisioning override adds the
+Project membership manager role only to the Delivery project. The role contains
+`view_members` and `manage_members`; it grants no global user administration.
+`TARGET_PROJECT_ROLE_NAMES_JSON` overrides selected projects only, while other
+projects retain `TARGET_ROLE_NAMES_JSON`. This runbook's platform-integrated
+production baseline is unchanged. The Console cannot invoke this admin helper.
+Normal membership operations use the
+[OOS procedure](https://github.com/mfshaf7/operator-orchestration-service/blob/main/docs/operations/delivery-project-members.md).
+
 Provision the dedicated OpenProject broker identity and single-purpose API
 token for `operator-orchestration-service`.
 

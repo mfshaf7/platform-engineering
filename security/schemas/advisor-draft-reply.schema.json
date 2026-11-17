@@ -1,0 +1,685 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.workspace.local/advisor-draft-reply.v1.schema.json",
+  "title": "Inert native advisor draft reply",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "intent",
+    "message",
+    "edits"
+  ],
+  "properties": {
+    "intent": {
+      "type": "string",
+      "maxLength": 10,
+      "enum": [
+        "answer",
+        "clarify",
+        "draft"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 12000,
+      "minLength": 1
+    },
+    "edits": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "value_type",
+          "text_value",
+          "board_patch",
+          "tree_patch"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1
+          },
+          "value_type": {
+            "type": "string",
+            "maxLength": 10,
+            "enum": [
+              "text",
+              "board",
+              "tree"
+            ]
+          },
+          "text_value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 24000
+          },
+          "board_patch": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "addItems",
+              "updateItems",
+              "removeItemIds",
+              "addConnections",
+              "removeConnectionIds"
+            ],
+            "properties": {
+              "addItems": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "label",
+                    "detail",
+                    "x",
+                    "y",
+                    "width",
+                    "height",
+                    "tone",
+                    "diagramType"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "kind": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "detail": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "default",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "diagramType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 40,
+                      "enum": [
+                        null,
+                        "c4",
+                        "dependency",
+                        "flowchart",
+                        "freeform",
+                        "mindmap",
+                        "sequence",
+                        "swimlane",
+                        "uml"
+                      ]
+                    }
+                  }
+                }
+              },
+              "updateItems": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "label",
+                    "detail",
+                    "x",
+                    "y",
+                    "width",
+                    "height",
+                    "tone",
+                    "diagramType"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "kind": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 100
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 500
+                    },
+                    "detail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 4000
+                    },
+                    "x": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "y": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "default",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "diagramType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 40,
+                      "enum": [
+                        null,
+                        "c4",
+                        "dependency",
+                        "flowchart",
+                        "freeform",
+                        "mindmap",
+                        "sequence",
+                        "swimlane",
+                        "uml"
+                      ]
+                    }
+                  }
+                }
+              },
+              "removeItemIds": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              },
+              "addConnections": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "from",
+                    "to",
+                    "label",
+                    "shape",
+                    "stroke",
+                    "tip",
+                    "startTip",
+                    "tone",
+                    "relationship"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "from": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "endpointType",
+                        "itemId",
+                        "itemType",
+                        "side",
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "endpointType": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "port",
+                            "free"
+                          ]
+                        },
+                        "itemId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 256
+                        },
+                        "itemType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 20,
+                          "enum": [
+                            null,
+                            "core",
+                            "custom",
+                            "template"
+                          ]
+                        },
+                        "side": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "top",
+                            "right",
+                            "bottom",
+                            "left"
+                          ]
+                        },
+                        "x": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "y": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "to": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "endpointType",
+                        "itemId",
+                        "itemType",
+                        "side",
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "endpointType": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "port",
+                            "free"
+                          ]
+                        },
+                        "itemId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 256
+                        },
+                        "itemType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 20,
+                          "enum": [
+                            null,
+                            "core",
+                            "custom",
+                            "template"
+                          ]
+                        },
+                        "side": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "top",
+                            "right",
+                            "bottom",
+                            "left"
+                          ]
+                        },
+                        "x": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "y": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 1000
+                    },
+                    "shape": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 10,
+                      "enum": [
+                        null,
+                        "straight",
+                        "curve"
+                      ]
+                    },
+                    "stroke": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 10,
+                      "enum": [
+                        null,
+                        "solid",
+                        "dashed"
+                      ]
+                    },
+                    "tip": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "arrow",
+                        "diamond",
+                        "filled-diamond",
+                        "plain",
+                        "triangle"
+                      ]
+                    },
+                    "startTip": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "arrow",
+                        "diamond",
+                        "filled-diamond",
+                        "plain",
+                        "triangle"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "relationship": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 40,
+                      "enum": [
+                        null,
+                        "aggregation",
+                        "association",
+                        "composition",
+                        "dependency",
+                        "directed-association",
+                        "generalization",
+                        "realization"
+                      ]
+                    }
+                  }
+                }
+              },
+              "removeConnectionIds": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            }
+          },
+          "tree_patch": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "addNodes",
+              "updateNodes",
+              "removeNodeIds"
+            ],
+            "properties": {
+              "addNodes": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "parentId",
+                    "node"
+                  ],
+                  "properties": {
+                    "parentId": {
+                      "type": "string",
+                      "maxLength": 256,
+                      "minLength": 1
+                    },
+                    "node": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "title",
+                        "description",
+                        "draftBody",
+                        "remark",
+                        "children"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 256
+                        },
+                        "kind": {
+                          "type": "string",
+                          "maxLength": 30,
+                          "enum": [
+                            "Feature",
+                            "User story",
+                            "Risk"
+                          ]
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 8000
+                        },
+                        "draftBody": {
+                          "type": "string",
+                          "maxLength": 20000
+                        },
+                        "remark": {
+                          "type": "string",
+                          "maxLength": 8000
+                        },
+                        "children": {
+                          "type": "array",
+                          "maxItems": 0,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 4000
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "updateNodes": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "title",
+                    "description",
+                    "draftBody",
+                    "remark"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "title": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 500
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 8000
+                    },
+                    "draftBody": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20000
+                    },
+                    "remark": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 8000
+                    }
+                  }
+                }
+              },
+              "removeNodeIds": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

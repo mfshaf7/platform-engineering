@@ -40,7 +40,8 @@ module OpenprojectDeliveryCatalogControl
       "schema_version" => 1,
       "registry_values" => {},
       "retired_values" => {},
-      "receipts" => {}
+      "receipts" => {},
+      "membership_receipts" => {}
     }
   end
 
@@ -311,7 +312,7 @@ module OpenprojectDeliveryCatalogControl
 
     def principal_values(item, projected_at)
       assignment_columns = %w[assigned_to_id responsible_id] & WorkPackage.column_names
-      @project.users.active.order(:login).map do |user|
+      Principal.possible_assignee(@project).order(:id).map do |user|
         usage_scope = WorkPackage.where(project_id: @project.id)
         usage_count = if assignment_columns.empty?
                         0
@@ -322,13 +323,13 @@ module OpenprojectDeliveryCatalogControl
         catalog_value(
           item,
           id: "openproject-principal-#{user.id}",
-          key: user.login,
+          key: user.login.presence || "principal:#{user.id}",
           label: user.name,
           description: "Assignable Workspace Delivery ART principal.",
           lifecycle: "read_only",
           usage_count: usage_count,
           projected_at: projected_at,
-          evidence_refs: ["openproject://users/#{user.id}"]
+          evidence_refs: ["openproject://#{user.is_a?(Group) ? 'groups' : user.is_a?(PlaceholderUser) ? 'placeholder_users' : 'users'}/#{user.id}"]
         )
       end
     end
@@ -537,19 +538,183 @@ module OpenprojectDeliveryCatalogControl
     end
   end
 
+  # Reuse the Catalog transaction/receipt store so a committed membership and
+  # its outcome cannot separate on process interruption. Native services still
+  # enforce OpenProject's project-role and inherited-membership contracts.
+  class MembershipService
+    LIMIT = 100
+    REQUEST_KEYS = %w[request_id caller_id operator_id operation principal_id membership_id role_ids expected_version].sort.freeze
+    PROTECTED_LOGINS = %w[operator-orchestration-service platform-engineering workspace-governance workspace-governance-control-fabric security-architecture openclaw-runtime-distribution openclaw-telegram-enhanced openclaw-host-bridge].freeze
+
+    def initialize(contract:, store: Store.new, clock: -> { Time.now.utc })
+      @contract, @store, @clock = contract, store, clock
+    end
+
+    def authority!
+      @project = Project.find_by!(identifier: @contract.fetch("project_identifier"))
+      @user = User.find_by!(login: "operator-orchestration-service")
+      unless !@user.admin? && @user.active? && @user.allowed_in_project?(:manage_members, @project)
+        raise Error.new(403, "membership_permission_required", "Project membership management is not enabled for this connection.")
+      end
+    end
+
+    def protected?(principal)
+      return true unless principal.is_a?(User) || principal.is_a?(Group)
+      return true if principal.is_a?(User) && (principal.admin? || PROTECTED_LOGINS.include?(principal.login))
+      principal.is_a?(Group) && principal.users.any? { |user| protected?(user) }
+    end
+
+    def roles
+      ProjectRole.where(builtin: 0).where.not(name: "Project membership manager").order(:name).map do |role|
+        { "id" => role.id, "name" => role.name,
+          "can_assign_work" => role.permissions.include?(:work_package_assigned),
+          "manages_members" => role.permissions.include?(:manage_members) }
+      end
+    end
+
+    def principal_value(principal)
+      { "id" => principal.id, "name" => principal.name, "kind" => principal.is_a?(Group) ? "group" : principal.is_a?(User) ? "user" : "placeholder" }
+    end
+
+    def member_value(member)
+      inherited = member.member_roles.where.not(inherited_from: nil).exists?
+      role_ids = member.roles.order(:id).pluck(:id)
+      version = OpenprojectDeliveryCatalogControl.digest([member.id, member.updated_at.iso8601(6), role_ids,
+        member.member_roles.order(:id).pluck(:id, :role_id, :inherited_from)])
+      principal_value(member.principal).merge("membership_id" => member.id, "role_ids" => role_ids,
+        "role_names" => member.roles.order(:name).pluck(:name), "version" => version,
+        "protected" => protected?(member.principal) || inherited,
+        "restriction" => !(member.principal.is_a?(User) || member.principal.is_a?(Group)) ? "Placeholder accounts are managed in OpenProject." : inherited ? "Roles inherited from a group are managed through that group." :
+          protected?(member.principal) ? "Installation operator and service access is protected." : nil)
+    end
+
+    def scope
+      Member.where(project: @project, entity_id: nil).includes(:principal, :roles, :member_roles)
+    end
+
+    def visible_principals
+      Principal.visible(@user).where(type: %w[User Group], status: 1)
+    end
+
+    def projection(context, query = {})
+      authority!
+      page = [Integer(query.fetch("page", "1"), exception: false).to_i, 1].max
+      size = Integer(query.fetch("page_size", "25"), exception: false)
+      size = 25 unless [25, 50, 100].include?(size)
+      text = query.fetch("search", "").to_s[0, 200].downcase
+      candidate_text = query.fetch("candidate_search", "").to_s[0, 200].downcase
+      # Native visibility is retained; the Console cannot enumerate hidden users.
+      matching = scope.joins(:principal)
+      unless text.empty?
+        matching = matching.where("LOWER(CONCAT(users.firstname, ' ', users.lastname)) LIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(text)}%")
+      end
+      protected_ids = User.where(admin: true).or(User.where(login: PROTECTED_LOGINS)).select(:id)
+      candidates = visible_principals.where.not(id: scope.select(:user_id)).where.not(id: protected_ids)
+        .where.not(id: GroupUser.where(user_id: protected_ids).select(:group_id))
+      unless candidate_text.empty?
+        candidates = candidates.where("LOWER(CONCAT(users.firstname, ' ', users.lastname)) LIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(candidate_text)}%")
+      end
+      candidate_total = candidates.count
+      candidates = candidates.order(:id).limit(LIMIT).to_a
+      recent = @store.read.fetch("membership_receipts").values.map { |entry| entry.fetch("result") }
+        .select { |entry| entry["caller_id"] == context.fetch("caller_id") && entry["operator_id"] == context.fetch("operator_id") }
+        .sort_by { |entry| entry.fetch("applied_at") }.last(10).reverse
+      { "schema_version" => 1, "project_id" => @project.id, "project_identifier" => @project.identifier, "project_name" => @project.name,
+        "members" => matching.order(:id).offset((page - 1) * size).limit(size).map { |member| member_value(member) },
+        "total" => matching.count, "page" => page, "page_size" => size,
+        "candidates" => candidates.first(LIMIT).map { |principal| principal_value(principal) },
+        "candidate_total" => candidate_total, "roles" => roles, "recent_outcomes" => recent }
+    end
+
+    def mutate(request)
+      authority!
+      unless request.is_a?(Hash) && request.keys.sort == REQUEST_KEYS &&
+          %w[add change remove].include?(request["operation"]) &&
+          %w[request_id caller_id operator_id].all? { |key| request[key].is_a?(String) && request[key].match?(/\A[A-Za-z0-9_.:@-]{1,160}\z/) } &&
+          request["principal_id"].is_a?(Integer) && request["principal_id"].positive? &&
+          request["role_ids"].is_a?(Array) && request["role_ids"].size <= 20 &&
+          request["role_ids"].all? { |id| id.is_a?(Integer) && id.positive? } &&
+          request["role_ids"].uniq == request["role_ids"] &&
+          (request["operation"] == "add" ? request["membership_id"].nil? && request["expected_version"].nil? :
+            request["membership_id"].is_a?(Integer) && request["expected_version"].to_s.match?(/\Asha256:[a-f0-9]{64}\z/))
+        raise Error.new(400, "membership_request_invalid", "Use the exact reviewed membership request.")
+      end
+      request_digest = OpenprojectDeliveryCatalogControl.digest(request)
+      key = OpenprojectDeliveryCatalogControl.digest(request.values_at("caller_id", "operator_id", "request_id"))
+      @store.with_locked_state do |state|
+        replay = state.fetch("membership_receipts")[key]
+        if replay
+          raise Error.new(409, "membership_request_conflict", "This request already belongs to a different decision.") unless replay.fetch("request_digest") == request_digest
+          next replay.fetch("result").merge("replayed" => true)
+        end
+        principal = visible_principals.find_by(id: request.fetch("principal_id"))
+        raise Error.new(409, "membership_principal_unavailable", "This user or group is no longer available to this connection.") unless principal
+        raise Error.new(403, "membership_protected", "Installation operator and service access is protected.") if protected?(principal)
+        # Serialize against native updates to the target, including group-role changes.
+        member = scope.lock.find_by(principal: principal)
+        before = member && member_value(member)
+        if request["operation"] == "add"
+          raise Error.new(409, "membership_source_changed", "This user or group is already a project member. Reload members before deciding again.") if member
+        elsif !member || member.id != request["membership_id"] || before["version"] != request["expected_version"]
+          raise Error.new(409, "membership_source_changed", "Membership changed after review. Reload members before deciding again.")
+        end
+        raise Error.new(409, "membership_inherited", before["restriction"]) if before && before["protected"]
+        selected_ids = request.fetch("role_ids")
+        available_ids = roles.map { |role| role.fetch("id") }
+        if request["operation"] == "remove" ? selected_ids.any? : selected_ids.empty? || (selected_ids - available_ids).any?
+          raise Error.new(400, "membership_role_invalid", "Choose current project roles. Global and internal service roles are unavailable.")
+        end
+        operation = case request.fetch("operation")
+                    when "add"
+                      Members::CreateService.new(user: @user).call(project_id: @project.id, user_id: principal.id, role_ids: selected_ids, send_notifications: false)
+                    when "change"
+                      Members::UpdateService.new(user: @user, model: member).call(role_ids: selected_ids, send_notifications: false)
+                    when "remove"
+                      Members::DeleteService.new(user: @user, model: member).call
+                    end
+        unless operation.success?
+          raise Error.new(409, "membership_native_rejected", "OpenProject rejected this membership change. Reload members and review the current roles.")
+        end
+        after_member = scope.find_by(principal: principal)
+        after = after_member && member_value(after_member)
+        verified = request["operation"] == "remove" ? after.nil? : after && after["role_ids"].sort == selected_ids.sort
+        raise Error.new(502, "membership_readback_incomplete", "The membership readback does not match this decision.") unless verified
+        result = request.slice("request_id", "caller_id", "operator_id", "operation").merge(
+          "schema_version" => 1, "status" => "applied", "project_id" => @project.id, "project_identifier" => @project.identifier,
+          "principal" => principal_value(principal), "before" => before, "after" => after,
+          "applied_at" => @clock.call.iso8601, "replayed" => false, "request_digest" => request_digest)
+        result["receipt"] = { "ref" => "openproject://delivery-memberships/receipts/#{key.delete_prefix('sha256:')}",
+          "digest" => OpenprojectDeliveryCatalogControl.digest(result) }
+        state.fetch("membership_receipts")[key] = { "request_digest" => request_digest, "result" => result }
+        result
+      end
+    end
+  end
+
   class Middleware
     def initialize(app)
       @app = app
       contract_path = ENV.fetch("OPENPROJECT_CATALOG_CONTROL_CONTRACT_PATH")
       @service = Service.new(contract: JSON.parse(File.read(contract_path)))
+      @memberships = MembershipService.new(contract: JSON.parse(File.read(contract_path)))
     end
 
     def call(environment)
       path = environment.fetch("PATH_INFO", "")
       method = environment.fetch("REQUEST_METHOD", "GET")
-      return @app.call(environment) unless path == "/v1/delivery-catalog/projection" || path.match?(MUTATION_PATH)
+      return @app.call(environment) unless path == "/v1/delivery-catalog/projection" || path.match?(MUTATION_PATH) ||
+        %w[/v1/delivery-memberships/projection /v1/delivery-memberships/mutations].include?(path)
 
       authenticate!(environment)
+      if method == "GET" && path == "/v1/delivery-memberships/projection"
+        query = Rack::Utils.parse_query(environment.fetch("QUERY_STRING", ""))
+        context = query.slice("caller_id", "operator_id")
+        raise Error.new(400, "membership_request_invalid", "Accountable caller and operator are required.") unless context.size == 2 && context.values.all? { |v| v.match?(/\A[A-Za-z0-9_.:@-]{1,160}\z/) }
+        return json(200, @memberships.projection(context, query))
+      end
+      if method == "POST" && path == "/v1/delivery-memberships/mutations"
+        return json(200, @memberships.mutate(read_json(environment)))
+      end
       if method == "GET" && path == "/v1/delivery-catalog/projection"
         return json(200, @service.projection)
       end

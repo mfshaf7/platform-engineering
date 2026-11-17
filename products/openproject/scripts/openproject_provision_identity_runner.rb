@@ -33,7 +33,12 @@ ROLE_NAMES = JSON.parse(
     '["Reader"]'
   )
 )
+PROJECT_ROLE_NAMES = JSON.parse(ENV.fetch("TARGET_PROJECT_ROLE_NAMES_JSON", "{}").presence || "{}")
+raise "Project role overrides must name selected projects" unless PROJECT_ROLE_NAMES.is_a?(Hash) &&
+  (PROJECT_ROLE_NAMES.keys - TARGET_PROJECT_IDENTIFIERS).empty? &&
+  PROJECT_ROLE_NAMES.values.all? { |names| names.is_a?(Array) && names.any? && names.all? { |name| name.is_a?(String) && !name.empty? } }
 CUSTOM_ROLE_PERMISSIONS = {
+  "Project membership manager" => ["view_members", "manage_members"],
   "Work package creator" => ["add_work_packages"],
   "Work package structure editor" => [
     "manage_subtasks",
@@ -42,6 +47,7 @@ CUSTOM_ROLE_PERMISSIONS = {
   ]
 }.freeze
 CUSTOM_ROLE_CLASSES = {
+  "Project membership manager" => ProjectRole,
   "Work package creator" => ProjectRole,
   "Work package structure editor" => ProjectRole
 }.freeze
@@ -138,10 +144,9 @@ end
 projects = TARGET_PROJECT_IDENTIFIERS.map do |identifier|
   Project.find_by!(identifier: identifier)
 end
-roles = ROLE_NAMES.map { |name| ensure_role!(name) }
-
 user_result = ensure_user!
 memberships = projects.map do |project|
+  roles = PROJECT_ROLE_NAMES.fetch(project.identifier, ROLE_NAMES).map { |name| ensure_role!(name) }
   member = ensure_membership!(project:, user: user_result[:user], roles:)
   {
     project_identifier: project.identifier,

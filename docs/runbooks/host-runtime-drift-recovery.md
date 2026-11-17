@@ -89,3 +89,38 @@ If the same host/runtime drift happens more than once, convert it into one of:
 - stronger bootstrap automation
 - explicit periodic health check
 - improved runbook with verification guardrails
+
+## Local k3s SQLite index damage
+
+A running Console frontend does not prove the cluster API or workflow service
+is available. If k3s stays in startup, prove its API reachability and inspect
+its own journal before changing application source. Repeated bootstrap-lock or
+TTL-watch messages alone do not prove database corruption.
+
+For SQLite-backed k3s, use a read-only integrity check and identify damaged
+pages before deciding a repair. Index damage may be recoverable without
+restoring an older snapshot. Preserve the original database, WAL and SHM with
+restricted access; they contain cluster secrets. Never publish their contents.
+
+Before any replacement, contain every startup supervisor and temporarily block
+restarts. A failed is-active check is insufficient: activating is still a live
+process. Require an inactive/failed unit, zero MainPID, and no remaining process
+holding the database. Recheck immediately before replacement. If a race started
+another process, preserve its open database and journal too, stop it safely and
+compare committed records before proceeding. Never replace an open database or
+reuse a stale journal with a different database inode.
+
+Rebuild indexes on a copy only. Require the full integrity check to return ok
+and compare every table row, including sequence state, before and after. A row
+count alone does not prove equality. If any row is unreadable, uniqueness fails,
+or fingerprints differ, leave the original preserved and stop for an explicit
+recovery decision; do not drop rows, reset the cluster or restore an older
+snapshot silently. This procedure is not automatic database-repair authority.
+
+After a verified replacement, remove the temporary restart block, start the
+existing service and prove that the new process has the intended database open
+without deleted handles. Then check the cluster readiness endpoint, persistent
+service recovery, required host-service directories/sockets and the exact
+Console workflow read that failed. The Console is not healthy merely because
+its HTML loads or its backend tunnel process exists. Retain the restricted
+original and verification evidence until recovery has been reviewed.

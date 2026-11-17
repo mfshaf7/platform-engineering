@@ -1,5 +1,26 @@
 # Governed AI Gateway Operations
 
+## Native advisor draft replies — approved preview batch
+
+Work Design and Agent Console provider outputs now require the closed native
+`draft_reply` shape from `security/schemas/advisor-draft-reply.schema.json`.
+Each existing profile schema embeds the same shape; tests prove agreement with
+the actual strict output validator. OOS validates its semantic intent and scoped
+fields, then retains the existing client envelope. Text is a human-readable
+summary, not a container for model-authored edit JSON. Normal chat has no edits.
+
+This does not change selected models, effort, permissions, provider tools or
+approval authority. Pair the reviewed Platform contract with its OOS decoder and
+Console consumer before normal exact-source commissioning. This preview batch
+does not claim a live source update or provider qualification yet.
+
+The Agent Console contract also covers the existing Proposal, Prototype
+promotion, Execution, blocker-justification and Orchestration draft advisors.
+Their role-scoped fields remain OOS/Console input, rather than separate provider
+formats. Provider-schema tests reject a legacy edit envelope hidden in `text`
+when the required native reply is missing or malformed, for both Agent Console
+and Work Design. Ordinary answers carry an empty edit list.
+
 ## Prototype source authoring preparation
 
 `prototype-source-authoring-v1` reuses the existing local `qwen3:8b` binding,
@@ -197,6 +218,16 @@ ledger must retain prior events across an ordinary gateway restart; reset is not
 valid persistence evidence because it intentionally destroys local state.
 
 ## Related Procedures
+
+The approved unpublished advisor repair pairs native output enforcement with
+source-owned OOS work guides and actual Console workflow evidence. CGG/OOS deny
+shortened editable context before inference. These remain existing task
+instructions and admission paths; model/effort selection, caller credentials,
+permissions and explicit operator acceptance are unchanged. Land CGG completeness
+and Platform output dependencies before OOS/Console consumers, obtain fresh
+composed Security acceptance, and activate the reviewed complete source through
+the existing procedure. Passing schema/context tests alone does not qualify
+the advisor's real workflow judgment.
 
 - [access.md](access.md)
 - [release-governance.md](release-governance.md)

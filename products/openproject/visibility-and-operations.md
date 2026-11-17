@@ -1,5 +1,10 @@
 # Visibility And Operations
 
+The unpublished local Console membership extension is described by
+[Catalog control](catalog-control/README.md). It preserves native account
+visibility, server-held credentials and non-admin project scope. It adds no
+global directory enumeration, public account data or production exposure.
+
 ## Runtime Identity
 
 - namespace: `openproject`

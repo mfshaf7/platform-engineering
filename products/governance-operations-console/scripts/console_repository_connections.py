@@ -20,6 +20,7 @@ import repository_provider_identity as identity
 from console_repository_reader import private_selection
 
 ENV = "OOS_REPOSITORY_CONNECTIONS_JSON"
+FILE_ENV = "OOS_REPOSITORY_CONNECTIONS_FILE"
 SECRET = "operator-orchestration-service-repository-provisioning-provider"
 PERMISSIONS = {
     "metadata": {"metadata": "read"},
@@ -174,7 +175,10 @@ class Connections:
         return {"digest": retained["payload_digest"], "state": "current" if current else "renewed"}
 
     def probe(self, digest):
-        program = "const c=require('node:crypto');console.log(JSON.stringify({digest:'sha256:'+c.createHash('sha256').update(process.env." + ENV + "??'').digest('hex')}));"
+        program = ("const fs=require('node:fs'),c=require('node:crypto');(async()=>{const end=Date.now()+150000;let digest;do{try{"
+            "digest='sha256:'+c.createHash('sha256').update(fs.readFileSync(process.env." + FILE_ENV + ",'utf8').trim()).digest('hex');"
+            "}catch{}if(digest===" + json.dumps(digest) + "||Date.now()>=end)break;await new Promise(r=>setTimeout(r,1000));}while(true);"
+            "console.log(JSON.stringify({digest}));})();")
         result = self.run(["k3s", "kubectl", "-n", self.namespace, "exec", "deployment/operator-orchestration-service",
             "-c", "operator-orchestration-service", "--", "node", "-e", program])
         if json.loads(result.stdout) != {"digest": digest}:

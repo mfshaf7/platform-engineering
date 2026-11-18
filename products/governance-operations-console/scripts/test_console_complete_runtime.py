@@ -971,10 +971,7 @@ class CompleteRuntimeTests(unittest.TestCase):
         ])
         flattened = " ".join(" ".join(call) for call, _kwargs in calls)
         self.assertIn("OOS_REPOSITORY_CUSTODY_ENABLED=true", flattened)
-        self.assertIn(
-            "--from=secret/operator-orchestration-service-repository-provisioning-provider",
-            flattened,
-        )
+        self.assertNotIn("--from=secret/operator-orchestration-service-repository-provisioning-provider", flattened)
 
     def test_repository_private_key_uses_vault_stdin_and_private_temporary_file(self) -> None:
         policy = runtime.validate_policy()
@@ -1505,20 +1502,20 @@ class WorkflowCredentialTests(unittest.TestCase):
                 self.assertEqual(base64.b64decode(secret["data"]["wgcf-caller-secret"]).decode(), manager.readiness_source.return_value[0])
                 self.assertEqual(secret["metadata"]["resourceVersion"], "43")
                 self.assertTrue(result["identities"][slug]["readiness_authenticated"])
-            versions = [json.loads(args[-1])["spec"]["template"]["metadata"]["annotations"]
+            versions = [json.loads(args[-1])["metadata"]["annotations"]
                         for args, _ in self.calls if "patch" in args][-1]
             for slug in module.READINESS_WORKFLOWS:
                 self.assertEqual(versions[module.ANNOTATION + slug + "-credential-resource-version"], "43")
             patch_payload = [json.loads(args[-1]) for args, _ in self.calls if "patch" in args][-1]
             environment = patch_payload["spec"]["template"]["spec"]["containers"][0]["env"]
-            self.assertEqual({item["name"]: item["value"] for item in environment}, {
+            self.assertEqual({item["name"]: item["value"] for item in environment if item["name"].startswith("WGCF_")}, {
                 **{manager.contract(slug)[0].wgcf_implementation_ref_env: "a" * 40 for slug in module.READINESS_WORKFLOWS},
                 "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF": "a" * 40,
                 "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF": "a" * 40})
             self.calls.clear()
             manager.renew()
             self.assertFalse(any("apply" in args for args, _ in self.calls))
-            unchanged = [json.loads(args[-1])["spec"]["template"]["metadata"]["annotations"]
+            unchanged = [json.loads(args[-1])["metadata"]["annotations"]
                          for args, _ in self.calls if "patch" in args][-1]
             self.assertEqual(versions, unchanged)  # Same pod template, no restart.
             self.assertNotIn(manager.readiness_source.return_value[0], json.dumps(result))
@@ -1577,6 +1574,7 @@ class WorkflowCredentialTests(unittest.TestCase):
             manager = self.manager(Path(temp))
             bindings = {slug: manager.binding(slug) for slug in module.WORKFLOWS}
             caller_bad, issuer_stale, publication_stale, server_status = False, False, False, 404
+            delayed_projection = False
             def execute(args, **kwargs):
                 program = args[-1]
                 marker = "const specs="
@@ -1596,6 +1594,8 @@ class WorkflowCredentialTests(unittest.TestCase):
                         if issuer_stale:
                             environment[contract.wgcf_implementation_ref_env] = "b" * 40
                 shim = "require('node:fs').readFileSync=(file)=>(" + json.dumps(files) + ")[file];\n"
+                if delayed_projection:
+                    shim += "const currentRead=require('node:fs').readFileSync;let projectionReads=0;require('node:fs').readFileSync=(file)=>++projectionReads<=5?'ghs_previous':currentRead(file);globalThis.setTimeout=(fn)=>{queueMicrotask(fn);return 0;};\n"
                 shim += ("globalThis.fetch=async(url,options)=>url.startsWith('https://api.github.com/')?"
                     "{status:200,json:async()=>({total_count:1,repositories:[" + json.dumps(repositories)
                     + "[options.headers.Authorization.slice(7)]]})}:{status:" + str(server_status) + "};\n")
@@ -1603,6 +1603,9 @@ class WorkflowCredentialTests(unittest.TestCase):
             manager.run = execute
             result = manager.probe(bindings)
             self.assertTrue(all(result[slug]["readiness_authenticated"] for slug in module.READINESS_WORKFLOWS))
+            delayed_projection = True
+            self.assertEqual(manager.probe(bindings, wait_projection=True), result)
+            delayed_projection = False
             issuer_stale = True
             self.assertTrue(all(value["configured"] for value in manager.probe(bindings, provider=False).values()))
             with self.assertRaises(module.CredentialError): manager.probe(bindings)
@@ -1718,6 +1721,21 @@ class WorkflowCredentialTests(unittest.TestCase):
             provider_index = next(i for i, (args, _) in enumerate(self.calls) if "exec" in args and "if(!true)" in args[-1])
             self.assertLess(patch_index, provider_index)
             self.assertEqual(len([args for args, _ in self.calls if "rollout" in args]), 1)
+
+    def test_forced_github_renewal_preserves_pod_template_while_deployment_observations_change(self):
+        with tempfile.TemporaryDirectory() as temp:
+            manager = self.manager(Path(temp))
+            manager.renew()
+            before = [json.loads(args[-1]) for args, _ in self.calls if "patch" in args][-1]
+            self.calls.clear()
+            with patch.object(runtime.workflow_credentials.intake_identity, "validated_token", side_effect=self.issue):
+                manager.renew(force=True)
+            after = [json.loads(args[-1]) for args, _ in self.calls if "patch" in args][-1]
+            self.assertEqual(before["spec"]["template"], after["spec"]["template"])
+            self.assertNotEqual(before["metadata"]["annotations"], after["metadata"]["annotations"])
+            self.assertTrue(all(value is None for key, value in after["spec"]["template"]["metadata"]["annotations"].items()
+                                if "readiness-caller-digest" not in key))
+            self.assertFalse(any("restart" in args for args, _ in self.calls))
 
     def test_force_renews_all_even_before_expiry(self):
         with tempfile.TemporaryDirectory() as temp:

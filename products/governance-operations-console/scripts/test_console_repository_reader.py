@@ -50,6 +50,11 @@ class ReaderMaintenanceTests(unittest.TestCase):
             self.renewals += 1
             self.install(token("ghs_rotated_metadata_only"), version="2")
             return SimpleNamespace(stdout="")
+        if "patch" in args:
+            payload = json.loads(kwargs["input_value"])
+            self.assertEqual(payload["metadata"]["resourceVersion"], self.secret["metadata"]["resourceVersion"])
+            self.secret["data"].update(payload["data"])
+            return SimpleNamespace(stdout="")
         if "exec" in args: return SimpleNamespace(stdout=json.dumps({"consumed": self.consumed}))
         raise AssertionError("unexpected command")
 
@@ -59,7 +64,10 @@ class ReaderMaintenanceTests(unittest.TestCase):
             self.assertEqual(result["binding"], {"account": "example-owner", "version": "1"})
             self.assertEqual(self.reader.probe()["state"], "consumed")
         self.assertEqual(self.renewals, 0)
-        self.assertFalse(any("patch" in call for call in self.calls))
+        self.assertEqual(len([call for call in self.calls if "patch" in call]), 1)
+        bundle = json.loads(base64.b64decode(self.secret["data"][runtime.BUNDLE_KEY]))
+        self.assertEqual(bundle["account"], "example-owner")
+        self.assertEqual(bundle["token"], token().token)
 
     def test_expiry_renews_same_account_and_retires_old_token_only_after_consumption(self):
         old = token(minutes=5); self.install(old)
@@ -142,6 +150,10 @@ class ReaderMaintenanceTests(unittest.TestCase):
 
 
 class ExistingTimerIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        guard = patch.object(complete, "STATE_ROOT", Path(temp.name)); guard.start(); self.addCleanup(guard.stop)
+
     def test_revoked_selection_clears_reader_consumption_without_disabling_other_identities(self):
         manager = Mock(); manager.renew.return_value = {'refreshed': []}
         selected = Mock(); selected.maintain.return_value = {'state':'revoked'}
@@ -164,15 +176,20 @@ class ExistingTimerIntegrationTests(unittest.TestCase):
         manager = workflows.Credentials(repo_root=ROOT, workspace_root=ROOT, session_manifest=ROOT / "unused",
             run=lambda args, **_: commands.append(args), private_key=None, readiness_revision="a" * 40)
         target = SimpleNamespace(namespace="devint-test")
-        secret = {"metadata": {"resourceVersion": "1", "annotations": {workflows.ANNOTATION + "token-expires-at": "expiry"}}}
-        bindings = {slug: (SimpleNamespace(wgcf_implementation_ref_env="WGCF_" + slug.upper().replace("-", "_") + "_IMPLEMENTATION_REF"), target, secret)
+        secret = {"metadata": {"resourceVersion": "1", "annotations": {workflows.ANNOTATION + "token-expires-at": "expiry"}}, "data": {"caller": base64.b64encode(b"caller").decode()}}
+        bindings = {slug: (SimpleNamespace(wgcf_secret_key="caller", wgcf_implementation_ref_env="WGCF_" + slug.upper().replace("-", "_") + "_IMPLEMENTATION_REF"), target, secret)
             for slug in workflows.READINESS_WORKFLOWS}
         manager.consume(bindings, None, reader_binding={"account": "example-owner", "version": "2"})
         payload = json.loads(commands[0][-1])
         env = payload["spec"]["template"]["spec"]["containers"][0]["env"]
         fields = [item for item in env if item["name"].startswith("OOS_REPOSITORY_")]
-        self.assertEqual({item["name"] for item in fields}, {runtime.TOKEN_ENV, runtime.ACCOUNT_ENV})
-        self.assertTrue(all(item["valueFrom"]["secretKeyRef"]["optional"] is True for item in fields))
+        active = {item["name"]: item for item in fields if item.get("$patch") != "delete"}
+        self.assertEqual(active[runtime.BUNDLE_ENV]["value"], "/var/run/oos/repository-reader/reader-credential.json")
+        self.assertTrue(all(item.get("$patch") == "delete" for item in fields if item["name"] in (runtime.TOKEN_ENV, runtime.ACCOUNT_ENV)))
+        mounts = payload["spec"]["template"]["spec"]["containers"][0]["volumeMounts"]
+        self.assertTrue(all(mount["readOnly"] for mount in mounts))
+        self.assertEqual(payload["metadata"]["annotations"][runtime.VERSION_ANNOTATION], "2")
+        self.assertIsNone(payload["spec"]["template"]["metadata"]["annotations"][runtime.VERSION_ANNOTATION])
         self.assertFalse(any("ENABLED" in item["name"] for item in env))
 
 

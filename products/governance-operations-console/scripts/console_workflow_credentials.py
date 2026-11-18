@@ -161,7 +161,7 @@ class Credentials:
         # between replacement and consumption retryable without minting tokens.
         return {slug: self.binding(slug) for slug in WORKFLOWS}
 
-    def probe(self, bindings: dict, *, provider: bool = True) -> dict:
+    def probe(self, bindings: dict, *, provider: bool = True, wait_projection: bool = False) -> dict:
         _, readiness_url = self.readiness_source(bindings)
         specs = []
         for slug, (contract, _, secret) in bindings.items():
@@ -201,6 +201,13 @@ const reviewedIssuer=REVIEWED_ISSUER;
   if(CHECK_PROVIDER&&process.env[enabled]==='true'&&process.env[issuer]!==reviewedIssuer)
     throw Error('Active shared readiness issuer binding is stale');
 }
+// Kubelet updates projected volumes asynchronously. Wait once for the whole
+// group, without restarting the pod or revoking credentials still in use.
+if(WAIT_PROJECTION){const end=Date.now()+150000;while(true){
+  const ready=specs.every(s=>{try{return crypto.createHash('sha256').update(fs.readFileSync(process.env[s.file_env],'utf8').trim()).digest('hex')===s.token_digest;}catch{return false;}});
+  if(ready)break;if(Date.now()>=end)throw Error('Credential projection is pending');
+  await new Promise(resolve=>setTimeout(resolve,1000));
+}}
 const results={};for(const s of specs){
   if(Object.entries(s.required).some(([k,v])=>process.env[k]!==v))throw Error(s.slug+': owner runtime binding is unavailable');
   const token=fs.readFileSync(process.env[s.file_env],'utf8').trim();
@@ -228,7 +235,7 @@ const results={};for(const s of specs){
   results[s.slug]={configured:true,token_consumed:true,http:200,repository_id:s.id,
     ...(s.readiness?{readiness_authenticated:true}: {})};
 }console.log(JSON.stringify(results));})().catch(()=>{console.error('Required workflow credential or runtime binding failed its bounded check');process.exitCode=1;});
-""".replace("SPECIFICATIONS", json.dumps(specs)).replace("REVIEWED_ISSUER", json.dumps(self.readiness_revision)).replace("CHECK_PROVIDER", "true" if provider else "false")
+""".replace("SPECIFICATIONS", json.dumps(specs)).replace("REVIEWED_ISSUER", json.dumps(self.readiness_revision)).replace("CHECK_PROVIDER", "true" if provider else "false").replace("WAIT_PROJECTION", "true" if wait_projection else "false")
         namespace = next(iter(bindings.values()))[1].namespace
         result = self.run(["k3s", "kubectl", "-n", namespace, "exec", "deployment/operator-orchestration-service",
                            "--", "node", "-e", program], check=False)
@@ -296,7 +303,7 @@ const results={};for(const s of specs){
                 self.consume(bindings, extra_annotations, reader_binding=reader_binding)
             else:
                 self.consume(bindings, extra_annotations)
-            observed = self.probe(bindings)
+            observed = self.probe(bindings, wait_projection=True)
             due = [slug for slug in WORKFLOWS if observed[slug].get("http") == 401]
             if not due:
                 return {"refreshed": [], "identities": self.status()}
@@ -338,7 +345,7 @@ const results={};for(const s of specs){
                 refreshed.append(slug)
             # Always reconcile the delivery versions: this also repairs a crash
             # after Secret replacement but before pod consumption. No forced restart
-            # occurs on an unchanged timer tick, and the group takes one rollout.
+            # occurs on an unchanged timer tick, and normal GitHub renewal leaves the pod unchanged.
             bindings = {slug: self.binding(slug) for slug in WORKFLOWS}
             if connection_binding:
                 self.consume(bindings, extra_annotations, reader_binding=reader_binding, connection_binding=connection_binding)
@@ -346,6 +353,7 @@ const results={};for(const s of specs){
                 self.consume(bindings, extra_annotations, reader_binding=reader_binding)
             else:
                 self.consume(bindings, extra_annotations)
+            self.probe(bindings, wait_projection=True)
             current = self.status()
             for client, old in previous:
                 try:
@@ -395,28 +403,48 @@ const results={};for(const s of specs){
             "WGCF_PRODUCT_PUBLICATION_IMPLEMENTATION_REF", "WGCF_WORKSPACE_INTAKE_IMPLEMENTATION_REF"))
         if reader_binding == {"revoked": True}:
             versions[ANNOTATION + "repository-reader-credential-version"] = "revoked"
-            environment.extend({"name": key, "$patch": "delete"} for key in (
-                "OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT"))
         elif reader_binding:
             if (set(reader_binding) != {"account", "version"}
                     or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,38}", str(reader_binding["account"]))
                     or not isinstance(reader_binding["version"], str) or not 1 <= len(reader_binding["version"]) <= 128):
                 raise CredentialError("account reader consumption binding is invalid")
-            # Optional references preserve core startup when the reader is
-            # revoked or missing. No workflow enablement or write token changes.
             versions[ANNOTATION + "repository-reader-credential-version"] = reader_binding["version"]
-            environment.extend({"name": key, "value": None, "valueFrom": {"secretKeyRef": {
-                "name": "operator-orchestration-service-repository-provider", "key": key, "optional": True}}}
-                for key in ("OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT"))
         if connection_binding:
             if not re.fullmatch(r"sha256:[a-f0-9]{64}", connection_binding):
                 raise CredentialError("GitHub connection consumption binding is invalid")
             versions[ANNOTATION + "repository-connections-digest"] = connection_binding
-            environment.append({"name": "OOS_REPOSITORY_CONNECTIONS_JSON", "value": None,
-                "valueFrom": {"secretKeyRef": {"name": "operator-orchestration-service-repository-provisioning-provider",
-                    "key": "OOS_REPOSITORY_CONNECTIONS_JSON", "optional": True}}})
+        projections = (
+            ("repository-reader", "operator-orchestration-service-repository-provider", {
+                "OOS_REPOSITORY_PROVIDER_CREDENTIAL_FILE": "reader-credential.json"}),
+            ("repository-provisioning", "operator-orchestration-service-repository-provisioning-provider", {
+                "OOS_REPOSITORY_PROVISIONING_TOKEN_FILE": "OOS_REPOSITORY_PROVISIONING_INSTALLATION_TOKEN",
+                **({"OOS_REPOSITORY_CONNECTIONS_FILE": "OOS_REPOSITORY_CONNECTIONS_JSON"} if connection_binding else {})}),
+            ("repository-lifecycle", "operator-orchestration-service-repository-lifecycle-provider", {
+                "OOS_REPOSITORY_LIFECYCLE_TOKEN_FILE": "OOS_REPOSITORY_LIFECYCLE_INSTALLATION_TOKEN"}),
+        )
+        volumes, mounts = [], []
+        for name, secret_name, files in projections:
+            directory = "/var/run/oos/" + name
+            volumes.append({"name": name, "secret": {"secretName": secret_name, "optional": True}})
+            mounts.append({"name": name, "mountPath": directory, "readOnly": True})
+            environment.extend({"name": key, "value": directory + "/" + filename,
+                                "valueFrom": None} for key, filename in files.items())
+        environment.extend({"name": name, "$patch": "delete"} for name in (
+            "OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN", "OOS_REPOSITORY_PROVIDER_ACCOUNT",
+            "OOS_REPOSITORY_PROVISIONING_INSTALLATION_TOKEN", "OOS_REPOSITORY_LIFECYCLE_INSTALLATION_TOKEN",
+            "OOS_REPOSITORY_CONNECTIONS_JSON"))
+        # Expiry/version observations belong on Deployment metadata. A PodTemplate
+        # update would terminate unrelated, long-running advisor requests.
+        template_annotations = {key: None for key in versions}
+        # WGCF caller credentials still use env references. Only an actual caller
+        # replacement needs a rollout; a GitHub token's resourceVersion does not.
+        for slug in READINESS_WORKFLOWS:
+            contract, _, secret = bindings[slug]
+            template_annotations[ANNOTATION + slug + "-readiness-caller-digest"] = hashlib.sha256(
+                base64.b64decode(secret["data"][contract.wgcf_secret_key], validate=True)).hexdigest()
         self.run(["k3s", "kubectl", "-n", namespace, "patch", "deployment/operator-orchestration-service",
-                  "--type=strategic", "--patch", json.dumps({"spec": {"template": {
-                      "metadata": {"annotations": versions}, "spec": {"containers": [{
-                          "name": "operator-orchestration-service", "env": environment}]}}}})])
+                  "--type=strategic", "--patch", json.dumps({"metadata": {"annotations": versions},
+                      "spec": {"template": {"metadata": {"annotations": template_annotations}, "spec": {
+                          "volumes": volumes, "containers": [{"name": "operator-orchestration-service",
+                              "env": environment, "volumeMounts": mounts}]}}}})])
         self.run(["k3s", "kubectl", "-n", namespace, "rollout", "status", "deployment/operator-orchestration-service", "--timeout=300s"])

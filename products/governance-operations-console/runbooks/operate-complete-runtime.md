@@ -1351,3 +1351,17 @@ operation without a standalone fallback. Resume that operation after the parent
 is healthy. Original approved policy bytes must remain exact; separately accepted
 current executable maintenance may advance without rewriting the original
 receipt. Native rollback restores the three policy files and retains that code.
+
+### Backend stream diagnostics and long advisor responses
+
+A kubectl stream timeout is a per-request diagnostic, not proof that every
+connection has failed. The existing supervisor immediately rechecks transport
+health and retains unrelated active responses while the tunnel remains healthy.
+Its existing bounded startup grace and repeated failed-health threshold still
+recycle a genuinely unresponsive child. Backend HTTP error responses remain
+responsive transport; no readiness bypass or increased AI timeout is introduced.
+
+After an interruption, retain the original advisor request and outcome evidence.
+Do not generate another inference merely because the caller lost its reply.
+Completed and unconfirmed original records remain private recovery evidence;
+normal source activation does not silently apply or reinterpret them.

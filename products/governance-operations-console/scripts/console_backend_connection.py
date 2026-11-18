@@ -74,8 +74,13 @@ def supervise(command: list[str], port: int, stop: threading.Event, *,
     try:
         while not stop.is_set():
             if stream_failed.is_set():
-                print("Backend tunnel stream timed out; recycling only this connection.", flush=True)
-                return 75
+                # kubectl reports per-request stream failures. Killing its
+                # whole multiplexed connection also aborts unrelated, healthy
+                # long responses. Confirm transport failure through the same
+                # bounded health checks before deciding to recycle the child.
+                stream_failed.clear()
+                next_probe = 0
+                print("Backend stream timed out; checking transport health while retaining active responses.", flush=True)
             if child.poll() is not None:
                 print("Backend tunnel exited; supervised reconnect required.", flush=True)
                 return 1

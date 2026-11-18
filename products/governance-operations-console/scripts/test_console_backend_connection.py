@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 import unittest
+from urllib.request import urlopen
 
 import console_backend_connection as connection
 
@@ -34,7 +35,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 class BackendConnectionTests(unittest.TestCase):
-    def test_stream_timeout_recycles_while_health_keeps_responding(self):
+    def test_stream_timeout_does_not_abort_an_unrelated_long_response(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             with socket.socket() as listener:
@@ -46,9 +47,10 @@ class BackendConnectionTests(unittest.TestCase):
 from pathlib import Path
 class Handler(http.server.BaseHTTPRequestHandler):
  def do_GET(self):
+  if self.path == '/slow': time.sleep(.8)
   Path(sys.argv[3]).touch(); self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
  def log_message(self,*args): pass
-server=http.server.HTTPServer(('127.0.0.1',int(sys.argv[1])),Handler)
+server=http.server.ThreadingHTTPServer(('127.0.0.1',int(sys.argv[1])),Handler)
 Path(sys.argv[2]).write_text(str(os.getpid()))
 def failed_stream():
  time.sleep(.3)
@@ -63,14 +65,20 @@ server.serve_forever()
                 port, stop, interval=.03, startup_grace=1, probe_timeout=.1)))
             thread.start()
             try:
-                thread.join(5)
-                self.assertEqual(result, [75])
+                deadline = time.monotonic() + 3
+                while not probed.exists() and time.monotonic() < deadline:
+                    time.sleep(.01)
                 self.assertTrue(probed.exists(), 'health must succeed before the stream fault')
-                with self.assertRaises(ProcessLookupError):
-                    os.kill(int(marker.read_text()), 0)
+                with urlopen(f'http://127.0.0.1:{port}/slow', timeout=3) as response:
+                    self.assertEqual(response.read(), b'ok')
+                self.assertTrue(thread.is_alive(), 'a healthy tunnel must retain its other in-flight response')
+                self.assertEqual(result, [])
             finally:
                 stop.set()
                 thread.join(5)
+            self.assertEqual(result, [0])
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(marker.read_text()), 0)
 
     def test_unrelated_diagnostics_do_not_request_reconnect(self):
         failed = threading.Event()

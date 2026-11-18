@@ -955,7 +955,10 @@ def renew_workflow_credentials(policy, delivered, *, force=None):
         arguments["reader_binding"] = {"revoked": True}
     result = workflow_credential_manager(policy).renew(**arguments)
     if connected and connected.get("digest"):
-        connections.probe(connected["digest"])
+        try:
+            connections.probe(connected["digest"])
+        except (repository_reader.identity.IdentityError, OSError, ValueError, KeyError, RuntimeError):
+            connected = {"state": "unavailable"}
     if connected:
         result = {**result, "repository_connections": connected}
     if observation.get("binding"):
@@ -1540,11 +1543,6 @@ def apply_kubernetes_binding(policy: dict[str, Any], gateway: str, secret: str) 
         f"WGCF_REPOSITORY_CUSTODY_CALLER_ID={repository_wgcf['caller_id']}",
     ])
     run([
-        "k3s", "kubectl", "-n", ns, "set", "env",
-        f"deployment/{runtime['oos_deployment']}",
-        f"--from=secret/{repository_identity['runtime_secret_name']}",
-    ])
-    run([
         "k3s", "kubectl", "-n", ns, "rollout", "restart",
         f"deployment/{runtime['oos_deployment']}",
     ])
@@ -1677,7 +1675,7 @@ def repository_provisioning_status(policy: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(container, dict):
         raise RuntimeError("the OOS repository-custody container binding is unavailable")
     environment = {item.get("name"): item for item in container.get("env", [])}
-    token_binding = environment.get(identity["runtime_secret_key"], {}).get("valueFrom", {}).get("secretKeyRef", {})
+    token_path = environment.get("OOS_REPOSITORY_PROVISIONING_TOKEN_FILE", {}).get("value")
     expected_plain = {
         "OOS_REPOSITORY_CUSTODY_ENABLED": "true",
         "OOS_REPOSITORY_CUSTODY_STATE_ROOT": repository_oos["state_mount_path"],
@@ -1690,12 +1688,16 @@ def repository_provisioning_status(policy: dict[str, Any]) -> dict[str, Any]:
     }
     if (
         any(environment.get(name, {}).get("value") != value for name, value in expected_plain.items())
-        or token_binding.get("name") != identity["runtime_secret_name"]
-        or token_binding.get("key") != identity["runtime_secret_key"]
+        or token_path != "/var/run/oos/repository-provisioning/" + identity["runtime_secret_key"]
     ):
         raise RuntimeError("the OOS repository-custody environment binding is incomplete")
     mounts = {item.get("name"): item for item in container.get("volumeMounts", [])}
     volumes = {item.get("name"): item for item in pod.get("volumes", [])}
+    if (mounts.get("repository-provisioning", {}).get("mountPath") != "/var/run/oos/repository-provisioning"
+        or mounts.get("repository-provisioning", {}).get("readOnly") is not True
+        or mounts.get("repository-provisioning", {}).get("subPath")
+        or volumes.get("repository-provisioning", {}).get("secret", {}).get("secretName") != identity["runtime_secret_name"]):
+        raise RuntimeError("the OOS repository credential file projection is incomplete")
     state_name = repository_oos["state_volume_name"]
     if (
         mounts.get(state_name, {}).get("mountPath") != repository_oos["state_mount_path"]
@@ -2413,7 +2415,10 @@ def main() -> int:
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
+    parser.add_argument("--force", action="store_true", help="Renew the already-admitted credentials now; only valid for refresh-credentials.")
     args = parser.parse_args()
+    if args.force and args.action != "refresh-credentials":
+        parser.error("--force is only supported for refresh-credentials")
     try:
         REPO_PATH_OVERRIDES = parse_repo_paths(args.repo_path)
         policy = validate_policy(args.policy)
@@ -2453,7 +2458,7 @@ def main() -> int:
             if args.action == "activate":
                 require_retained_supervision()
             with operating_proof_lock(blocking=args.action != "refresh-credentials"):
-                result = actions[args.action](policy)
+                result = refresh_repository_credentials(policy, force=True) if args.force else actions[args.action](policy)
         print(f"complete Console runtime {args.action} succeeded: {result}")
         return 0
     except artifact_recovery.RecoveryDeferred as exc:

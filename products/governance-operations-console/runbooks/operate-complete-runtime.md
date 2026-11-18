@@ -1365,3 +1365,30 @@ After an interruption, retain the original advisor request and outcome evidence.
 Do not generate another inference merely because the caller lost its reply.
 Completed and unconfirmed original records remain private recovery evidence;
 normal source activation does not silently apply or reinterpret them.
+
+
+## Credential renewal and active requests
+
+Routine GitHub credential renewal uses the existing read-only projected Secret
+files and leaves active workflow requests running. A repository operation captures
+one current credential generation; the next operation reads the latest file.
+The reader account and token share one atomic JSON file. Optional connection
+failure is local to that connection; a configured missing/invalid file never
+falls back to stale process credentials. Account, purpose and approval checks
+still apply. No credential values enter Console responses or renewal receipts.
+
+Platform verifies current file fingerprints before retiring previous tokens.
+Kubelet projection has a bounded 150-second wait for the five required identities
+as a group. Expiry/resource-version observations live on Deployment metadata,
+not PodTemplate. New source/configuration or a real WGCF readiness-caller change
+can still require a rollout. Renewal success is not a claim that every active
+provider request completed; preserve unknown/completed journals without replay.
+
+For an explicit renewal rehearsal, use the existing action with its force flag:
+
+```bash
+make governance-console-complete-runtime ACTION=refresh-credentials ARGS="--force"
+```
+
+It retains accepted-source, active-composition, identity-scope and lifecycle-lock
+guards. The normal timer needs no force flag. This does not expand any grant.

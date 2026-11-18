@@ -22,6 +22,8 @@ import repository_provider_account as account
 SECRET = "operator-orchestration-service-repository-provider"
 TOKEN_ENV = "OOS_REPOSITORY_PROVIDER_INSTALLATION_TOKEN"
 ACCOUNT_ENV = account.ACCOUNT_ENV
+BUNDLE_KEY = "reader-credential.json"
+BUNDLE_ENV = "OOS_REPOSITORY_PROVIDER_CREDENTIAL_FILE"
 VERSION_ANNOTATION = "workspace-governance/repository-reader-credential-version"
 
 
@@ -142,6 +144,16 @@ class Reader:
             secret = self.secret(value, target)
             if previous and base64.b64decode(secret["data"][TOKEN_ENV], validate=True).decode() != previous:
                 self.previous_token = previous
+        # One projected file binds account and token to the same generation.
+        bundle = json.dumps({"schema_version": 1, "account": value["scope"]["account"],
+            "token": base64.b64decode(secret["data"][TOKEN_ENV], validate=True).decode(),
+            "expires_at": value["token_expires_at"]}, separators=(",", ":"))
+        encoded = base64.b64encode(bundle.encode()).decode()
+        if secret["data"].get(BUNDLE_KEY) != encoded:
+            self.run(["k3s", "kubectl", "-n", target.namespace, "patch", "secret", SECRET,
+                "--type=merge", "--patch-file", "-"], input_value=json.dumps({
+                    "metadata": {"resourceVersion": secret["metadata"]["resourceVersion"]},
+                    "data": {BUNDLE_KEY: encoded}}))
         if value["outcome"] == "prepared":
             value = {**value, "outcome": "delivered"}
             identity.write_receipt(self.path, value)
@@ -158,11 +170,14 @@ class Reader:
         self.secret(value, target)
         # No token or key leaves the pod. Compare against the delivered token's
         # fingerprint, and enforce the configured account in the consumer.
-        program = ("const c=require('node:crypto');console.log(JSON.stringify({consumed:"
-            "process.env.OOS_REPOSITORY_CUSTODY_ENABLED==='true'&&"
-            f"process.env.{ACCOUNT_ENV}==={json.dumps(value['scope']['account'])}&&"
-            f"'sha256:'+c.createHash('sha256').update(process.env.{TOKEN_ENV}??'').digest('hex')==={json.dumps(value['token_digest'])}"
-            "}));")
+        program = ("const fs=require('node:fs'),c=require('node:crypto');(async()=>{"
+            "const end=Date.now()+150000;let consumed=false;do{try{"
+            f"const v=JSON.parse(fs.readFileSync(process.env.{BUNDLE_ENV},'utf8'));"
+            "consumed=process.env.OOS_REPOSITORY_CUSTODY_ENABLED==='true'&&"
+            f"v.account==={json.dumps(value['scope']['account'])}&&"
+            f"'sha256:'+c.createHash('sha256').update(v.token??'').digest('hex')==={json.dumps(value['token_digest'])};"
+            "}catch{}if(consumed||Date.now()>=end)break;await new Promise(r=>setTimeout(r,1000));}while(true);"
+            "console.log(JSON.stringify({consumed}));})();")
         result = self.run(["k3s", "kubectl", "-n", target.namespace, "exec", "deployment/operator-orchestration-service",
             "-c", "operator-orchestration-service", "--", "node", "-e", program])
         if json.loads(result.stdout) != {"consumed": True}:

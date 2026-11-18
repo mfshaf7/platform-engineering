@@ -70,7 +70,14 @@
               "updateItems",
               "removeItemIds",
               "addConnections",
-              "removeConnectionIds"
+              "removeConnectionIds",
+              "updateConnections",
+              "addTrays",
+              "updateTrays",
+              "removeTrayIds",
+              "arrangements",
+              "layers",
+              "placement"
             ],
             "properties": {
               "addItems": {
@@ -89,7 +96,8 @@
                     "width",
                     "height",
                     "tone",
-                    "diagramType"
+                    "diagramType",
+                    "autoSize"
                   ],
                   "properties": {
                     "id": {
@@ -159,6 +167,12 @@
                         "sequence",
                         "swimlane",
                         "uml"
+                      ]
+                    },
+                    "autoSize": {
+                      "type": [
+                        "boolean",
+                        "null"
                       ]
                     }
                   }
@@ -180,7 +194,8 @@
                     "width",
                     "height",
                     "tone",
-                    "diagramType"
+                    "diagramType",
+                    "autoSize"
                   ],
                   "properties": {
                     "id": {
@@ -265,6 +280,12 @@
                         "sequence",
                         "swimlane",
                         "uml"
+                      ]
+                    },
+                    "autoSize": {
+                      "type": [
+                        "boolean",
+                        "null"
                       ]
                     }
                   }
@@ -520,7 +541,8 @@
                         "dependency",
                         "directed-association",
                         "generalization",
-                        "realization"
+                        "realization",
+                        "none"
                       ]
                     }
                   }
@@ -533,6 +555,601 @@
                   "type": "string",
                   "maxLength": 256
                 }
+              },
+              "updateConnections": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "from",
+                    "to",
+                    "label",
+                    "shape",
+                    "stroke",
+                    "tip",
+                    "startTip",
+                    "tone",
+                    "relationship"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "from": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "required": [
+                        "endpointType",
+                        "itemId",
+                        "itemType",
+                        "side",
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "endpointType": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "port",
+                            "free"
+                          ]
+                        },
+                        "itemId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 256
+                        },
+                        "itemType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 20,
+                          "enum": [
+                            null,
+                            "core",
+                            "custom",
+                            "template"
+                          ]
+                        },
+                        "side": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "top",
+                            "right",
+                            "bottom",
+                            "left"
+                          ]
+                        },
+                        "x": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "y": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "to": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": false,
+                      "required": [
+                        "endpointType",
+                        "itemId",
+                        "itemType",
+                        "side",
+                        "x",
+                        "y"
+                      ],
+                      "properties": {
+                        "endpointType": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "port",
+                            "free"
+                          ]
+                        },
+                        "itemId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 256
+                        },
+                        "itemType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "maxLength": 20,
+                          "enum": [
+                            null,
+                            "core",
+                            "custom",
+                            "template"
+                          ]
+                        },
+                        "side": {
+                          "type": "string",
+                          "maxLength": 10,
+                          "enum": [
+                            "top",
+                            "right",
+                            "bottom",
+                            "left"
+                          ]
+                        },
+                        "x": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "y": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 1000
+                    },
+                    "shape": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 10,
+                      "enum": [
+                        null,
+                        "straight",
+                        "curve"
+                      ]
+                    },
+                    "stroke": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 10,
+                      "enum": [
+                        null,
+                        "solid",
+                        "dashed"
+                      ]
+                    },
+                    "tip": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "arrow",
+                        "diamond",
+                        "filled-diamond",
+                        "plain",
+                        "triangle"
+                      ]
+                    },
+                    "startTip": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "arrow",
+                        "diamond",
+                        "filled-diamond",
+                        "plain",
+                        "triangle"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "relationship": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 40,
+                      "enum": [
+                        null,
+                        "aggregation",
+                        "association",
+                        "composition",
+                        "dependency",
+                        "directed-association",
+                        "generalization",
+                        "realization",
+                        "none"
+                      ]
+                    }
+                  }
+                }
+              },
+              "addTrays": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "label",
+                    "diagramType",
+                    "x",
+                    "y",
+                    "width",
+                    "height",
+                    "itemIds",
+                    "manual",
+                    "tone",
+                    "autoFit"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "diagramType": {
+                      "type": "string",
+                      "enum": [
+                        "c4",
+                        "dependency",
+                        "flowchart",
+                        "freeform",
+                        "mindmap",
+                        "sequence",
+                        "swimlane",
+                        "uml"
+                      ]
+                    },
+                    "x": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "y": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "itemIds": {
+                      "type": "array",
+                      "maxItems": 250,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 256
+                      }
+                    },
+                    "manual": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "default",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "autoFit": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              },
+              "updateTrays": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "label",
+                    "diagramType",
+                    "x",
+                    "y",
+                    "width",
+                    "height",
+                    "itemIds",
+                    "manual",
+                    "tone",
+                    "autoFit"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 256
+                    },
+                    "label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "diagramType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "c4",
+                        "dependency",
+                        "flowchart",
+                        "freeform",
+                        "mindmap",
+                        "sequence",
+                        "swimlane",
+                        "uml",
+                        null
+                      ]
+                    },
+                    "x": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "y": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "itemIds": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "maxItems": 250,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 256
+                      }
+                    },
+                    "manual": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "tone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 20,
+                      "enum": [
+                        null,
+                        "amber",
+                        "blue",
+                        "default",
+                        "green",
+                        "neutral",
+                        "purple",
+                        "red"
+                      ]
+                    },
+                    "autoFit": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              },
+              "removeTrayIds": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              },
+              "arrangements": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "action",
+                    "items"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "align-left",
+                        "align-right",
+                        "align-top",
+                        "align-bottom",
+                        "align-center-x",
+                        "align-center-y",
+                        "distribute-horizontal",
+                        "distribute-vertical"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 150,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "itemType"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "maxLength": 256
+                          },
+                          "itemType": {
+                            "type": "string",
+                            "enum": [
+                              "custom",
+                              "template",
+                              "core"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "layers": {
+                "type": "array",
+                "maxItems": 150,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "action",
+                    "items"
+                  ],
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "bring-front",
+                        "send-back"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 150,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "itemType"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "maxLength": 256
+                          },
+                          "itemType": {
+                            "type": "string",
+                            "enum": [
+                              "custom",
+                              "template"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "placement": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "center-new",
+                  "as-authored",
+                  null
+                ]
               }
             }
           },

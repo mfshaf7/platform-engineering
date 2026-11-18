@@ -10,6 +10,19 @@ from strict_output_schema import validate_supported_schema, validate_output, Out
 
 
 class NativeAdvisorSchemaTests(unittest.TestCase):
+    def test_extended_tools_use_the_actual_provider_grammar(self):
+        schema = json.loads((ROOT / "security/schemas/advisor-draft-reply.schema.json").read_text())
+        contract = schema["properties"]["edits"]["items"]["properties"]["board_patch"]
+        board = {key: None if key == "placement" else [] for key in contract["required"]}
+        board["addItems"] = [{"id": "runtime", "kind": "component", "label": "Runtime", "detail": "Private draft execution", "x": 0, "y": 0,
+                              "width": None, "height": None, "tone": None, "diagramType": "c4", "autoSize": True}]
+        board["addTrays"] = [{"id": "private-group", "label": "Private runtime", "diagramType": "c4", "x": 0, "y": 0,
+                              "width": 400, "height": 260, "itemIds": ["runtime"], "manual": False, "tone": None, "autoFit": None}]
+        value = {"intent": "draft", "message": "Requested local diagram", "edits": [{"field": "board", "value_type": "board", "text_value": None, "tree_patch": None, "board_patch": board}]}
+        validate_output(value, schema)
+        board["addItems"][0]["autoSize"] = "yes"
+        with self.assertRaises(OutputSchemaError): validate_output(value, schema)
+
     def test_actual_provider_contracts_require_native_structure(self):
         canonical = json.loads((ROOT / "security/schemas/advisor-draft-reply.schema.json").read_text())
         body = {k: v for k, v in canonical.items() if k not in {"$schema", "$id", "title"}}

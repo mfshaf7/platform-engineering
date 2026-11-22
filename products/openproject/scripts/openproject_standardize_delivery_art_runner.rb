@@ -29,7 +29,6 @@ WORKSPACE_GOVERNANCE_IDS = Set[
 
 ACTIVE_OR_OPEN_STATUSES = Set[%w[ready in-progress blocked parked done]].freeze
 DONE_STATUS = "done"
-BACKLOG_ITERATION = "Not committed to a PI iteration yet."
 COMPLETION_HEADINGS = Set[
   "Completion Summary",
   "Changed Surfaces",
@@ -268,11 +267,6 @@ def default_delivery_team(owner_repo)
     "operator-orchestration-service" => "Operator Orchestration Service",
     "security-architecture" => "Security Architecture"
   }.fetch(owner_repo, "Platform Engineering")
-end
-
-def default_iteration(entry, custom_fields)
-  target_pi = current_target_pi(entry, custom_fields)
-  target_pi.present? ? "#{target_pi} / Iteration 1" : BACKLOG_ITERATION
 end
 
 def default_acceptance_criteria(entry)
@@ -691,13 +685,6 @@ work_packages.each do |entry|
       set_field!(entry, delivery_team_field, desired_delivery_team)
       current_delivery_team = desired_delivery_team
       changed[:delivery_team] = { from: nil, to: desired_delivery_team }
-    end
-
-    if iteration_field&.types&.include?(entry.type) && current_iteration.blank?
-      desired_iteration = default_iteration(entry, custom_fields)
-      set_field!(entry, iteration_field, desired_iteration)
-      current_iteration = desired_iteration
-      changed[:iteration] = { from: nil, to: desired_iteration }
     end
 
     if acceptance_field&.types&.include?(entry.type) && field_value(entry, acceptance_field).blank?

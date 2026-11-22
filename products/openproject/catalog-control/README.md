@@ -49,6 +49,13 @@ Values without a native OpenProject owner use the namespaced
 registry values, retirement tombstones, and idempotency receipts. It is not a
 second project database.
 
+Target PI names use `PI-YYYY-NN`. Creating a PI or changing its dates
+requires saving an iteration calendar. The calendar stores numbered
+iterations alongside native OpenProject version dates. A PI details edit
+keeps the saved dates, and the Iteration register is read-only.
+The version, generated values and receipt commit in the same database
+transaction. Old work-item iteration labels remain available for history.
+
 ## Runtime Shape
 
 The active dev-integration composition mounts:
@@ -65,6 +72,13 @@ The platform-integrated production OpenProject runtime is unchanged. Activating
 this adapter outside dev-integration requires its own governed promotion and
 security evidence.
 
+Target PI calendar requests use a start date, a length in days and a count.
+OpenProject derives the inclusive end date, rejects overlaps, and saves the
+PI and all full iterations in one transaction. When dating an existing PI,
+use its verified schedule. Exact numbered keys keep their identity and usage.
+Other recorded labels retain their original values and dates. The adapter
+leaves work-package assignments untouched.
+
 ## Validation
 
 Run:
@@ -72,6 +86,7 @@ Run:
 ```bash
 python3 products/openproject/catalog-control/validate_catalog_control.py
 python3 products/openproject/catalog-control/test_validate_catalog_control.py
+ruby products/openproject/catalog-control/test_pi_calendar.rb
 python3 scripts/test_dev_integration_compositions.py
 ```
 

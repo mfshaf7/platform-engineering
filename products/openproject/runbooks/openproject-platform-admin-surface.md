@@ -124,6 +124,9 @@ The currently active Rails-backed internals remain:
 - `openproject_standardize_delivery_art_runner.rb`
 - `openproject_provision_identity_runner.rb`
 
+Standardization leaves missing iterations unset and retains saved assignments.
+Use PI Planning to assign a dated iteration.
+
 The supported runner-backed platform wrappers no longer implement their own raw
 pod copy-and-exec flow. They now call the shared adapter, which stages the
 declared runner and support files by named operation before invoking

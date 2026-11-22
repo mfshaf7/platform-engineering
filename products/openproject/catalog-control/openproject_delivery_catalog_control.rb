@@ -8,6 +8,11 @@ require "set"
 module OpenprojectDeliveryCatalogControl
   SETTING_NAME = "delivery_catalog_control_v1"
   MAX_REQUEST_BYTES = 1_048_576
+  TARGET_PI_ID = "catalog-target-pi"
+  PI_PLANNING_DATE_ID = "catalog-pi-planning-date"
+  ITERATION_ID = "catalog-iteration"
+  PI_NAME = /\API-[0-9]{4}-[0-9]{2}\z/
+  MAX_GENERATED_ITERATIONS = 100
   MUTATION_PATH = %r{\A/v1/delivery-catalog/([^/]+)/mutations\z}
 
   class Error < StandardError
@@ -71,6 +76,35 @@ module OpenprojectDeliveryCatalogControl
     JSON.parse(JSON.generate(value))
   end
 
+  def calendar_date(value)
+    return nil if value.nil?
+    return Date.iso8601(value, Date::GREGORIAN) if value.is_a?(String) && value.match?(/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/)
+
+    raise Error.new(400, "request_invalid", "Enter calendar dates in YYYY-MM-DD format.")
+  rescue Date::Error
+    raise Error.new(400, "request_invalid", "Enter a valid calendar date.")
+  end
+
+  def iteration_windows(start_date, length, count)
+    unless start_date && length.is_a?(Integer) && length.positive? &&
+           count.is_a?(Integer) && (1..MAX_GENERATED_ITERATIONS).cover?(count)
+      raise Error.new(400, "request_invalid", "Choose a PI start date, a positive iteration length and 1 to #{MAX_GENERATED_ITERATIONS} iterations.")
+    end
+
+    if (start_date + length * count - 1).year > 9999
+      raise Error.new(400, "request_invalid", "The chosen cadence ends outside the supported calendar.")
+    end
+
+    Array.new(count) do |index|
+      first = start_date + index * length
+      {
+        "sequence" => index + 1,
+        "start_date" => first.iso8601,
+        "end_date" => (first + length - 1).iso8601
+      }
+    end
+  end
+
   class Store
     def with_locked_state
       Setting.transaction do
@@ -111,11 +145,13 @@ module OpenprojectDeliveryCatalogControl
       end
       items = @contract.fetch("items").map do |item|
         projected = values.select { |value| value.fetch("catalog_item_id") == item.fetch("catalog_item_id") }
-        item.except("source").merge(
+        projected_item = item.except("source").merge(
           "usage_count" => projected.sum { |value| value.fetch("usage_count") },
           "usage_summary" => usage_summary(projected),
           "last_projected_at" => projected_at
         )
+        projected_item["supports_iteration_generation"] = true if item.fetch("catalog_item_id") == TARGET_PI_ID
+        projected_item
       end
       groups = @contract.fetch("groups").map do |group|
         group.merge(
@@ -149,10 +185,19 @@ module OpenprojectDeliveryCatalogControl
     end
 
     def mutate!(item, request, state)
+      if item.fetch("catalog_item_id") == ITERATION_ID
+        raise Error.new(409, "catalog_read_only", "Iterations are generated when a PI calendar is saved.")
+      end
+      calendar = %w[iteration_length_days iteration_count].any? { |key| request.fetch("draft").key?(key) }
+      if calendar &&
+         (item.fetch("catalog_item_id") != TARGET_PI_ID || request.fetch("mode") == "retire")
+        raise Error.new(400, "request_invalid", "Generate iterations through an add or edit of Target PI.")
+      end
+
       source = item.fetch("source")
       case source.fetch("kind")
       when "versions"
-        mutate_version!(item, request)
+        mutate_version!(item, request, state)
       when "custom-options"
         mutate_custom_option!(item, request, state)
       when "registry"
@@ -180,8 +225,8 @@ module OpenprojectDeliveryCatalogControl
       end
     end
 
-    def catalog_value(item, id:, key:, label:, description:, lifecycle:, usage_count:, projected_at:, parent_key: nil, repository_binding: nil, evidence_refs: nil)
-      {
+    def catalog_value(item, id:, key:, label:, description:, lifecycle:, usage_count:, projected_at:, parent_key: nil, repository_binding: nil, evidence_refs: nil, iteration_window: nil)
+      value = {
         "catalog_item_id" => item.fetch("catalog_item_id"),
         "catalog_value_id" => id,
         "value_key" => key,
@@ -196,6 +241,8 @@ module OpenprojectDeliveryCatalogControl
         "parent_catalog_value_key" => parent_key,
         "repository_binding" => repository_binding
       }
+      value["iteration_window"] = iteration_window if iteration_window
+      value
     end
 
     def field(name)
@@ -277,24 +324,21 @@ module OpenprojectDeliveryCatalogControl
     def registry_values(item, state, projected_at)
       registered = Array(state.dig("registry_values", item.fetch("catalog_item_id")))
       known_keys = registered.map { |entry| entry.fetch("value_key") }.to_set
-      discovered = raw_usage(item.dig("source", "usage_field")).filter_map do |key, count|
+      usage = raw_usage(item.dig("source", "usage_field"))
+      discovered = usage.keys.filter_map do |key|
         next if key.to_s.empty? || known_keys.include?(key)
 
         {
-          "catalog_value_id" => "openproject-discovered-#{Digest::SHA256.hexdigest("#{item.fetch('catalog_item_id')}:#{key}")[0, 20]}",
+          "catalog_value_id" => discovered_registry_id(item.fetch("catalog_item_id"), key),
           "value_key" => key,
           "label" => key,
           "description" => "Value discovered from canonical Delivery records.",
           "lifecycle_state" => "active",
           "repository_binding" => nil,
           "parent_catalog_value_key" => nil
-        }.tap { |entry| entry["_usage_count"] = count }
+        }
       end
       (registered + discovered).map do |entry|
-        usage_count = entry.fetch(
-          "_usage_count",
-          usage_for(item.dig("source", "usage_field"), entry.fetch("value_key"))
-        )
         catalog_value(
           item,
           id: entry.fetch("catalog_value_id"),
@@ -302,10 +346,11 @@ module OpenprojectDeliveryCatalogControl
           label: entry.fetch("label"),
           description: entry.fetch("description", ""),
           lifecycle: entry.fetch("lifecycle_state", "active"),
-          usage_count: usage_count,
+          usage_count: usage.fetch(entry.fetch("value_key").to_s, 0),
           projected_at: projected_at,
           parent_key: entry["parent_catalog_value_key"],
-          repository_binding: entry["repository_binding"]
+          repository_binding: entry["repository_binding"],
+          iteration_window: entry["iteration_window"]
         )
       end
     end
@@ -369,33 +414,112 @@ module OpenprojectDeliveryCatalogControl
       raise Error.new(409, "catalog_value_in_use", "Catalog values in use cannot be changed or retired.")
     end
 
-    def mutate_version!(item, request)
+    def mutate_version!(item, request, state)
       draft = request.fetch("draft")
-      if request.fetch("mode") == "add"
-        raise Error.new(409, "catalog_conflict", "Target PI already exists.") if @project.versions.exists?(name: draft.fetch("value_key"))
+      mode = request.fetch("mode")
+      name = draft.fetch("value_key")
+      version = nil
+      if mode != "add"
+        value = locate_value!(item, request, state)
+        version = @project.versions.find(value.fetch("catalog_value_id").delete_prefix("openproject-version-"))
+        if mode == "retire"
+          assert_unused!(value)
+          version.update!(status: "closed")
+          return []
+        end
+        assert_unused!(value) if name != version.name
+      end
 
-        @project.versions.create!(
-          name: draft.fetch("value_key"),
-          description: draft.fetch("description"),
-          start_date: draft["planning_window_start_date"],
-          effective_date: draft["planning_window_end_date"],
-          status: "open"
-        )
-        return
+      if name != version&.name
+        unless name.match?(PI_NAME)
+          raise Error.new(400, "request_invalid", "Use PI-YYYY-NN for a new PI name.")
+        end
+        raise Error.new(409, "catalog_conflict", "Target PI already exists.") if @project.versions.exists?(name: name)
       end
-      value = locate_value!(item, request, OpenprojectDeliveryCatalogControl.default_state)
-      version = @project.versions.find(value.fetch("catalog_value_id").delete_prefix("openproject-version-"))
-      assert_unused!(value) if request.fetch("mode") == "retire"
-      if request.fetch("mode") == "retire"
-        version.update!(status: "closed")
+
+      start_date = OpenprojectDeliveryCatalogControl.calendar_date(draft["planning_window_start_date"])
+      end_date = OpenprojectDeliveryCatalogControl.calendar_date(draft["planning_window_end_date"])
+      calendar = %w[iteration_length_days iteration_count].any? { |key| draft.key?(key) }
+      if mode == "add" && !calendar
+        raise Error.new(400, "request_invalid", "Create a PI by saving its iteration calendar.")
+      end
+      windows = []
+      if calendar
+        windows = OpenprojectDeliveryCatalogControl.iteration_windows(
+          start_date, draft["iteration_length_days"], draft["iteration_count"]
+        )
+        calculated_end = OpenprojectDeliveryCatalogControl.calendar_date(windows.last.fetch("end_date"))
+        if end_date && end_date != calculated_end
+          raise Error.new(400, "request_invalid", "The end date must match the number and length of full iterations.")
+        end
+        end_date = calculated_end
       else
-        version.update!(
-          name: draft.fetch("value_key"),
-          description: draft.fetch("description"),
-          start_date: draft["planning_window_start_date"],
-          effective_date: draft["planning_window_end_date"]
-        )
+        if (start_date && start_date != version.start_date) || (end_date && end_date != version.effective_date)
+          raise Error.new(400, "request_invalid", "Save the iteration calendar to change PI dates.")
+        end
+        start_date = version.start_date
+        end_date = version.effective_date
       end
+
+      existing_iterations = Array(state.dig("registry_values", ITERATION_ID))
+      dated_iterations = existing_iterations.select do |entry|
+        version && entry["parent_catalog_value_key"] == version.name && entry["iteration_window"] && entry["lifecycle_state"] == "active"
+      end
+      if dated_iterations.any? && (name != version.name || start_date != version.start_date || end_date != version.effective_date)
+        raise Error.new(409, "catalog_conflict", "This PI already has dated iterations. Keep its recorded name and date window.")
+      end
+
+      overlaps = calendar && @project.versions.where.not(id: version&.id).any? do |other|
+        other.name.match?(PI_NAME) && other.start_date && other.effective_date &&
+          other.start_date <= end_date && other.effective_date >= start_date
+      end
+      if overlaps
+        raise Error.new(409, "catalog_conflict", "These dates overlap an existing PI window.")
+      end
+
+      generated = windows.empty? ? [] : add_iteration_windows!(state, name, windows, raw_usage("Iteration"))
+      attributes = { name: name, description: draft.fetch("description"), start_date: start_date, effective_date: end_date }
+      if version
+        version.update!(attributes)
+      else
+        @project.versions.create!(attributes.merge(status: "open"))
+      end
+      generated
+    end
+
+    def add_iteration_windows!(state, pi, windows, recorded_usage)
+      values = state.fetch("registry_values")[ITERATION_ID] ||= []
+      windows.map do |window|
+        label = "Iteration #{window.fetch('sequence')}"
+        key = "#{pi} / #{label}"
+        existing = values.find { |entry| entry.fetch("value_key") == key }
+        if existing
+          unless existing["lifecycle_state"] == "active" && existing["parent_catalog_value_key"] == pi &&
+                 (existing["iteration_window"].nil? || existing["iteration_window"] == window)
+            raise Error.new(409, "catalog_conflict", "#{key} already exists with a different calendar or status.")
+          end
+          existing["iteration_window"] = window
+        else
+          values << {
+            "catalog_value_id" => recorded_usage.key?(key) ? discovered_registry_id(ITERATION_ID, key) : registry_id(ITERATION_ID, key),
+            "value_key" => key,
+            "label" => label,
+            "description" => "",
+            "lifecycle_state" => "active",
+            "parent_catalog_value_key" => pi,
+            "iteration_window" => window
+          }
+        end
+        [key, window]
+      end
+    end
+
+    def registry_id(item_id, key)
+      "openproject-catalog-#{Digest::SHA256.hexdigest("#{item_id}:#{key}")[0, 20]}"
+    end
+
+    def discovered_registry_id(item_id, key)
+      "openproject-discovered-#{Digest::SHA256.hexdigest("#{item_id}:#{key}")[0, 20]}"
     end
 
     def mutate_custom_option!(item, request, state)
@@ -429,7 +553,7 @@ module OpenprojectDeliveryCatalogControl
         raise Error.new(409, "catalog_conflict", "Catalog value already exists.") if values.any? { |entry| entry.fetch("value_key") == draft.fetch("value_key") }
 
         values << {
-          "catalog_value_id" => "openproject-catalog-#{Digest::SHA256.hexdigest("#{item_id}:#{draft.fetch('value_key')}")[0, 20]}",
+          "catalog_value_id" => registry_id(item_id, draft.fetch("value_key")),
           "value_key" => draft.fetch("value_key"),
           "label" => draft.fetch("label"),
           "description" => draft.fetch("description"),
@@ -487,7 +611,7 @@ module OpenprojectDeliveryCatalogControl
         raise Error.new(404, "request_invalid", "Unknown Catalog item.") unless item
         raise Error.new(409, "catalog_read_only", "This Catalog item is read-only.") unless item.fetch("console_capability") == "request"
 
-        backend.mutate!(item, request, state)
+        generated = backend.mutate!(item, request, state)
         after = backend.projection(state)
         value = after.fetch("values").find do |entry|
           entry.fetch("catalog_item_id") == catalog_item_id &&
@@ -501,6 +625,15 @@ module OpenprojectDeliveryCatalogControl
         related = after.fetch("values").select do |entry|
           entry["parent_catalog_value_key"] == value.fetch("value_key")
         end
+        if request.dig("draft", "iteration_count")
+          windows = related.select { |entry| entry["catalog_item_id"] == ITERATION_ID && entry["lifecycle_state"] == "active" && entry["iteration_window"] }
+                           .to_h { |entry| [entry["value_key"], entry["iteration_window"]] }
+          dates = "#{generated.first.last.fetch('start_date')}/#{generated.last.last.fetch('end_date')}"
+          pi_window = related.find { |entry| entry["catalog_item_id"] == PI_PLANNING_DATE_ID }
+          unless windows == generated.to_h && pi_window&.fetch("value_key") == dates
+            raise Error.new(502, "backend_readback_incomplete", "The generated iteration calendar could not be confirmed.")
+          end
+        end
         mutation_id = "catalog-mutation-#{Digest::SHA256.hexdigest(request.fetch('idempotency_key'))[0, 24]}"
         applied_at = @clock.call.iso8601
         receipt_payload = {
@@ -509,6 +642,7 @@ module OpenprojectDeliveryCatalogControl
           "source_revision" => after.fetch("source_revision"),
           "value" => value
         }
+        receipt_payload["related_values"] = related if request.dig("draft", "iteration_count")
         result = {
           "schema_version" => 1,
           "request_id" => request.fetch("request_id"),

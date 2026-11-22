@@ -106,23 +106,38 @@ def _current(client, token: str, binding: dict[str, str]) -> tuple[str, str, str
 
 
 def _files(client, token: str, binding: dict[str, str], tree_sha: str, paths: list[str]) -> dict[str, str | None]:
-    tree = client.call("GET", f"/repos/{binding['full_name']}/git/trees/{tree_sha}?recursive=1", bearer=token)
-    if (not isinstance(tree, dict) or tree.get("sha") != tree_sha or tree.get("truncated") is not False or not isinstance(tree.get("tree"), list)
-            or len(tree["tree"]) > 8192 or len(json.dumps(tree, ensure_ascii=False).encode()) > 1048576):
-        raise PrivateSourceError("The complete bounded source tree is unavailable.")
-    entries = {}
-    for entry in tree["tree"]:
-        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or entry["path"] in entries:
-            raise PrivateSourceError("The source tree contains ambiguous paths.")
-        entries[entry["path"]] = entry
+    prefix = f"/repos/{binding['full_name']}/git"
+    directories = {}
+
+    def read_directory(sha: str):
+        if sha not in directories:
+            tree = client.call("GET", f"{prefix}/trees/{sha}", bearer=token)
+            if (not isinstance(tree, dict) or tree.get("sha") != sha or tree.get("truncated") is not False
+                    or not isinstance(tree.get("tree"), list) or len(tree["tree"]) > 8192
+                    or len(json.dumps(tree, ensure_ascii=False).encode()) > 1048576):
+                raise PrivateSourceError("The exact source control directory is unavailable.")
+            entries = {}
+            for entry in tree["tree"]:
+                name = entry.get("path") if isinstance(entry, dict) else None
+                if not isinstance(name, str) or not name or "/" in name or name in entries:
+                    raise PrivateSourceError("The source tree contains ambiguous paths.")
+                entries[name] = entry
+            directories[sha] = entries
+        return directories[sha]
+
     observed = {}
     for path in paths:
-        entry = entries.get(path)
         parts = path.split("/")
-        for index in range(1, len(parts)):
-            parent = entries.get("/".join(parts[:index]))
-            if parent is not None and (parent.get("type") != "tree" or parent.get("mode") != "040000") or entry is not None and parent is None:
+        entries = read_directory(tree_sha)
+        for part in parts[:-1]:
+            parent = entries.get(part)
+            if parent is None:
+                entries = {}
+                break
+            if parent.get("type") != "tree" or parent.get("mode") != "040000" or not SHA.fullmatch(str(parent.get("sha", ""))):
                 raise PrivateSourceError("A source control parent is not a regular Git directory.")
+            entries = read_directory(parent["sha"])
+        entry = entries.get(parts[-1])
         if entry is None:
             observed[path] = None
             continue
@@ -130,7 +145,7 @@ def _files(client, token: str, binding: dict[str, str], tree_sha: str, paths: li
         if (entry.get("type") != "blob" or entry.get("mode") != "100644" or not SHA.fullmatch(str(entry.get("sha", "")))
                 or type(size) is not int or not 0 <= size <= MAX_FILE_BYTES):
             raise PrivateSourceError("Source controls must be bounded regular UTF-8 files.")
-        blob = client.call("GET", f"/repos/{binding['full_name']}/git/blobs/{entry['sha']}", bearer=token)
+        blob = client.call("GET", f"{prefix}/blobs/{entry['sha']}", bearer=token)
         if (not isinstance(blob, dict) or blob.get("sha") != entry["sha"] or blob.get("encoding") != "base64" or blob.get("size") != size
                 or not isinstance(blob.get("content"), str) or len(blob["content"]) > 131072):
             raise PrivateSourceError("The provider blob does not match the committed source tree.")

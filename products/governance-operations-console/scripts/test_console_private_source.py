@@ -18,6 +18,7 @@ from test_console_instance_source import native, POLICY, OWNER
 from console_private_source import InspectionClient, PrivateSourceError, authority_ref, inspect_owner_controls
 
 FILES = {"AGENTS.md": b"# Synthetic private owner controls\n", "README.md": b"# Synthetic private project\n",
+         ".github/CODEOWNERS": b"* @example-owner\n",
          "private-application.py": b"PRIVATE APPLICATION CONTENT MUST NOT BE READ"}
 BLOBS = {path: hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest() for path, raw in FILES.items()}
 
@@ -34,9 +35,14 @@ class SourceHandler(source_fixture.ProviderHandler):
             self.server.main_reads += 1
             sha = "c" * 40 if state.mode == "changed-main" and self.server.main_reads > 1 else getattr(self.server, "git_head", "a" * 40)
             return self._json(200, {"sha": sha, "commit": {"tree": {"sha": getattr(self.server, "git_tree", "b" * 40)}}})
-        if self.path == prefix + "/git/trees/" + "b" * 40 + "?recursive=1":
-            tree = [{"path": path, "mode": "120000" if state.mode == "symlink" and path == "README.md" else "100644", "type": "blob", "sha": BLOBS[path], "size": len(raw)} for path, raw in FILES.items()]
+        if self.path == prefix + "/git/trees/" + "b" * 40:
+            tree = [{"path": path, "mode": "120000" if state.mode == "symlink" and path == "README.md" else "100644", "type": "blob", "sha": BLOBS[path], "size": len(raw)} for path, raw in FILES.items() if "/" not in path]
+            tree += [{"path": ".github", "mode": "040000", "type": "tree", "sha": "d" * 40},
+                     {"path": "large-unrelated-project", "mode": "040000", "type": "tree", "sha": "e" * 40}]
             return self._json(200, {"sha": "b" * 40, "truncated": state.mode == "truncated", "tree": tree})
+        if self.path == prefix + "/git/trees/" + "d" * 40:
+            return self._json(200, {"sha": "d" * 40, "truncated": False, "tree": [{"path": "CODEOWNERS",
+                "mode": "100644", "type": "blob", "sha": BLOBS[".github/CODEOWNERS"], "size": len(FILES[".github/CODEOWNERS"])}]})
         if self.path.startswith(prefix + "/git/blobs/"):
             sha = self.path.rsplit("/", 1)[1]
             path = next((name for name, digest in BLOBS.items() if digest == sha), None)
@@ -99,6 +105,15 @@ class PrivateSourceTests(unittest.TestCase):
             with self.assertRaises((PrivateSourceError, ValueError)): self.inspect(value=value)
         self.assertEqual(self.server.reads, [])
         self.assertEqual(self.state.issued, [])
+
+    def test_nested_control_read_visits_only_its_committed_directory(self):
+        request = {**self.input, "paths": [".github/CODEOWNERS", "AGENTS.md", "README.md"]}
+        result = self.inspect(value=request)
+        self.assertEqual(result["observed_files"][".github/CODEOWNERS"], FILES[".github/CODEOWNERS"].decode())
+        self.assertEqual(sum(path.endswith("/git/trees/" + "b" * 40) for path in self.server.reads), 1)
+        self.assertEqual(sum(path.endswith("/git/trees/" + "d" * 40) for path in self.server.reads), 1)
+        self.assertFalse(any("recursive" in path or path.endswith("/git/trees/" + "e" * 40) for path in self.server.reads))
+        self.assertEqual(self.state.revoked, ["agent-source-secret-1"])
 
     def test_source_app_permission_mismatch_is_denied_before_mint(self):
         self.state.mode = "overprivileged"

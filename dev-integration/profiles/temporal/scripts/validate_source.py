@@ -54,8 +54,16 @@ def postgresql_init_script_mode(statefulset: dict) -> int | None:
 
 def validate_rendered_chart(path: Path, errors: list[str]) -> None:
     items = docs(path)
+    expected_address = "temporal-frontend.devint-temporal-validator.svc.cluster.local:7233"
+    expected_variables = {
+        "temporal-admintools": ["TEMPORAL_ADDRESS", "TEMPORAL_CLI_ADDRESS"],
+        "temporal-web": ["TEMPORAL_ADDRESS"],
+        "namespace setup job": ["TEMPORAL_ADDRESS"],
+    }
+    observed: dict[str, list[str]] = {}
     for item in items:
         kind = item.get("kind")
+        name = item.get("metadata", {}).get("name", "")
         spec = item.get("spec") or {}
         if kind == "Ingress":
             errors.append(f"{path}: public ingress resource is forbidden")
@@ -64,6 +72,7 @@ def validate_rendered_chart(path: Path, errors: list[str]) -> None:
                 f"{path}: Service/{item.get('metadata', {}).get('name')} is not ClusterIP"
             )
         template = spec.get("template", {}).get("spec", {})
+        target = "namespace setup job" if kind == "Job" and name.startswith("temporal-namespace-") else name
         containers = template.get("initContainers", []) + template.get("containers", [])
         for container in containers:
             image = container.get("image", "")
@@ -72,6 +81,20 @@ def validate_rendered_chart(path: Path, errors: list[str]) -> None:
                     f"{path}: {kind}/{item.get('metadata', {}).get('name')} "
                     f"container {container.get('name')} is not digest pinned"
                 )
+            for variable in container.get("env", []):
+                if variable["name"] in expected_variables.get(target, []):
+                    observed.setdefault(target, []).append(variable["name"])
+                    require(
+                        variable.get("value") == expected_address,
+                        f"{kind}/{name} must use the fully qualified Temporal frontend address",
+                        errors,
+                    )
+    for target, names in expected_variables.items():
+        require(
+            sorted(observed.get(target, [])) == names,
+            f"{target} must declare each expected frontend address once",
+            errors,
+        )
 
 
 def main() -> int:

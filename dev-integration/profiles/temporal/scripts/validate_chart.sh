@@ -23,7 +23,8 @@ ensure_chart
 readonly RENDERED_CHART="${TEMP_ROOT}/temporal-rendered.yaml"
 helm template "${RELEASE_NAME}" "${CHART_ARCHIVE}" \
   --namespace "${NAMESPACE}" \
-  --values "${RENDERED_DIR}/temporal-values.yaml" \
+  --values "${RENDERED_DIR}/temporal-values.yaml" |
+  "${SCRIPT_DIR}/render_chart_addresses.py" "${NAMESPACE}" \
   >"${RENDERED_CHART}"
 
 python3 "${SCRIPT_DIR}/validate_source.py" \

@@ -105,6 +105,18 @@ ensure_chart() {
   fi
 }
 
+upgrade_temporal_chart() {
+  helm upgrade --install "${RELEASE_NAME}" "${CHART_ARCHIVE}" \
+    --namespace "${NAMESPACE}" \
+    --values "${RENDERED_DIR}/temporal-values.yaml" \
+    --post-renderer "${PROFILE_ROOT}/scripts/render_chart_addresses.py" \
+    --post-renderer-args "${NAMESPACE}" \
+    --atomic \
+    --timeout 10m \
+    --wait \
+    --wait-for-jobs
+}
+
 wait_for_postgresql() {
   kubectl_cmd -n "${NAMESPACE}" rollout status \
     "statefulset/${POSTGRESQL_STATEFULSET}" --timeout=300s

@@ -28,6 +28,8 @@ Temporal directly.
 
 - normal `down` preserves PostgreSQL and workflow history
 - normal `up` resumes or reconciles the same state
+- startup uses the fully qualified frontend address for the namespace setup job
+  and chart clients, and waits for the setup job to complete
 - `reset` is explicitly destructive and operator-scoped
 - shared `smoke` remains read-only
 - workflow histories carry references and bounded decisions, not secrets, raw

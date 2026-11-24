@@ -115,12 +115,7 @@ prepare_runtime() {
   wait_for_postgresql
 
   CURRENT_PHASE="temporal-install"
-  helm upgrade --install "${RELEASE_NAME}" "${CHART_ARCHIVE}" \
-    --namespace "${NAMESPACE}" \
-    --values "${RENDERED_DIR}/temporal-values.yaml" \
-    --atomic \
-    --timeout 10m \
-    --wait
+  upgrade_temporal_chart
   CURRENT_PHASE="runtime-readiness"
   wait_for_runtime_ready
   CURRENT_PHASE="baseline-verification"

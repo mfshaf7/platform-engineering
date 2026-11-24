@@ -23,12 +23,7 @@ kubectl_cmd apply -f "${RENDERED_DIR}/postgresql.yaml"
 kubectl_cmd apply -f "${RENDERED_DIR}/network-boundaries.yaml"
 wait_for_postgresql
 
-helm upgrade --install "${RELEASE_NAME}" "${CHART_ARCHIVE}" \
-  --namespace "${NAMESPACE}" \
-  --values "${RENDERED_DIR}/temporal-values.yaml" \
-  --atomic \
-  --timeout 10m \
-  --wait
+upgrade_temporal_chart
 
 wait_for_runtime_ready
 write_status_file

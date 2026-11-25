@@ -139,7 +139,9 @@ module OpenprojectDeliveryCatalogControl
     end
 
     def projection(state)
-      projected_at = @clock.call.iso8601
+      # OOS orders canonical Catalog snapshots by this observation time.
+      # Preserve millisecond precision through rapid mutation readback.
+      projected_at = @clock.call.iso8601(3)
       values = @contract.fetch("items").flat_map do |item|
         project_item_values(item, state, projected_at)
       end

@@ -44,6 +44,10 @@ assignment endpoint rather than treating every active project user as
 assignable. Group and placeholder identities retain native references; ordinary
 membership and assignment permission remain separate facts.
 
+Catalog observation timestamps retain millisecond precision so the Console
+can order an immediate read after a Catalog change. The Catalog source
+revision continues to identify the contents independently of the read time.
+
 Values without a native OpenProject owner use the namespaced
 `delivery_catalog_control_v1` setting. That setting stores only bounded
 registry values, retirement tombstones, and idempotency receipts. It is not a

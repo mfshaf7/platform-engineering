@@ -51,6 +51,24 @@ runtime evidence to canonical product identity and recovery ownership while
 keeping lifecycle, publication, issue, and health axes independent. Security
 `#1271` and Platform `#1273` bind its local `dev-integration` activation.
 
+## Paired Node project development runtime
+
+For the shared project runtime rehearsal, select the `node-frontend-api`
+recipe for an approved app folder containing one npm lockfile. Its committed
+package declares `build`, `start:frontend`, and `start`. Setup inspects those
+declarations without executing them. Run builds the exact saved draft with the
+approved offline cache. The frontend and API use the same qualified artifact.
+Both listen on the runtime's `PORT`. The frontend uses
+`PROJECT_API_ORIGIN` to call its own API from the server.
+
+The API endpoint comes from Platform's ready Pod observation. The firewall
+permits the frontend to reach that API only within the same project namespace
+and Run. Declared retained data mounts on the API. Stop releases both Pods and
+their network rules. Resume starts both from the retained artifact and binds
+the new API address. Reconcile uncertain outcomes using the original operation
+before issuing another Run. This recipe is subject to the shared runtime's
+exact-source Security qualification and activation procedure.
+
 ## Ownership
 
 The source-staged Epic 1332 extension composes the existing Purpose request

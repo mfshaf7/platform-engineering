@@ -470,6 +470,9 @@ validate:
 	python3 products/governance-operations-console/scripts/test_product_publication_platform.py
 	python3 products/governance-operations-console/scripts/console_complete_runtime.py validate
 	python3 products/governance-operations-console/scripts/test_platform_operation_provider.py
+	python3 products/governance-operations-console/scripts/test_console_project_runtime_setup.py
+	python3 products/governance-operations-console/scripts/test_console_project_runtime_snapshot.py
+	python3 products/governance-operations-console/scripts/test_console_project_runtime_lifecycle.py
 	python3 products/governance-operations-console/scripts/test_console_dev_integration_profiles.py
 	python3 products/governance-operations-console/scripts/test_console_governed_products.py
 	python3 products/governance-operations-console/scripts/console_release_identity.py validate --policy products/governance-operations-console/complete-runtime-policy.yaml

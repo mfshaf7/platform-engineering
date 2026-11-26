@@ -40,6 +40,8 @@ import prototype_closure_disposition as closure_disposition
 import prototype_closure_evidence as closure_evidence
 import prototype_closure_identity as closure_identity
 import console_model_profiles as model_profiles
+from console_project_runtime_operations import ProjectRuntimeError
+from console_project_runtime_provider import ACTION_PATHS as PROJECT_RUNTIME_PATHS, INPUT_BYTES as PROJECT_RUNTIME_INPUT_BYTES, ProjectRuntimeProvider
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -639,6 +641,15 @@ class ProviderService:
         self.source_version = source_version
         self.release_dispatcher = release_dispatch.ReleaseDispatcher(policy, store)
         require_security_activation(policy, source_version)
+        self.project_runtime = ProjectRuntimeProvider.from_policy(policy, store, owner_guard=self.project_runtime_guard)
+
+    @contextmanager
+    def project_runtime_guard(self):
+        root = Path(self.policy["runtime_state_root"])
+        with artifact_recovery.owner_guard(root, exclusive=False):
+            if not activation_is_current(self.policy, self.source_version) or artifact_recovery.blocked(root):
+                raise ProjectRuntimeError("The exact Platform owner runtime is unavailable during recovery.")
+            yield
 
     def catalog(self) -> dict[str, Any]:
         active = activation_is_current(self.policy, self.source_version)
@@ -1031,6 +1042,24 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                 if not self.authenticated():
                     raise ProviderError(403, "platform_provider_forbidden", "Platform provider caller is not admitted.")
                 path = urlparse(self.path).path
+                if self.command == "POST" and path in PROJECT_RUNTIME_PATHS:
+                    if urlparse(self.path).query or service.project_runtime is None or not activation_is_current(service.policy, service.source_version):
+                        raise ProviderError(409, "platform_project_runtime_not_admitted", "The reviewed project runtime is not active.")
+                    action = PROJECT_RUNTIME_PATHS[path]
+                    body = self.body(max_bytes=PROJECT_RUNTIME_INPUT_BYTES, strict=True)
+                    try:
+                        with artifact_recovery.owner_guard(Path(service.policy["runtime_state_root"]), exclusive=False):
+                            recovery = artifact_recovery.blocked(Path(service.policy["runtime_state_root"]))
+                            if recovery and action != "read":
+                                raise ProviderError(409, "platform_artifact_recovery_required", recovery)
+                            result = getattr(service.project_runtime, action)(body)
+                    except artifact_recovery.RecoveryDeferred:
+                        raise ProviderError(503, "platform_project_runtime_recovery_busy", "Runtime recovery is in progress. Read the original project operation after recovery.") from None
+                    except ValueError as error:
+                        message = str(error) if isinstance(error, ProjectRuntimeError) else "The supplied project scope is not currently admitted."
+                        raise ProviderError(409, "platform_project_runtime_blocked", message) from None
+                    self.respond(200 if action == "read" else 202, result)
+                    return
                 if self.command == 'POST' and path in {'/v1/console-operations/model-profiles/prepare','/v1/console-operations/model-profiles/inspect','/v1/console-operations/model-profiles/control'}:
                     if urlparse(self.path).query or not activation_is_current(service.policy,service.source_version):
                         raise ProviderError(409,'platform_profile_lifecycle_not_active','The exact accepted Platform provider is not active.')

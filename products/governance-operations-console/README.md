@@ -69,6 +69,24 @@ the new API address. Reconcile uncertain outcomes using the original operation
 before issuing another Run. This recipe is subject to the shared runtime's
 exact-source Security qualification and activation procedure.
 
+### Isolated project runtime evidence
+
+Use the reviewed Platform work branch and the reviewed Broker checkout with
+its locked Node dependencies installed. From the Platform checkout, run
+the rehearsal against the exact Platform commit under review.
+
+```bash
+python3 products/governance-operations-console/scripts/console_project_runtime_evidence.py   rehearse --platform-head "$(git rev-parse HEAD)" --broker-checkout /path/to/reviewed/broker
+```
+
+The rehearsal exercises only disposable local Dev Integration scopes. It
+reads back the worker isolation, paired Run, interrupted Stop, failed update
+and retained-data results and removes the disposable namespaces. It stores
+the result in the existing private Platform state directory. During operating
+evidence acquisition, the reviewed delivery profile verifies each named case
+against both source revisions. A missing, incomplete or mismatched receipt
+leaves the case pending. Look at the original rehearsal error before retrying.
+
 ## Ownership
 
 The source-staged Epic 1332 extension composes the existing Purpose request

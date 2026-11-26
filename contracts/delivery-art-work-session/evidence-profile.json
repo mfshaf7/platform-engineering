@@ -126,6 +126,82 @@
       "timeout_seconds": 1800
     },
     {
+      "id": "project-runtime-run-update-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Saved project Run and code update",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_project_runtime_evidence.py",
+        "verify",
+        "run-update",
+        "--platform-head",
+        "{{head_commit}}"
+      ],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "cases-17c9334d-ea21-4949-93e5-a9d4ae1d9f28"
+      ],
+      "timeout_seconds": 30
+    },
+    {
+      "id": "project-runtime-failed-update-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Failed update and interrupted operation",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_project_runtime_evidence.py",
+        "verify",
+        "failed-update",
+        "--platform-head",
+        "{{head_commit}}"
+      ],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "cases-1b5e9c4a-ebbc-4533-b379-230e6b61a5d8"
+      ],
+      "timeout_seconds": 30
+    },
+    {
+      "id": "project-runtime-retained-data-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Stop, Resume and retained data",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_project_runtime_evidence.py",
+        "verify",
+        "retained-data",
+        "--platform-head",
+        "{{head_commit}}"
+      ],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "cases-7791792f-0de6-49e3-83cd-8bb0f726a840"
+      ],
+      "timeout_seconds": 30
+    },
+    {
+      "id": "project-runtime-isolation-capacity-operating-verification",
+      "kind": "runtime_and_live",
+      "name": "Sandbox isolation and capacity",
+      "executable": "python3",
+      "args": [
+        "products/governance-operations-console/scripts/console_project_runtime_evidence.py",
+        "verify",
+        "isolation-capacity",
+        "--platform-head",
+        "{{head_commit}}"
+      ],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "conformance_case_ids": [
+        "cases-dfb24bf6-f11c-4638-b57f-0d3cd6bfd377"
+      ],
+      "timeout_seconds": 30
+    },
+    {
       "id": "product-publication-platform-protocol-tests",
       "kind": "tests",
       "name": "Product Publication Platform positive and negative tests",

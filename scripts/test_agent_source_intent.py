@@ -130,6 +130,23 @@ class SourceIntentTests(unittest.TestCase):
         self.assertNotIn("token", result)
         self.assertFalse(any(self.work.rglob(".git")))
 
+    def test_native_delivery_access_retains_the_exact_approved_group_identifier(self):
+        self.value = source_input()
+        group = "landing-unit:reviewed-source-group"
+        self.value["source_intent"]["landing_unit_id"] = group
+
+        issued = self.operate()
+        path, credential = self.credential()
+        self.assertEqual(issued["landing_unit_id"], group)
+        self.assertEqual(credential["landing_unit_id"], group)
+        self.assertRegex(path.parent.name, r"^[0-9a-f]{24}$")
+        self.assertEqual(self.state.issued, [("platform-engineering",)])
+
+        revoked = self.operate("revoke", command="command:credential:revoke")
+        self.assertEqual(revoked["landing_unit_id"], group)
+        self.assertEqual(revoked["outcome"], "revoked")
+        self.assertFalse(path.exists())
+
     def organization_source(self):
         self.value = source_input()
         self.value["source_intent"].update(repository="mfshaf7-workspace/sample-owner",

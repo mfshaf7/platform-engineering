@@ -40,7 +40,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONTRACT = ROOT / "security/agent-source-identity.yaml"
 SCHEMA = ROOT / "security/schemas/agent-source-identity.schema.json"
 REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-LANDING_UNIT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{2,127}$")
+# Use the Delivery identifier alphabet within the source-intent size bound.
+LANDING_UNIT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,255}$")
 WORKFLOW_PURPOSE = "workflow-maintenance"
 
 

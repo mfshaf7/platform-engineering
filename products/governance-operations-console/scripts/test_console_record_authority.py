@@ -498,7 +498,9 @@ class IntakeOwnerSourceTests(unittest.TestCase):
     def test_public_failure_or_unavailable_revision_cannot_keep_publication_freshness_but_presence_is_preserved(self):
         head = self.bootstrap()
         self.register_product()
-        for observation in [head, "f" * 40, RecordAuthorityError("provider unavailable"), head]:
+        retry_at = "2026-11-28T07:00:00+00:00"
+        throttled = console_record_authority.PublicationReadError("github_read_throttled", retry_at=retry_at)
+        for observation in [head, "f" * 40, RecordAuthorityError("provider unavailable"), throttled, head]:
             if self.visible.exists():
                 marker_path = self.visible / ".git" / console_record_authority.INTAKE_OWNER_MARKER
                 retained = json.loads(marker_path.read_bytes())
@@ -518,6 +520,8 @@ class IntakeOwnerSourceTests(unittest.TestCase):
             else:
                 self.assertNotIn("valid_until", marker)
                 self.assertEqual(result["publication_unavailable"], [self.owner_name])
+            self.assertEqual(result["publication_failures"],
+                {self.owner_name: {"code": "github_read_throttled", "retry_at": retry_at}} if observation is throttled else {})
             self.assertEqual(git(self.visible, "status", "--porcelain"), "")
 
     def test_missing_then_completed_bootstrap_appears_without_new_mount_or_ignored_data(self):

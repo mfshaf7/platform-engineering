@@ -15,21 +15,37 @@ import agent_source_identity as identity
 from agent_source_instance import validated_snapshot
 import test_agent_source_identity as source_fixture
 from test_console_instance_source import native, POLICY, OWNER
-from console_private_source import InspectionClient, PrivateSourceError, authority_ref, inspect_owner_controls
+from console_private_source import InspectionClient, PrivateSourceError, authority_ref, inspect_owner_controls, inspect_prototype_import
 
 FILES = {"AGENTS.md": b"# Synthetic private owner controls\n", "README.md": b"# Synthetic private project\n",
          ".github/CODEOWNERS": b"* @example-owner\n",
          "private-application.py": b"PRIVATE APPLICATION CONTENT MUST NOT BE READ"}
 BLOBS = {path: hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest() for path, raw in FILES.items()}
+IMPORT_RAW = json.dumps({"file_mappings": [{"owner_path": "app/main.mjs"}]}).encode()
+IMPORT_BLOB = hashlib.sha1(f"blob {len(IMPORT_RAW)}\0".encode() + IMPORT_RAW).hexdigest()
+IMPORTED = "1" * 40
 
 
 class SourceHandler(source_fixture.ProviderHandler):
+    def do_POST(self):
+        if self.server.state.mode == "source-connection-required":
+            return self._json(403, {})
+        return super().do_POST()
+
     def do_GET(self):
         self.server.reads.append(self.path)
         state = self.server.state
         if self.path == "/repositories/123456789":
-            return self._json(200, {"id": 123456789, "full_name": "mfshaf7-workspace/sample-owner", "private": True,
-                "visibility": "private", "archived": False, "disabled": False, "default_branch": "main"})
+            if state.mode == "throttled":
+                self.send_response(403)
+                self.send_header("Retry-After", "60")
+                self.end_headers()
+                return
+            if not self.headers.get("Authorization", "").startswith("Bearer agent-source-secret-"):
+                return self._json(403, {})
+            public = getattr(self.server, "public", False)
+            return self._json(200, {"id": 123456789, "full_name": "mfshaf7-workspace/sample-owner", "private": not public,
+                "visibility": "public" if public else "private", "archived": False, "disabled": False, "default_branch": "main"})
         prefix = "/repos/mfshaf7-workspace/sample-owner"
         if self.path == prefix + "/commits/main":
             self.server.main_reads += 1
@@ -43,6 +59,22 @@ class SourceHandler(source_fixture.ProviderHandler):
         if self.path == prefix + "/git/trees/" + "d" * 40:
             return self._json(200, {"sha": "d" * 40, "truncated": False, "tree": [{"path": "CODEOWNERS",
                 "mode": "100644", "type": "blob", "sha": BLOBS[".github/CODEOWNERS"], "size": len(FILES[".github/CODEOWNERS"])}]})
+        if self.path == f"{prefix}/compare/{IMPORTED}...{'a' * 40}":
+            return self._json(200, {"status": "diverged" if state.mode == "unmerged" else "ahead",
+                "merge_base_commit": {"sha": IMPORTED}})
+        if self.path == f"{prefix}/commits/{IMPORTED}":
+            return self._json(200, {"sha": IMPORTED, "commit": {"tree": {"sha": "f" * 40}}})
+        if self.path == f"{prefix}/git/trees/{'f' * 40}?recursive=1":
+            return self._json(200, {"sha": "f" * 40, "truncated": state.mode == "truncated", "tree": [
+                *({"path": name, "type": "tree", "mode": "040000"} for name in ("records", "records/prototype-source-imports", "app")),
+                {"path": "records/prototype-source-imports/sample-tool.json", "type": "blob", "mode": "100644",
+                    "sha": IMPORT_BLOB, "size": len(IMPORT_RAW)},
+                {"path": "app/main.mjs", "type": "blob", "mode": "120000" if state.mode == "symlink" else "100755",
+                    "sha": "3" * 40, "size": 123}]})
+        if self.path == f"{prefix}/git/blobs/{IMPORT_BLOB}":
+            raw = b"x" * len(IMPORT_RAW) if state.mode == "wrong-blob" else IMPORT_RAW
+            return self._json(200, {"sha": IMPORT_BLOB, "encoding": "base64",
+                "size": len(raw), "content": base64.encodebytes(raw).decode()})
         if self.path.startswith(prefix + "/git/blobs/"):
             sha = self.path.rsplit("/", 1)[1]
             path = next((name for name, digest in BLOBS.items() if digest == sha), None)
@@ -139,6 +171,37 @@ class PrivateSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(PrivateSourceError, "could not be confirmed revoked"): self.inspect()
         self.assertEqual(len(self.state.issued), 1)
         self.assertEqual(self.state.revoked, [])
+
+    def test_retained_owner_controls_use_a_read_lease_and_keep_public_boundary(self):
+        reference = {"canonical_authority": {"kind": "legacy-git", "repo": "workspace-governance", "revision": "f" * 40},
+            "provider_repository": self.snapshot.source_authority["provider_repository"]}
+        request = {**self.input, "authority_ref": reference}
+        read = lambda: inspect_owner_controls(request, snapshot_reader=lambda: None, legacy_reader=lambda: reference,
+            args=self.args, client=self.client)
+        with self.assertRaisesRegex(PrivateSourceError, "public repository visibility"): read()
+        self.server.public = True
+        result = read()
+        self.assertEqual(result["authority_ref"], reference)
+        self.assertEqual(result["visibility"], "public")
+        self.assertEqual(len(self.state.revoked), 2)
+
+    def test_prototype_transfer_reads_only_the_manifest_and_mapped_git_objects(self):
+        binding = self.snapshot.source_authority["provider_repository"]
+        self.server.public = True
+        request = {"owner_repo": OWNER, "provider_repository": binding, "prototype_id": "sample-tool",
+            "merge_commit": IMPORTED, "expected_main": None}
+        inspect = lambda body: inspect_prototype_import(body, authority_reader=lambda owner: {"provider_repository": binding},
+            args=self.args, client=self.client)
+        result = inspect(request)
+        self.assertEqual(result["manifest_text"], IMPORT_RAW.decode())
+        self.assertEqual(result["files"], {"app/main.mjs": {"git_blob": "3" * 40, "git_mode": "100755", "size": 123}})
+        self.assertEqual(inspect({**request, "expected_main": result["current_main"]}), {"current_main": "a" * 40})
+        self.assertNotIn("3" * 40, " ".join(self.server.reads))
+        for mode in ("unmerged", "truncated", "wrong-blob", "symlink", "changed-main"):
+            with self.subTest(mode=mode):
+                self.server.main_reads, self.state.mode = 0, mode
+                with self.assertRaises(PrivateSourceError): inspect(request)
+        self.assertEqual(len(self.state.revoked), len(self.state.issued))
 
 
 if __name__ == "__main__": unittest.main()

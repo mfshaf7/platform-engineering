@@ -33,6 +33,7 @@ from repository_provider_identity import (
     verify_installation,
     verify_token,
     observe_public_repository_main,
+    ProviderHttpError,
 )
 
 
@@ -248,11 +249,11 @@ def workspace_repository_inventory_path(args: argparse.Namespace) -> Path | None
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
-def read_current_workspace_inventory(contract: Contract, inventory_path: Path) -> RepositoryInventorySnapshot:
+def read_current_workspace_inventory(contract: Contract, inventory_path: Path, args: argparse.Namespace) -> RepositoryInventorySnapshot:
     """CLI maintenance's normal committed-data reader, independent of Console.
 
     The CLI chooses no schema/commit from caller JSON. It proves the canonical
-    WG primary against its fixed provider and live public main, then reads all
+    WG primary against its fixed provider and authenticated main, then reads all
     data and schemas from that exact reviewed Git authority. The runtime's
     existing injected Platform record-reader mode is unchanged.
     """
@@ -290,17 +291,19 @@ def read_current_workspace_inventory(contract: Contract, inventory_path: Path) -
     revision = text("rev-parse", "HEAD")
     binding = {"provider": "github", "full_name": expected.full_name,
         "provider_repository_id": str(expected.provider_repository_id)}
-    if (not REVISION_PATTERN.fullmatch(revision) or text("rev-parse", "refs/remotes/origin/main") != revision
-        or observe_public_repository_main(binding) != revision):
+    if not REVISION_PATTERN.fullmatch(revision) or text("rev-parse", "refs/remotes/origin/main") != revision:
         raise IdentityError("fetch and fast-forward Workspace Governance to current canonical main before source issuance")
     git("merge-base", "--is-ancestor", contract.repository_inventory_ref["revision"], revision)
-    inventory = git("show", f"{revision}:contracts/repos.yaml")
-    intake = git("show", f"{revision}:contracts/intake-register.yaml")
-    inventory_schema = json.loads(git("show", f"{revision}:contracts/schemas/repos.schema.json"))
-    intake_schema = json.loads(git("show", f"{revision}:contracts/schemas/intake-register.schema.json"))
-    if (text("rev-parse", "HEAD") != revision or text("status", "--porcelain", "--untracked-files=normal")
-        or observe_public_repository_main(binding) != revision):
-        raise IdentityError("canonical inventory changed during maintenance source admission; retry readback")
+    with repository_read_token(contract, expected, args) as (client, token):
+        if observe_public_repository_main(binding, client, token.token) != revision:
+            raise IdentityError("fetch and fast-forward Workspace Governance to current canonical main before source issuance")
+        inventory = git("show", f"{revision}:contracts/repos.yaml")
+        intake = git("show", f"{revision}:contracts/intake-register.yaml")
+        inventory_schema = json.loads(git("show", f"{revision}:contracts/schemas/repos.schema.json"))
+        intake_schema = json.loads(git("show", f"{revision}:contracts/schemas/intake-register.schema.json"))
+        if (text("rev-parse", "HEAD") != revision or text("status", "--porcelain", "--untracked-files=normal")
+            or observe_public_repository_main(binding, client, token.token) != revision):
+            raise IdentityError("canonical inventory changed during maintenance source admission; retry readback")
     return RepositoryInventorySnapshot(inventory=inventory, intake=intake, inventory_schema=inventory_schema,
         intake_schema=intake_schema, revision=revision, reviewed_revision=revision)
 
@@ -397,7 +400,7 @@ def load_operating_contract(
     else:
         if (inventory_path.name == "repos.yaml" and inventory_path.parent.name == "contracts"
             and inventory_path.parent.parent.name == contract.repository_inventory_ref["repository"]):
-            current = contract_from_record_snapshot(contract, read_current_workspace_inventory(contract, inventory_path))
+            current = contract_from_record_snapshot(contract, read_current_workspace_inventory(contract, inventory_path, args))
             # Explicit engineering maintenance uses the same admitted owners
             # and selected installations as the native issuer. Commissioning
             # and immutable pinned-blob recovery retain their legacy scope.
@@ -499,7 +502,7 @@ def private_key_file(
 
 
 def provider_client(contract: Contract, args: argparse.Namespace) -> ProviderClient:
-    return ProviderClient(args.provider_api_base_url or contract.api_base_url, sandbox=args.sandbox)
+    return ProviderClient(getattr(args, "provider_api_base_url", None) or contract.api_base_url, sandbox=args.sandbox)
 
 
 def verify_provider_identity(
@@ -586,6 +589,46 @@ def issue_repository_token(
             pass
         raise
     return token, observed[0]
+
+
+@contextmanager
+def repository_read_token(contract: Contract, repository: Repository, args: argparse.Namespace, *, client=None, key_reader=None):
+    """Use the existing Source App to issue and revoke one exact repository read lease."""
+    try:
+        contract = select_installation(contract, repository.full_name)
+    except IdentityError:
+        raise RepositoryReadConnectionError("Connect the GitHub Source App to the selected repository.") from None
+    client = client or provider_client(contract, args)
+    key = key_reader(contract) if key_reader is not None else private_key_file(
+        contract, vault_command=args.vault_command, sandbox=args.sandbox,
+        sandbox_private_key=getattr(args, "private_key_file", None), timeout_seconds=10,
+    )
+    token = None
+    try:
+        try:
+            with key as path:
+                jwt = verify_provider_identity(contract, client, path)
+                read_contract = replace(contract, required_permissions={"metadata": "read", "contents": "read"})
+                token, _ = issue_repository_token(read_contract, client, jwt, repository)
+        except ProviderHttpError as error:
+            if error.retry_at is None and error.status_code in {401, 403, 404}:
+                raise RepositoryReadConnectionError("Verify the GitHub Source App connection and its access to this repository.") from None
+            raise
+        yield client, token
+    finally:
+        if token is not None:
+            try:
+                client.revoke_token(token.token)
+            except IdentityError:
+                raise RepositoryReadRevocationError("The read credential could not be confirmed revoked; completion was withheld.") from None
+
+
+class RepositoryReadRevocationError(IdentityError):
+    """Release of a finite repository read grant could not be confirmed."""
+
+
+class RepositoryReadConnectionError(IdentityError):
+    """The selected repository has no working Source App grant."""
 
 
 def runtime_root(contract: Contract, args: argparse.Namespace) -> Path:

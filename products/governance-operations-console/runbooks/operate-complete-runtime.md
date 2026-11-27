@@ -782,8 +782,9 @@ composition to recover missing Console metadata.
 
 For an active source-only public product, the existing generated source
 projection can read a later merged canonical main without requiring an operator
-to update the host checkout. It reuses the fixed-host anonymous provider
-observer and exact provider identity, fetches only into its attributed generated
+to update the host checkout. Platform observes the exact provider identity and
+main with a one-repository Source App read grant and revokes it after the read.
+It fetches only into its attributed generated
 clone, requires forward ancestry from the clean local source and the existing
 regular-file/size limits, and never executes app source. A changed main during
 fetch, history rewrite, unsafe tree or unavailable provider removes Publication
@@ -839,8 +840,9 @@ authority and credentials; source visibility is not app or runtime acceptance.
 
 Once native Inventory registers an active product with a typed active
 source-only owner, the same projection can supply Publication's committed
-owner manifest. It anonymously verifies the exact public provider repository
-and canonical `main`, and atomically adds observation/expiry to the existing
+owner manifest. Platform verifies the exact public provider repository and
+canonical `main` through the scoped Source App reader and atomically adds
+observation and expiry to the existing
 owner-attribution marker. No new mount, service or manual owner-root map is
 needed. The existing five-minute observation may be reused only for the same
 clean source/provider binding; unchanged local timer ticks never extend its

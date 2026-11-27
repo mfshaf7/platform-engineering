@@ -26,6 +26,23 @@ profile admission, lifecycle, timestamps, and policy mapping before publishing.
 Reissuing the same session is deterministic. A different active session is
 rejected until the old projection is revoked.
 
+## Renew an expired session
+
+If the complete local Console runtime is already running, run this from the
+same admitted operating-system account in Platform Engineering:
+
+```bash
+make governance-console-complete-runtime ACTION=renew-session
+```
+
+The command checks the running composition and its provider. It renews the
+expired identity projection for the exact current profile and principal,
+with the approved session lifetime and a new receipt. A revoked projection
+or mismatched profile requires the normal issue procedure. Worktree, draft,
+repository access and running services stay available during renewal. An
+already-current projection is reused. Back in the open editor, choose
+**Check source workspace**.
+
 ## Inspect
 
 ```bash

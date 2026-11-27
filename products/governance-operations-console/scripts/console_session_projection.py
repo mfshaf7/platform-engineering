@@ -228,12 +228,16 @@ def build_projection(
     manifest: dict[str, Any],
     *,
     now: datetime | None = None,
+    authenticated_at: datetime | None = None,
 ) -> dict[str, Any]:
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     started = _timestamp(manifest["session_started_at"], "session start")
     if started > current + timedelta(seconds=30):
         raise ProjectionError("session start is in the future")
-    expires = started + timedelta(seconds=policy.maximum_lifetime_seconds)
+    authenticated = authenticated_at or started
+    if authenticated < started or authenticated > current + timedelta(seconds=30):
+        raise ProjectionError("session authentication time is outside the admitted profile")
+    expires = authenticated + timedelta(seconds=policy.maximum_lifetime_seconds)
     if current >= expires:
         raise ProjectionError("dev-integration session has expired")
     operator = manifest["operator"]
@@ -246,6 +250,7 @@ def build_projection(
                 "operator": operator,
                 "session_id": manifest["session_id"],
                 "session_started_at": _render_timestamp(started),
+                **({"renewed_at": _render_timestamp(authenticated)} if authenticated != started else {}),
             }
         )
     ).hexdigest()
@@ -262,7 +267,7 @@ def build_projection(
         },
         "schemaVersion": policy.schema_version,
         "session": {
-            "authenticatedAt": _render_timestamp(started),
+            "authenticatedAt": _render_timestamp(authenticated),
             "authenticationState": "authenticated",
             "expiresAt": _render_timestamp(expires),
             "mode": policy.session_mode,
@@ -272,7 +277,7 @@ def build_projection(
             "authority": policy.source_authority,
             "freshness": "current",
             "mode": policy.source_mode,
-            "observedAt": _render_timestamp(started),
+            "observedAt": _render_timestamp(authenticated),
             "reference": f"platform-session-source://{binding}",
         },
     }
@@ -430,6 +435,41 @@ def issue(
         return result
     finally:
         os.close(lock_descriptor)
+
+
+def renew(
+    policy: Policy,
+    session_manifest: Path,
+    projection_path: Path,
+    receipt_path: Path,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Reauthorize the same running profile from its operating-system account."""
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).replace(microsecond=0)
+    _prepare_parent(projection_path)
+    lock_path = projection_path.with_suffix(projection_path.suffix + ".lock")
+    lock = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        os.fchmod(lock, 0o600)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        manifest = load_session_manifest(session_manifest, policy)
+        previous = _existing_projection(projection_path)
+        if previous is None or previous["session"]["authenticationState"] != "authenticated":
+            raise ProjectionError("No issued session is eligible for renewal")
+        admitted_at = _timestamp(previous["session"]["authenticatedAt"], "projection authentication time")
+        if admitted_at > current or previous != build_projection(policy, manifest, now=admitted_at, authenticated_at=admitted_at):
+            raise ProjectionError("The issued session no longer matches the running profile and operator")
+        expiry = _timestamp(previous["session"]["expiresAt"], "projection expiry")
+        if current < expiry:
+            return {"outcome": "current", "expires_at": _render_timestamp(expiry)}
+        candidate = build_projection(policy, manifest, now=current, authenticated_at=current)
+        result = _receipt(policy, candidate, action="renew", profile_id=manifest["profile_id"], session_id=manifest["session_id"])
+        _write_private(projection_path, candidate)
+        _write_private(receipt_path, result)
+        return {**result, "expires_at": candidate["session"]["expiresAt"]}
+    finally:
+        os.close(lock)
 
 
 def revoke(

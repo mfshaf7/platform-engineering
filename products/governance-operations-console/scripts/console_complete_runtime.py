@@ -32,6 +32,7 @@ import console_repository_reader as repository_reader
 import console_repository_connections as repository_connections
 import console_record_authority as record_authority
 import console_session_projection as session_projection
+from console_cross_domain_activation import session_projection_path
 import console_model_management as model_management
 import console_profile_requests as profile_requests
 import console_observation_refresh as observation_refresh
@@ -2024,6 +2025,26 @@ def require_model_management_runtime(policy: dict[str, Any]) -> dict[str, Any] |
         raise RuntimeError("The commissioned Console model-management owner projection is unavailable or invalid.") from None
 
 
+def renew_session(policy: dict[str, Any]) -> Path:
+    policy, activation = resolve_security_decision(policy)
+    require_materialized_policy(policy, activation)
+    require_activation_allowed(policy)
+    run(composition_command(policy, "status"))
+    run(["systemctl", "--user", "is-active", "--quiet", UNIT_NAME])
+    require_current_provider(policy)
+    session = activation["session"]
+    try:
+        result = session_projection.renew(
+            session_projection.load_policy(PRODUCT_ROOT / session["policy"]),
+            dev_integration_session_manifest(policy),
+            session_projection_path(activation),
+            RECEIPT_ROOT / "operator-identity-renew.json",
+        )
+    except session_projection.ProjectionError as error:
+        raise RuntimeError(str(error)) from error
+    return receipt("renew-session", policy, {"session": result["outcome"], "expires_at": result["expires_at"]})
+
+
 def status(policy: dict[str, Any], *, action: str = "status") -> Path:
     policy, activation = resolve_security_decision(policy)
     require_materialized_policy(policy, activation)
@@ -2411,7 +2432,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "refresh-credentials", "refresh-observations", "refresh-connections", "install-integrity", "check-integrity"),
+        choices=("validate", "activate", "status", "restart", "rollback", "cleanup", "teardown", "verify-operating", "renew-session", "refresh-credentials", "refresh-observations", "refresh-connections", "install-integrity", "check-integrity"),
     )
     parser.add_argument("--policy", type=Path, default=POLICY_PATH)
     parser.add_argument("--repo-path", action="append", default=[])
@@ -2434,6 +2455,7 @@ def main() -> int:
             "cleanup": lambda value: rollback(value, cleanup=True),
             "teardown": teardown,
             "verify-operating": verify_operating,
+            "renew-session": renew_session,
             "refresh-credentials": refresh_repository_credentials,
             "refresh-observations": refresh_observations,
             "refresh-connections": refresh_connections,

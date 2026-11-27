@@ -124,6 +124,34 @@ class ConsoleSessionProjectionTests(unittest.TestCase):
                 now=self.now + timedelta(hours=1, minutes=1),
             )
 
+    def test_renew_requires_the_same_issued_session_and_keeps_the_profile(self) -> None:
+        projection = self.root / "runtime" / "identity.json"
+        receipt = self.root / "runtime" / "receipt.json"
+        manifest = self.manifest()
+        original_manifest = manifest.read_bytes()
+        MODULE.issue(self.policy, manifest, projection, receipt, now=self.now)
+        issued = json.loads(projection.read_text())
+        expired_at = self.now + timedelta(seconds=self.policy.maximum_lifetime_seconds)
+        with self.assertRaisesRegex(MODULE.ProjectionError, "expired"):
+            MODULE.validate_current_projection(issued, now=expired_at)
+        result = MODULE.renew(self.policy, manifest, projection, receipt, now=expired_at)
+        renewed = json.loads(projection.read_text())
+        MODULE.validate_current_projection(renewed, now=expired_at)
+        self.assertEqual(issued["principal"], renewed["principal"])
+        self.assertEqual(issued["access"], renewed["access"])
+        self.assertNotEqual(issued["session"]["reference"], renewed["session"]["reference"])
+        self.assertEqual(result["action"], "renew")
+        self.assertEqual(manifest.read_bytes(), original_manifest)
+        self.assertEqual(MODULE.renew(self.policy, manifest, projection, receipt, now=expired_at)["outcome"], "current")
+        second_expiry = expired_at + timedelta(seconds=self.policy.maximum_lifetime_seconds)
+        self.assertEqual(MODULE.renew(self.policy, manifest, projection, receipt, now=second_expiry)["action"], "renew")
+        altered = self.manifest(session_id="accepted-idea-delivery-operator-20260927T090000Z")
+        with self.assertRaisesRegex(MODULE.ProjectionError, "no longer matches"):
+            MODULE.renew(self.policy, altered, projection, receipt, now=second_expiry)
+        MODULE.revoke(self.policy, projection, receipt, now=second_expiry)
+        with self.assertRaisesRegex(MODULE.ProjectionError, "eligible"):
+            MODULE.renew(self.policy, manifest, projection, receipt, now=second_expiry)
+
     def test_revoke_removes_authority_and_allows_replacement(self) -> None:
         projection = self.root / "runtime" / "identity.json"
         MODULE.issue(

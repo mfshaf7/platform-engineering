@@ -238,7 +238,7 @@ governance-console-product-publication:
 
 .PHONY: governance-console-complete-runtime
 governance-console-complete-runtime:
-	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rollback, cleanup, teardown, or verify-operating"; exit 1; }
+	@test -n "$(ACTION)" || { echo "ACTION is required: validate, activate, status, restart, rollback, cleanup, teardown, verify-operating, or renew-session"; exit 1; }
 	python3 products/governance-operations-console/scripts/console_complete_runtime.py $(ACTION) $(if $(ARGS),$(ARGS),)
 
 .PHONY: governance-console-release-identity

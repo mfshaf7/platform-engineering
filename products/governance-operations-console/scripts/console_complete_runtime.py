@@ -1132,6 +1132,18 @@ def refresh_repository_credentials(policy: dict[str, Any], *, force: bool = Fals
     return result
 
 
+@contextmanager
+def publication_source_key(contract):
+    path = vault_private_key({
+        "address": "http://127.0.0.1:8200", "namespace": "vault", "pod": "vault-0",
+        "secret_path": f"kv/{contract.vault_path}", "secret_property": contract.vault_property,
+    })
+    try:
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def refresh_record_authorities(policy: dict[str, Any]) -> dict[str, Any]:
     revisions = policy["security"]["reviewed_revisions"]
     invalidated = False
@@ -1155,7 +1167,8 @@ def refresh_record_authorities(policy: dict[str, Any]) -> dict[str, Any]:
                 values[owner] = record_authority.refresh_snapshot(RECORD_AUTHORITY_ROOT,
                     repo_path(owner), owner, revisions[owner], before_change=before_change)
         owner_sources = record_authority.refresh_intake_owner_sources(
-            RECORD_AUTHORITY_ROOT, WORKSPACE_ROOT, revisions["workspace-governance"])
+            RECORD_AUTHORITY_ROOT, WORKSPACE_ROOT, revisions["workspace-governance"],
+            observe_main=lambda binding: record_authority.public_owner_main(binding, key_reader=publication_source_key))
     except Exception:
         for owner in sorted(record_authority.OWNERS):
             record_authority.invalidate_snapshot(RECORD_AUTHORITY_ROOT, owner)

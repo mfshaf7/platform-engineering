@@ -505,9 +505,14 @@ class CompleteRuntimeTests(unittest.TestCase):
             with (patch.object(runtime, "RECORD_AUTHORITY_ROOT", root),
                   patch.object(runtime, "repo_path", side_effect=lambda owner: root / owner),
                   patch.object(runtime.record_authority, "refresh_intake_owner_sources", return_value={}) as source_refresh,
+                  patch.object(runtime.record_authority, "public_owner_main", return_value="b" * 40) as observe,
                   patch.object(runtime.record_authority, "refresh_snapshot", side_effect=refresh)):
                 runtime.refresh_record_authorities(policy)
-                source_refresh.assert_called_once_with(root, runtime.WORKSPACE_ROOT, "a" * 40)
+                source_refresh.assert_called_once()
+                self.assertEqual(source_refresh.call_args.args, (root, runtime.WORKSPACE_ROOT, "a" * 40))
+                binding = {"provider": "github", "full_name": "test-owner/product", "provider_repository_id": 42}
+                self.assertEqual(source_refresh.call_args.kwargs["observe_main"](binding), "b" * 40)
+                observe.assert_called_once_with(binding, key_reader=runtime.publication_source_key)
                 self.assertEqual(calls, owners)
                 change = True
                 calls.clear()

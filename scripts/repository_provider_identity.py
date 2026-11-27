@@ -8,7 +8,6 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
-import http.client
 import json
 import os
 from pathlib import Path
@@ -19,7 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any
+from typing import Any, Mapping
 from urllib import error, parse, request
 
 import yaml
@@ -34,12 +33,8 @@ class IdentityError(RuntimeError):
     pass
 
 
-def observe_public_repository_main(binding: dict[str, Any]) -> str:
-    """Bounded fixed-host anonymous source observation, never an issuance token.
-
-    The public synthetic source route deliberately has no netrc, credential
-    helper, proxy, caller-selected host, redirect or application execution.
-    """
+def observe_public_repository_main(binding: dict[str, Any], client: ProviderClient, bearer: str) -> str:
+    """Verify the exact active public repository and its current main revision."""
     full_name, identifier = binding.get("full_name"), str(binding.get("provider_repository_id", ""))
     if (binding.get("provider") != "github" or not re.fullmatch(r"[1-9][0-9]*", identifier)
         or not isinstance(full_name, str)
@@ -47,24 +42,10 @@ def observe_public_repository_main(binding: dict[str, Any]) -> str:
         raise IdentityError("public repository identity is invalid")
 
     def read(route: str) -> dict[str, Any]:
-        connection = http.client.HTTPSConnection("api.github.com", timeout=5)
-        try:
-            connection.request("GET", route, headers={"Accept": "application/vnd.github+json",
-                "User-Agent": "platform-public-source-observer", "X-GitHub-Api-Version": GITHUB_API_VERSION})
-            response = connection.getresponse()
-            if response.status != 200:
-                raise IdentityError("public source observation is unavailable")
-            raw = response.read(262145)
-            if len(raw) > 262144:
-                raise IdentityError("public source observation exceeds its bound")
-            value = json.loads(raw)
-            if not isinstance(value, dict):
-                raise ValueError("invalid provider object")
-            return value
-        except (OSError, http.client.HTTPException, ValueError):
-            raise IdentityError("public source observation is unavailable") from None
-        finally:
-            connection.close()
+        value = client.call("GET", route, bearer=bearer)
+        if not isinstance(value, dict):
+            raise IdentityError("public source observation is invalid")
+        return value
 
     repository = read(f"/repositories/{identifier}")
     if (str(repository.get("id")) != identifier or repository.get("full_name") != full_name
@@ -208,10 +189,27 @@ def create_app_jwt(app_id: int, private_key_path: Path, now: int | None = None) 
     return f"{header}.{claims}.{_b64url(result.stdout)}"
 
 
+def provider_retry_at(status_code: int, headers: Mapping[str, str], now: float) -> str | None:
+    remaining = headers.get("X-RateLimit-Remaining")
+    retry_after = headers.get("Retry-After")
+    if status_code != 429 and not (status_code == 403 and (remaining == "0" or retry_after is not None)):
+        return None
+    reset = headers.get("X-RateLimit-Reset", "") if remaining == "0" else ""
+    candidates = [now + int(retry_after)] if re.fullmatch(r"[0-9]{1,12}", retry_after or "") else []
+    if re.fullmatch(r"[0-9]{1,12}", reset):
+        candidates.append(int(reset))
+    retry_at = max((value for value in candidates if now < value < 253402300799), default=now + 60)
+    return datetime.fromtimestamp(retry_at, timezone.utc).isoformat(timespec="seconds")
+
+
 class ProviderHttpError(IdentityError):
-    def __init__(self, status_code: int) -> None:
-        super().__init__(f"provider request failed with HTTP {status_code}")
+    def __init__(self, status_code: int, *, retry_at: str | None = None) -> None:
+        message = f"provider request failed with HTTP {status_code}"
+        if retry_at is not None:
+            message = f"GitHub temporarily limited repository requests. Retry the same request after {retry_at}."
+        super().__init__(message)
         self.status_code = status_code
+        self.retry_at = retry_at
 
 
 class ProviderClient:
@@ -264,7 +262,8 @@ class ProviderClient:
         except IdentityError:
             raise
         except error.HTTPError as exc:
-            raise ProviderHttpError(exc.code) from None
+            retry_at = provider_retry_at(exc.code, exc.headers or {}, time.time())
+            raise ProviderHttpError(exc.code, retry_at=retry_at) from None
         except (error.URLError, TimeoutError, json.JSONDecodeError):
             raise IdentityError("provider request failed or returned invalid JSON") from None
 

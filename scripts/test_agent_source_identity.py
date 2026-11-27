@@ -72,6 +72,12 @@ class CurrentWorkspaceInventoryTests(unittest.TestCase):
         definition = module.load_contract(module.DEFAULT_CONTRACT)
         self.contract = replace(definition, repository_inventory_ref={**definition.repository_inventory_ref, "revision": self.base})
         self.git("update-ref", "refs/remotes/origin/main", self.base)
+        self.args = argparse.Namespace(contract=module.DEFAULT_CONTRACT, workspace_repo_inventory=self.inventory, sandbox=False)
+        lease = mock.patch.object(module, "repository_read_token")
+        lease_mock = lease.start()
+        self.addCleanup(lease.stop)
+        lease_mock.return_value.__enter__.return_value = (mock.Mock(), mock.Mock(token="ghs_test"))
+
 
     def git(self, *args):
         return subprocess.check_output(["git", "-c", "core.hooksPath=/dev/null", "-C", str(self.root), *args],
@@ -123,19 +129,19 @@ class CurrentWorkspaceInventoryTests(unittest.TestCase):
     def test_dirty_unfetched_wrong_provider_and_midread_changed_source_are_denied(self):
         head = self.promote()
         with mock.patch.object(module, "observe_public_repository_main", return_value="f" * 40):
-            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory, self.args)
         with mock.patch.object(module, "observe_public_repository_main", side_effect=[head, "f" * 40]):
-            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+            with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory, self.args)
         self.git("update-ref", "refs/remotes/origin/main", self.base)
-        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory, self.args)
         self.git("update-ref", "refs/remotes/origin/main", head)
         dirty = self.root / "preserve.txt"
         dirty.write_text("unique operator work")
-        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory, self.args)
         self.assertEqual(dirty.read_text(), "unique operator work")
         dirty.unlink()
         self.git("remote", "set-url", "origin", "https://github.com/foreign/workspace-governance.git")
-        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory)
+        with self.assertRaises(module.IdentityError): module.read_current_workspace_inventory(self.contract, self.inventory, self.args)
 
 
 class ProviderState:

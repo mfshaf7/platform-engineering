@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 import io
+from argparse import Namespace
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -22,7 +23,8 @@ from typing import Any
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
-from repository_provider_identity import IdentityError, observe_public_repository_main
+import agent_source_identity as source_identity
+from repository_provider_identity import ProviderHttpError, observe_public_repository_main
 
 
 OWNERS = {"workspace-governance", "workspace-prototype-studio"}
@@ -49,11 +51,27 @@ class RecordAuthorityError(RuntimeError):
     """A current approved data snapshot cannot be established."""
 
 
-def public_owner_main(binding: dict[str, Any]) -> str:
-    """Reuse Platform's fixed-host anonymous observer, never a source token."""
+class PublicationReadError(RecordAuthorityError):
+    def __init__(self, code: str, *, retry_at: str | None = None):
+        super().__init__(code)
+        self.code, self.retry_at = code, retry_at
+
+
+def public_owner_main(binding: dict[str, Any], *, key_reader=None) -> str:
+    """Observe the reviewed product repository with a finite Source App read lease."""
     try:
-        return observe_public_repository_main(binding)
-    except IdentityError:
+        contract = source_identity.load_contract(source_identity.DEFAULT_CONTRACT)
+        repository = source_identity.Repository(binding["full_name"], int(binding["provider_repository_id"]))
+        args = Namespace(vault_command="vault", sandbox=False)
+        with source_identity.repository_read_token(contract, repository, args, key_reader=key_reader) as (client, token):
+            return observe_public_repository_main(binding, client, token.token)
+    except source_identity.RepositoryReadConnectionError:
+        raise PublicationReadError("github_source_connection_required") from None
+    except ProviderHttpError as error:
+        if error.retry_at:
+            raise PublicationReadError("github_read_throttled", retry_at=error.retry_at) from None
+        raise RecordAuthorityError("public owner observation is unavailable") from None
+    except (RuntimeError, OSError, subprocess.SubprocessError):
         raise RecordAuthorityError("public owner observation is unavailable") from None
 
 
@@ -104,7 +122,7 @@ def require_bounded_owner_tree(root: Path, revision: str) -> None:
         raise RecordAuthorityError("owner source exceeds its regular-file or size bound")
 
 
-def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewed: str) -> dict[str, Any]:
+def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewed: str, *, observe_main=None) -> dict[str, Any]:
     """Project committed owner source, never execute it.
 
     The fixed WG checkpoint authorizes the selection, not application execution.
@@ -135,6 +153,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
     if len(selected) > 64:
         raise RecordAuthorityError("physical owner source projection exceeds its bound")
     projected, unavailable, publication_unavailable = {}, [], []
+    publication_failures = {}
     for name, record in sorted(selected.items()):
         binding = record["provider_repository"]
         full_name = binding.get("full_name", "")
@@ -177,17 +196,19 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
                             observed_head = head
                     current_observation = _current_owner_observation(target, name, observed_head, binding)
                     if current_observation is None:
-                        observed_head = public_owner_main(binding)
+                        observed_head = (observe_main or public_owner_main)(binding)
                         if not COMMIT.fullmatch(observed_head):
                             raise RecordAuthorityError("public owner revision is invalid")
                         observed = datetime.now(timezone.utc)
                         current_observation = dict(schema_version=1, observed_at=observed.isoformat(),
                             valid_until=(observed + timedelta(minutes=5)).isoformat())
                     projected[name].update(head=observed_head, **current_observation)
-                except RecordAuthorityError:
+                except RecordAuthorityError as error:
                     # Keep physical-presence projection but remove Publication
                     # freshness immediately; unavailable remote is not custody.
                     publication_unavailable.append(name)
+                    if isinstance(error, PublicationReadError):
+                        publication_failures[name] = {"code": error.code, "retry_at": error.retry_at}
         except RecordAuthorityError:
             unavailable.append(name)
 
@@ -273,7 +294,7 @@ def refresh_intake_owner_sources(cache_root: Path, workspace_root: Path, reviewe
     if snapshot_status(cache_root, "workspace-governance", reviewed)["record_revision"] != revision:
         raise RecordAuthorityError("physical owner selection changed during refresh")
     return {"owners": projected, "unavailable": unavailable, "publication_unavailable": publication_unavailable,
-            "authority_revision": revision}
+            "publication_failures": publication_failures, "authority_revision": revision}
 
 
 def time_token() -> str:
@@ -573,6 +594,41 @@ def read_repository_admission(cache_root: Path, reviewed: str) -> dict[str, Any]
     return {"revision": revision, "reviewed_revision": reviewed,
         "inventory": sources[paths[0]], "intake": sources[paths[1]],
         "inventory_schema": schemas["repos"], "intake_schema": schemas["intake-register"]}
+
+
+def read_legacy_source_binding(cache_root: Path, reviewed: str, owner: str, operation: str) -> dict[str, Any]:
+    snapshot = source_identity.RepositoryInventorySnapshot(**read_repository_admission(cache_root, reviewed))
+    contract = source_identity.contract_from_record_snapshot(
+        source_identity.load_contract(source_identity.DEFAULT_CONTRACT), snapshot)
+    inventory = yaml.safe_load(snapshot.inventory)
+    intake = yaml.safe_load(snapshot.intake)
+    active = inventory["repos"].get(owner)
+    proposed = intake["repos"].get(owner)
+    if operation in {"bootstrap", "configure-verification"}:
+        entry = (proposed if operation == "bootstrap" else active) or {}
+        validation = entry.get("validation_behavior") or {}
+        if (entry.get("requires_security_bindings") is not False or entry.get("security_review_subject", False) is not False
+                or validation.get("posture") != "covered-by-owner-repo" or validation.get("wgcf_graph_role") != "product-runtime-source"
+                or (entry.get("record") or {}).get("id") != f"repo:{owner}"):
+            raise RecordAuthorityError("The retained record does not qualify for source-only setup.")
+    if operation == "bootstrap":
+        if (not proposed or active is not None or owner in inventory.get("retired_repos", {})
+                or proposed.get("status") not in {"proposed", "admitted"}):
+            raise RecordAuthorityError("The current proposed source-only repository is required.")
+        binding = proposed.get("provider_repository")
+    else:
+        if not active or proposed is not None or active.get("lifecycle") != "active" or active.get("posture") != "active":
+            raise RecordAuthorityError("The current active repository is required.")
+        binding = active.get("provider_repository")
+        if not binding or source_identity.Repository(binding["full_name"], int(binding["provider_repository_id"])) not in contract.repositories:
+            raise RecordAuthorityError("The active record must have the exact approved provider identity.")
+    if (not isinstance(binding, dict) or set(binding) != {"provider", "full_name", "provider_repository_id"}
+            or binding.get("provider") != "github"
+            or not re.fullmatch(r"[1-9][0-9]*", str(binding.get("provider_repository_id", "")))
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*", str(binding.get("full_name", "")))):
+        raise RecordAuthorityError("The current record does not bind an exact GitHub repository.")
+    return {"canonical_authority": {"kind": "legacy-git", "repo": "workspace-governance", "revision": snapshot.revision},
+        "provider_repository": binding}
 
 
 def read_instance_source_policy(cache_root: Path, reviewed: str) -> dict[str, str]:

@@ -42,6 +42,8 @@ import prototype_closure_identity as closure_identity
 import console_model_profiles as model_profiles
 from console_project_runtime_operations import ProjectRuntimeError
 from console_project_runtime_provider import ACTION_PATHS as PROJECT_RUNTIME_PATHS, INPUT_BYTES as PROJECT_RUNTIME_INPUT_BYTES, ProjectRuntimeProvider
+from repository_provider_identity import ProviderHttpError
+from agent_source_identity import RepositoryReadConnectionError
 
 
 PRODUCT_ROOT = Path(__file__).resolve().parents[1]
@@ -62,10 +64,11 @@ ALLOWED_ACTIONS = {
 
 
 class ProviderError(RuntimeError):
-    def __init__(self, status: int, code: str, message: str) -> None:
+    def __init__(self, status: int, code: str, message: str, *, retry_at: str | None = None) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
+        self.retry_at = retry_at
 
 
 def closure_evidence_path(policy: dict[str, Any]) -> Path:
@@ -786,12 +789,54 @@ class ProviderService:
                 args = argparse.Namespace(contract=REPO_ROOT / "security/agent-source-identity.yaml", sandbox=False,
                     vault_command="vault", private_key_file=None)
                 # The private file bytes bypass generic command/event journals.
-                return private_source.inspect_owner_controls(value, snapshot_reader=current, args=args)
+                return private_source.inspect_owner_controls(value, snapshot_reader=current, args=args,
+                    legacy_reader=lambda: record_authority.read_legacy_source_binding(
+                        root / "record-authority", reviewed, value["owner_repo"], value["operation"]))
         except ProviderError:
             raise
+        except RepositoryReadConnectionError:
+            raise ProviderError(403, "github_source_connection_required", "Verify the GitHub Source App connection for this repository.") from None
+        except ProviderHttpError as exc:
+            if exc.retry_at:
+                raise ProviderError(429, "github_read_throttled", "GitHub temporarily limited repository reads.", retry_at=exc.retry_at) from None
+            raise ProviderError(503, "platform_private_source_unavailable", "The protected source inspection could not be completed.") from None
         except (private_source.PrivateSourceError, instance_source.InstanceSourceError, record_authority.RecordAuthorityError,
                 artifact_recovery.RecoveryDeferred, OSError, ValueError, TypeError):
             raise ProviderError(503, "platform_private_source_unavailable", "The current protected source inspection could not be completed; no contents were returned.") from None
+
+    def inspect_prototype_import(self, body: Any) -> dict[str, Any]:
+        require_security_activation(self.policy, self.source_version)
+        if not activation_is_current(self.policy, self.source_version):
+            raise ProviderError(503, "platform_prototype_import_inactive", "Current accepted source inspection is required.")
+        root = Path(self.policy["runtime_state_root"])
+        reviewed = self.policy.get("security", {}).get("reviewed_revisions", {}).get("workspace-governance")
+        if not isinstance(reviewed, str) or not re.fullmatch(r"[0-9a-f]{40}", reviewed):
+            raise ProviderError(503, "platform_prototype_import_unavailable", "The accepted source policy binding is required.")
+        cache = root / "record-authority"
+
+        def current(owner):
+            if self.policy.get("instance_records", {}).get("enabled") is True:
+                proof = instance_source_connection(self.policy, cache, reviewed).read(owner, "ordinary-source")
+                if proof is not None:
+                    return proof.source_authority
+            return record_authority.read_legacy_source_binding(cache, reviewed, owner, "ordinary-source")
+
+        args = argparse.Namespace(contract=REPO_ROOT / "security/agent-source-identity.yaml",
+            sandbox=False, vault_command="vault", private_key_file=None)
+        try:
+            with artifact_recovery.owner_guard(root, exclusive=False):
+                if artifact_recovery.blocked(root):
+                    raise ProviderError(503, "platform_prototype_import_unavailable", "Restore the accepted runtime before source inspection.")
+                return private_source.inspect_prototype_import(body, authority_reader=current, args=args)
+        except RepositoryReadConnectionError:
+            raise ProviderError(403, "github_source_connection_required", "Verify the GitHub Source App connection for this repository.") from None
+        except ProviderHttpError as exc:
+            if exc.retry_at:
+                raise ProviderError(429, "github_read_throttled", "GitHub temporarily limited repository reads.", retry_at=exc.retry_at) from None
+            raise ProviderError(503, "platform_prototype_import_unavailable", "The accepted source inspection could not be completed.") from None
+        except (private_source.PrivateSourceError, instance_source.InstanceSourceError, record_authority.RecordAuthorityError,
+                artifact_recovery.RecoveryDeferred, OSError, ValueError, TypeError):
+            raise ProviderError(503, "platform_prototype_import_unavailable", "The accepted Prototype source could not be verified.") from None
 
     def submit(self, body: Any) -> tuple[int, dict[str, Any]]:
         raw = body.get("command") if isinstance(body, dict) else None
@@ -1123,13 +1168,21 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                         raise ProviderError(400, "platform_private_source_input_invalid", "Source inspection does not accept query selectors.")
                     self.respond(200, service.inspect_owner_controls(self.body(max_bytes=16384, strict=True)))
                     return
+                if self.command == "POST" and path == "/v1/console-operations/prototype-import/inspect":
+                    if urlparse(self.path).query:
+                        raise ProviderError(400, "platform_prototype_import_input_invalid", "Source inspection does not accept query selectors.")
+                    self.respond(200, service.inspect_prototype_import(self.body(max_bytes=16384, strict=True)))
+                    return
                 control = re.fullmatch(r"/v1/console-operations/([^/]+)/controls", path)
                 if self.command == "POST" and control:
                     self.respond(200, service.control(unquote(control.group(1)), self.body()))
                     return
                 raise ProviderError(404, "platform_provider_route_not_found", "Platform provider route was not found.")
             except ProviderError as exc:
-                self.respond(exc.status, {"code": exc.code, "message": str(exc)})
+                payload = {"code": exc.code, "message": str(exc)}
+                if exc.retry_at is not None:
+                    payload["retry_at"] = exc.retry_at
+                self.respond(exc.status, payload)
             except Exception:
                 self.respond(500, {"code": "platform_provider_internal_error", "message": "Platform provider failed safely."})
 

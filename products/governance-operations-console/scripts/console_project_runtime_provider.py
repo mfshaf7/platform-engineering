@@ -19,15 +19,21 @@ from console_artifact_recovery import RecoveryDeferred
 ACTION_PATHS = {
     "/v1/console-operations/project-runtime/run": "submit",
     "/v1/console-operations/project-runtime/read": "read",
+    "/v1/console-operations/project-runtime/setup/read": "read_setup",
     "/v1/console-operations/project-runtime/control": "control",
 }
 INPUT_BYTES = 32768
 
 
 class ProjectRuntimeProvider:
-    def __init__(self, lifecycle, *, admit, owner_guard=nullcontext):
+    def __init__(self, lifecycle, *, admit, source_limits, owner_guard=nullcontext):
         self.lifecycle = lifecycle
         self.admit = admit
+        if not isinstance(source_limits, dict) or any(
+                type(source_limits.get(key)) is not int or not 0 < source_limits[key] <= 9007199254740991
+                for key in ("max_files", "max_bytes")):
+            raise ProjectRuntimeError("The reviewed project source limits are invalid.")
+        self.capture_limits = {key: source_limits[key] for key in ("max_files", "max_bytes")}
         self.owner_guard = owner_guard
         self.workers = set()
         self.worker_lock = threading.Lock()
@@ -97,7 +103,8 @@ class ProjectRuntimeProvider:
 
         driver = ProjectSandboxDriver(private / "operations", kube=K3sProjectClient(), snapshot_root=snapshot_root,
                                       cache_root=cache_root, authorize=authorize, dependency_approval=approved_dependencies)
-        return cls(ProjectRuntimeOperations(store, driver=driver), admit=admitted, owner_guard=owner_guard)
+        return cls(ProjectRuntimeOperations(store, driver=driver), admit=admitted,
+                   source_limits=limits["source_limits"], owner_guard=owner_guard)
 
     def _start_retained(self, scope, result):
         if result["state"] == "preparing":
@@ -134,6 +141,20 @@ class ProjectRuntimeProvider:
         if admission["project_ref"] != binding.get("project_ref") or admission["subject"] != binding.get("subject"):
             raise ProjectRuntimeError("The broker project does not match the current Platform admission.")
         return self._start_retained(binding["scope"], self.lifecycle.accept_run(binding))
+
+    def read_setup(self, value):
+        if (not isinstance(value, dict) or value.keys() != {"scope", "project_ref", "subject"}
+                or not isinstance(value["project_ref"], str) or not isinstance(value["subject"], dict)):
+            raise ProjectRuntimeError("Read the setup for one exact admitted project subject.")
+        scope = value["scope"]
+        admission = self.admit(scope)
+        if admission["project_ref"] != value["project_ref"] or admission["subject"] != value["subject"]:
+            raise ProjectRuntimeError("The broker project does not match the current Platform admission.")
+        record = self.lifecycle.setups.read(scope)
+        if record is None:
+            raise ProjectRuntimeError("No reviewed runtime setup is recorded for this project.")
+        return {"project_ref": admission["project_ref"], "subject": admission["subject"],
+                "scope": record["scope"], "setup": record["setup"], "limits": self.capture_limits}
 
     def read(self, value):
         if not isinstance(value, dict) or value.keys() != {"scope", "command_id", "operation_id"}:

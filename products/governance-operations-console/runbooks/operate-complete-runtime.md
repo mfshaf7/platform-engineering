@@ -1394,3 +1394,16 @@ make governance-console-complete-runtime ACTION=refresh-credentials ARGS="--forc
 
 It retains accepted-source, active-composition, identity-scope and lifecycle-lock
 guards. The normal timer needs no force flag. This does not expand any grant.
+
+## Saved-project setup readback
+
+The saved-project Broker reads the exact admitted setup through the existing
+private Platform provider at `POST /v1/console-operations/project-runtime/setup/read`.
+The broker must provide the current admitted scope, project reference, and
+source subject. The read returns the binding, setup revision, and approved
+snapshot file and byte limits. It shares the provider authentication and
+activation gates and may be refused during runtime artifact recovery.
+
+A missing or changed setup requires a current owner read and review before
+Run. Existing operation readback still uses the original command identity.
+This source extension does not activate the shared project runtime.

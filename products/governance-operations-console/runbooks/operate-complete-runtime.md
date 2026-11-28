@@ -1407,3 +1407,25 @@ activation gates and may be refused during runtime artifact recovery.
 A missing or changed setup requires a current owner read and review before
 Run. Existing operation readback still uses the original command identity.
 This source extension does not activate the shared project runtime.
+
+## Saved-project browser preview
+
+The existing Platform provider can serve the current project on a
+project-specific loopback hostname when the reviewed private
+`project_runtime.browser_preview_port` setting is present. Select an
+available TCP port between 1024 and 65535 in the admitted local composition
+and verify that Windows reaches the new project origin before activation.
+The provider serves the current admitted project from that port and binds
+each request to its observed pod identity.
+
+Use **Open preview** from the confirmed saved-source run. A successful
+replacement binds the project hostname to the newly verified run. A Stop
+withdraws that route, and a historical run never supplies a current address.
+After provider recovery, reread the existing operation to confirm its owner
+state and restore the route without dispatching Run again.
+
+The initial preview is a separate top-level browser origin. Project cookies
+stay on that host, the route refuses other hosts, and the response disables
+embedding. An unavailable owner, workload, or route leaves the Console
+without a confirmed address. Remove the port setting through the supported
+composition rollback to withdraw this browser access path.

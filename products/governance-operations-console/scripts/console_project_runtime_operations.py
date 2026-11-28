@@ -44,12 +44,13 @@ class ProjectRuntimeOperations:
     operation and never creates or deletes a workload.
     """
 
-    def __init__(self, operations, *, driver, clock=timestamp):
+    def __init__(self, operations, *, driver, clock=timestamp, browser_address=None):
         self.operations = operations
         self.setups = ProjectSetupStore(operations)
         self.directory = operations.root / "project-runtime"
         self.driver = driver
         self.clock = clock
+        self.browser_address = browser_address
 
     def _path(self, scope):
         key = digest(scope["installation_id"])[7:]
@@ -211,20 +212,32 @@ class ProjectRuntimeOperations:
         project = state["projects"][key]
         if project["current_command"] != command_id or row["state"] in ("failed", "stopped"):
             return self._current_projection(row, project)
+        observed = None
         try:
-            observation = self._verify_observation(row, self.driver.read(row)) if row["dispatched"] else {"state": "unknown"}
+            if row["dispatched"]:
+                observed = self.driver.read(row)
+            observation = self._verify_observation(row, observed)
         except Exception:
             observation = {"state": "unknown"}
         if observation["state"] == "unknown":
             return self._projection({**row, "state": "unknown", "observation": None, "observed_at": self.clock()})
-        if row["state"] == observation["state"]:
+        preview_ready = observation["state"] == "ready" and self.browser_address is not None
+        if row["state"] == observation["state"] and not preview_ready:
             return self._projection({**row, "observed_at": self.clock()})
         with self._lock(scope):
             current = self._load(scope)
             row = self._record(current, scope, command_id, operation_id)
             project = current["projects"][key]
-            if project["current_command"] == command_id and row["state"] not in ("ready", "failed", "stopped"):
+            if project["current_command"] != command_id:
+                return self._current_projection(row, project)
+            if row["state"] not in ("ready", "failed", "stopped"):
                 self._finish(current, key, project, row, observation)
+            if preview_ready and row["state"] == "ready":
+                address = self.browser_address(row, observed)
+                current_observation = {key: value for key, value in observation.items() if key != "endpoint_ref"}
+                if identifier(address, REFERENCE):
+                    current_observation["endpoint_ref"] = address
+                return self._projection({**row, "observation": current_observation, "observed_at": self.clock()})
             return self._current_projection(row, project)
 
     def inspect(self, scope):

@@ -1,8 +1,10 @@
 """Focused owner contracts for exact builds, sandbox policy, and lifecycle."""
 
 from copy import deepcopy
+from contextlib import contextmanager
 import hashlib
-from http.server import ThreadingHTTPServer
+from http.client import HTTPConnection
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import tempfile
@@ -17,6 +19,7 @@ from unittest.mock import patch
 import platform_operation_provider as platform
 from platform_operation_provider import OperationStore
 from agent_source_instance import digest
+from console_project_preview import ProjectPreview
 from console_project_runtime_artifacts import ProjectArtifactError, copy_verified_dependencies, qualify_build
 from console_project_runtime_driver import K3sProjectClient, ProjectSandboxDriver, SandboxError
 from console_project_runtime_operations import ProjectRuntimeError, ProjectRuntimeOperations
@@ -109,6 +112,18 @@ class ProjectLifecycleTests(unittest.TestCase):
         self.assertEqual(len(self.driver.submissions), 1)
         with self.assertRaisesRegex(ProjectRuntimeError, "different project operation"):
             self.lifecycle.accept_run({**binding, "project_ref": "project:replaced"})
+
+    def test_preview_address_only_describes_a_current_verified_run(self):
+        self.lifecycle.browser_address = lambda _record, _receipt: "http://project-test.localhost:34977/"
+        first = self.lifecycle.accept_run(self.run_binding())
+        self.assertNotIn("endpoint_ref", self.qualify(first))
+        self.assertEqual(self.lifecycle.observe(self.scope, first["command_id"], first["operation_id"])["endpoint_ref"],
+                         "http://project-test.localhost:34977/")
+        self.assertNotIn("endpoint_ref", self.lifecycle.read(self.scope, first["command_id"], first["operation_id"]))
+        self.lifecycle.accept_run(self.run_binding(2))
+        old = self.lifecycle.observe(self.scope, first["command_id"], first["operation_id"])
+        self.assertEqual(old["state"], "stale")
+        self.assertNotIn("endpoint_ref", old)
 
     def test_stop_resume_preserve_data_and_require_the_same_qualified_artifact(self):
         started = self.lifecycle.accept_run(self.run_binding())
@@ -222,6 +237,77 @@ class ProjectLifecycleTests(unittest.TestCase):
                 self.assertEqual(len(self.driver.submissions), 1)
             finally:
                 server.shutdown()
+                thread.join(timeout=2)
+
+
+class ProjectPreviewTests(unittest.TestCase):
+    def test_preview_is_local_and_removes_the_exact_operation(self):
+        class App(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("X-Test-Unsafe", "private")
+                self.send_header("Set-Cookie", "foreign=blocked; Domain=.localhost")
+                self.send_header("Set-Cookie", "project=allowed; Path=/")
+                self.end_headers()
+                self.wfile.write((self.headers.get("Authorization") or "project bytes").encode())
+
+            def log_message(self, *_args):
+                pass
+
+        with ThreadingHTTPServer(("127.0.0.1", 0), App) as app:
+            thread = threading.Thread(target=app.serve_forever, daemon=True)
+            thread.start()
+            approved = True
+            available = True
+
+            @contextmanager
+            def owner_guard():
+                if not approved:
+                    raise ProjectRuntimeError("Retired runtime")
+                yield
+
+            preview = ProjectPreview(0, owner_guard=owner_guard)
+
+            def target():
+                return ("127.0.0.1", app.server_port) if available else None
+
+            def request(host, **headers):
+                conn = HTTPConnection("127.0.0.1", port, timeout=2)
+                try:
+                    conn.request("GET", "/", headers={"Host": host, **headers})
+                    response = conn.getresponse()
+                    return response.status, response.read(), response.headers
+                finally:
+                    conn.close()
+
+            try:
+                endpoint = preview.expose("sha256:" + "a" * 64, "run-1", target)
+                host = endpoint.removeprefix("http://").rstrip("/")
+                port = int(host.rsplit(":", 1)[-1])
+                self.assertEqual(request(f"localhost:{port}")[0], 421)
+                self.assertEqual(request(host, Origin="http://localhost:3317")[0], 403)
+                status, body, headers = request(host, Authorization="must remain private")
+                self.assertEqual((status, body), (200, b"project bytes"))
+                self.assertEqual(headers.get_all("Set-Cookie"), ["project=allowed; Path=/"])
+                self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
+                self.assertNotIn("X-Test-Unsafe", headers)
+                approved = False
+                self.assertEqual(request(host)[0], 503)
+                approved = True
+                available = False
+                self.assertEqual(request(host)[0], 503)
+                available = True
+                preview.expose("sha256:" + "b" * 64, "run-2", target)
+                self.assertEqual(request(host)[0], 421)
+                replacement = f"project-{'b' * 48}.localhost:{port}"
+                preview.withdraw("run-1")
+                self.assertEqual(request(replacement)[0], 200)
+                preview.withdraw("run-2")
+                self.assertEqual(request(replacement)[0], 421)
+            finally:
+                preview.close()
+                app.shutdown()
                 thread.join(timeout=2)
 
 

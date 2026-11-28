@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 
 from agent_source_instance import digest, invalid_constant, strict_object
+from console_project_preview import ProjectPreview
 from console_project_runtime_driver import K3sProjectClient, ProjectSandboxDriver
 from console_project_runtime_operations import ProjectRuntimeError, ProjectRuntimeOperations
 from console_project_runtime_sandbox import SandboxRecipe, WorkloadLimits
@@ -60,6 +61,10 @@ class ProjectRuntimeProvider:
             limits = {key: configured[key] for key in ("source_limits", "input_mib", "cache_mib", "cache_bytes", "cache_expanded_bytes")}
         except (KeyError, TypeError, ValueError) as error:
             raise ProjectRuntimeError("The reviewed project runtime input limits are invalid.") from error
+        preview_port = configured.get("browser_preview_port")
+        if preview_port is not None and (type(preview_port) is not int or not 1024 <= preview_port <= 65535):
+            raise ProjectRuntimeError("The reviewed browser preview port is invalid.")
+        preview = ProjectPreview(preview_port, owner_guard=owner_guard) if preview_port is not None else None
 
         def admitted(scope):
             identity = scope_key(scope)
@@ -102,8 +107,10 @@ class ProjectRuntimeProvider:
             return {key: record[key] for key in ("identity", "digest", "bytes")}
 
         driver = ProjectSandboxDriver(private / "operations", kube=K3sProjectClient(), snapshot_root=snapshot_root,
-                                      cache_root=cache_root, authorize=authorize, dependency_approval=approved_dependencies)
-        return cls(ProjectRuntimeOperations(store, driver=driver), admit=admitted,
+                                      cache_root=cache_root, authorize=authorize, dependency_approval=approved_dependencies,
+                                      preview=preview)
+        return cls(ProjectRuntimeOperations(store, driver=driver,
+                   browser_address=driver.browser_address if preview is not None else None), admit=admitted,
                    source_limits=limits["source_limits"], owner_guard=owner_guard)
 
     def _start_retained(self, scope, result):

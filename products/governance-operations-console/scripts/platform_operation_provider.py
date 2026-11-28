@@ -1103,7 +1103,7 @@ def handler_for(service: ProviderService, caller_id: str, caller_secret: str) ->
                     except ValueError as error:
                         message = str(error) if isinstance(error, ProjectRuntimeError) else "The supplied project scope is not currently admitted."
                         raise ProviderError(409, "platform_project_runtime_blocked", message) from None
-                    self.respond(200 if action == "read" else 202, result)
+                    self.respond(200 if action in {"read", "read_setup"} else 202, result)
                     return
                 if self.command == 'POST' and path in {'/v1/console-operations/model-profiles/prepare','/v1/console-operations/model-profiles/inspect','/v1/console-operations/model-profiles/control'}:
                     if urlparse(self.path).query or not activation_is_current(service.policy,service.source_version):

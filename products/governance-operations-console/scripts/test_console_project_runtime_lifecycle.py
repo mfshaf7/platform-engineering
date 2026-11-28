@@ -166,7 +166,9 @@ class ProjectLifecycleTests(unittest.TestCase):
         binding = self.run_binding()
         self.assertIsNone(ProjectRuntimeProvider.from_policy({}, self.operations))
         service = SimpleNamespace(policy={"runtime_state_root": str(self.root)}, source_version="candidate",
-            project_runtime=ProjectRuntimeProvider(self.lifecycle, admit=lambda _scope: {
+            project_runtime=ProjectRuntimeProvider(self.lifecycle, source_limits={"max_files": 32, "max_bytes": 65536,
+                                                                                   "max_manifest_bytes": 65536},
+                admit=lambda _scope: {
                 "project_ref": binding["project_ref"], "subject": binding["subject"],
             }))
         self.driver.owner_reply = {"operation_id": binding["operation_id"], "command_id": binding["command_id"],
@@ -191,6 +193,18 @@ class ProjectLifecycleTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as rejected:
                     request("run", binding, secret="incorrect-credential")
                 self.assertEqual(rejected.exception.code, 403)
+                setup_query = {key: binding[key] for key in ("scope", "project_ref", "subject")}
+                status, setup = request("setup/read", setup_query)
+                self.assertEqual(status, 200)
+                self.assertEqual(setup, {**setup_query, "setup": binding["setup"],
+                                        "limits": {"max_files": 32, "max_bytes": 65536}})
+                for refused in ({**setup_query, "project_ref": "project:other"},
+                                {**setup_query, "subject": {"kind": "prototype", "ref": "another"}},
+                                {**setup_query, "scope": {**binding["scope"], "repository_id": 43}}):
+                    with self.assertRaises(HTTPError) as rejected:
+                        request("setup/read", refused)
+                    self.assertEqual(rejected.exception.code, 409)
+                self.assertEqual(self.driver.submissions, [])
                 status, accepted = request("run", binding)
                 self.assertEqual(status, 202)
                 self.assertEqual(accepted["state"], "preparing")

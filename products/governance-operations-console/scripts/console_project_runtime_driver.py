@@ -84,13 +84,14 @@ class K3sProjectClient:
 class ProjectSandboxDriver:
     """Produce owner observations from real pods and preserve the prior good build."""
 
-    def __init__(self, root, *, kube, snapshot_root, cache_root, authorize, dependency_approval):
+    def __init__(self, root, *, kube, snapshot_root, cache_root, authorize, dependency_approval, preview=None):
         self.root = Path(root)
         self.kube = kube
         self.snapshot_root = Path(snapshot_root)
         self.cache_root = Path(cache_root)
         self.authorize = authorize
         self.dependency_approval = dependency_approval
+        self.preview = preview
 
     def _receipt(self, operation):
         return self.root / "sandbox-receipts" / f"{operation.split(':', 1)[1]}.json"
@@ -305,6 +306,8 @@ class ProjectSandboxDriver:
             self._remove_owned(sandbox, "networkpolicy", document["metadata"]["name"], sandbox.operation)
 
     def _release(self, sandbox, runtime):
+        if self.preview is not None:
+            self.preview.withdraw(runtime["operation_id"])
         for name in (runtime["pod_name"], runtime.get("api_pod_name")):
             if name:
                 self._remove_owned(sandbox, "pod", name, runtime["operation_id"])
@@ -379,6 +382,30 @@ class ProjectSandboxDriver:
         api = self.kube.get("pod", runtime["api_pod_name"], sandbox.namespace)
         return (self._ready(api, runtime["api_pod_uid"])
                 and api.get("status", {}).get("podIP") == runtime["api_address"])
+
+    def browser_address(self, record, receipt):
+        if self.preview is None:
+            return None
+
+        def target():
+            try:
+                sandbox, _ = self._sandbox(record)
+                actual = self.kube.get("pod", receipt["pod_name"], sandbox.namespace)
+                if self._ready(actual, receipt["pod_uid"]) and self._api_ready(sandbox, receipt):
+                    address = ipaddress.ip_address(actual["status"]["podIP"])
+                    if address.is_private and not (address.is_loopback or address.is_link_local or address.is_unspecified):
+                        return str(address), sandbox.recipe.run_port
+            except (OSError, ValueError, SandboxError, KeyError):
+                pass
+            return None
+
+        if target() is None:
+            self.preview.withdraw(record["operation_id"])
+            return None
+        try:
+            return self.preview.expose(record["binding"]["scope_digest"], record["operation_id"], target)
+        except OSError:
+            return None
 
     @staticmethod
     def _ready(pod, uid):
